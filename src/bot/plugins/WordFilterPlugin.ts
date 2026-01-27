@@ -1,4 +1,4 @@
-import { Message } from 'discord.js';
+import { Message, TextChannel, Webhook, PermissionResolvable } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
@@ -24,7 +24,7 @@ export class WordFilterPlugin implements IPlugin {
   version = '1.0.0';
   author = 'Simon Bot Team';
   
-  requiredPermissions = ['ManageMessages', 'SendMessages'];
+  requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages'];
   commands = ['filter'];
   events = ['messageCreate'];
   dashboardSections = ['word-filter-settings', 'word-filter-groups'];
@@ -48,8 +48,7 @@ export class WordFilterPlugin implements IPlugin {
   /**
    * Initialize plugin - called when bot starts
    */
-  async initialize(context?: IPluginContext): Promise<void> {
-    if (context) this.context = context;
+  async initialize(): Promise<void> {
     this.logger.info('Word Filter plugin initialized');
   }
 
@@ -66,8 +65,6 @@ export class WordFilterPlugin implements IPlugin {
    */
   async onMessage(message: Message): Promise<void> {
     if (!this.context || message.author.bot) return;
-
-    // Check if plugin is enabled for this guild
     if (!message.guild) return;
 
     // Get filter settings from database
@@ -79,14 +76,11 @@ export class WordFilterPlugin implements IPlugin {
     // If settings don't exist yet, create them
     if (!settings) {
       try {
-        // Ensure guild exists in database
         await this.context.db.guild.upsert({
           where: { id: message.guildId },
           update: {},
           create: { id: message.guildId, name: message.guild.name },
         });
-
-        // Create default filter settings for this guild
         settings = await this.context.db.filterSettings.create({
           data: {
             guildId: message.guildId,
@@ -97,32 +91,21 @@ export class WordFilterPlugin implements IPlugin {
           },
           include: { wordGroups: { include: { words: true } } },
         });
-
         this.logger.info(`Created filter settings for guild ${message.guild.name}`);
       } catch (error) {
         this.logger.error('Failed to create filter settings', error);
         return;
       }
     }
-
     if (!settings.enabled) return;
-
-    // Check if channel/role is excluded
     if (this.isExcluded(message, settings)) return;
-
-    // Check for filtered words
     const filteredWord = this.detectFilteredWord(message.content, settings.wordGroups);
     if (!filteredWord) return;
-
     try {
-      // Delete original message
       await message.delete();
-
       if (settings.repostEnabled) {
-        // Repost with replacement
         await this.repostMessage(message, filteredWord);
       }
-
       this.logger.info(`Filtered message from ${message.author.username} in ${message.guild.name}`);
     } catch (error) {
       this.logger.error('Failed to process filtered message', error);
@@ -171,29 +154,23 @@ export class WordFilterPlugin implements IPlugin {
    */
   private async repostMessage(message: Message, filteredData: any): Promise<void> {
     if (!this.context || !message.guild) return;
-
     const { group, word } = filteredData;
     const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
-
-    // Replace all occurrences of the filtered word
-    const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
+    const regex = new RegExp(`\b${word.word}\b`, 'gi');
     const replacedContent = message.content.replace(regex, replacement);
-
-    // Get member info for webhook
     const nickname = message.member?.nickname || message.author.username;
     const avatar = message.author.avatarURL();
-
-    // Post as webhook (simulates user reposting)
-    const webhooks = await message.channel.fetchWebhooks();
-    let webhook = webhooks.find(w => w.owner?.id === message.client.user?.id);
-
+    // Only use webhook if channel is a TextChannel
+    if (message.channel.type !== 0) return;
+    const textChannel = message.channel as TextChannel;
+    const webhooks = await textChannel.fetchWebhooks();
+    let webhook = webhooks.find((w: Webhook) => w.owner?.id === message.client.user?.id);
     if (!webhook) {
-      webhook = await message.channel.createWebhook({
+      webhook = await textChannel.createWebhook({
         name: 'Simon Bot Filter',
         avatar: message.client.user?.avatarURL(),
       });
     }
-
     await webhook.send({
       content: replacedContent,
       username: nickname,

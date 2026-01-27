@@ -107,6 +107,7 @@ In your GitHub repo:
 
 ### Deploy Staging
 ```bash
+# Run these commands on your **local machine (Windows)** inside your Simon Bot repo folder:
 git checkout staging
 git push origin staging
 ```
@@ -114,6 +115,7 @@ This triggers GitHub Actions to deploy and restart the **staging** bot and API o
 
 ### Deploy Production
 ```bash
+# Run these commands on your **local machine (Windows)** inside your Simon Bot repo folder:
 git checkout main
 git merge staging
 git push origin main
@@ -125,6 +127,7 @@ This triggers GitHub Actions to deploy and restart the **production** bot and AP
 ## 7. PM2 Process Management (on droplet)
 Start both environments as separate processes:
 ```bash
+# Run these commands **on your droplet (Ubuntu server)** after SSH-ing in:
 # Staging
 pm2 start "npm run start" --name bot-staging --env .env.staging
 pm2 start "npm run api:dev" --name api-staging --env .env.staging
