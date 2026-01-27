@@ -1,0 +1,205 @@
+import { Message } from 'discord.js';
+import { z } from 'zod';
+import { IPlugin, IPluginContext } from '../types/plugin';
+import { Logger } from '../utils/logger';
+
+/**
+ * WordFilterPlugin - First plugin for Simon Bot
+ * 
+ * Functionality:
+ * - Detects filtered words in user messages
+ * - Deletes original message
+ * - Reposts message with word replaced using user's avatar/nickname
+ * - Configurable word groups with word or emoji replacements
+ * - Excludable channels and roles
+ * 
+ * Dashboard sections:
+ * - Settings: Enable/disable, repost setting, excluded channels/roles
+ * - WordGroups: CRUD operations for word groups
+ */
+export class WordFilterPlugin implements IPlugin {
+  id = 'word-filter';
+  name = 'Word Filter';
+  description = 'Filter inappropriate words and repost with replacements';
+  version = '1.0.0';
+  author = 'Simon Bot Team';
+  
+  requiredPermissions = ['ManageMessages', 'SendMessages'];
+  commands = ['filter'];
+  events = ['messageCreate'];
+  dashboardSections = ['word-filter-settings', 'word-filter-groups'];
+  defaultEnabled = true;
+  
+  configSchema = z.object({
+    enabled: z.boolean().default(true),
+    repostEnabled: z.boolean().default(true),
+    excludedChannels: z.array(z.string()).default([]),
+    excludedRoles: z.array(z.string()).default([]),
+  });
+
+  private context: IPluginContext | null = null;
+  private logger: Logger;
+  private messageHandler: ((msg: Message) => Promise<void>) | null = null;
+
+  constructor() {
+    this.logger = new Logger('WordFilterPlugin');
+  }
+
+  /**
+   * Initialize plugin - called when bot starts
+   */
+  async initialize(context?: IPluginContext): Promise<void> {
+    if (context) this.context = context;
+    this.logger.info('Word Filter plugin initialized');
+  }
+
+  /**
+   * Cleanup plugin - called when bot shuts down or plugin disabled
+   */
+  async shutdown(): Promise<void> {
+    this.logger.info('Word Filter plugin shut down');
+  }
+
+  /**
+   * Message handler - detect and filter words
+   * This would be called by the bot's message event dispatcher
+   */
+  async onMessage(message: Message): Promise<void> {
+    if (!this.context || message.author.bot) return;
+
+    // Check if plugin is enabled for this guild
+    if (!message.guild) return;
+
+    // Get filter settings from database
+    let settings = await this.context.db.filterSettings.findUnique({
+      where: { guildId: message.guildId },
+      include: { wordGroups: { include: { words: true } } },
+    });
+
+    // If settings don't exist yet, create them
+    if (!settings) {
+      try {
+        // Ensure guild exists in database
+        await this.context.db.guild.upsert({
+          where: { id: message.guildId },
+          update: {},
+          create: { id: message.guildId, name: message.guild.name },
+        });
+
+        // Create default filter settings for this guild
+        settings = await this.context.db.filterSettings.create({
+          data: {
+            guildId: message.guildId,
+            enabled: true,
+            repostEnabled: true,
+            excludedChannels: [],
+            excludedRoles: [],
+          },
+          include: { wordGroups: { include: { words: true } } },
+        });
+
+        this.logger.info(`Created filter settings for guild ${message.guild.name}`);
+      } catch (error) {
+        this.logger.error('Failed to create filter settings', error);
+        return;
+      }
+    }
+
+    if (!settings.enabled) return;
+
+    // Check if channel/role is excluded
+    if (this.isExcluded(message, settings)) return;
+
+    // Check for filtered words
+    const filteredWord = this.detectFilteredWord(message.content, settings.wordGroups);
+    if (!filteredWord) return;
+
+    try {
+      // Delete original message
+      await message.delete();
+
+      if (settings.repostEnabled) {
+        // Repost with replacement
+        await this.repostMessage(message, filteredWord);
+      }
+
+      this.logger.info(`Filtered message from ${message.author.username} in ${message.guild.name}`);
+    } catch (error) {
+      this.logger.error('Failed to process filtered message', error);
+    }
+  }
+
+  /**
+   * Check if message channel/role is excluded from filtering
+   */
+  private isExcluded(message: Message, settings: any): boolean {
+    // Check channel exclusion
+    if (settings.excludedChannels.includes(message.channelId)) {
+      return true;
+    }
+
+    // Check role exclusion
+    if (message.member) {
+      return settings.excludedRoles.some((roleId: string) =>
+        message.member?.roles.cache.has(roleId)
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Detect if message contains any filtered words
+   */
+  private detectFilteredWord(content: string, wordGroups: any[]): any | null {
+    const lowerContent = content.toLowerCase();
+
+    for (const group of wordGroups) {
+      for (const word of group.words) {
+        const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
+        if (regex.test(lowerContent)) {
+          return { group, word };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Repost message with filtered word replaced
+   */
+  private async repostMessage(message: Message, filteredData: any): Promise<void> {
+    if (!this.context || !message.guild) return;
+
+    const { group, word } = filteredData;
+    const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
+
+    // Replace all occurrences of the filtered word
+    const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
+    const replacedContent = message.content.replace(regex, replacement);
+
+    // Get member info for webhook
+    const nickname = message.member?.nickname || message.author.username;
+    const avatar = message.author.avatarURL();
+
+    // Post as webhook (simulates user reposting)
+    const webhooks = await message.channel.fetchWebhooks();
+    let webhook = webhooks.find(w => w.owner?.id === message.client.user?.id);
+
+    if (!webhook) {
+      webhook = await message.channel.createWebhook({
+        name: 'Simon Bot Filter',
+        avatar: message.client.user?.avatarURL(),
+      });
+    }
+
+    await webhook.send({
+      content: replacedContent,
+      username: nickname,
+      avatarURL: avatar || undefined,
+    });
+  }
+}
+
+export default new WordFilterPlugin();

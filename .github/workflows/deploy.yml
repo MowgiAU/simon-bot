@@ -1,0 +1,126 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENV_NAME=production" >> $GITHUB_OUTPUT
+            echo "SSH_KEY_SECRET=DIGITALOCEAN_SSH_KEY_PROD" >> $GITHUB_OUTPUT
+            echo "HOST_SECRET=DIGITALOCEAN_HOST_PROD" >> $GITHUB_OUTPUT
+          else
+            echo "ENV_NAME=staging" >> $GITHUB_OUTPUT
+            echo "SSH_KEY_SECRET=DIGITALOCEAN_SSH_KEY_STAGING" >> $GITHUB_OUTPUT
+            echo "HOST_SECRET=DIGITALOCEAN_HOST_STAGING" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to ${{ steps.env.outputs.ENV_NAME }}
+        env:
+          SSH_KEY: ${{ secrets[steps.env.outputs.SSH_KEY_SECRET] }}
+          HOST: ${{ secrets[steps.env.outputs.HOST_SECRET] }}
+          USER: root
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          # Set up SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          
+          # Deploy script
+          ssh -i ~/.ssh/deploy_key $USER@$HOST << 'EOF'
+            set -e  # Exit on error
+            
+            echo "🚀 Starting deployment to ${{ steps.env.outputs.ENV_NAME }}..."
+            echo "Branch: $BRANCH"
+            
+            # Navigate to app directory
+            cd /root/simon-bot || exit 1
+            
+            # Fetch and checkout correct branch
+            echo "📦 Fetching latest code..."
+            git fetch origin
+            git checkout $BRANCH
+            git pull origin $BRANCH
+            
+            # Install/update dependencies
+            echo "📚 Installing dependencies..."
+            npm install --production
+            
+            # Install dashboard dependencies
+            cd dashboard
+            npm install --production
+            cd ..
+            
+            # Build TypeScript
+            echo "🔨 Building bot..."
+            npm run build
+            
+            # Build dashboard
+            echo "🎨 Building dashboard..."
+            npm run dashboard:build
+            
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            npx prisma migrate deploy || true
+            
+            # Restart services with PM2
+            echo "♻️ Restarting services..."
+            pm2 restart bot || pm2 start "npm run start" --name bot --watch
+            pm2 restart api || pm2 start "npm run api:dev" --name api --watch
+            pm2 restart dashboard || pm2 start "npm run preview" --cwd dashboard --name dashboard
+            
+            # Save PM2 state
+            pm2 save
+            pm2 startup
+            
+            echo "✅ Deployment completed successfully!"
+            echo "Processes running:"
+            pm2 status
+          EOF
+          
+          echo "✨ Deployment to ${{ steps.env.outputs.ENV_NAME }} complete!"
+
+      - name: Verify deployment
+        env:
+          HOST: ${{ secrets[steps.env.outputs.HOST_SECRET] }}
+        run: |
+          echo "🔍 Verifying deployment..."
+          sleep 5  # Wait for services to start
+          
+          # Check API health
+          API_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://$HOST:3001/health || echo "000")
+          if [ "$API_RESPONSE" = "200" ]; then
+            echo "✅ API is healthy"
+          else
+            echo "⚠️ API health check returned: $API_RESPONSE"
+          fi
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Successfully deployed to ${{ steps.env.outputs.ENV_NAME }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the logs above and try again."
+          exit 1
+

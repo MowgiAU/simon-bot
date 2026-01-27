@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Guild configuration
+model Guild {
+  id        String   @id
+  name      String
+  icon      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members    Member[]
+  wordGroups WordGroup[]
+  filterSettings FilterSettings?
+
+  @@map("guilds")
+}
+
+// Guild members - leveling, currency, etc.
+model Member {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  
+  // Leveling system
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  
+  // Currency system
+  balance   Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@map("members")
+}
+
+// Word Filter Plugin
+model FilterSettings {
+  id           String   @id @default(cuid())
+  guildId      String   @unique
+  
+  // Global settings
+  enabled      Boolean  @default(true)
+  repostEnabled Boolean @default(true)
+  
+  // Excluded channels and roles (JSON arrays of IDs)
+  excludedChannels String[] @default([])
+  excludedRoles    String[] @default([])
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  guild        Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  wordGroups   WordGroup[]
+
+  @@map("filter_settings")
+}
+
+model WordGroup {
+  id           String   @id @default(cuid())
+  guildId      String
+  name         String   // e.g., "Slurs", "Spam"
+  
+  // Replacement (word or emoji)
+  replacementText String?
+  replacementEmoji String?
+  useEmoji     Boolean  @default(false)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  guild        Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  settings     FilterSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade, map: "word_groups_settings_fkey")
+  words        FilterWord[]
+
+  @@unique([guildId, name])
+  @@map("word_groups")
+}
+
+model FilterWord {
+  id        String   @id @default(cuid())
+  groupId   String
+  word      String
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  group     WordGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, word])
+  @@map("filter_words")
+}
