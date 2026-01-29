@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import session from 'express-session';
+import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
 
@@ -10,9 +12,117 @@ const app = express();
 const logger = new Logger('API');
 const db = new PrismaClient();
 
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.DASHBOARD_ORIGIN || true,
+  credentials: true
+}));
 app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'supersecret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set to true if using HTTPS only
+}));
+
+
+// Discord OAuth2 config
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost:3001/auth/discord/callback';
+
+// Helper: get bot guilds from database (where bot is present)
+const getBotGuildIds = async () => {
+  const guilds = await db.guild.findMany({ select: { id: true, name: true, icon: true } });
+  return guilds;
+};
+
+// Discord OAuth2 endpoints
+app.get('/auth/discord/login', (req, res) => {
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify guilds',
+    prompt: 'none'
+  });
+  res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+});
+
+
+// Discord OAuth2 callback: store user, all user guilds, and mutual admin guilds
+app.get('/auth/discord/callback', async (req, res) => {
+  const code = req.query.code as string;
+  if (!code) return res.status(400).send('No code provided');
+  try {
+    // Exchange code for token
+    const tokenRes = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+      client_id: DISCORD_CLIENT_ID,
+      client_secret: DISCORD_CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: DISCORD_REDIRECT_URI,
+      scope: 'identify guilds'
+    }), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    const { access_token, token_type } = tokenRes.data;
+    // Get user info
+    const userRes = await axios.get('https://discord.com/api/users/@me', {
+      headers: { Authorization: `${token_type} ${access_token}` }
+    });
+    // Get user guilds
+    const guildsRes = await axios.get('https://discord.com/api/users/@me/guilds', {
+      headers: { Authorization: `${token_type} ${access_token}` }
+    });
+    const user = userRes.data;
+    const userGuilds = guildsRes.data;
+    // Get bot guilds from DB
+    const botGuilds = await getBotGuildIds();
+    // Find mutual guilds where user is admin/owner and bot is present
+    const mutualAdminGuilds = userGuilds.filter((g: any) => {
+      const isAdmin = g.owner || (g.permissions & 0x8) === 0x8;
+      return isAdmin && botGuilds.some(bg => bg.id === g.id);
+    });
+    req.session.user = user;
+    req.session.guilds = userGuilds;
+    req.session.mutualAdminGuilds = mutualAdminGuilds;
+    // Redirect to dashboard frontend
+    res.redirect(process.env.DASHBOARD_ORIGIN || '/');
+  } catch (err) {
+    logger.error('Discord OAuth2 callback error', err);
+    res.status(500).send('OAuth2 error');
+  }
+});
+
+// Endpoint to get mutual admin guilds for logged-in user
+app.get('/auth/mutual-guilds', (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
+  res.json({ mutualAdminGuilds: req.session.mutualAdminGuilds || [] });
+});
+
+app.get('/auth/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid');
+    res.redirect(process.env.DASHBOARD_ORIGIN || '/');
+  });
+});
+
+// Auth status endpoint
+
+// Auth status endpoint (returns user and mutual admin guilds)
+app.get('/auth/status', (req, res) => {
+  if (req.session.user) {
+    res.json({
+      authenticated: true,
+      user: req.session.user,
+      mutualAdminGuilds: req.session.mutualAdminGuilds || []
+    });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
 
 // Helper to get guildId from request (for now, default to first guild)
 const getGuildId = async () => {

@@ -20,10 +20,13 @@ interface FilterSettings {
   excludedRoles: string[];
 }
 
-const API_BASE = 'http://localhost:3001/api/word-filter';
-const GUILD_ID = 'default-guild'; // This would come from auth context in production
+const API_BASE = '/api/word-filter';
 
-export const WordFilterSettings: React.FC = () => {
+interface Props {
+  guildId: string;
+}
+
+export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const [settings, setSettings] = useState<FilterSettings>({
     enabled: true,
     repostEnabled: true,
@@ -43,26 +46,24 @@ export const WordFilterSettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  // Load settings from API on mount
+  // Load settings from API on mount or when guildId changes
   useEffect(() => {
-    loadSettings();
-  }, []);
+    if (!guildId) return;
+    loadSettings(guildId);
+    // eslint-disable-next-line
+  }, [guildId]);
 
-  const loadSettings = async () => {
+  const loadSettings = async (gid: string) => {
     try {
       setLoading(true);
       setError(null);
-      
       const startTime = performance.now();
-      const response = await fetch(`${API_BASE}/settings/${GUILD_ID}`, {
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+      const response = await fetch(`${API_BASE}/settings/${gid}`, {
+        signal: AbortSignal.timeout(10000),
       });
       const endTime = performance.now();
-      
       console.log(`Word Filter API response time: ${(endTime - startTime).toFixed(0)}ms`);
-      
       if (!response.ok) throw new Error('Failed to load settings');
-      
       const data = await response.json();
       setSettings({
         enabled: data.enabled,
@@ -74,25 +75,14 @@ export const WordFilterSettings: React.FC = () => {
     } catch (err) {
       logger.error('Failed to load settings from API', err);
       setError('Failed to load settings from server. Using cached data.');
-      
       // Fallback to localStorage
       const savedGroups = localStorage.getItem('wordGroups');
       const savedSettings = localStorage.getItem('filterSettings');
-      
       if (savedGroups) {
-        try {
-          setWordGroups(JSON.parse(savedGroups));
-        } catch (e) {
-          console.error('Failed to parse saved word groups', e);
-        }
+        try { setWordGroups(JSON.parse(savedGroups)); } catch (e) { console.error('Failed to parse saved word groups', e); }
       }
-      
       if (savedSettings) {
-        try {
-          setSettings(JSON.parse(savedSettings));
-        } catch (e) {
-          console.error('Failed to parse saved settings', e);
-        }
+        try { setSettings(JSON.parse(savedSettings)); } catch (e) { console.error('Failed to parse saved settings', e); }
       }
     } finally {
       setLoading(false);
@@ -112,8 +102,7 @@ export const WordFilterSettings: React.FC = () => {
     try {
       setError(null);
       setSaveMessage(null);
-      
-      const response = await fetch(`${API_BASE}/settings/${GUILD_ID}`, {
+      const response = await fetch(`${API_BASE}/settings/${guildId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,9 +112,7 @@ export const WordFilterSettings: React.FC = () => {
           excludedRoles: settings.excludedRoles,
         }),
       });
-
       if (!response.ok) throw new Error('Failed to save settings');
-      
       setSaveMessage('Settings saved successfully!');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (err) {
@@ -136,10 +123,9 @@ export const WordFilterSettings: React.FC = () => {
 
   const addWordGroup = async () => {
     if (!newGroupName.trim()) return;
-
     try {
       setError(null);
-      const response = await fetch(`${API_BASE}/groups/${GUILD_ID}`, {
+      const response = await fetch(`${API_BASE}/groups/${guildId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,9 +134,7 @@ export const WordFilterSettings: React.FC = () => {
           useEmoji: false,
         }),
       });
-
       if (!response.ok) throw new Error('Failed to create group');
-      
       const newGroup = await response.json();
       setWordGroups(prev => [...prev, { ...newGroup, words: [] }]);
       setNewGroupName('');
