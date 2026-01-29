@@ -9,4 +9,10 @@ export default defineConfig({
       '/api': 'http://localhost:3001',
     },
   },
+  preview: {
+    allowedHosts: [
+      'dashboard.fujistud.io',
+      'staging.fujistud.io',
+    ],
+  },
 });
