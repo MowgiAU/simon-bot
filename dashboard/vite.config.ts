@@ -10,9 +10,11 @@ export default defineConfig({
     },
   },
   preview: {
+    host: '0.0.0.0',
+    port: 3000, // or 3002 for prod
     allowedHosts: [
       'dashboard.fujistud.io',
-      'staging.fujistud.io',
-    ],
-  },
+      'staging.fujistud.io'
+    ]
+  }
 });
