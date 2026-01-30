@@ -207,6 +207,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                     </div>
                 </div>
               </div>
+            </div>
+
             {/* Top Channels */}
             <div className="dashboard-card">
               <div className="card-header">
