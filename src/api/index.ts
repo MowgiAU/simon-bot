@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
 
 const app = express();
+app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 const db = new PrismaClient();
 
