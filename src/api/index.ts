@@ -322,6 +322,25 @@ app.delete('/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, re
   }
 });
 
+// Guild Emojis Route
+app.get('/api/guilds/:guildId/emojis', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    
+    // Fetch directly from Discord API since we don't store emoji in DB
+    const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/emojis`, {
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_TOKEN}`
+      }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    logger.error('Failed to fetch guild emojis', error);
+    res.status(500).json({ error: 'Failed to fetch emojis' });
+  }
+});
+
 // Plugin settings routes (generic)
 app.get('/api/plugins/:pluginId/settings', (req, res) => {
   res.json({ message: 'Get plugin settings' });

@@ -147,7 +147,7 @@ export class WordFilterPlugin implements IPlugin {
     for (const group of wordGroups) {
       if (group.enabled === false) continue; // Skip disabled groups
 
-      const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
+      const replacement = group.replacementText || (group.useEmoji ? group.replacementEmoji : null);
       const replacementStr = replacement || '***';
 
       for (const word of group.words) {
