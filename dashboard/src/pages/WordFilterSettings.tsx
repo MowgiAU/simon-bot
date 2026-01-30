@@ -20,7 +20,7 @@ interface FilterSettings {
   excludedRoles: string[];
 }
 
-const API_BASE = '/api/word-filter';
+const API_BASE = '/word-filter';
 
 interface Props {
   guildId: string;
