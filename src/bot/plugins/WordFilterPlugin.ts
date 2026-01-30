@@ -150,7 +150,9 @@ export class WordFilterPlugin implements IPlugin {
 
       for (const word of group.words) {
         const escapedWord = word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+        // Match word boundary + word + optionally (s|es) + word boundary
+        // This catches plurals (lime->limes, box->boxes) but avoids substring matches (Hi->This)
+        const regex = new RegExp(`\\b${escapedWord}(?:s|es)?\\b`, 'gi');
         
         if (regex.test(newContent)) {
           newContent = newContent.replace(regex, replacementStr);
