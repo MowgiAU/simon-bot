@@ -125,9 +125,9 @@ export class WordFilterPlugin implements IPlugin {
               details: {
                   channelName: (message.channel as any).name || 'unknown',
                   triggers: triggers,
-                  filteredContent: content
-                  // Not logging original content to avoid storing bad words in plain text logs if sensitive?
-                  // User asked for detailed logs. Let's start with this.
+                  filteredContent: content,
+                  originalContent: message.content,
+                  authorTag: message.author.tag
               }
           });
       }

@@ -143,12 +143,29 @@ function formatActionAttempt(action: string) {
 
 function renderDetails(log: ActionLog) {
     if (log.pluginId === 'word-filter' && log.action === 'message_filtered') {
-        const { channelName, triggers, executorId } = log.details || {};
+        const { channelName, triggers, originalContent, authorTag } = log.details || {};
         return (
-            <span>
-                Filtered <strong>{triggers?.join(', ')}</strong> in <span style={{ color: colors.accent }}>#{channelName}</span>
-                {/* We could fetch username by executorId potentially */}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div>
+                   <span style={{ color: colors.highlight, fontWeight: 500 }}>{authorTag || 'Unknown User'}</span> used prohibited words in <span style={{ color: colors.accent }}>#{channelName}</span>
+                </div>
+                <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                    Match: <strong style={{ color: colors.textPrimary }}>{triggers?.join(', ')}</strong>
+                </div>
+                {originalContent && (
+                    <div style={{ 
+                        marginTop: '4px', 
+                        fontSize: '12px', 
+                        fontStyle: 'italic', 
+                        color: colors.textTertiary, 
+                        borderLeft: `2px solid ${colors.border}`, 
+                        paddingLeft: '8px',
+                        overflowWrap: 'anywhere'
+                    }}>
+                        "{originalContent}"
+                    </div>
+                )}
+            </div>
         );
     }
     return <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{JSON.stringify(log.details)}</span>;
