@@ -1,5 +1,5 @@
 import React from 'react';
-import { colors, spacing, typography, borderRadius } from './theme';
+import { colors, spacing, typography, borderRadius } from '../theme/theme';
 import './Sidebar.css';
 
 
