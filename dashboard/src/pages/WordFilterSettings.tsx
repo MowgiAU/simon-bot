@@ -59,7 +59,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
 
   const loadGuildEmojis = async (gid: string) => {
     try {
-        const res = await fetch(`/api/guilds/${gid}/emojis`);
+        const res = await fetch(`/api/guilds/${gid}/emojis`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             setGuildEmojis(data);

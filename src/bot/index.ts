@@ -5,6 +5,7 @@ import { Logger } from './utils/logger';
 import { PluginManager } from './core/PluginManager';
 import { PluginLoader } from './utils/PluginLoader';
 import WordFilterPlugin from './plugins/WordFilterPlugin';
+import StatsPlugin from './plugins/StatsPlugin';
 
 dotenv.config();
 
@@ -35,6 +36,9 @@ export class SimonBot {
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildBans,
+        GatewayIntentBits.GuildMembers,
       ],
     });
 
@@ -63,6 +67,7 @@ export class SimonBot {
       
       // For now, manually register the word filter plugin
       this.pluginManager.register(WordFilterPlugin);
+      this.pluginManager.register(StatsPlugin);
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -138,14 +143,53 @@ export class SimonBot {
     this.client.on('messageCreate', async message => {
       if (message.author.bot) return;
 
-      // Dispatch to word filter plugin
-      if (this.pluginManager.isEnabled('word-filter')) {
-        const plugin = this.pluginManager.get('word-filter') as any;
-        if (plugin.onMessage) {
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('messageCreate')) {
+          // Require specific typing or cast to any to access dynamic methods
+          const p = plugin as any;
+          
           try {
-            await plugin.onMessage(message);
+            // Support both standard naming and legacy onMessage
+            if (typeof p.onMessageCreate === 'function') {
+                await p.onMessageCreate(message);
+            } else if (typeof p.onMessage === 'function') {
+                await p.onMessage(message);
+            }
           } catch (error) {
-            this.logger.error('Error in word filter message handler', error);
+            this.logger.error(`Error in plugin ${plugin.id} message handler`, error);
+          }
+        }
+      }
+    });
+
+    this.client.on('voiceStateUpdate', async (oldState, newState) => {
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('voiceStateUpdate')) {
+          const p = plugin as any;
+          if (typeof p.onVoiceStateUpdate === 'function') {
+            try {
+              await p.onVoiceStateUpdate(oldState, newState);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} voice handler`, error);
+            }
+          }
+        }
+      }
+    });
+
+    this.client.on('guildBanAdd', async (ban) => {
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('guildBanAdd')) {
+          const p = plugin as any;
+          if (typeof p.onGuildBanAdd === 'function') {
+            try {
+              await p.onGuildBanAdd(ban);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} ban handler`, error);
+            }
           }
         }
       }

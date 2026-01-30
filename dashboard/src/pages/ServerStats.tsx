@@ -47,7 +47,7 @@ export const ServerStats: React.FC<Props> = ({ guildId }) => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/guilds/${guildId}/stats`);
+      const response = await fetch(`${API_BASE}/guilds/${guildId}/stats`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch stats');
       const json = await response.json();
       setData(json);

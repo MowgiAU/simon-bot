@@ -32,7 +32,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/guilds/${guildId}/stats`);
+        const response = await fetch(`/api/guilds/${guildId}/stats`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           setStats(data);

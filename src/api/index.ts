@@ -326,6 +326,12 @@ app.delete('/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, re
 app.get('/api/guilds/:guildId/emojis', async (req, res) => {
   try {
     const { guildId } = req.params;
+
+    // Auth check
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
     
     // Fetch directly from Discord API since we don't store emoji in DB
     const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/emojis`, {
@@ -367,6 +373,93 @@ app.get('/api/dashboard/stats', async (req, res) => {
       members: 0,
       plugins: 0,
     });
+  }
+});
+
+// Server Stats Route
+app.get('/api/guilds/:guildId/stats', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    
+    // Auth check
+    if (req.session && req.session.user) {
+        if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+    } else {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Server Stats History
+    const history = await db.serverStats.findMany({
+      where: { guildId },
+      orderBy: { date: 'asc' },
+      take: 30, // Last 30 days
+    });
+
+    // 2. Top Channels (Last 7 days)
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const topChannelsRaw = await db.channelStats.groupBy({
+      by: ['channelName'],
+      where: { 
+        guildId, 
+        date: { gte: sevenDaysAgo } 
+      },
+      _sum: { messages: true },
+      orderBy: { _sum: { messages: 'desc' } },
+      take: 10,
+    });
+    
+    const topChannels = topChannelsRaw.map(c => ({
+        name: c.channelName,
+        messages: c._sum.messages || 0
+    }));
+
+    // 3. Active Members (Last 24h)
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+    
+    const activeMembers = await db.member.count({
+      where: {
+        guildId,
+        lastActiveAt: { gte: yesterday },
+      },
+    });
+
+    // 4. Totals
+    const totalsAgg = await db.serverStats.aggregate({
+      where: { guildId },
+      _sum: { messageCount: true, voiceMinutes: true, newBans: true },
+    });
+    
+    // 5. Today's stats
+    const todayStats = history.find(h => h.date.getTime() === today.getTime()) || null;
+    
+    // 6. Current Member Count - Last recorded
+    const latestStat = history[history.length - 1];
+    const totalMembers = latestStat?.memberCount || 0;
+
+    res.json({
+      history,
+      topChannels,
+      activeMembers,
+      totals: {
+        messages: totalsAgg._sum.messageCount || 0,
+        voiceMinutes: totalsAgg._sum.voiceMinutes || 0,
+        bans: totalsAgg._sum.newBans || 0,
+      },
+      today: todayStats,
+      totalMembers
+    });
+
+  } catch (error) {
+    logger.error('Failed to get guild stats', error);
+    res.status(500).json({ error: 'Failed to get stats' });
   }
 });
 

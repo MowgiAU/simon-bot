@@ -19,9 +19,11 @@ model Guild {
   updatedAt DateTime @updatedAt
 
   // Relations
-  members    Member[]
-  wordGroups WordGroup[]
+  members      Member[]
+  wordGroups   WordGroup[]
   filterSettings FilterSettings?
+  channelStats ChannelStats[]
+  serverStats  ServerStats[]
 
   @@map("guilds")
 }
@@ -38,6 +40,9 @@ model Member {
   
   // Currency system
   balance   Int      @default(0)
+  
+  // Tracking
+  lastActiveAt DateTime @default(now())
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -108,3 +113,35 @@ model FilterWord {
   @@unique([groupId, word])
   @@map("filter_words")
 }
+
+// Statistics Models
+
+model ChannelStats {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  channelName String
+  date        DateTime @db.Date
+  messages    Int      @default(0)
+  
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, channelId, date])
+  @@map("channel_stats")
+}
+
+model ServerStats {
+  id            String   @id @default(cuid())
+  guildId       String
+  date          DateTime @db.Date
+  memberCount   Int      @default(0)
+  messageCount  Int      @default(0)
+  voiceMinutes  Int      @default(0)
+  newBans       Int      @default(0)
+  
+  guild         Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@unique([guildId, date])
+  @@map("server_stats")
+}
+
