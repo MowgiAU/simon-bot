@@ -1,8 +1,56 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { colors, spacing } from '../theme/theme';
 import './Dashboard.css';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  guildId: string;
+}
+
+interface DashboardStats {
+  activeMembers: number;
+  totalMembers: number;
+  totals: {
+    messages: number;
+    voiceMinutes: number;
+    bans: number;
+  };
+  today: {
+    messageCount: number;
+    voiceMinutes: number;
+  } | null;
+  topChannels: Array<{
+    name: string;
+    messages: number;
+  }>;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/guilds/${guildId}/stats`);
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard stats', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [guildId]);
+
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('en-US', { notation: "compact", compactDisplay: "short" }).format(num);
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -14,161 +62,138 @@ export const Dashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.12)' }}>
-            <span style={{ fontSize: '24px' }}>👥</span>
-          </div>
-          <div className="stat-content">
-            <p className="stat-label">Total Servers</p>
-            <h3 className="stat-value">1,234</h3>
-            <p className="stat-change positive">+12% from last month</p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: 'rgba(62, 89, 34, 0.12)' }}>
-            <span style={{ fontSize: '24px' }}>👤</span>
-          </div>
-          <div className="stat-content">
-            <p className="stat-label">Active Users</p>
-            <h3 className="stat-value">24.5K</h3>
-            <p className="stat-change positive">+5% from last month</p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: 'rgba(122, 140, 55, 0.12)' }}>
-            <span style={{ fontSize: '24px' }}>💬</span>
-          </div>
-          <div className="stat-content">
-            <p className="stat-label">Messages Filtered</p>
-            <h3 className="stat-value">156K</h3>
-            <p className="stat-change positive">+8% from last month</p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.12)' }}>
-            <span style={{ fontSize: '24px' }}>⚡</span>
-          </div>
-          <div className="stat-content">
-            <p className="stat-label">System Status</p>
-            <h3 className="stat-value">Healthy</h3>
-            <p className="stat-change">All systems operational</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Cards */}
-      <div className="dashboard-grid">
-        {/* Quick Actions Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>Quick Actions</h2>
-          </div>
-          <div className="card-body">
-            <button className="action-button">
-              <span className="action-icon">🔧</span>
-              Configure Word Filter
-            </button>
-            <button className="action-button">
-              <span className="action-icon">➕</span>
-              Add Plugin
-            </button>
-            <button className="action-button">
-              <span className="action-icon">📊</span>
-              View Analytics
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Activity Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>Recent Activity</h2>
-          </div>
-          <div className="card-body">
-            <div className="activity-item">
-              <div className="activity-dot" style={{ backgroundColor: '#2B8C71' }}></div>
-              <div className="activity-content">
-                <p className="activity-title">Word Filter Updated</p>
-                <p className="activity-time">2 hours ago</p>
+      {loading ? (
+        <div style={{ padding: 40, color: colors.textSecondary }}>Loading stats...</div>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.12)' }}>
+                <span style={{ fontSize: '24px' }}>👥</span>
+              </div>
+              <div className="stat-content">
+                <p className="stat-label">Total Members</p>
+                <h3 className="stat-value">{stats ? formatNumber(stats.totalMembers) : '-'}</h3>
+                <p className="stat-change text-neutral">Current count</p>
               </div>
             </div>
-            <div className="activity-item">
-              <div className="activity-dot" style={{ backgroundColor: '#3E5922' }}></div>
-              <div className="activity-content">
-                <p className="activity-title">New Server Added</p>
-                <p className="activity-time">4 hours ago</p>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(62, 89, 34, 0.12)' }}>
+                <span style={{ fontSize: '24px' }}>👤</span>
+              </div>
+              <div className="stat-content">
+                <p className="stat-label">Active Users (24h)</p>
+                <h3 className="stat-value">{stats ? formatNumber(stats.activeMembers) : '-'}</h3>
+                <p className="stat-change positive">
+                  {stats && stats.totalMembers > 0 
+                    ? `${Math.round((stats.activeMembers / stats.totalMembers) * 100)}% of members` 
+                    : '0%'}
+                </p>
               </div>
             </div>
-            <div className="activity-item">
-              <div className="activity-dot" style={{ backgroundColor: '#7A8C37' }}></div>
-              <div className="activity-content">
-                <p className="activity-title">Plugin Reloaded</p>
-                <p className="activity-time">1 day ago</p>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(122, 140, 55, 0.12)' }}>
+                <span style={{ fontSize: '24px' }}>💬</span>
+              </div>
+              <div className="stat-content">
+                <p className="stat-label">Messages Today</p>
+                <h3 className="stat-value">{stats?.today?.messageCount || 0}</h3>
+                <p className="stat-change text-neutral">
+                    Lifetime: {stats ? formatNumber(stats.totals.messages) : '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.12)' }}>
+                <span style={{ fontSize: '24px' }}>🎤</span>
+              </div>
+              <div className="stat-content">
+                <p className="stat-label">Voice Today</p>
+                <h3 className="stat-value">
+                  {Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h
+                </h3>
+                <p className="stat-change text-neutral">
+                    Lifetime: {stats ? Math.round(stats.totals.voiceMinutes / 60) : '-'}h
+                </p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Servers Overview Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>Top Servers</h2>
-          </div>
-          <div className="card-body">
-            <div className="server-item">
-              <div className="server-info">
-                <p className="server-name">FL Studio Producers</p>
-                <p className="server-members">45.2K members</p>
+          {/* Content Cards */}
+          <div className="dashboard-grid">
+            {/* Quick Actions Card */}
+            <div className="dashboard-card">
+              <div className="card-header">
+                <h2>Quick Actions</h2>
               </div>
-              <span className="server-badge">Active</span>
-            </div>
-            <div className="server-item">
-              <div className="server-info">
-                <p className="server-name">Music Makers Guild</p>
-                <p className="server-members">12.8K members</p>
+              <div className="card-body">
+                <p style={{ color: colors.textSecondary, marginBottom: spacing.md }}>
+                    Configuration is available in the sidebar.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', fontSize: '14px' }}>
+                        🔧 Use <strong>Word Filter</strong> to manage auto-moderation
+                    </div>
+                    <div style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', fontSize: '14px' }}>
+                        📊 Use <strong>Server Stats</strong> for detailed analytics
+                    </div>
+                </div>
               </div>
-              <span className="server-badge">Active</span>
             </div>
-            <div className="server-item">
-              <div className="server-info">
-                <p className="server-name">Producers Network</p>
-                <p className="server-members">8.3K members</p>
-              </div>
-              <span className="server-badge">Active</span>
-            </div>
-          </div>
-        </div>
 
-        {/* System Info Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2>System Info</h2>
+            {/* Top Channels */}
+            <div className="dashboard-card">
+              <div className="card-header">
+                <h2>Top Active Channels (7d)</h2>
+              </div>
+              <div className="card-body">
+                {stats?.topChannels.length === 0 ? (
+                    <p style={{ color: colors.textSecondary }}>No activity recorded yet.</p>
+                ) : (
+                    stats?.topChannels.map((channel, i) => (
+                        <div key={i} className="activity-item">
+                          <div className="activity-dot" style={{ backgroundColor: colors.primary }}></div>
+                          <div className="activity-content">
+                            <p className="activity-title">#{channel.name}</p>
+                            <p className="activity-time">{formatNumber(channel.messages)} msgs</p>
+                          </div>
+                        </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            {/* Lifetime Overview */}
+            <div className="dashboard-card">
+              <div className="card-header">
+                <h2>Lifetime Overview</h2>
+              </div>
+              <div className="card-body">
+                <div className="info-row">
+                  <span className="info-label">Total Messages</span>
+                  <span className="info-value">{stats ? formatNumber(stats.totals.messages) : '-'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Total Voice Time</span>
+                  <span className="info-value">{stats ? Math.round(stats.totals.voiceMinutes / 60) : '-'} hours</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Total Bans Recorded</span>
+                  <span className="info-value">{stats?.totals.bans || 0}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Database Status</span>
+                  <span className="info-value" style={{ color: '#2B8C71' }}>Connected</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="card-body">
-            <div className="info-row">
-              <span className="info-label">Bot Version</span>
-              <span className="info-value">v1.0.0</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Uptime</span>
-              <span className="info-value">14 days, 6h</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Plugins Active</span>
-              <span className="info-value">1 of 3</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Database Status</span>
-              <span className="info-value" style={{ color: '#2B8C71' }}>Connected</span>
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
