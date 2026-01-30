@@ -91,8 +91,14 @@ app.get('/auth/discord/callback', async (req, res) => {
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
-    // Redirect to dashboard frontend root after login
-    res.redirect(process.env.DASHBOARD_ORIGIN || '/');
+    // Save session before redirecting to ensure cookie is set
+    req.session.save((err) => {
+      if (err) {
+        logger.error('Session save error during callback', err);
+        return res.status(500).send('Session save error');
+      }
+      res.redirect(process.env.DASHBOARD_ORIGIN || '/');
+    });
   } catch (err) {
     logger.error('Discord OAuth2 callback error', err);
     res.status(500).send('OAuth2 error');
