@@ -12,6 +12,15 @@ app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 const db = new PrismaClient();
 
+// Debug middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    logger.info(`[API] ${req.method} ${req.path}`);
+  }
+  next();
+});
+app.get('/api/version', (req, res) => res.json({ version: '1.0.1', timestamp: new Date() }));
+
 
 // Middleware
 app.use(cors({
