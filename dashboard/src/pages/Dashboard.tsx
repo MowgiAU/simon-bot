@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
+} from 'recharts';
 import { colors, spacing } from '../theme/theme';
 import './Dashboard.css';
 
@@ -21,6 +24,13 @@ interface DashboardStats {
   topChannels: Array<{
     name: string;
     messages: number;
+  }>;
+  history: Array<{
+    date: string;
+    messageCount: number;
+    voiceMinutes: number;
+    newBans: number;
+    memberCount: number;
   }>;
 }
 
@@ -50,6 +60,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', { notation: "compact", compactDisplay: "short" }).format(num);
   };
+
+  // Format dates for charts
+  const historyData = stats?.history.map(h => ({
+    ...h,
+    date: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    voiceHours: Math.round((h.voiceMinutes / 60) * 10) / 10
+  })) || [];
 
   return (
     <div className="dashboard-container">
@@ -123,8 +140,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
             </div>
           </div>
 
+          {/* New Charts Section */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: spacing.xl, marginTop: spacing.xl }}>
+            
+            {/* Message Activity */}
+            <ChartContainer title="Message Activity (30 Days)">
+            <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={historyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis dataKey="date" stroke={colors.textSecondary} />
+                <YAxis stroke={colors.textSecondary} />
+                <Tooltip 
+                    contentStyle={{ backgroundColor: colors.surface, border: 'none', color: colors.textPrimary }}
+                    itemStyle={{ color: colors.textPrimary }} 
+                />
+                <Area type="monotone" dataKey="messageCount" stroke={colors.primary} fill={colors.primary} fillOpacity={0.3} name="Messages" />
+                </AreaChart>
+            </ResponsiveContainer>
+            </ChartContainer>
+
+            {/* Voice Activity */}
+            <ChartContainer title="Voice Activity (Attributes in Hours)">
+            <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={historyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                <XAxis dataKey="date" stroke={colors.textSecondary} />
+                <YAxis stroke={colors.textSecondary} />
+                <Tooltip 
+                    contentStyle={{ backgroundColor: colors.surface, border: 'none', color: colors.textPrimary }}
+                />
+                <Bar dataKey="voiceHours" fill={colors.highlight} name="Voice Hours" radius={[4, 4, 0, 0]} />
+                </BarChart>
+            </ResponsiveContainer>
+            </ChartContainer>
+
+            {/* Top Channels */}
+            {stats && (
+                <ChartContainer title="Most Active Channels (7 Days)">
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={stats.topChannels} layout="vertical" margin={{ left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
+                    <XAxis type="number" stroke={colors.textSecondary} />
+                    <YAxis dataKey="name" type="category" stroke={colors.textSecondary} width={100} />
+                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: colors.surface, border: 'none' }} />
+                    <Bar dataKey="messages" fill={colors.accent} radius={[0, 4, 4, 0]} name="Messages" />
+                    </BarChart>
+                </ResponsiveContainer>
+                </ChartContainer>
+            )}
+          </div>
+
           {/* Content Cards */}
-          <div className="dashboard-grid">
+          <div className="dashboard-grid" style={{ marginTop: spacing.xl }}>
             {/* Quick Actions Card */}
             <div className="dashboard-card">
               <div className="card-header">
@@ -138,16 +205,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                     <div style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', fontSize: '14px' }}>
                         🔧 Use <strong>Word Filter</strong> to manage auto-moderation
                     </div>
-                    <div style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', fontSize: '14px' }}>
-                        📊 Use <strong>Server Stats</strong> for detailed analytics
-                    </div>
                 </div>
               </div>
             </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
-            {/* Top Channels */}
-            <div className="dashboard-card">
-              <div className="card-header">
+const ChartContainer = ({ title, children }: { title: string, children: React.ReactNode }) => (
+  <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+    <h3 style={{ color: colors.textPrimary, marginBottom: spacing.lg, fontSize: '16px' }}>{title}</h3>
+    {children}
+  </div>
+);
                 <h2>Top Active Channels (7d)</h2>
               </div>
               <div className="card-body">
