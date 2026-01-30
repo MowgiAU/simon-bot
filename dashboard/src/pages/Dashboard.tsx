@@ -207,6 +207,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                     </div>
                 </div>
               </div>
+            {/* Top Channels */}
+            <div className="dashboard-card">
+              <div className="card-header">
+                <h2>Top Active Channels (7d)</h2>
+              </div>
+              <div className="card-body">
+                {stats?.topChannels.length === 0 ? (
+                    <p style={{ color: colors.textSecondary }}>No activity recorded yet.</p>
+                ) : (
+                    stats?.topChannels.map((channel, i) => (
+                        <div key={i} className="activity-item">
+                          <div className="activity-dot" style={{ backgroundColor: colors.accent }}></div>
+                          <div className="activity-content">
+                            <p className="activity-title">#{channel.name}</p>
+                            <p className="activity-time">{formatNumber(channel.messages)} msgs</p>
+                          </div>
+                        </div>
+                    ))
+                )}
+              </div>
             </div>
           </div>
         </>
@@ -221,23 +241,6 @@ const ChartContainer = ({ title, children }: { title: string, children: React.Re
     {children}
   </div>
 );
-                <h2>Top Active Channels (7d)</h2>
-              </div>
-              <div className="card-body">
-                {stats?.topChannels.length === 0 ? (
-                    <p style={{ color: colors.textSecondary }}>No activity recorded yet.</p>
-                ) : (
-                    stats?.topChannels.map((channel, i) => (
-                        <div key={i} className="activity-item">
-                          <div className="activity-dot" style={{ backgroundColor: colors.primary }}></div>
-                          <div className="activity-content">
-                            <p className="activity-title">#{channel.name}</p>
-                            <p className="activity-time">{formatNumber(channel.messages)} msgs</p>
-                          </div>
-                        </div>
-                    ))
-                )}
-              </div>
             </div>
 
             {/* Lifetime Overview */}
