@@ -87,7 +87,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
-    // Redirect to dashboard frontend
+    // Redirect to dashboard frontend root after login
     res.redirect(process.env.DASHBOARD_ORIGIN || '/');
   } catch (err) {
     logger.error('Discord OAuth2 callback error', err);
