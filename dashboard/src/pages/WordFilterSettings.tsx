@@ -204,11 +204,14 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const removeWordFromGroup = async (groupId: string, wordId: string) => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE}/groups/${GUILD_ID}/${groupId}/words/${wordId}`, {
+      const response = await fetch(`${API_BASE}/groups/${guildId}/${groupId}/words/${wordId}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete word');
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
       
       setWordGroups(prev =>
         prev.map(group => {
@@ -222,7 +225,8 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         })
       );
     } catch (err) {
-      setError('Failed to remove word');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to remove word: ${msg}`);
       logger.error('Error removing word', err);
     }
   };
@@ -230,7 +234,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const updateGroup = async (groupId: string) => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE}/groups/${GUILD_ID}/${groupId}`, {
+      const response = await fetch(`${API_BASE}/groups/${guildId}/${groupId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +245,10 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to update group');
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
       
       const updated = await response.json();
       setWordGroups(prev =>
@@ -254,7 +261,8 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       );
       closeEditGroup();
     } catch (err) {
-      setError('Failed to update word group');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to update word group: ${msg}`);
       logger.error('Error updating group', err);
     }
   };
