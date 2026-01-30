@@ -100,12 +100,17 @@ export class WordFilterPlugin implements IPlugin {
     }
     if (!settings.enabled) return;
     if (this.isExcluded(message, settings)) return;
-    const filteredWord = this.detectFilteredWord(message.content, settings.wordGroups);
-    if (!filteredWord) return;
+    
+    const { filtered, content } = this.processMessageContent(message.content, settings.wordGroups);
+    
+    if (!filtered) return;
+    
     try {
-      await message.delete();
+      if (message.deletable) {
+        await message.delete();
+      }
       if (settings.repostEnabled) {
-        await this.repostMessage(message, filteredWord);
+        await this.repostMessage(message, content);
       }
       this.logger.info(`Filtered message from ${message.author.username} in ${message.guild.name}`);
     } catch (error) {
@@ -133,47 +138,55 @@ export class WordFilterPlugin implements IPlugin {
   }
 
   /**
-   * Detect if message contains any filtered words
+   * Process message content and apply all filters
    */
-  private detectFilteredWord(content: string, wordGroups: any[]): any | null {
-    const lowerContent = content.toLowerCase();
+  private processMessageContent(originalContent: string, wordGroups: any[]): { filtered: boolean, content: string } {
+    let newContent = originalContent;
+    let filtered = false;
 
     for (const group of wordGroups) {
+      const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
+      const replacementStr = replacement || '***';
+
       for (const word of group.words) {
-        const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
-        if (regex.test(lowerContent)) {
-          return { group, word };
+        const escapedWord = word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+        
+        if (regex.test(newContent)) {
+          newContent = newContent.replace(regex, replacementStr);
+          filtered = true;
         }
       }
     }
 
-    return null;
+    return { filtered, content: newContent };
   }
 
   /**
    * Repost message with filtered word replaced
    */
-  private async repostMessage(message: Message, filteredData: any): Promise<void> {
+  private async repostMessage(message: Message, content: string): Promise<void> {
     if (!this.context || !message.guild) return;
-    const { group, word } = filteredData;
-    const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
-    const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
-    const replacedContent = message.content.replace(regex, replacement || '***');
+    
     const nickname = message.member?.nickname || message.author.username;
     const avatar = message.author.avatarURL();
+    
     // Only use webhook if channel is a TextChannel
     if (message.channel.type !== 0) return;
+    
     const textChannel = message.channel as TextChannel;
     const webhooks = await textChannel.fetchWebhooks();
     let webhook = webhooks.find((w: Webhook) => w.owner?.id === message.client.user?.id);
+    
     if (!webhook) {
       webhook = await textChannel.createWebhook({
         name: 'Simon Bot Filter',
         avatar: message.client.user?.avatarURL(),
       });
     }
+    
     await webhook.send({
-      content: replacedContent,
+      content: content,
       username: nickname,
       avatarURL: avatar || undefined,
     });
