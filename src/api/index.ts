@@ -145,7 +145,7 @@ app.get('/health', (req, res) => {
 });
 
 // Word Filter Plugin Settings Routes
-app.get('/api/word-filter/settings/:guildId', async (req, res) => {
+app.get('/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     
@@ -172,7 +172,7 @@ app.get('/api/word-filter/settings/:guildId', async (req, res) => {
   }
 });
 
-app.post('/api/word-filter/settings/:guildId', async (req, res) => {
+app.post('/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     const { enabled, repostEnabled, excludedChannels, excludedRoles } = req.body;
@@ -202,7 +202,7 @@ app.post('/api/word-filter/settings/:guildId', async (req, res) => {
 });
 
 // Word Group Routes
-app.post('/api/word-filter/groups/:guildId', async (req, res) => {
+app.post('/word-filter/groups/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji } = req.body;
@@ -228,7 +228,7 @@ app.post('/api/word-filter/groups/:guildId', async (req, res) => {
   }
 });
 
-app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
+app.put('/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji } = req.body;
@@ -253,7 +253,7 @@ app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
   }
 });
 
-app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
+app.delete('/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -269,7 +269,7 @@ app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
 });
 
 // Word Routes
-app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
+app.post('/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { word } = req.body;
@@ -288,7 +288,7 @@ app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => 
   }
 });
 
-app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, res) => {
+app.delete('/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, res) => {
   try {
     const { wordId } = req.params;
 
