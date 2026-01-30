@@ -384,6 +384,53 @@
   border-top: 1px solid #252D3E;
 }
 
+/* Replacement Input & Emoji Picker */
+.replacement-input-container {
+  display: flex;
+  align-items: center;
+  position: relative; 
+}
+
+.replacement-input-container .input-field {
+  padding-right: 40px; /* Make room for the button */
+  width: 100%;
+}
+
+.emoji-trigger-btn {
+  position: absolute;
+  right: 8px; /* Slightly inset */
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  z-index: 5;
+  color: #E4E6EB;
+  opacity: 0.7;
+}
+
+.emoji-trigger-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.emoji-picker-popover {
+  position: absolute;
+  top: 100%; /* Below the input */
+  right: 0;
+  margin-top: 8px;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  border-radius: 8px;
+  overflow: hidden; /* For rounded corners */
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .word-filter-settings {

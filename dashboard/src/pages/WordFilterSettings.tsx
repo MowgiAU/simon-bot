@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import EmojiPicker, { EmojiClickData, EmojiStyle } from 'emoji-picker-react';
 import { colors, spacing } from '../theme/theme';
 import './WordFilterSettings.css';
 
@@ -42,7 +43,8 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const [newWord, setNewWord] = useState('');
   const [editingGroupName, setEditingGroupName] = useState('');
   const [editingGroupReplacement, setEditingGroupReplacement] = useState('');
-  const [editingGroupUseEmoji, setEditingGroupUseEmoji] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [guildEmojis, setGuildEmojis] = useState<{name: string, id: string, animated?: boolean}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -51,8 +53,21 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   useEffect(() => {
     if (!guildId) return;
     loadSettings(guildId);
+    loadGuildEmojis(guildId);
     // eslint-disable-next-line
   }, [guildId]);
+
+  const loadGuildEmojis = async (gid: string) => {
+    try {
+        const res = await fetch(`/api/guilds/${gid}/emojis`);
+        if (res.ok) {
+            const data = await res.json();
+            setGuildEmojis(data);
+        }
+    } catch (e) {
+        console.error("Failed to load guild emojis", e);
+    }
+  };
 
   const loadSettings = async (gid: string) => {
     try {
@@ -156,14 +171,16 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const openEditGroup = (group: WordGroup) => {
     setEditingGroupId(group.id);
     setEditingGroupName(group.name);
-    setEditingGroupReplacement(group.replacementText || group.replacementEmoji || '');
-    setEditingGroupUseEmoji(group.useEmoji);
+    // Prefer replacementText as unified field, fallback to emoji if text empty
+    setEditingGroupReplacement(group.replacementText || (group.useEmoji ? group.replacementEmoji : '') || '');
     setNewWord('');
+    setShowEmojiPicker(false);
   };
 
   const closeEditGroup = () => {
     setEditingGroupId(null);
     setNewWord('');
+    setShowEmojiPicker(false);
   };
 
   const addWordToGroup = async (groupId: string) => {
@@ -285,9 +302,9 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editingGroupName,
-          replacementText: editingGroupUseEmoji ? undefined : editingGroupReplacement,
-          replacementEmoji: editingGroupUseEmoji ? editingGroupReplacement : undefined,
-          useEmoji: editingGroupUseEmoji,
+          replacementText: editingGroupReplacement,
+          replacementEmoji: null, // Unified field now
+          useEmoji: false,
         }),
       });
 
@@ -441,24 +458,47 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
                       placeholder="Group name"
                     />
 
-                    <div className="setting-item">
-                      <label className="setting-label">
+                    <div className="replacement-input-container" style={{ position: 'relative' }}>
                         <input
-                          type="checkbox"
-                          checked={editingGroupUseEmoji}
-                          onChange={e => setEditingGroupUseEmoji(e.target.checked)}
+                            type="text"
+                            value={editingGroupReplacement}
+                            onChange={e => setEditingGroupReplacement(e.target.value)}
+                            className="input-field input-sm"
+                            placeholder="Replacement text or emoji"
                         />
-                        <span>Use Emoji Replacement</span>
-                      </label>
+                        <button 
+                            className="emoji-trigger-btn"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            title="Pick an emoji"
+                        >
+                            😊
+                        </button>
+                        
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-popover">
+                                <div className="emoji-picker-container">
+                                    <EmojiPicker 
+                                        emojiStyle={EmojiStyle.NATIVE}
+                                        onEmojiClick={(emojiData: EmojiClickData) => {
+                                            setEditingGroupReplacement(prev => prev + emojiData.emoji);
+                                            setShowEmojiPicker(false);
+                                        }}
+                                        width={300}
+                                        height={400}
+                                        
+                                        // Custom emojis from server
+                                        customEmojis={
+                                            guildEmojis.map(e => ({
+                                                id: e.id,
+                                                names: [e.name],
+                                                imgUrl: `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? "gif" : "png"}`
+                                            }))
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
-
-                    <input
-                      type="text"
-                      value={editingGroupReplacement}
-                      onChange={e => setEditingGroupReplacement(e.target.value)}
-                      className="input-field input-sm"
-                      placeholder={editingGroupUseEmoji ? 'Emoji (e.g., 🤐)' : 'Replacement text (e.g., [FILTERED])'}
-                    />
 
                     <div className="word-input-group">
                       <input
