@@ -45,7 +45,7 @@ export interface IPlugin {
   /**
    * Initialize plugin (called when bot starts or plugin is reloaded)
    */
-  initialize(): Promise<void>;
+  initialize(context?: IPluginContext): Promise<void>;
   
   /**
    * Cleanup plugin (called when bot shuts down or plugin is disabled)

@@ -48,7 +48,8 @@ export class WordFilterPlugin implements IPlugin {
   /**
    * Initialize plugin - called when bot starts
    */
-  async initialize(): Promise<void> {
+  async initialize(context: IPluginContext): Promise<void> {
+    this.context = context;
     this.logger.info('Word Filter plugin initialized');
   }
 
