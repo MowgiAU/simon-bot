@@ -1,12 +1,11 @@
+
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import session from 'express-session';
 import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
-
-dotenv.config();
 
 const app = express();
 const logger = new Logger('API');
