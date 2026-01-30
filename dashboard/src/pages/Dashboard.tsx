@@ -37,6 +37,7 @@ interface DashboardStats {
 export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeChartTab, setActiveChartTab] = useState<'messages' | 'voice' | 'channels'>('messages');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -140,54 +141,181 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
             </div>
           </div>
 
-          {/* New Charts Section */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: spacing.xl, marginTop: spacing.xl }}>
-            
-            {/* Message Activity */}
-            <ChartContainer title="Message Activity (30 Days)">
-            <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={historyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="date" stroke={colors.textSecondary} />
-                <YAxis stroke={colors.textSecondary} />
-                <Tooltip 
-                    contentStyle={{ backgroundColor: colors.surface, border: 'none', color: colors.textPrimary }}
-                    itemStyle={{ color: colors.textPrimary }} 
-                />
-                <Area type="monotone" dataKey="messageCount" stroke={colors.primary} fill={colors.primary} fillOpacity={0.3} name="Messages" />
-                </AreaChart>
-            </ResponsiveContainer>
-            </ChartContainer>
-
-            {/* Voice Activity */}
-            <ChartContainer title="Voice Activity (Attributes in Hours)">
-            <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={historyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="date" stroke={colors.textSecondary} />
-                <YAxis stroke={colors.textSecondary} />
-                <Tooltip 
-                    contentStyle={{ backgroundColor: colors.surface, border: 'none', color: colors.textPrimary }}
-                />
-                <Bar dataKey="voiceHours" fill={colors.highlight} name="Voice Hours" radius={[4, 4, 0, 0]} />
-                </BarChart>
-            </ResponsiveContainer>
-            </ChartContainer>
-
-            {/* Top Channels */}
-            {stats && (
-                <ChartContainer title="Most Active Channels (7 Days)">
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={stats.topChannels} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" horizontal={false} />
-                    <XAxis type="number" stroke={colors.textSecondary} />
-                    <YAxis dataKey="name" type="category" stroke={colors.textSecondary} width={100} />
-                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: colors.surface, border: 'none' }} />
-                    <Bar dataKey="messages" fill={colors.accent} radius={[0, 4, 4, 0]} name="Messages" />
+          {/* Unified Charts Section */}
+          <div style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
+            <div className="dashboard-card">
+              <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                <h2 style={{ margin: 0 }}>Activity Overview</h2>
+                <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '4px' }}>
+                  <button 
+                    onClick={() => setActiveChartTab('messages')}
+                    style={{
+                      background: activeChartTab === 'messages' ? colors.surfaceLight : 'transparent',
+                      color: activeChartTab === 'messages' ? colors.textPrimary : colors.textSecondary,
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Messages
+                  </button>
+                  <button 
+                    onClick={() => setActiveChartTab('voice')}
+                    style={{
+                      background: activeChartTab === 'voice' ? colors.surfaceLight : 'transparent',
+                      color: activeChartTab === 'voice' ? colors.textPrimary : colors.textSecondary,
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Voice
+                  </button>
+                  <button 
+                    onClick={() => setActiveChartTab('channels')}
+                    style={{
+                      background: activeChartTab === 'channels' ? colors.surfaceLight : 'transparent',
+                      color: activeChartTab === 'channels' ? colors.textPrimary : colors.textSecondary,
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Top Channels
+                  </button>
+                </div>
+              </div>
+              
+              <div className="card-body" style={{ height: '400px', padding: '24px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  {activeChartTab === 'messages' ? (
+                    <AreaChart data={historyData}>
+                      <defs>
+                        <linearGradient id="colorMessages" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={colors.primary} stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor={colors.primary} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke={colors.textSecondary} 
+                        axisLine={false}
+                        tickLine={false}
+                        dy={10}
+                      />
+                      <YAxis 
+                        stroke={colors.textSecondary} 
+                        axisLine={false}
+                        tickLine={false}
+                        dx={-10}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: colors.surfaceLight, 
+                          border: `1px solid ${colors.border}`, 
+                          borderRadius: '8px',
+                          color: colors.textPrimary,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}
+                        itemStyle={{ color: colors.textPrimary }}
+                        cursor={{ stroke: colors.textTertiary, strokeDasharray: '3 3' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="messageCount" 
+                        stroke={colors.primary} 
+                        strokeWidth={3}
+                        fill="url(#colorMessages)" 
+                        name="Messages" 
+                        animationDuration={1500}
+                      />
+                    </AreaChart>
+                  ) : activeChartTab === 'voice' ? (
+                    <BarChart data={historyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke={colors.textSecondary}
+                        axisLine={false}
+                        tickLine={false}
+                        dy={10}
+                      />
+                      <YAxis 
+                        stroke={colors.textSecondary} 
+                        axisLine={false}
+                        tickLine={false}
+                        dx={-10}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: colors.surfaceLight, 
+                          border: `1px solid ${colors.border}`, 
+                          borderRadius: '8px',
+                          color: colors.textPrimary,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}
+                        itemStyle={{ color: colors.textPrimary }}
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      />
+                      <Bar 
+                        dataKey="voiceHours" 
+                        fill={colors.highlight} 
+                        name="Voice Hours" 
+                        radius={[6, 6, 0, 0]}
+                        animationDuration={1500} 
+                      />
                     </BarChart>
+                  ) : (
+                    <BarChart 
+                      data={stats?.topChannels} 
+                      layout="vertical" 
+                      margin={{ left: 40, right: 40, top: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.border} horizontal={false} />
+                      <XAxis type="number" stroke={colors.textSecondary} axisLine={false} tickLine={false} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke={colors.textSecondary} 
+                        width={120} 
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip 
+                        cursor={{fill: 'rgba(255,255,255,0.05)'}} 
+                        contentStyle={{ 
+                          backgroundColor: colors.surfaceLight, 
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: '8px',
+                          color: colors.textPrimary
+                        }} 
+                      />
+                      <Bar 
+                        dataKey="messages" 
+                        fill={colors.accent} 
+                        radius={[0, 4, 4, 0]} 
+                        name="Messages" 
+                        barSize={32}
+                        animationDuration={1500}
+                      />
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
-                </ChartContainer>
-            )}
+              </div>
+            </div>
           </div>
 
           {/* Content Cards */}
@@ -209,18 +337,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
               </div>
             </div>
 
-            {/* Top Channels */}
+            {/* Top Channels List (as fallback or secondary view) */}
             <div className="dashboard-card">
               <div className="card-header">
-                <h2>Top Active Channels (7d)</h2>
+                <h2>Top Channels List</h2>
               </div>
               <div className="card-body">
                 {stats?.topChannels.length === 0 ? (
                     <p style={{ color: colors.textSecondary }}>No activity recorded yet.</p>
                 ) : (
-                    stats?.topChannels.map((channel, i) => (
+                    stats?.topChannels.slice(0, 5).map((channel, i) => (
                         <div key={i} className="activity-item">
-                          <div className="activity-dot" style={{ backgroundColor: colors.accent }}></div>
+                          <div className="activity-dot" style={{ backgroundColor: i < 3 ? colors.accent : colors.textTertiary }}></div>
                           <div className="activity-content">
                             <p className="activity-title">#{channel.name}</p>
                             <p className="activity-time">{formatNumber(channel.messages)} msgs</p>
@@ -262,9 +390,4 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
   );
 };
 
-const ChartContainer = ({ title, children }: { title: string, children: React.ReactNode }) => (
-  <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-    <h3 style={{ color: colors.textPrimary, marginBottom: spacing.lg, fontSize: '16px' }}>{title}</h3>
-    {children}
-  </div>
-);
+
