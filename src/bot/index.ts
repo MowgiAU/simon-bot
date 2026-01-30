@@ -76,6 +76,7 @@ export class SimonBot {
             logger: this.logger,
             config: new Map(),
             db: this.db,
+            client: this.client,
             api: {
               baseUrl: process.env.API_URL || 'http://localhost:3001',
               token: process.env.DISCORD_TOKEN || '',

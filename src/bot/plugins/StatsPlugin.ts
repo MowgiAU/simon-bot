@@ -20,7 +20,7 @@ export class StatsPlugin implements IPlugin {
 
   private context: IPluginContext | null = null;
   private logger: Logger;
-  private voiceSessions = new Map<string, number>(); // userId -> startTime
+  private voiceSessions = new Map<string, { startTime: number; guildId: string }>(); // userId -> session info
 
   constructor() {
     this.logger = new Logger('StatsPlugin');
@@ -29,11 +29,99 @@ export class StatsPlugin implements IPlugin {
   async initialize(context: IPluginContext): Promise<void> {
     this.context = context;
     this.logger.info('Stats plugin initialized');
+    
+    // Scan for existing voice states on startup
+    // This catches users who are already in voice when the bot starts
+    if (this.context.client?.guilds) {
+        this.context.client.guilds.cache.forEach(guild => {
+            guild.voiceStates.cache.forEach(state => {
+                if (state.channelId && state.id) {
+                    this.voiceSessions.set(state.id, Date.now());
+                }
+            });
+        });
+        this.logger.info(`Restored ${this.voiceSessions.size} active voice sessions from scan`);
+    } else {
+        // Client might not be ready yet? Usually initialize is called after ready if we wait for it, 
+        // but in SimonBot.start(), initialize happens BEFORE 'ready' event for some reason?
+        // Let's check index.ts ordering locally.
+        // Actually, this.client.login is called AFTER initialize in index.ts.
+        // So guilds.cache is empty here.
+        // We need to listen for 'ready' event.
+        if (this.context.client) {
+            this.context.client.on('ready', () => {
+                this.scanVoiceChannels();
+            });
+        }
+    }
+  }
+
+  private scanVoiceChannels() {
+      if (!this.context?.client) return;
+      this.logger.info('Scanning voice channels for existing sessions...');
+      let count = 0;
+      this.context.client.guilds.cache.forEach(guild => {
+          guild.voiceStates.cache.forEach(state => {
+              // Ensure they are actually in a channel and not a bot
+              if (state.channelId && state.member && !state.member.user.bot) {
+                  // Only track if not already tracked (though unlikely on startup)
+                  if (!this.voiceSessions.has(state.id)) {
+                      this.voiceSessions.set(state.id, Date.now());
+                      count++;
+                  }
+              }
+          });
+      });
+      this.logger.info(`Initialized tracking for ${count} users in voice channels.`);
   }
 
   async shutdown(): Promise<void> {
-    this.logger.info('Stats plugin shut down');
+    this.logger.info('Stats plugin shutting down, saving pending voice sessions...');
+    await this.savePendingSessions();
   }
+
+  private async savePendingSessions() {
+      if (!this.context) return;
+      const today = this.getToday();
+      const now = Date.now();
+      const promises = [];
+
+      for (const [userId, startTime] of this.voiceSessions.entries()) {
+          const durationMs = now - startTime;
+          const durationMinutes = Math.floor(durationMs / 1000 / 60);
+          
+          if (durationMinutes > 0) {
+              // We need the guildId for the session. 
+              // Since voiceSessions map is simple (userId -> time), we don't have guildId stored directly.
+              // We need to find the user's guild from the client cache.
+              const guildId = this.findUserGuild(userId);
+              
+              if (guildId) {
+                  promises.push(this.context.db.serverStats.upsert({
+                      where: { guildId_date: { guildId, date: today } },
+                      update: { voiceMinutes: { increment: durationMinutes } },
+                      create: { guildId, date: today, voiceMinutes: durationMinutes, memberCount: 0 } // memberCount 0 is safe, upsert will update real count later
+                  }).catch((err: any) => this.logger.error(`Error saving shutdown stats for ${userId}`, err)));
+              }
+          }
+      }
+      
+      await Promise.all(promises);
+      this.voiceSessions.clear();
+      this.logger.info('Saved pending voice stats.');
+  }
+
+  private findUserGuild(userId: string): string | null {
+      if (!this.context || !this.context.client) return null;
+      // This is expensive but necessary if we don't store guildId in the session map.
+      // Alternatively, we could change voiceSessions to store { startTime: number, guildId: string }
+      // Iterating all guilds is okay for shutdown.
+      for (const guild of this.context.client.guilds.cache.values()) {
+        if (guild.voiceStates.cache.has(userId)) return guild.id;
+      }
+      return null;
+  }
+
 
   private getToday(): Date {
     const d = new Date();
@@ -118,11 +206,6 @@ export class StatsPlugin implements IPlugin {
     const userId = newState.id;
     const guildId = newState.guild.id;
     
-    // User joined a voice channel
-    if (!oldState.channelId && newState.channelId) {
-        this.voiceSessions.set(userId, Date.now());
-    }
-    
     // User left or switched
     if (this.voiceSessions.has(userId)) {
         // Calculate duration if they left or we just want to checkpoint on switch
@@ -135,7 +218,12 @@ export class StatsPlugin implements IPlugin {
         if (newState.channelId && newState.channelId !== oldState.channelId) shouldLog = true; // Switched
 
         if (shouldLog) {
-            const startTime = this.voiceSessions.get(userId)!;
+            // Need to cast to any or check type because we changed the Map value type
+            const session = this.voiceSessions.get(userId) as any; 
+            // Handle both old (number) and new ({startTime, guildId}) formats during transition if needed
+            // But since we are restarting, memory is fresh.
+            const startTime = session.startTime || session; 
+            
             const durationMs = Date.now() - startTime;
             const durationMinutes = Math.floor(durationMs / 1000 / 60);
 
@@ -157,7 +245,7 @@ export class StatsPlugin implements IPlugin {
     
     // If they are in a channel (new join or switched into), start tracking new session
     if (newState.channelId && (!oldState.channelId || oldState.channelId !== newState.channelId)) {
-         this.voiceSessions.set(userId, Date.now());
+         this.voiceSessions.set(userId, { startTime: Date.now(), guildId });
     }
   }
 

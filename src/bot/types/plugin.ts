@@ -1,4 +1,4 @@
-import { Collection, PermissionResolvable } from 'discord.js';
+import { Client, Collection, PermissionResolvable } from 'discord.js';
 import { z } from 'zod';
 
 /**
@@ -119,6 +119,7 @@ export interface IPluginContext {
   logger: ILogger;
   config: Map<string, any>;
   db: any; // Prisma client
+  client: Client;
   api: {
     baseUrl: string;
     token: string;
