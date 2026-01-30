@@ -130,8 +130,9 @@ export class SimonBot {
    * Setup Discord event listeners
    */
   private setupEventListeners(): void {
-    this.client.on('ready', () => {
+    this.client.on('ready', async () => {
       this.logger.info(`Bot ready as ${this.client.user?.tag}`);
+      await this.syncGuilds();
     });
 
     this.client.on('messageCreate', async message => {
@@ -183,6 +184,46 @@ export class SimonBot {
     this.client.on('error', error => {
       this.logger.error('Discord client error', error);
     });
+  }
+
+  /**
+   * Sync all guilds the bot is in to the database
+   */
+  private async syncGuilds(): Promise<void> {
+    this.logger.info(`Syncing ${this.client.guilds.cache.size} guilds to database...`);
+    
+    for (const [id, guild] of this.client.guilds.cache) {
+      try {
+        // Create or update guild record
+        await this.db.guild.upsert({
+          where: { id: guild.id },
+          update: {
+            name: guild.name,
+            icon: guild.iconURL(),
+          },
+          create: {
+            id: guild.id,
+            name: guild.name,
+            icon: guild.iconURL(),
+          },
+        });
+
+        // Ensure filter settings exist
+        await this.db.filterSettings.upsert({
+          where: { guildId: guild.id },
+          update: {},
+          create: {
+            guildId: guild.id,
+            enabled: true,
+            repostEnabled: true,
+          },
+        });
+        
+        this.logger.info(`Synced guild: ${guild.name} (${guild.id})`);
+      } catch (error) {
+        this.logger.error(`Failed to sync guild ${guild.id}`, error);
+      }
+    }
   }
 
   /**
