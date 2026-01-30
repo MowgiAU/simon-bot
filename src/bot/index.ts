@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Logger } from './utils/logger';
@@ -130,7 +130,7 @@ export class SimonBot {
    * Setup Discord event listeners
    */
   private setupEventListeners(): void {
-    this.client.on('ready', async () => {
+    this.client.on(Events.ClientReady, async () => {
       this.logger.info(`Bot ready as ${this.client.user?.tag}`);
       await this.syncGuilds();
     });

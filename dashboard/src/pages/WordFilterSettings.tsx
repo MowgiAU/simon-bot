@@ -60,10 +60,16 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       const startTime = performance.now();
       const response = await fetch(`${API_BASE}/settings/${gid}`, {
         signal: AbortSignal.timeout(10000),
+        credentials: 'include',
       });
       const endTime = performance.now();
       console.log(`Word Filter API response time: ${(endTime - startTime).toFixed(0)}ms`);
-      if (!response.ok) throw new Error('Failed to load settings');
+      
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`API Error ${response.status}: ${errText}`);
+      }
+
       const data = await response.json();
       setSettings({
         enabled: data.enabled,
@@ -73,8 +79,9 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       });
       setWordGroups(data.wordGroups || []);
     } catch (err) {
-      logger.error('Failed to load settings from API', err);
-      setError('Failed to load settings from server. Using cached data.');
+      console.error('Failed to load settings from API', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to load settings from server: ${msg}. Using cached data.`);
       // Fallback to localStorage
       const savedGroups = localStorage.getItem('wordGroups');
       const savedSettings = localStorage.getItem('filterSettings');
