@@ -124,4 +124,14 @@ export interface IPluginContext {
     baseUrl: string;
     token: string;
   };
+  /**
+   * Log an action to the database audit log
+   */
+  logAction(action: {
+    guildId: string;
+    actionType: string;
+    executorId?: string;
+    targetId?: string;
+    details?: any;
+  }): Promise<void>;
 }

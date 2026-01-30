@@ -101,7 +101,7 @@ export class WordFilterPlugin implements IPlugin {
     if (!settings.enabled) return;
     if (this.isExcluded(message, settings)) return;
     
-    const { filtered, content } = this.processMessageContent(message.content, settings.wordGroups);
+    const { filtered, content, triggers } = this.processMessageContent(message.content, settings.wordGroups);
     
     if (!filtered) return;
     
@@ -112,7 +112,26 @@ export class WordFilterPlugin implements IPlugin {
       if (settings.repostEnabled) {
         await this.repostMessage(message, content);
       }
+      
       this.logger.info(`Filtered message from ${message.author.username} in ${message.guild.name}`);
+      
+      // Log action to DB
+      if (this.context) {
+          await this.context.logAction({
+              guildId: message.guildId,
+              actionType: 'message_filtered',
+              executorId: message.author.id,
+              targetId: message.channelId,
+              details: {
+                  channelName: (message.channel as any).name || 'unknown',
+                  triggers: triggers,
+                  filteredContent: content
+                  // Not logging original content to avoid storing bad words in plain text logs if sensitive?
+                  // User asked for detailed logs. Let's start with this.
+              }
+          });
+      }
+
     } catch (error) {
       this.logger.error('Failed to process filtered message', error);
     }
@@ -140,9 +159,10 @@ export class WordFilterPlugin implements IPlugin {
   /**
    * Process message content and apply all filters
    */
-  private processMessageContent(originalContent: string, wordGroups: any[]): { filtered: boolean, content: string } {
+  private processMessageContent(originalContent: string, wordGroups: any[]): { filtered: boolean, content: string, triggers: string[] } {
     let newContent = originalContent;
     let filtered = false;
+    const triggers: string[] = [];
 
     for (const group of wordGroups) {
       if (group.enabled === false) continue; // Skip disabled groups
@@ -159,11 +179,12 @@ export class WordFilterPlugin implements IPlugin {
         if (regex.test(newContent)) {
           newContent = newContent.replace(regex, replacementStr);
           filtered = true;
+          triggers.push(word.word);
         }
       }
     }
 
-    return { filtered, content: newContent };
+    return { filtered, content: newContent, triggers: [...new Set(triggers)] };
   }
 
   /**

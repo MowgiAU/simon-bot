@@ -51,6 +51,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon">🏠</span>
             <span className="nav-label">Overview</span>
           </button>
+          <button
+            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
+            onClick={() => onNavigate('logs')}
+          >
+            <span className="nav-icon">📜</span>
+            <span className="nav-label">Audit Logs</span>
+          </button>
         </div>
 
         <div className="nav-group">

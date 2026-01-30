@@ -24,8 +24,26 @@ model Guild {
   filterSettings FilterSettings?
   channelStats ChannelStats[]
   serverStats  ServerStats[]
+  actionLogs   ActionLog[]
 
   @@map("guilds")
+}
+
+// Action Logs for Auditing
+model ActionLog {
+  id         String   @id @default(cuid())
+  guildId    String
+  pluginId   String   // e.g., 'word-filter', 'moderation'
+  action     String   // e.g., 'message_deleted', 'user_banned'
+  executorId String?  // ID of user/bot who performed action
+  targetId   String?  // ID of user/message/channel affected
+  details    Json?    // Context specific data
+  createdAt  DateTime @default(now())
+
+  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, createdAt])
+  @@map("action_logs")
 }
 
 // Guild members - leveling, currency, etc.

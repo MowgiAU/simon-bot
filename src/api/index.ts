@@ -386,6 +386,44 @@ app.get('/api/dashboard/stats', async (req, res) => {
 });
 
 // Server Stats Route
+app.get('/api/guilds/:guildId/logs', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    
+    // Auth check
+    if (req.session && req.session.user) {
+        if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+    } else {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const logs = await db.actionLog.findMany({
+      where: { guildId },
+      orderBy: { createdAt: 'desc' },
+      take: Number(limit),
+      skip: (Number(page) - 1) * Number(limit),
+    });
+    
+    const total = await db.actionLog.count({ where: { guildId } });
+
+    res.json({
+        logs,
+        pagination: {
+            total,
+            page: Number(page),
+            pages: Math.ceil(total / Number(limit))
+        }
+    });
+
+  } catch (error) {
+    logger.error('Failed to get guild logs', error);
+    res.status(500).json({ error: 'Failed to get logs' });
+  }
+});
+
 app.get('/api/guilds/:guildId/stats', async (req, res) => {
   try {
     const { guildId } = req.params;

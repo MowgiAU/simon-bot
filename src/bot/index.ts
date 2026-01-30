@@ -81,6 +81,22 @@ export class SimonBot {
               baseUrl: process.env.API_URL || 'http://localhost:3001',
               token: process.env.DISCORD_TOKEN || '',
             },
+            logAction: async (data) => {
+                try {
+                    await this.db.actionLog.create({
+                        data: {
+                            pluginId: plugin.id,
+                            guildId: data.guildId,
+                            action: data.actionType,
+                            executorId: data.executorId,
+                            targetId: data.targetId,
+                            details: data.details || {},
+                        }
+                    });
+                } catch (err) {
+                    this.logger.error(`Failed to log action for plugin ${plugin.id}`, err);
+                }
+            }
           });
         } catch (error) {
           this.logger.error(`Failed to initialize plugin ${plugin.id}`, error);
