@@ -157,8 +157,8 @@ export class WordFilterPlugin implements IPlugin {
     if (!this.context || !message.guild) return;
     const { group, word } = filteredData;
     const replacement = group.useEmoji ? group.replacementEmoji : group.replacementText;
-    const regex = new RegExp(`\b${word.word}\b`, 'gi');
-    const replacedContent = message.content.replace(regex, replacement);
+    const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
+    const replacedContent = message.content.replace(regex, replacement || '***');
     const nickname = message.member?.nickname || message.author.username;
     const avatar = message.author.avatarURL();
     // Only use webhook if channel is a TextChannel
