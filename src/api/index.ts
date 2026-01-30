@@ -231,7 +231,7 @@ app.post('/word-filter/groups/:guildId', async (req, res) => {
 app.put('/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { name, replacementText, replacementEmoji, useEmoji } = req.body;
+    const { name, replacementText, replacementEmoji, useEmoji, enabled } = req.body;
 
     const group = await db.wordGroup.update({
       where: { id: groupId },
@@ -240,6 +240,7 @@ app.put('/word-filter/groups/:guildId/:groupId', async (req, res) => {
         replacementText: useEmoji ? undefined : replacementText,
         replacementEmoji: useEmoji ? replacementEmoji : undefined,
         useEmoji,
+        enabled,
       },
       include: {
         words: true,
@@ -274,17 +275,35 @@ app.post('/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
     const { groupId } = req.params;
     const { word } = req.body;
 
-    const filterWord = await db.filterWord.create({
-      data: {
-        groupId,
-        word: word.toLowerCase(),
-      },
-    });
+    if (!word) throw new Error('Word is required');
 
-    res.json(filterWord);
+    const wordsToAdd = word.split(',').map((w: string) => w.trim().toLowerCase()).filter((w: string) => w.length > 0);
+    
+    if (wordsToAdd.length === 0) throw new Error('No valid words provided');
+
+    const results = [];
+    for (const w of wordsToAdd) {
+        // Use upsert to avoid duplicates seamlessly or just createMany and catch error?
+        // Simple sequential create for now to report easier
+        try {
+            const fw = await db.filterWord.create({
+                data: { groupId, word: w }
+            });
+            results.push(fw);
+        } catch (e) {
+            // Likely duplicate, ignore
+        }
+    }
+
+    // If a single word was sent and failed, it might be important to let frontend know
+    // But for mass add, we usually just return what succeeded or all of them
+    // Let's return the updated list of words for the group to keep frontend simple
+    const allWords = await db.filterWord.findMany({ where: { groupId } });
+
+    res.json(allWords); 
   } catch (error) {
-    logger.error('Failed to add word', error);
-    res.status(500).json({ error: 'Failed to add word' });
+    logger.error('Failed to add word(s)', error);
+    res.status(500).json({ error: 'Failed to add word(s)' });
   }
 });
 

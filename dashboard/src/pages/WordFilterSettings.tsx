@@ -8,6 +8,7 @@ interface WordGroup {
   replacementText?: string;
   replacementEmoji?: string;
   useEmoji: boolean;
+  enabled?: boolean;
   words: { id: string; word: string }[];
 }
 
@@ -181,13 +182,13 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         throw new Error(errText);
       }
       
-      const word = await response.json();
+      const updatedWords = await response.json();
       setWordGroups(prev =>
         prev.map(group => {
           if (group.id === groupId) {
             return {
               ...group,
-              words: [...group.words, { id: word.id, word: word.word }]
+              words: updatedWords
             };
           }
           return group;
@@ -196,7 +197,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       setNewWord('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to add word: ${msg}`);
+      setError(`Failed to add word(s): ${msg}`);
       logger.error('Error adding word', err);
     }
   };
@@ -228,6 +229,51 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setError(`Failed to remove word: ${msg}`);
       logger.error('Error removing word', err);
+    }
+  };
+
+  const toggleGroupEnabled = async (groupId: string, enabled: boolean) => {
+    try {
+      setError(null);
+      // We recycle the update endpoint, just passing the new enabled status
+      // Note: In a real app we might want a PATCH endpoint or ensure we send all other fields 
+      // Current API implementation validates and updates what is sent. 
+      // Since `updateGroup` logic in UI state holds "editing" values, we need to be careful.
+      // Easiest is to find current group, and send its values + new enabled.
+      
+      const group = wordGroups.find(g => g.id === groupId);
+      if (!group) return;
+
+      const response = await fetch(`${API_BASE}/groups/${guildId}/${groupId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: group.name,
+          replacementText: group.replacementText,
+          replacementEmoji: group.replacementEmoji,
+          useEmoji: group.useEmoji,
+          enabled: enabled
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
+      
+      const updated = await response.json();
+      setWordGroups(prev =>
+        prev.map(g => {
+          if (g.id === groupId) {
+            return { ...g, ...updated };
+          }
+          return g;
+        })
+      );
+    } catch (err) {
+       const msg = err instanceof Error ? err.message : 'Unknown error';
+       setError(`Failed to toggle group: ${msg}`);
+       logger.error('Error toggling group', err);
     }
   };
 
@@ -420,14 +466,14 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
                         value={newWord}
                         onChange={e => setNewWord(e.target.value)}
                         className="input-field input-sm"
-                        placeholder="Add a word..."
+                        placeholder="Add word(s) - e.g. apple, banana, cherry"
                         onKeyPress={e => e.key === 'Enter' && addWordToGroup(group.id)}
                       />
                       <button 
                         className="btn-primary btn-sm"
                         onClick={() => addWordToGroup(group.id)}
                       >
-                        Add Word
+                        Add Word(s)
                       </button>
                     </div>
 
@@ -465,8 +511,20 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
                   // View Mode
                   <>
                     <div className="group-header">
-                      <h4>{group.name}</h4>
-                      <span className="word-count">{group.words.length} words</span>
+                      <div className="header-left">
+                        <h4>{group.name}</h4>
+                        <span className="word-count">{group.words.length} words</span>
+                      </div>
+                      <div className="header-right">
+                         <label className="toggle-switch small-toggle">
+                            <input
+                              type="checkbox"
+                              checked={group.enabled !== false}
+                              onChange={(e) => toggleGroupEnabled(group.id, e.target.checked)}
+                            />
+                            <span className="slider round"></span>
+                         </label>
+                      </div>
                     </div>
                     <p className="replacement">
                       Replacement: {group.useEmoji ? group.replacementEmoji : group.replacementText}

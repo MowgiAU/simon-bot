@@ -81,6 +81,7 @@ model WordGroup {
   replacementText String?
   replacementEmoji String?
   useEmoji     Boolean  @default(false)
+  enabled      Boolean  @default(true)
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
