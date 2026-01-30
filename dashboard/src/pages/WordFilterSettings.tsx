@@ -170,13 +170,16 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
 
     try {
       setError(null);
-      const response = await fetch(`${API_BASE}/groups/${GUILD_ID}/${groupId}/words`, {
+      const response = await fetch(`${API_BASE}/groups/${guildId}/${groupId}/words`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ word: newWord }),
       });
 
-      if (!response.ok) throw new Error('Failed to add word');
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
       
       const word = await response.json();
       setWordGroups(prev =>
@@ -192,7 +195,8 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       );
       setNewWord('');
     } catch (err) {
-      setError('Failed to add word');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to add word: ${msg}`);
       logger.error('Error adding word', err);
     }
   };
@@ -258,16 +262,20 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   const deleteGroup = async (groupId: string) => {
     try {
       setError(null);
-      const response = await fetch(`${API_BASE}/groups/${GUILD_ID}/${groupId}`, {
+      const response = await fetch(`${API_BASE}/groups/${guildId}/${groupId}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete group');
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
       
       setWordGroups(prev => prev.filter(g => g.id !== groupId));
       closeEditGroup();
     } catch (err) {
-      setError('Failed to delete word group');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to delete word group: ${msg}`);
       logger.error('Error deleting group', err);
     }
   };
