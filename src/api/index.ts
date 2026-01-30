@@ -51,7 +51,7 @@ const getBotGuildIds = async () => {
 };
 
 // Discord OAuth2 endpoints
-app.get('/auth/discord/login', (req, res) => {
+app.get('/api/auth/discord/login', (req, res) => {
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: DISCORD_REDIRECT_URI,
@@ -64,7 +64,7 @@ app.get('/auth/discord/login', (req, res) => {
 
 
 // Discord OAuth2 callback: store user, all user guilds, and mutual admin guilds
-app.get('/auth/discord/callback', async (req, res) => {
+app.get('/api/auth/discord/callback', async (req, res) => {
   const code = req.query.code as string;
   if (!code) return res.status(400).send('No code provided');
   try {
@@ -115,12 +115,12 @@ app.get('/auth/discord/callback', async (req, res) => {
 });
 
 // Endpoint to get mutual admin guilds for logged-in user
-app.get('/auth/mutual-guilds', (req, res) => {
+app.get('/api/auth/mutual-guilds', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
   res.json({ mutualAdminGuilds: req.session.mutualAdminGuilds || [] });
 });
 
-app.get('/auth/logout', (req, res) => {
+app.get('/api/auth/logout', (req, res) => {
   req.session.destroy(() => {
     res.clearCookie('connect.sid');
     res.redirect(process.env.DASHBOARD_ORIGIN || '/');
@@ -130,7 +130,7 @@ app.get('/auth/logout', (req, res) => {
 // Auth status endpoint
 
 // Auth status endpoint (returns user and mutual admin guilds)
-app.get('/auth/status', (req, res) => {
+app.get('/api/auth/status', (req, res) => {
   if (req.session.user) {
     res.json({
       authenticated: true,
@@ -149,12 +149,12 @@ const getGuildId = async () => {
 };
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
 // Word Filter Plugin Settings Routes
-app.get('/word-filter/settings/:guildId', async (req, res) => {
+app.get('/api/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     
@@ -181,7 +181,7 @@ app.get('/word-filter/settings/:guildId', async (req, res) => {
   }
 });
 
-app.post('/word-filter/settings/:guildId', async (req, res) => {
+app.post('/api/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     const { enabled, repostEnabled, excludedChannels, excludedRoles } = req.body;
@@ -211,7 +211,7 @@ app.post('/word-filter/settings/:guildId', async (req, res) => {
 });
 
 // Word Group Routes
-app.post('/word-filter/groups/:guildId', async (req, res) => {
+app.post('/api/word-filter/groups/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji } = req.body;
@@ -237,7 +237,7 @@ app.post('/word-filter/groups/:guildId', async (req, res) => {
   }
 });
 
-app.put('/word-filter/groups/:guildId/:groupId', async (req, res) => {
+app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji, enabled } = req.body;
@@ -263,7 +263,7 @@ app.put('/word-filter/groups/:guildId/:groupId', async (req, res) => {
   }
 });
 
-app.delete('/word-filter/groups/:guildId/:groupId', async (req, res) => {
+app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -279,7 +279,7 @@ app.delete('/word-filter/groups/:guildId/:groupId', async (req, res) => {
 });
 
 // Word Routes
-app.post('/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
+app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { word } = req.body;
@@ -316,7 +316,7 @@ app.post('/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
   }
 });
 
-app.delete('/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, res) => {
+app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, res) => {
   try {
     const { wordId } = req.params;
 
