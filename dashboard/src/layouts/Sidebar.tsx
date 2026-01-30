@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { colors, spacing, typography, borderRadius } from '../theme/theme';
-import './Sidebar.css';
+import { SidebarStyles } from './SidebarStyles';
 
 
 import { User, Guild } from '../components/AuthProvider';
@@ -14,6 +14,15 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, logout }) => {
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = SidebarStyles;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -39,8 +48,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => onNavigate('dashboard')}
           >
-            <span className="nav-icon">📊</span>
-            <span className="nav-label">Dashboard</span>
+            <span className="nav-icon">🏠</span>
+            <span className="nav-label">Overview</span>
+          </button>
+          
+          <button
+            className={`nav-item ${activeSection === 'server-stats' ? 'active' : ''}`}
+            onClick={() => onNavigate('server-stats')}
+          >
+            <span className="nav-icon">📈</span>
+            <span className="nav-label">Server Stats</span>
           </button>
         </div>
 

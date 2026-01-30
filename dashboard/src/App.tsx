@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Sidebar } from './layouts/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
+import { ServerStats } from './pages/ServerStats';
 import { colors } from './theme/theme';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'server-stats';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -55,6 +56,8 @@ const AppContent: React.FC = () => {
     switch (activeSection) {
       case 'word-filter-settings':
         return <WordFilterSettings guildId={selectedGuild.id} />;
+      case 'server-stats':
+        return <ServerStats guildId={selectedGuild.id} />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'plugins':
