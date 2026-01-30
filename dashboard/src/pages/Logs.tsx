@@ -65,7 +65,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
             <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>Loading...</div>
           ) : (
             <>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary, fontSize: '13px' }}>
                   <th style={{ padding: spacing.md }}>TIME</th>
@@ -108,6 +109,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                 )}
               </tbody>
             </table>
+            </div>
             
             {/* Pagination */}
             {totalPages > 1 && (
