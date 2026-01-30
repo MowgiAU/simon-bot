@@ -230,20 +230,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                 )}
               </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-const ChartContainer = ({ title, children }: { title: string, children: React.ReactNode }) => (
-  <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
-    <h3 style={{ color: colors.textPrimary, marginBottom: spacing.lg, fontSize: '16px' }}>{title}</h3>
-    {children}
-  </div>
-);
-            </div>
 
             {/* Lifetime Overview */}
             <div className="dashboard-card">
@@ -275,3 +261,10 @@ const ChartContainer = ({ title, children }: { title: string, children: React.Re
     </div>
   );
 };
+
+const ChartContainer = ({ title, children }: { title: string, children: React.ReactNode }) => (
+  <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+    <h3 style={{ color: colors.textPrimary, marginBottom: spacing.lg, fontSize: '16px' }}>{title}</h3>
+    {children}
+  </div>
+);
