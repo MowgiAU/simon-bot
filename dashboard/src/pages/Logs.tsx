@@ -181,13 +181,19 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
     }
   };
 
-  const handleTrackNewUser = async () => {
-    if (!newUserToTrack.trim()) return;
+  useEffect(() => {
+     // Fetch tracked users immediately to populate list even if in Logs tab
+     fetchTrackedUsers();
+  }, []);
+
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  const trackUser = async (userIdToTrack: string) => {
+    if (!userIdToTrack.trim()) return;
+    setTrackingLoading(true);
     
     try {
-        console.log("Tracking new user:", newUserToTrack);
-        // Create an initial note to "track" them
-        const res = await fetch(`/api/guilds/${guildId}/users/${newUserToTrack.trim()}/notes`, {
+        const res = await fetch(`/api/guilds/${guildId}/users/${userIdToTrack.trim()}/notes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: 'Manual tracking started.' }),
@@ -196,14 +202,21 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         
         if (res.ok) {
             await fetchTrackedUsers();
-            setNewUserToTrack('');
+            if (newUserToTrack === userIdToTrack) setNewUserToTrack('');
+            // Optional: Show toast success
         } else {
-            console.error("Failed to track user, status:", res.status);
+            const err = await res.json();
+            alert(`Failed to track user: ${err.error || 'Unknown error'}`);
         }
     } catch (e) {
         console.error("Failed to track user", e);
+        alert('Failed to track user. Check console.');
+    } finally {
+        setTrackingLoading(false);
     }
   };
+    
+  const handleTrackNewUser = () => trackUser(newUserToTrack);
 
   // Switch to logs tab and filter by user when clicking a tracked user
   const handleUserClick = (userId: string) => {
@@ -462,14 +475,38 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                     gap: 12
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: '14px', fontWeight: 600, color: colors.highlight }}>Filtered User: {activeUser}</span>
-                            <XCircle 
-                                size={16} 
-                                style={{ cursor: 'pointer', color: colors.textSecondary }} 
-                                onClick={() => setActiveUser(null)} 
-                                title="Clear Filter"
-                            />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.highlight }}>Filtered User: {activeUser}</span>
+                                <XCircle 
+                                    size={16} 
+                                    style={{ cursor: 'pointer', color: colors.textSecondary }} 
+                                    onClick={() => setActiveUser(null)} 
+                                    title="Clear Filter"
+                                />
+                            </div>
+                            
+                            {/* Track User Button in Filter Area */}
+                            {!trackedUsers.some(u => u.userId === activeUser) && (
+                                <button
+                                    onClick={() => trackUser(activeUser)}
+                                    disabled={trackingLoading}
+                                    style={{
+                                        background: 'transparent',
+                                        border: `1px solid ${colors.highlight}`,
+                                        color: colors.highlight,
+                                        padding: '2px 8px',
+                                        borderRadius: 4,
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 4
+                                    }}
+                                >
+                                    {trackingLoading ? 'Tracking...' : <><Plus size={12} /> Track User</>}
+                                </button>
+                            )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: colors.textSecondary }}>
                             <StickyNote size={14} />
