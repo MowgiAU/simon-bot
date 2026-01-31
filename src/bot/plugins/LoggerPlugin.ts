@@ -5,7 +5,8 @@ import {
     EmbedBuilder, 
     SlashCommandBuilder, 
     ChatInputCommandInteraction,
-    ChannelType
+    ChannelType,
+    Collection
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -87,7 +88,7 @@ export class LoggerPlugin implements IPlugin {
 
         try {
             while (hasMore) {
-                const messages = await channel.messages.fetch({ limit: 100, before: lastId });
+                const messages: Collection<string, Message> = await channel.messages.fetch({ limit: 100, before: lastId });
                 
                 if (messages.size === 0) {
                     hasMore = false;
