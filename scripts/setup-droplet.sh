@@ -18,9 +18,9 @@ fi
 echo "📦 Updating system packages..."
 apt update && apt upgrade -y
 
-# Install Node.js 18
-echo "📦 Installing Node.js 18..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+# Install Node.js 20 (LTS)
+echo "📦 Installing Node.js 20..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt install -y nodejs
 
 # Verify Node installation
@@ -35,6 +35,15 @@ npm install -g pm2
 echo "📦 Installing Git..."
 apt install -y git
 
+# Install PostgreSQL (Optional but recommended for Staging)
+echo "📦 Installing PostgreSQL..."
+apt install -y postgresql postgresql-contrib
+echo "⚠️  PostgreSQL installed. You will need to create a database and user manually:"
+echo "   sudo -u postgres psql"
+echo "   CREATE DATABASE simon_bot;"
+echo "   CREATE USER simon_user WITH ENCRYPTED PASSWORD 'password';"
+echo "   GRANT ALL PRIVILEGES ON DATABASE simon_bot TO simon_user;"
+
 # Create app directory
 echo "📁 Creating application directory..."
 mkdir -p /root/simon-bot
@@ -43,11 +52,14 @@ cd /root/simon-bot
 # Clone repository
 echo "🔗 Cloning repository..."
 read -p "Enter GitHub repository URL (e.g., https://github.com/user/simon-bot.git): " REPO_URL
-git clone $REPO_URL .
+read -p "Enter branch to deploy (default: main): " BRANCH
+BRANCH=${BRANCH:-main}
 
-# Install dependencies
+git clone -b $BRANCH $REPO_URL .
+
+# Install dependencies (installing all including devDependencies for build process)
 echo "📚 Installing Node dependencies..."
-npm install --production
+npm install
 
 echo "📚 Installing dashboard dependencies..."
 cd dashboard
