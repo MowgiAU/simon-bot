@@ -322,30 +322,40 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                 ) : logs.map(log => {
                     const isExpanded = expandedLogId === log.id;
                     
-                    const renderLogContent = () => (
-                        <>
-                            {/* Render Embed or Text */}
-                            {log.details?.embeds && log.details.embeds.length > 0 ? (
+                    const renderLogContent = () => {
+                        // 1. Check for Word Filter JSON structure
+                        if (log.action === 'message_filtered' && log.details?.triggers) {
+                            return (
+                                <div style={{ fontSize: '13px' }}>
+                                    <div>
+                                        <span style={{ color: colors.error, fontWeight: 600 }}>Filtered Words: </span>
+                                        {Array.isArray(log.details.triggers) ? log.details.triggers.join(', ') : log.details.triggers}
+                                    </div>
+                                    <div style={{ marginTop: 4, color: colors.textSecondary }}>
+                                        "{log.details.originalContent}"
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // 2. Render Embeds
+                        if (log.details?.embeds && log.details.embeds.length > 0) {
+                            // ... existing embed rendering code ...
+                            return (
                                 <div>
                                     {log.details.embeds[0].title && <div style={{ fontWeight: 600 }}>{log.details.embeds[0].title}</div>}
                                     {log.details.embeds[0].description && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: 4 }}>{log.details.embeds[0].description}</div>}
                                 </div>
-                            ) : (
-                                <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
-                                    {/* Simple JSON dump or specific field extraction if needed */}
-                                    {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
-                                </div>
-                            )}
-
-                            {/* Comment Indicator */}
-                            {log.comments && log.comments.length > 0 && (
-                                <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, color: colors.highlight, fontSize: '11px' }}>
-                                    <MessageSquare size={12} />
-                                    {log.comments.length} comment{log.comments.length !== 1 ? 's' : ''}
-                                </div>
-                            )}
-                        </>
-                    );
+                            );
+                        } 
+                        
+                        // 3. Fallback
+                        return (
+                            <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
+                                {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
+                            </div>
+                        );
+                    };
 
                     return (
                         <div key={log.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
@@ -385,6 +395,16 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {log.executorId && <UserBadge userId={log.executorId} type="exec" />}
                                     {log.targetId && <UserBadge userId={log.targetId} type="target" />}
+                                </div>
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    right: 10, 
+                                    top: '50%', 
+                                    transform: 'translateY(-50%)', 
+                                    opacity: 0.5,
+                                    display: isMobile ? 'none' : 'block'
+                                }}>
+                                    {isExpanded ? <XCircle size={16} /> : <MessageSquare size={16} />}
                                 </div>
                             </div>
 

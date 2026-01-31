@@ -117,17 +117,32 @@ export class WordFilterPlugin implements IPlugin {
       
       // Log action to DB
       if (this.context) {
-          await this.context.logAction({
-              guildId: message.guild.id,
-              actionType: 'message_filtered',
-              executorId: message.author.id,
-              targetId: message.channelId,
-              details: {
-                  channelName: (message.channel as any).name || 'unknown',
-                  triggers: triggers,
-                  filteredContent: content,
-                  originalContent: message.content,
-                  authorTag: message.author.tag
+          // Construct searchable text
+          const searchText = [
+              message.author.username,
+              message.author.tag,
+              message.author.id,
+              content,
+              message.content,
+              (message.channel as TextChannel).name,
+              triggers.join(' ')
+          ].join(' ').toLowerCase();
+
+          await this.context.db.actionLog.create({
+              data: {
+                  guildId: message.guild.id,
+                  pluginId: this.id,
+                  action: 'message_filtered',
+                  executorId: message.author.id,
+                  targetId: message.channelId,
+                  searchableText: searchText,
+                  details: {
+                      channelName: (message.channel as any).name || 'unknown',
+                      triggers: triggers,
+                      filteredContent: content,
+                      originalContent: message.content,
+                      authorTag: message.author.tag
+                  }
               }
           });
       }
