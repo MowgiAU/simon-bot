@@ -59,21 +59,29 @@ async function main() {
 
     // Register for each guild
     for (const guild of guilds) {
+        // simple snowflake validation (must be numeric)
+        if (!/^\d+$/.test(guild.id)) {
+            logger.warn(`Skipping invalid guild ID: ${guild.name} (${guild.id})`);
+            continue;
+        }
+    
         logger.info(`Registering for guild: ${guild.name} (${guild.id})`);
-        await rest.put(
-            Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, guild.id),
-            { body: commands },
-        );
+        try {
+            await rest.put(
+                Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, guild.id),
+                { body: commands },
+            );
+        } catch (e) {
+            logger.warn(`Failed to register for guild ${guild.name} (${guild.id})`, e);
+        }
     }
     
     // Also try Global Register (takes 1h to update, but good fallback)
-    /*
     logger.info('Registering Global Commands...');
     await rest.put(
         Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
         { body: commands },
     );
-    */
 
     logger.info('Successfully reloaded application (/) commands.');
   } catch (error) {
