@@ -12,7 +12,7 @@ export class StatsPlugin implements IPlugin {
   
   requiredPermissions = [];
   commands = [];
-  events = ['messageCreate', 'voiceStateUpdate', 'guildBanAdd'];
+  events = ['messageCreate', 'voiceStateUpdate', 'guildBanAdd', 'guildMemberAdd', 'guildMemberRemove'];
   dashboardSections = ['server-stats'];
   defaultEnabled = true;
   
@@ -253,11 +253,39 @@ export class StatsPlugin implements IPlugin {
       try {
           await this.context.db.serverStats.upsert({
               where: { guildId_date: { guildId: ban.guild.id, date: today } },
-              update: { newBans: { increment: 1 } },
+              update: { newBans: { increment: 1 }, memberCount: ban.guild.memberCount },
               create: { guildId: ban.guild.id, date: today, newBans: 1, memberCount: ban.guild.memberCount }
           });
       } catch (err) {
           this.logger.error('Error tracking ban', err);
+      }
+  }
+
+  async onGuildMemberAdd(member: any): Promise<void> {
+      if (!this.context) return;
+      const today = this.getToday();
+      try {
+          await this.context.db.serverStats.upsert({
+              where: { guildId_date: { guildId: member.guild.id, date: today } },
+              update: { newMembers: { increment: 1 }, memberCount: member.guild.memberCount },
+              create: { guildId: member.guild.id, date: today, newMembers: 1, memberCount: member.guild.memberCount }
+          });
+      } catch (err) {
+          this.logger.error('Error tracking join', err);
+      }
+  }
+
+  async onGuildMemberRemove(member: any): Promise<void> {
+      if (!this.context) return;
+      const today = this.getToday();
+      try {
+          await this.context.db.serverStats.upsert({
+              where: { guildId_date: { guildId: member.guild.id, date: today } },
+              update: { memberCount: member.guild.memberCount },
+              create: { guildId: member.guild.id, date: today, memberCount: member.guild.memberCount }
+          });
+      } catch (err) {
+          this.logger.error('Error tracking leave', err);
       }
   }
 }
