@@ -389,7 +389,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 app.get('/api/guilds/:guildId/logs', async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, action, search } = req.query as any;
     
     // Auth check
     if (req.session && req.session.user) {
@@ -400,17 +400,32 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    const whereClause: any = { guildId };
+
+    if (action && action !== 'all') {
+        whereClause.action = action;
+    }
+
+    if (search) {
+        const searchStr = String(search);
+        whereClause.OR = [
+            { executorId: { contains: searchStr } },
+            { targetId: { contains: searchStr } },
+            { action: { contains: searchStr, mode: 'insensitive' } },
+        ];
+    }
+
     const logs = await db.actionLog.findMany({
-      where: { guildId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       take: Number(limit),
       skip: (Number(page) - 1) * Number(limit),
     });
     
-    const total = await db.actionLog.count({ where: { guildId } });
+    const total = await db.actionLog.count({ where: whereClause });
 
     res.json({
-        logs,
+        items: logs,
         pagination: {
             total,
             page: Number(page),

@@ -13,7 +13,7 @@
     *   **Always** remind the user to run the pull command after significant changes.
     *   **Pull Command**:
         ```powershell
-        ssh root@simon-bot-main "cd ~/new-simon && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
+        ssh root@simon-bot-main "git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
         ```
     *   **Dashboard Builds**: React builds consume high RAM. If a build fails with "Killed", check server swap space.
 
