@@ -101,13 +101,26 @@ export class LoggerPlugin implements IPlugin {
                     
                     const logData = this.parseMessageToLog(msg);
                     
+                    // Construct search vector
+                    const searchParts = [
+                        logData.executorId || msg.author.id,
+                        logData.targetId,
+                        msg.author.tag,
+                        msg.author.username,
+                        logData.targetName, // extracted name if any
+                        logData.reason,
+                        msg.content,
+                        category
+                    ].filter(Boolean).join(' ').toLowerCase();
+
                     return this.context!.db.actionLog.create({
                         data: {
                             guildId: interaction.guildId!,
                             pluginId: 'logger-import',
-                            action: category, // e.g., 'MOD', 'AUTOMOD'
+                            action: category,
                             executorId: logData.executorId || msg.author.id,
                             targetId: logData.targetId,
+                            searchableText: searchParts, 
                             details: {
                                 importedFrom: channel.id,
                                 originalAuthor: msg.author.tag,
@@ -117,7 +130,7 @@ export class LoggerPlugin implements IPlugin {
                                 timestamp: msg.createdTimestamp,
                                 parsedReason: logData.reason
                             },
-                            createdAt: msg.createdAt // Preserve history!
+                            createdAt: msg.createdAt
                         }
                     });
                 });
@@ -144,25 +157,51 @@ export class LoggerPlugin implements IPlugin {
     /**
      * Attempt to extract meaningful IDs from Embeds (Dyno, Carl, etc)
      */
-    private parseMessageToLog(msg: Message): { executorId?: string, targetId?: string, reason?: string } {
-        const result: { executorId?: string, targetId?: string, reason?: string } = {};
-        
-        // Strategy: Look for IDs in footers or fields
-        // Common pattern: "ID: 123456789" in Footer
+    private parseMessageToLog(msg: Message): { executorId?: string, targetId?: string, targetName?: string, reason?: string } {
+        const result: { executorId?: string, targetId?: string, targetName?: string, reason?: string } = {};
         
         if (msg.embeds.length > 0) {
             const embed = msg.embeds[0];
             
-            // Search footer for ID
+            // 1. Try to find Target ID in Footer
+            // Formats: "ID: 123..." or "User ID: 123..." or just "123..." sometimes
             if (embed.footer?.text) {
-                const idMatch = embed.footer.text.match(/ID:?\s*(\d{17,20})/i);
+                const idMatch = embed.footer.text.match(/(?:ID|User ID)?:?\s*(\d{17,20})/i);
                 if (idMatch) result.targetId = idMatch[1];
             }
 
-            // Search description/fields for "Reason:"
+            // 2. Try to find Target Name in Author or Title
+            // Format: "User Banned | Name#1234"
+            if (embed.author?.name) {
+                const nameMatch = embed.author.name.match(/([^|]+)$/);
+                if (nameMatch) result.targetName = nameMatch[1].trim();
+            }
+
+            // 3. Search description/fields for "Reason:"
             if (embed.description) {
                 const reasonMatch = embed.description.match(/Reason:?\s*(.+)/i);
                 if (reasonMatch) result.reason = reasonMatch[1];
+                
+                // Sometimes ID is in description like "(ID: 123...)"
+                if (!result.targetId) {
+                    const descIdMatch = embed.description.match(/ID:?\s*(\d{17,20})/i);
+                    if (descIdMatch) result.targetId = descIdMatch[1];
+                }
+            }
+            
+            // 4. Check fields for "Target" or "User"
+            if (embed.fields) {
+                for (const field of embed.fields) {
+                    if (/Target|User|Member/i.test(field.name)) {
+                        // Check value for ID or Mention <@123>
+                        const idMatch = field.value.match(/(\d{17,20})/);
+                        if (idMatch) result.targetId = idMatch[1];
+                        else result.targetName = field.value;
+                    }
+                    if (/Reason/i.test(field.name)) {
+                        result.reason = field.value;
+                    }
+                }
             }
         }
 

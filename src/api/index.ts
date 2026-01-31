@@ -415,13 +415,16 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     } : null;
 
     // Filter by search text
+    // Now we use the searchableText column for broad matches (names, reasons, etc)
+    // AND we keep explicit ID checks for precise clicking interactions
     const searchFilter = search ? {
         OR: [
             { executorId: { contains: String(search) } },
             { targetId: { contains: String(search) } },
-            { action: { contains: String(search), mode: 'insensitive' } },
+            { searchableText: { contains: String(search), mode: 'insensitive' } },
         ]
-    } : null;
+    } : null; // Note: if 'searchableText' is null/empty for old logs, this won't match them by name, only by ID-columns if populated. 
+              // Re-importing logs fixes this.
 
     // Combine filters
     if (userFilter && searchFilter) {

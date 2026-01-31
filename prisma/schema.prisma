@@ -38,6 +38,7 @@ model ActionLog {
   executorId String?  // ID of user/bot who performed action
   targetId   String?  // ID of user/message/channel affected
   details    Json?    // Context specific data
+  searchableText String @default("") // Quick search vector (names, ids, content)
   createdAt  DateTime @default(now())
 
   guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
