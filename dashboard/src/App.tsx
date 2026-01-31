@@ -46,7 +46,7 @@ const AppContent: React.FC = () => {
           width: '90%',
           border: `1px solid ${colors.border}`
         }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>♪</div>
+          <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: '80px', height: '80px', marginBottom: '16px' }} />
           <h1 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Fuji Studio</h1>
           <p style={{ color: colors.textSecondary, marginBottom: '32px' }}>
             Advanced community management for FL Studio producers

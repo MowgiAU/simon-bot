@@ -9,8 +9,8 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight, 
-  Music 
 } from 'lucide-react';
+import logoUrl from '../assets/logo.svg'; 
 
 import { User, Guild } from '../components/AuthProvider';
 
@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
-          <span className="logo-icon"><Music size={24} color={colors.primary} /></span>
+          <img src={logoUrl} alt="Fuji Studio" style={{ width: 32, height: 32 }} />
           <h1>Fuji Studio</h1>
         </div>
         <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
