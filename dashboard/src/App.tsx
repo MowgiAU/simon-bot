@@ -47,7 +47,7 @@ const AppContent: React.FC = () => {
           border: `1px solid ${colors.border}`
         }}>
           <div style={{ fontSize: '64px', marginBottom: '16px' }}>♪</div>
-          <h1 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Simon Bot</h1>
+          <h1 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Fuji Studio</h1>
           <p style={{ color: colors.textSecondary, marginBottom: '32px' }}>
             Advanced community management for FL Studio producers
           </p>
@@ -82,7 +82,7 @@ const AppContent: React.FC = () => {
     return (
       <div style={{ padding: 40 }}>
         <h2>No servers found</h2>
-        <p>You must be an admin of a server where Simon Bot is present.</p>
+        <p>You must be an admin of a server where Fuji Studio is present.</p>
         <button onClick={logout} style={{ marginTop: 24 }}>Logout</button>
       </div>
     );

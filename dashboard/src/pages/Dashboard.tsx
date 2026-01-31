@@ -76,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
           Dashboard
         </h1>
         <p style={{ color: colors.textSecondary, margin: '8px 0 0 0', fontSize: '15px' }}>
-          Welcome to Simon Bot Control Panel
+          Welcome to Fuji Studio Control Panel
         </p>
       </div>
 

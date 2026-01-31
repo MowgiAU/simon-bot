@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         </button>
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
           <span className="logo-icon"><Music size={24} color={colors.primary} /></span>
-          <h1>Simon Bot</h1>
+          <h1>Fuji Studio</h1>
         </div>
         <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
           <div>Server:</div>
