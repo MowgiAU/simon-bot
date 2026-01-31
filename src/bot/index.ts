@@ -167,7 +167,14 @@ export class SimonBot {
     this.client.on(Events.ClientReady, async () => {
       this.logger.info(`Bot ready as ${this.client.user?.tag}`);
       await this.syncGuilds();
-      await this.registerSlashCommands();
+      
+      // Register slash commands to the first joined guild (Staging environment usually has 1)
+      const guild = this.client.guilds.cache.first();
+      if (guild) {
+        await this.registerSlashCommands(guild.id);
+      } else {
+        this.logger.warn('No guilds found to register commands to, skipping registration');
+      }
     });
 
     this.client.on('interactionCreate', async interaction => {
@@ -320,20 +327,14 @@ export class SimonBot {
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
 
     try {
-        this.logger.info('Started refreshing application (/) commands.');
+        this.logger.info(`Started refreshing application (/) commands for guild: ${guildId}`);
         
-        // Register globally (might take an hour) or per guild
-        // For development speed, let's register for all synced guilds
-        const guilds = await this.db.guild.findMany({ select: { id: true } });
-        
-        for (const guild of guilds) {
-            await rest.put(
-                Routes.applicationGuildCommands(this.client.user!.id, guild.id),
-                { body: commands },
-            );
-        }
+        await rest.put(
+            Routes.applicationGuildCommands(this.client.user.id, guildId),
+            { body: commands },
+        );
 
-        this.logger.info(`Successfully registered commands for ${guilds.length} guilds.`);
+        this.logger.info('Successfully reloaded application (/) commands.');
     } catch (error) {
         this.logger.error('Failed to register slash commands', error);
     }
