@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { colors, spacing, typography, borderRadius } from '../theme/theme';
 import { SidebarStyles } from './SidebarStyles';
 
@@ -14,29 +14,42 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, logout }) => {
+  const [collapsed, setCollapsed] = useState(false);
+
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = SidebarStyles;
     document.head.appendChild(style);
+    
+    // Update main content margin based on collapse state
+    // This is a bit hacky but works without refactoring the whole Layout structure
+    const mainContent = document.querySelector('.main-content') as HTMLElement;
+    if (mainContent) {
+        mainContent.style.marginLeft = collapsed ? '80px' : '260px';
+    }
+
     return () => {
       document.head.removeChild(style);
     };
-  }, []);
+  }, [collapsed]);
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <div className="logo">
+        <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? '▶' : '◀'}
+        </button>
+        <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
           <span className="logo-icon">♪</span>
           <h1>Simon Bot</h1>
         </div>
-        <div style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
+        <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
           <div>Server:</div>
-          <div style={{ fontWeight: 600 }}>
+          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
             {guild.icon && (
-              <img src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`} alt="icon" style={{ width: 20, height: 20, borderRadius: 10, marginRight: 6, verticalAlign: 'middle' }} />
+              <img src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`} alt="icon" style={{ width: 20, height: 20, borderRadius: 10, marginRight: 6 }} />
             )}
-            {guild.name}
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{guild.name}</span>
           </div>
         </div>
       </div>
@@ -47,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => onNavigate('dashboard')}
+            title={collapsed ? "Overview" : ""}
           >
             <span className="nav-icon">🏠</span>
             <span className="nav-label">Overview</span>
@@ -54,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
             onClick={() => onNavigate('logs')}
+            title={collapsed ? "Audit Logs" : ""}
           >
             <span className="nav-icon">📜</span>
             <span className="nav-label">Audit Logs</span>
@@ -65,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
             onClick={() => onNavigate('word-filter-settings')}
+            title={collapsed ? "Word Filter" : ""}
           >
             <span className="nav-icon">🔤</span>
             <span className="nav-label">Word Filter</span>
@@ -76,6 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`}
             onClick={() => onNavigate('plugins')}
+            title={collapsed ? "Plugins" : ""}
           >
             <span className="nav-icon">⚙️</span>
             <span className="nav-label">Plugins</span>
@@ -85,10 +102,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
       <div className="sidebar-footer">
         <div className="user-profile">
-          <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} alt="User" style={{ width: 36, height: 36, borderRadius: 18 }} />
+          <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} alt="User" />
           <div className="user-info">
-            <p className="user-name">{user.username}#{user.discriminator}</p>
-            <button onClick={logout} style={{ marginTop: 8, fontSize: 14 }}>Logout</button>
+            <p className="user-name">{user.username}</p>
+            <button className="logout-btn" onClick={logout}>Logout</button>
           </div>
         </div>
       </div>

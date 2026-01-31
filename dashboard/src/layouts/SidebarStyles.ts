@@ -13,12 +13,67 @@ export const SidebarStyles = `
     top: 0;
     overflow-y: auto;
     z-index: 1000;
-    transition: transform 0.3s ease;
+    transition: width 0.3s ease, transform 0.3s ease;
   }
 
+  .sidebar.collapsed {
+    width: 80px;
+  }
+
+  .sidebar.collapsed .logo h1,
+  .sidebar.collapsed .server-info,
+  .sidebar.collapsed .nav-group-title,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .user-info {
+    display: none;
+    opacity: 0;
+  }
+
+  .sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: ${spacing.md};
+  }
+  
+  .sidebar.collapsed .nav-icon {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .sidebar.collapsed .logo {
+    justify-content: center;
+  }
+  
   .sidebar-header {
     padding: ${spacing.lg} ${spacing.md};
     border-bottom: 1px solid ${colors.border};
+    position: relative;
+  }
+
+  .collapse-btn {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    background: transparent;
+    border: none;
+    color: ${colors.textTertiary};
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar.collapsed .collapse-btn {
+    right: 50%;
+    transform: translateX(50%);
+    top: 10px;
+  }
+
+  .collapse-btn:hover {
+    background: ${colors.surfaceLight};
+    color: ${colors.textPrimary};
   }
 
   .logo {
@@ -123,6 +178,11 @@ export const SidebarStyles = `
   .user-profile:hover {
     background-color: ${colors.border};
   }
+  
+  .sidebar.collapsed .user-profile {
+    justify-content: center;
+    padding: ${spacing.sm};
+  }
 
   .user-profile img {
     width: 40px;
@@ -133,7 +193,31 @@ export const SidebarStyles = `
   .user-info {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
+
+  .logout-btn {
+    background: rgba(242, 123, 19, 0.1);
+    color: ${colors.highlight};
+    border: 1px solid rgba(242, 123, 19, 0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    text-align: center;
+  }
+
+  .logout-btn:hover {
+     background: rgba(242, 123, 19, 0.2);
+     transform: translateY(-1px);
+  }
+
+  .user-name {
 
   .user-name {
     color: ${colors.textPrimary};

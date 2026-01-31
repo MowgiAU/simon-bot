@@ -14,12 +14,67 @@ const AppContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, loading, login, logout } = useAuth();
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
+  if (loading) return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh', 
+      backgroundColor: colors.background, 
+      color: colors.textSecondary 
+    }}>
+      Loading...
+    </div>
+  );
+
   if (!user) {
     return (
-      <div style={{ padding: 40 }}>
-        <h2>Simon Bot Dashboard</h2>
-        <button onClick={login} style={{ fontSize: 18, padding: '12px 32px', marginTop: 24 }}>Login with Discord</button>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh', 
+        background: `linear-gradient(135deg, ${colors.background} 0%, #1a1e2e 100%)`
+      }}>
+        <div style={{ 
+          background: colors.surface, 
+          padding: '48px', 
+          borderRadius: '16px', 
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)', 
+          textAlign: 'center',
+          maxWidth: '400px',
+          width: '90%',
+          border: `1px solid ${colors.border}`
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>♪</div>
+          <h1 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Simon Bot</h1>
+          <p style={{ color: colors.textSecondary, marginBottom: '32px' }}>
+            Advanced community management for FL Studio producers
+          </p>
+          <button 
+            onClick={login} 
+            style={{ 
+              background: '#5865F2', 
+              color: 'white', 
+              border: 'none', 
+              padding: '12px 24px', 
+              fontSize: '16px', 
+              fontWeight: 600, 
+              borderRadius: '4px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              width: '100%',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#4752C4'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#5865F2'}
+          >
+            <span style={{ fontSize: '20px' }}>⚡</span> Login with Discord
+          </button>
+        </div>
       </div>
     );
   }
