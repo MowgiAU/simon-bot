@@ -12,8 +12,8 @@ import dotenv from 'dotenv';
 import { Logger } from './utils/logger';
 import { PluginManager } from './core/PluginManager';
 import { PluginLoader } from './utils/PluginLoader';
-import WordFilterPlugin from './plugins/WordFilterPlugin';
-import StatsPlugin from './plugins/StatsPlugin';
+import { WordFilterPlugin } from './plugins/WordFilterPlugin';
+import { StatsPlugin } from './plugins/StatsPlugin';
 import { LoggerPlugin } from './plugins/LoggerPlugin';
 
 dotenv.config();
