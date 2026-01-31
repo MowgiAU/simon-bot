@@ -325,12 +325,18 @@ export class SimonBot {
     commands.push(loggerCommand.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
+    const guildId = process.env.GUILD_ID;
+
+    if (!guildId) {
+        this.logger.error('No GUILD_ID specified in .env, skipping slash command registration');
+        return;
+    }
 
     try {
         this.logger.info(`Started refreshing application (/) commands for guild: ${guildId}`);
         
         await rest.put(
-            Routes.applicationGuildCommands(this.client.user.id, guildId),
+            Routes.applicationGuildCommands(this.client.user!.id, guildId),
             { body: commands },
         );
 
