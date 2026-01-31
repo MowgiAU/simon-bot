@@ -389,7 +389,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
 app.get('/api/guilds/:guildId/logs', async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { page = 1, limit = 20, action, search } = req.query as any;
+    const { page = 1, limit = 20, action, search, userId } = req.query as any;
     
     // Auth check
     if (req.session && req.session.user) {
@@ -406,17 +406,35 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         whereClause.action = action;
     }
 
-    if (search) {
-        const searchStr = String(search);
-        whereClause.OR = [
-            { executorId: { contains: searchStr } },
-            { targetId: { contains: searchStr } },
-            { action: { contains: searchStr, mode: 'insensitive' } },
-        ];
+    // Filter by specific user (Actor OR Target)
+    const userFilter = userId ? {
+        OR: [
+            { executorId: userId },
+            { targetId: userId }
+        ]
+    } : null;
+
+    // Filter by search text
+    const searchFilter = search ? {
+        OR: [
+            { executorId: { contains: String(search) } },
+            { targetId: { contains: String(search) } },
+            { action: { contains: String(search), mode: 'insensitive' as const } }, // 'as const' depends on typescript config but safest to omit if any issue, usually string is fine
+        ]
+    } : null;
+
+    // Combine filters
+    if (userFilter && searchFilter) {
+        whereClause.AND = [userFilter, searchFilter];
+    } else if (userFilter) {
+        Object.assign(whereClause, userFilter);
+    } else if (searchFilter) {
+        Object.assign(whereClause, searchFilter);
     }
 
     const logs = await db.actionLog.findMany({
       where: whereClause,
+      include: { comments: { orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'desc' },
       take: Number(limit),
       skip: (Number(page) - 1) * Number(limit),
@@ -436,6 +454,38 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
   } catch (error) {
     logger.error('Failed to get guild logs', error);
     res.status(500).json({ error: 'Failed to get logs' });
+  }
+});
+
+// Add a comment to a log entry
+app.post('/api/logs/:logId/comments', async (req, res) => {
+  try {
+    const { logId } = req.params;
+    const { content } = req.body;
+    
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    
+    // First fetch the log to check guild permissions
+    const log = await db.actionLog.findUnique({ where: { id: logId } });
+    if (!log) return res.status(404).json({ error: 'Log not found' });
+
+    // Check if user is admin in that guild
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === log.guildId)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const comment = await db.logComment.create({
+      data: {
+        logId,
+        userId: req.session.user.id,
+        content
+      }
+    });
+
+    res.json(comment);
+  } catch (error) {
+    logger.error('Failed to add comment', error);
+    res.status(500).json({ error: 'Failed to add comment' });
   }
 });
 

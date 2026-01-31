@@ -41,9 +41,23 @@ model ActionLog {
   createdAt  DateTime @default(now())
 
   guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  comments   LogComment[]
 
   @@index([guildId, createdAt])
   @@map("action_logs")
+}
+
+model LogComment {
+  id        String    @id @default(cuid())
+  logId     String
+  userId    String    // Admin who made the comment
+  content   String
+  createdAt DateTime  @default(now())
+
+  log       ActionLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  @@index([logId])
+  @@map("log_comments")
 }
 
 // Guild members - leveling, currency, etc.

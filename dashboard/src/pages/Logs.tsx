@@ -11,8 +11,19 @@ import {
   AlertTriangle,
   Search,
   Menu,
-  X
+  X,
+  MessageSquare,
+  Filter,
+  XCircle,
+  Hash
 } from 'lucide-react';
+
+interface LogComment {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+}
 
 interface ActionLog {
   id: string;
@@ -22,6 +33,7 @@ interface ActionLog {
   targetId: string | null;
   details: any;
   createdAt: string;
+  comments: LogComment[];
 }
 
 const CATEGORIES = [
@@ -45,8 +57,16 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Filters
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeUser, setActiveUser] = useState<string | null>(null);
+  
+  // Comments Interaction
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [commentInput, setCommentInput] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
   
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -65,7 +85,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         page: pageNum.toString(),
         limit: '20',
         ...(activeCategory !== 'all' && { action: activeCategory }),
-        ...(searchQuery && { search: searchQuery })
+        ...(searchQuery && { search: searchQuery }),
+        ...(activeUser && { userId: activeUser })
       });
       const res = await fetch(`/api/guilds/${guildId}/logs?${queryParams}`, {
         credentials: 'include'
@@ -83,17 +104,67 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   };
 
   useEffect(() => {
-    // Debounce search
     const timer = setTimeout(() => {
       fetchLogs(1);
       setPage(1);
     }, 500);
     return () => clearTimeout(timer);
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, searchQuery, activeUser]);
 
   useEffect(() => {
     if (page > 1) fetchLogs(page);
   }, [page]);
+
+  const handleAddComment = async (logId: string) => {
+      if (!commentInput.trim()) return;
+      setSubmittingComment(true);
+      try {
+          const res = await fetch(`/api/logs/${logId}/comments`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: commentInput }),
+              credentials: 'include'
+          });
+          if (res.ok) {
+              const newComment = await res.json();
+              setLogs(prev => prev.map(log => {
+                  if (log.id === logId) {
+                      return { ...log, comments: [...(log.comments || []), newComment] };
+                  }
+                  return log;
+              }));
+              setCommentInput('');
+          }
+      } catch (e) {
+          console.error("Failed to add comment", e);
+      } finally {
+          setSubmittingComment(false);
+      }
+  };
+
+  const UserBadge = ({ userId, type }: { userId: string, type: 'exec' | 'target' }) => (
+      <div 
+        onClick={(e) => { e.stopPropagation(); setActiveUser(userId); }}
+        style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            background: activeUser === userId ? colors.highlight : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${activeUser === userId ? colors.highlight : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 4,
+            fontSize: '11px',
+            color: activeUser === userId ? '#FFF' : colors.textSecondary,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            marginRight: 4
+        }}
+        title={`Filter by this user (${type})`}
+      >
+        <Hash size={10} />
+        {type === 'exec' ? 'By: ' : 'To: '}{userId.slice(0, 8)}...
+      </div>
+  );
 
   return (
     <div style={{ 
@@ -122,8 +193,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                 cursor: 'pointer'
             }}
         >
-            {showFilters ? <X size={18} /> : <Search size={18} />}
-            {showFilters ? 'Close Filters' : `Filters: ${CATEGORIES.find(c => c.id === activeCategory)?.label || 'All'}`}
+            {showFilters ? <X size={18} /> : <Filter size={18} />}
+            {showFilters ? 'Close Filters' : 'Filters'}
         </button>
       )}
 
@@ -149,7 +220,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         } : {})
       }}>
         <h3 style={{ color: colors.textPrimary, marginTop: 0, marginBottom: spacing.md, fontSize: '14px', textTransform: 'uppercase' }}>
-            Log Categories
+            Categories
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {CATEGORIES.map(cat => (
@@ -160,18 +231,11 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                         if (isMobile) setShowFilters(false);
                     }}
                     style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '12px',
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '10px',
                         background: activeCategory === cat.id ? colors.highlight : 'transparent',
                         color: activeCategory === cat.id ? '#FFF' : colors.textSecondary,
-                        border: 'none',
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: '14px',
-                        fontWeight: activeCategory === cat.id ? 600 : 400
+                        border: 'none', borderRadius: 4, cursor: 'pointer', textAlign: 'left',
+                        fontSize: '13px', fontWeight: activeCategory === cat.id ? 600 : 400
                     }}
                 >
                     {cat.icon}
@@ -183,27 +247,44 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
 
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-          <h2 style={{ color: colors.textPrimary, margin: 0, fontSize: isMobile ? '1.2rem' : '1.5rem' }}>Audit Logs</h2>
-          <div style={{ position: 'relative', width: isMobile ? '160px' : 'auto' }}>
-             <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: colors.textTertiary }} />
-             <input 
-                type="text" 
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                    background: colors.surface,
-                    border: `1px solid ${colors.border}`,
-                    color: colors.textPrimary,
-                    padding: '8px 12px 8px 36px',
-                    borderRadius: 4,
-                    width: '100%',
-                    maxWidth: '300px',
-                    boxSizing: 'border-box'
-                }}
-             />
+        <div style={{ marginBottom: spacing.md }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+            <h2 style={{ color: colors.textPrimary, margin: 0, fontSize: isMobile ? '1.2rem' : '1.5rem' }}>Audit Logs</h2>
+            <div style={{ position: 'relative', width: isMobile ? '160px' : 'auto' }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: colors.textTertiary }} />
+                <input 
+                    type="text" 
+                    placeholder="Search logs..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                        background: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.textPrimary,
+                        padding: '8px 12px 8px 36px',
+                        borderRadius: 4,
+                        width: '100%',
+                        maxWidth: '300px',
+                        boxSizing: 'border-box'
+                    }}
+                />
+            </div>
           </div>
+          
+          {/* Active Filter Chips */}
+          {activeUser && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '12px', color: colors.textSecondary }}>Active Filters:</span>
+                  <div style={{ 
+                      display: 'flex', alignItems: 'center', gap: 4, 
+                      background: colors.highlight, color: '#FFF', 
+                      padding: '2px 8px', borderRadius: 12, fontSize: '12px' 
+                  }}>
+                      User: {activeUser}
+                      <XCircle size={14} style={{ cursor: 'pointer' }} onClick={() => setActiveUser(null)} />
+                  </div>
+              </div>
+          )}
         </div>
 
         <div style={{ 
@@ -229,112 +310,137 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                     <div>Date</div>
                     <div>Category</div>
                     <div>Details</div>
-                    <div>Executor/Target</div>
+                    <div>Entities</div>
                 </div>
             )}
 
             <div style={{ flex: 1, overflowY: 'auto' }}>
                 {loading ? (
                     <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>Loading...</div>
+                ) : logs.length === 0 ? (
+                    <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>No logs found for this filter.</div>
                 ) : logs.map(log => {
-                    // Helper to visualize complex details
-                    const renderDetails = () => {
-                        // If imported embed
-                        if (log.details?.embeds && log.details.embeds.length > 0) {
-                            const embed = log.details.embeds[0];
-                            return (
+                    const isExpanded = expandedLogId === log.id;
+                    
+                    const renderLogContent = () => (
+                        <>
+                            {/* Render Embed or Text */}
+                            {log.details?.embeds && log.details.embeds.length > 0 ? (
                                 <div>
-                                    {embed.title && <div style={{ fontWeight: 600 }}>{embed.title}</div>}
-                                    {embed.description && <div style={{ fontSize: '12px', color: colors.textSecondary }}>{embed.description}</div>}
-                                    {embed.fields && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                                            {embed.fields.slice(0, 2).map((f: any) => (
-                                                <span key={f.name} style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: 4, fontSize: '11px' }}>
-                                                    {f.name}: {f.value}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                    {log.details.embeds[0].title && <div style={{ fontWeight: 600 }}>{log.details.embeds[0].title}</div>}
+                                    {log.details.embeds[0].description && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: 4 }}>{log.details.embeds[0].description}</div>}
                                 </div>
-                            );
-                        }
-                        // Default fallback
-                        return (
-                            <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
-                                {JSON.stringify(log.details || {}).slice(0, 150)}
-                                {JSON.stringify(log.details || {}).length > 150 && '...'}
-                            </div>
-                        );
-                    };
+                            ) : (
+                                <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
+                                    {/* Simple JSON dump or specific field extraction if needed */}
+                                    {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
+                                </div>
+                            )}
 
-                    // Mobile Layout
-                    if (isMobile) {
-                        return (
-                             <div key={log.id} style={{
-                                padding: spacing.md,
-                                borderBottom: `1px solid ${colors.border}`,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
-                                fontSize: '13px'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            {/* Comment Indicator */}
+                            {log.comments && log.comments.length > 0 && (
+                                <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, color: colors.highlight, fontSize: '11px' }}>
+                                    <MessageSquare size={12} />
+                                    {log.comments.length} comment{log.comments.length !== 1 ? 's' : ''}
+                                </div>
+                            )}
+                        </>
+                    );
+
+                    return (
+                        <div key={log.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                             {/* Log Item Row */}
+                            <div 
+                                onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                                style={{
+                                    padding: spacing.md,
+                                    cursor: 'pointer',
+                                    background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                    ...(isMobile ? { display: 'flex', flexDirection: 'column', gap: 8 } : {
+                                        display: 'grid', gridTemplateColumns: '140px 100px 1fr 200px', gap: spacing.md, alignItems: 'start'
+                                    })
+                                }}
+                            >
+                                {/* Date */}
+                                <div style={{ color: colors.textTertiary, fontSize: '12px' }}>
+                                    {new Date(log.createdAt).toLocaleString()}
+                                </div>
+                                
+                                {/* Category */}
+                                <div>
                                     <span style={{ 
-                                        background: 'rgba(255,255,255,0.1)', 
-                                        padding: '2px 8px', 
-                                        borderRadius: 4, 
-                                        fontSize: '11px',
-                                        fontWeight: 600
+                                        background: 'rgba(255,255,255,0.1)', padding: '2px 8px', 
+                                        borderRadius: 4, fontSize: '11px', fontWeight: 600 
                                     }}>
                                         {log.action}
                                     </span>
-                                    <span style={{ color: colors.textTertiary, fontSize: '11px' }}>
-                                        {new Date(log.createdAt).toLocaleDateString()}
-                                    </span>
                                 </div>
-                                <div style={{ color: colors.textPrimary }}>
-                                    {renderDetails()}
-                                </div>
-                                <div style={{ display: 'flex', gap: 12, fontSize: '11px', color: colors.textSecondary }}>
-                                    {log.executorId && <span>By: {log.executorId}</span>}
-                                    {log.targetId && <span>To: {log.targetId}</span>}
-                                </div>
-                            </div>
-                        );
-                    }
 
-                    // Desktop Layout
-                    return (
-                        <div key={log.id} style={{
-                            padding: spacing.md,
-                            borderBottom: `1px solid ${colors.border}`,
-                            display: 'grid',
-                            gridTemplateColumns: '140px 100px 1fr 200px',
-                            gap: spacing.md,
-                            fontSize: '13px',
-                            alignItems: 'start'
-                        }}>
-                            <div style={{ color: colors.textTertiary }}>
-                                {new Date(log.createdAt).toLocaleString()}
+                                {/* Content */}
+                                <div style={{ color: colors.textPrimary }}>
+                                    {renderLogContent()}
+                                </div>
+
+                                {/* Entities */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {log.executorId && <UserBadge userId={log.executorId} type="exec" />}
+                                    {log.targetId && <UserBadge userId={log.targetId} type="target" />}
+                                </div>
                             </div>
-                            <div>
-                                <span style={{ 
-                                    background: 'rgba(255,255,255,0.1)', 
-                                    padding: '2px 8px', 
-                                    borderRadius: 4, 
-                                    fontSize: '11px',
-                                    fontWeight: 600
+
+                            {/* Expanded Comments Section */}
+                            {isExpanded && (
+                                <div style={{ 
+                                    padding: '0 16px 16px 16px', 
+                                    background: 'rgba(0,0,0,0.2)',
+                                    borderTop: `1px dashed ${colors.border}`
                                 }}>
-                                    {log.action}
-                                </span>
-                            </div>
-                            <div style={{ color: colors.textPrimary }}>
-                                {renderDetails()}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '11px' }}>
-                                {log.executorId && <span>Exec: {log.executorId}</span>}
-                                {log.targetId && <span>Target: {log.targetId}</span>}
-                            </div>
+                                    <h4 style={{ color: colors.textSecondary, marginBottom: 8, fontSize: '12px', marginTop: 16 }}>Comments</h4>
+                                    
+                                    {/* List Comments */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                                        {log.comments?.map(comment => (
+                                            <div key={comment.id} style={{ 
+                                                background: colors.background, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}`
+                                            }}>
+                                                <div style={{ fontSize: '13px', color: colors.textPrimary }}>{comment.content}</div>
+                                                <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
+                                                    User: {comment.userId} • {new Date(comment.createdAt).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(!log.comments || log.comments.length === 0) && (
+                                            <div style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic' }}>No comments yet.</div>
+                                        )}
+                                    </div>
+
+                                    {/* Add Comment Input */}
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Write a comment..." 
+                                            value={commentInput}
+                                            onChange={(e) => setCommentInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddComment(log.id)}
+                                            style={{
+                                                flex: 1, background: colors.background, border: `1px solid ${colors.border}`,
+                                                color: colors.textPrimary, padding: '8px', borderRadius: 4
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={() => handleAddComment(log.id)}
+                                            disabled={submittingComment || !commentInput.trim()}
+                                            style={{
+                                                background: colors.primary, color: '#FFF', border: 'none',
+                                                padding: '0 16px', borderRadius: 4, cursor: 'pointer',
+                                                opacity: (submittingComment || !commentInput.trim()) ? 0.5 : 1
+                                            }}
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     );
                 })}
