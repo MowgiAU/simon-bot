@@ -4,7 +4,7 @@ import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
 
 /**
- * WordFilterPlugin - First plugin for Simon Bot
+ * WordFilterPlugin - First plugin for Fuji Studio
  * 
  * Functionality:
  * - Detects filtered words in user messages
@@ -22,7 +22,7 @@ export class WordFilterPlugin implements IPlugin {
   name = 'Word Filter';
   description = 'Filter inappropriate words and repost with replacements';
   version = '1.0.0';
-  author = 'Simon Bot Team';
+  author = 'Fuji Studio Team';
   
   requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages'];
   commands = ['filter'];
@@ -206,7 +206,7 @@ export class WordFilterPlugin implements IPlugin {
     
     if (!webhook) {
       webhook = await textChannel.createWebhook({
-        name: 'Simon Bot Filter',
+        name: 'Fuji Studio Filter',
         avatar: message.client.user?.avatarURL(),
       });
     }

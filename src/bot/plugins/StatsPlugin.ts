@@ -8,7 +8,7 @@ export class StatsPlugin implements IPlugin {
   name = 'Server Statistics';
   description = 'Tracks server activity, messages, voice time, and bans';
   version = '1.0.0';
-  author = 'Simon Bot Team';
+  author = 'Fuji Studio Team';
   
   requiredPermissions = [];
   commands = [];
