@@ -1,0 +1,44 @@
+name: Deploy Production
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            # Navigate to directory (adjust if needed)
+            cd ~/simon-bot || cd ~/new-simon || echo "Assuming we are in root or repo is in ~"
+            
+            # Pull latest code
+            echo "⬇️ Pulling changes..."
+            git pull origin main
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install
+            
+            # Update Database Schema
+            echo "🗄️ Updating Database..."
+            npx prisma generate
+            npx prisma db push
+            
+            # Build Bot and Dashboard
+            echo "🏗️ Building..."
+            npm run build
+            npm run dashboard:build
+            
+            # Restart Service
+            echo "🚀 Restarting PM2..."
+            pm2 restart all || pm2 start dist/bot/index.js --name "simon-bot"
+            
+            echo "✅ Deployment Complete"
