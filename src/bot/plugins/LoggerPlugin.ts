@@ -134,6 +134,15 @@ export class LoggerPlugin implements IPlugin {
                     const logData = this.parseMessageToLog(msg);
                     
                     // Construct search vector
+                    // Include Embed content (description, title, footer, fields)
+                    const embedText = msg.embeds.map(e => [
+                        e.title,
+                        e.description,
+                        e.footer?.text,
+                        e.author?.name,
+                        e.fields.map(f => `${f.name} ${f.value}`).join(' ')
+                    ].filter(Boolean).join(' ')).join(' ');
+
                     const searchParts = [
                         logData.executorId || msg.author.id,
                         logData.targetId,
@@ -142,6 +151,7 @@ export class LoggerPlugin implements IPlugin {
                         logData.targetName, // extracted name if any
                         logData.reason,
                         msg.content,
+                        embedText, // <--- Added this
                         category
                     ].filter(Boolean).join(' ').toLowerCase();
 
