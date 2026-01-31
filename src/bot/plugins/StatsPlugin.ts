@@ -35,8 +35,8 @@ export class StatsPlugin implements IPlugin {
     if (this.context.client?.guilds) {
         this.context.client.guilds.cache.forEach(guild => {
             guild.voiceStates.cache.forEach(state => {
-                if (state.channelId && state.id) {
-                    this.voiceSessions.set(state.id, Date.now());
+                if (state.channelId && state.id && state.guild.id) {
+                    this.voiceSessions.set(state.id, { startTime: Date.now(), guildId: state.guild.id });
                 }
             });
         });
@@ -66,7 +66,7 @@ export class StatsPlugin implements IPlugin {
               if (state.channelId && state.member && !state.member.user.bot) {
                   // Only track if not already tracked (though unlikely on startup)
                   if (!this.voiceSessions.has(state.id)) {
-                      this.voiceSessions.set(state.id, Date.now());
+                      this.voiceSessions.set(state.id, { startTime: Date.now(), guildId: state.guild.id });
                       count++;
                   }
               }
@@ -86,15 +86,13 @@ export class StatsPlugin implements IPlugin {
       const now = Date.now();
       const promises = [];
 
-      for (const [userId, startTime] of this.voiceSessions.entries()) {
-          const durationMs = now - startTime;
+      for (const [userId, session] of this.voiceSessions.entries()) {
+          const durationMs = now - session.startTime;
           const durationMinutes = Math.floor(durationMs / 1000 / 60);
           
           if (durationMinutes > 0) {
               // We need the guildId for the session. 
-              // Since voiceSessions map is simple (userId -> time), we don't have guildId stored directly.
-              // We need to find the user's guild from the client cache.
-              const guildId = this.findUserGuild(userId);
+              const guildId = session.guildId;
               
               if (guildId) {
                   promises.push(this.context.db.serverStats.upsert({

@@ -118,7 +118,7 @@ export class WordFilterPlugin implements IPlugin {
       // Log action to DB
       if (this.context) {
           await this.context.logAction({
-              guildId: message.guildId,
+              guildId: message.guild.id,
               actionType: 'message_filtered',
               executorId: message.author.id,
               targetId: message.channelId,
