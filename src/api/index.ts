@@ -438,11 +438,6 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
       where: whereClause,
       include: { comments: { orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'desc' },
-
-    const logs = await db.actionLog.findMany({
-      where: whereClause,
-      include: { comments: { orderBy: { createdAt: 'asc' } } },
-      orderBy: { createdAt: 'desc' },
       take: Number(limit),
       skip: (Number(page) - 1) * Number(limit),
     });
