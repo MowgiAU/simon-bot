@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, typography, borderRadius } from '../theme/theme';
 import { SidebarStyles } from './SidebarStyles';
-
+import { 
+  LayoutDashboard, 
+  ScrollText, 
+  Type, 
+  Settings, 
+  LogOut, 
+  ChevronLeft, 
+  ChevronRight, 
+  Music 
+} from 'lucide-react';
 
 import { User, Guild } from '../components/AuthProvider';
 
@@ -37,10 +46,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
-            {collapsed ? '▶' : '◀'}
+            {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
-          <span className="logo-icon">♪</span>
+          <span className="logo-icon"><Music size={24} color={colors.primary} /></span>
           <h1>Simon Bot</h1>
         </div>
         <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
@@ -62,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('dashboard')}
             title={collapsed ? "Overview" : ""}
           >
-            <span className="nav-icon">🏠</span>
+            <span className="nav-icon"><LayoutDashboard size={20} /></span>
             <span className="nav-label">Overview</span>
           </button>
           <button
@@ -70,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('logs')}
             title={collapsed ? "Audit Logs" : ""}
           >
-            <span className="nav-icon">📜</span>
+            <span className="nav-icon"><ScrollText size={20} /></span>
             <span className="nav-label">Audit Logs</span>
           </button>
         </div>
@@ -82,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('word-filter-settings')}
             title={collapsed ? "Word Filter" : ""}
           >
-            <span className="nav-icon">🔤</span>
+            <span className="nav-icon"><Type size={20} /></span>
             <span className="nav-label">Word Filter</span>
           </button>
         </div>
@@ -94,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('plugins')}
             title={collapsed ? "Plugins" : ""}
           >
-            <span className="nav-icon">⚙️</span>
+            <span className="nav-icon"><Settings size={20} /></span>
             <span className="nav-label">Plugins</span>
           </button>
         </div>
@@ -105,7 +114,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} alt="User" />
           <div className="user-info">
             <p className="user-name">{user.username}</p>
-            <button className="logout-btn" onClick={logout}>Logout</button>
+            <button className="logout-btn" onClick={logout}>
+              <LogOut size={16} style={{ marginRight: 6 }} />
+              Logout
+            </button>
           </div>
         </div>
       </div>

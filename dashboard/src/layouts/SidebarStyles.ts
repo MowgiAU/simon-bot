@@ -41,6 +41,7 @@ export const SidebarStyles = `
 
   .sidebar.collapsed .logo {
     justify-content: center;
+    margin-top: 32px;
   }
   
   .sidebar-header {
@@ -209,15 +210,15 @@ export const SidebarStyles = `
     cursor: pointer;
     transition: all 0.2s;
     width: 100%;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .logout-btn:hover {
      background: rgba(242, 123, 19, 0.2);
      transform: translateY(-1px);
   }
-
-  .user-name {
 
   .user-name {
     color: ${colors.textPrimary};
