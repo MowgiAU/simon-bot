@@ -19,15 +19,49 @@ model Guild {
   updatedAt DateTime @updatedAt
 
   // Relations
-  members      Member[]
-  wordGroups   WordGroup[]
-  filterSettings FilterSettings?
-  channelStats ChannelStats[]
-  serverStats  ServerStats[]
-  actionLogs   ActionLog[]
-  userNotes    UserNote[]
+  members            Member[]
+  wordGroups         WordGroup[]
+  filterSettings     FilterSettings?
+  channelStats       ChannelStats[]
+  serverStats        ServerStats[]
+  actionLogs         ActionLog[]
+  userNotes          UserNote[]
+  moderationSettings ModerationSettings?
 
   @@map("guilds")
+}
+
+// Moderation Settings
+model ModerationSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  logChannelId   String?  // Channel to send nice embeds to
+  dmUponAction   Boolean  @default(true) // DM user when kicked/banned?
+  
+  permissions    ModerationPermission[]
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@map("moderation_settings")
+}
+
+model ModerationPermission {
+  id             String   @id @default(cuid())
+  settingsId     String
+  roleId         String   // Discord Role ID
+  
+  // Permissions
+  canWarn        Boolean @default(false)
+  canKick        Boolean @default(false)
+  canBan         Boolean @default(false)
+  canTimeout     Boolean @default(false)
+  canPurge       Boolean @default(false)
+  canViewLogs    Boolean @default(false)
+  
+  settings       ModerationSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  
+  @@unique([settingsId, roleId])
+  @@map("moderation_permissions")
 }
 
 // Action Logs for Auditing

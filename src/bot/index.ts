@@ -16,6 +16,7 @@ import { WordFilterPlugin } from './plugins/WordFilterPlugin';
 import { StatsPlugin } from './plugins/StatsPlugin';
 import { LoggerPlugin } from './plugins/LoggerPlugin';
 import { StagingTestPlugin } from './plugins/StagingTestPlugin';
+import { ModerationPlugin } from './plugins/ModerationPlugin';
 
 dotenv.config();
 
@@ -80,6 +81,7 @@ export class SimonBot {
       this.pluginManager.register(new StatsPlugin());
       this.pluginManager.register(new LoggerPlugin());
       this.pluginManager.register(new StagingTestPlugin());
+      this.pluginManager.register(new ModerationPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -323,6 +325,40 @@ export class SimonBot {
         );
 
     commands.push(loggerCommand.toJSON());
+
+    // 2. Moderation Commands
+    const kickCommand = new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Kick a user')
+        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
+        .addUserOption(opt => opt.setName('user').setDescription('User to kick').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for kick').setRequired(false));
+
+    const banCommand = new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Ban a user')
+        .setDefaultMemberPermissions(0x0000000000000004) // BAN_MEMBERS
+        .addUserOption(opt => opt.setName('user').setDescription('User to ban').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for ban').setRequired(false));
+
+    const timeoutCommand = new SlashCommandBuilder()
+        .setName('timeout')
+        .setDescription('Timeout a user')
+        .setDefaultMemberPermissions(0x0000010000000000) // MODERATE_MEMBERS
+        .addUserOption(opt => opt.setName('user').setDescription('User to timeout').setRequired(true))
+        .addIntegerOption(opt => opt.setName('duration').setDescription('Duration in minutes').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for timeout').setRequired(false));
+
+    const purgeCommand = new SlashCommandBuilder()
+        .setName('purge')
+        .setDescription('Delete multiple messages')
+        .setDefaultMemberPermissions(0x0000000000002000) // MANAGE_MESSAGES
+        .addIntegerOption(opt => opt.setName('amount').setDescription('Number of messages to delete').setRequired(true).setMinValue(1).setMaxValue(100));
+
+    commands.push(kickCommand.toJSON());
+    commands.push(banCommand.toJSON());
+    commands.push(timeoutCommand.toJSON());
+    commands.push(purgeCommand.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
     const guildId = process.env.GUILD_ID;
