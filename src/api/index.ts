@@ -584,9 +584,9 @@ app.post('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
     });
 
     res.json(note);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to add user note', error);
-    res.status(500).json({ error: 'Failed to add user note' });
+    res.status(500).json({ error: 'Failed to add user note', details: error.message });
   }
 });
 
@@ -632,9 +632,9 @@ app.get('/api/guilds/:guildId/tracked-users', async (req, res) => {
     });
 
     res.json(trackedUsers);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to get tracked users', error);
-    res.status(500).json({ error: 'Failed to get tracked users' });
+    res.status(500).json({ error: 'Failed to get tracked users', details: error.message });
   }
 });
 
