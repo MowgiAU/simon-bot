@@ -11,7 +11,7 @@ export const SidebarStyles = `
     position: fixed;
     left: 0;
     top: 0;
-    overflow-y: auto;
+    overflow: visible;
     z-index: 1000;
     transition: width 0.3s ease, transform 0.3s ease;
   }
@@ -41,7 +41,7 @@ export const SidebarStyles = `
 
   .sidebar.collapsed .logo {
     justify-content: center;
-    margin-top: 32px;
+    margin-top: 0;
   }
   
   .sidebar-header {
@@ -52,29 +52,33 @@ export const SidebarStyles = `
 
   .collapse-btn {
     position: absolute;
-    right: 12px;
-    top: 12px;
-    background: transparent;
-    border: none;
-    color: ${colors.textTertiary};
+    right: -12px;
+    top: 32px;
+    background: ${colors.surface};
+    border: 1px solid ${colors.border};
+    color: ${colors.textSecondary};
     cursor: pointer;
-    font-size: 16px;
-    padding: 4px;
-    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1002;
+    padding: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
 
   .sidebar.collapsed .collapse-btn {
-    right: 50%;
-    transform: translateX(50%);
-    top: 10px;
+    right: -12px;
+    transform: none;
+    top: 32px;
   }
 
   .collapse-btn:hover {
     background: ${colors.surfaceLight};
     color: ${colors.textPrimary};
+    transform: scale(1.1);
   }
 
   .logo {
