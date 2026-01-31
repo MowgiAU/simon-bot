@@ -94,11 +94,11 @@ async function main() {
         }
     }
     
-    // Also try Global Register (takes 1h to update, but good fallback)
-    logger.info('Registering Global Commands...');
+    // REMOVE Global Commands to prevent duplicates
+    logger.info('Removing Global Commands (to prevent duplicates)...');
     await rest.put(
         Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-        { body: commands },
+        { body: [] },
     );
 
     logger.info('Successfully reloaded application (/) commands.');
