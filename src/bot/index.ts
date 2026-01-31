@@ -14,6 +14,7 @@ import { PluginManager } from './core/PluginManager';
 import { PluginLoader } from './utils/PluginLoader';
 import WordFilterPlugin from './plugins/WordFilterPlugin';
 import StatsPlugin from './plugins/StatsPlugin';
+import { LoggerPlugin } from './plugins/LoggerPlugin';
 
 dotenv.config();
 
@@ -74,8 +75,9 @@ export class SimonBot {
       const plugins = await this.pluginLoader.loadPlugins();
       
       // For now, manually register the word filter plugin
-      this.pluginManager.register(WordFilterPlugin);
-      this.pluginManager.register(StatsPlugin);
+      this.pluginManager.register(new WordFilterPlugin());
+      this.pluginManager.register(new StatsPlugin());
+      this.pluginManager.register(new LoggerPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
