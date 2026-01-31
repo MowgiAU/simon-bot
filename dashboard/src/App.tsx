@@ -3,13 +3,14 @@ import React, { useState } from 'react';
 import { Sidebar } from './layouts/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
+import { ModerationSettingsPage } from './pages/ModerationSettings';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 import { colors } from './theme/theme';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import logoUrl from './assets/logo.svg';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -113,6 +114,8 @@ const AppContent: React.FC = () => {
     switch (activeSection) {
       case 'word-filter-settings':
         return <WordFilterSettings guildId={selectedGuild.id} />;
+      case 'moderation':
+        return <ModerationSettingsPage />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':

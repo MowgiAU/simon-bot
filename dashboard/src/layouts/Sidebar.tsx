@@ -5,6 +5,7 @@ import {
   LayoutDashboard, 
   ScrollText, 
   Type, 
+  ShieldAlert, // Import Shield for Moderation
   Settings, 
   LogOut, 
   ChevronLeft, 
@@ -86,6 +87,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
         <div className="nav-group">
           <h3 className="nav-group-title">Plugins</h3>
+          <button
+            className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
+            onClick={() => onNavigate('moderation')}
+            title={collapsed ? "Moderation" : ""}
+          >
+            <span className="nav-icon"><ShieldAlert size={20} /></span>
+            <span className="nav-label">Moderation</span>
+          </button>
           <button
             className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
             onClick={() => onNavigate('word-filter-settings')}

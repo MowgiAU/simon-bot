@@ -724,6 +724,123 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
   }
 });
 
+
+// --- Moderation Settings Routes ---
+
+// Get moderation settings
+app.get('/api/guilds/:guildId/moderation', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        // Auth check
+        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const settings = await db.moderationSettings.findUnique({
+            where: { guildId },
+            include: { permissions: true }
+        });
+        
+        // Return default if not exists
+        if (!settings) {
+            return res.json({ 
+                guildId, 
+                logChannelId: null, 
+                dmUponAction: true, 
+                permissions: [] 
+            });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to get mod settings', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Update basic settings
+app.post('/api/guilds/:guildId/moderation', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { logChannelId, dmUponAction } = req.body;
+        
+        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const settings = await db.moderationSettings.upsert({
+            where: { guildId },
+            update: { logChannelId, dmUponAction },
+            create: { guildId, logChannelId, dmUponAction },
+            include: { permissions: true }
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update mod settings', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Update role permissions
+app.post('/api/guilds/:guildId/moderation/permissions', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { roleId, permissions } = req.body;
+        
+        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        // Ensure parent settings exist
+        let settings = await db.moderationSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.moderationSettings.create({ data: { guildId } });
+        }
+
+        // Upsert permissions
+        const perm = await db.moderationPermission.upsert({
+            where: { 
+                settingsId_roleId: {
+                    settingsId: settings.id,
+                    roleId
+                }
+            },
+            update: { ...permissions },
+            create: {
+                settingsId: settings.id,
+                roleId,
+                ...permissions
+            }
+        });
+        res.json(perm);
+    } catch (e) {
+        logger.error('Failed to update permissions', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Proxy to get channels/roles (Generic)
+app.get('/api/guilds/:guildId/channels', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        // Filter for text channels only
+        const channels = response.data.filter((c: any) => c.type === 0);
+        res.json(channels);
+    } catch (e) { res.status(500).json([]); }
+});
+
+app.get('/api/guilds/:guildId/roles', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        res.json(response.data);
+    } catch (e) { res.status(500).json([]); }
+});
+
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);
