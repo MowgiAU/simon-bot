@@ -38,11 +38,27 @@ apt install -y git
 # Install PostgreSQL (Optional but recommended for Staging)
 echo "📦 Installing PostgreSQL..."
 apt install -y postgresql postgresql-contrib
-echo "⚠️  PostgreSQL installed. You will need to create a database and user manually:"
-echo "   sudo -u postgres psql"
-echo "   CREATE DATABASE simon_bot;"
-echo "   CREATE USER simon_user WITH ENCRYPTED PASSWORD 'password';"
-echo "   GRANT ALL PRIVILEGES ON DATABASE simon_bot TO simon_user;"
+
+if [ -n "$DB_PASSWORD" ]; then
+    echo "⚙️  Configuring PostgreSQL automatically..."
+    # Check if DB exists to avoid errors
+    sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'simon_staging'" | grep -q 1 || sudo -u postgres psql -c "CREATE DATABASE simon_staging;"
+    
+    # Check if user exists
+    sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname = 'simon_runner'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER simon_runner WITH ENCRYPTED PASSWORD '$DB_PASSWORD';"
+    
+    # Grant privileges
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE simon_staging TO simon_runner;"
+    sudo -u postgres psql -c "ALTER DATABASE simon_staging OWNER TO simon_runner;"
+    echo "✅ Database configured: simon_staging / simon_runner"
+else
+    echo "⚠️  No database password provided. Skipping automatic DB setup."
+    echo "   You will need to create the database manually:"
+    echo "   sudo -u postgres psql"
+    echo "   CREATE DATABASE simon_staging;"
+    echo "   CREATE USER simon_runner WITH ENCRYPTED PASSWORD 'password';"
+    echo "   GRANT ALL PRIVILEGES ON DATABASE simon_staging TO simon_runner;"
+fi
 
 # Create app directory
 echo "📁 Creating application directory..."
@@ -51,9 +67,13 @@ cd /root/simon-bot
 
 # Clone repository
 echo "🔗 Cloning repository..."
-read -p "Enter GitHub repository URL (e.g., https://github.com/user/simon-bot.git): " REPO_URL
-read -p "Enter branch to deploy (default: main): " BRANCH
-BRANCH=${BRANCH:-main}
+REPO_URL=${1}
+BRANCH=${2:-main}
+DB_PASSWORD=${3}
+
+if [ -z "$REPO_URL" ]; then
+    read -p "Enter GitHub repository URL (e.g., https://github.com/user/simon-bot.git): " REPO_URL
+fi
 
 git clone -b $BRANCH $REPO_URL .
 
