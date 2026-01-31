@@ -339,6 +339,7 @@ export class SimonBot {
         .setDescription('Ban a user')
         .setDefaultMemberPermissions(0x0000000000000004) // BAN_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to ban').setRequired(true))
+        .addStringOption(opt => opt.setName('duration').setDescription('Duration (e.g. 1d, 7d). Leave empty for permanent.').setRequired(false))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for ban').setRequired(false));
 
     const timeoutCommand = new SlashCommandBuilder()

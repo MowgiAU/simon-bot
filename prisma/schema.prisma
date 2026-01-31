@@ -110,6 +110,19 @@ model UserNote {
   @@map("user_notes")
 }
 
+model ScheduledTask {
+  id        String   @id @default(cuid())
+  guildId   String
+  type      String   // e.g. 'unban'
+  targetId  String
+  executeAt DateTime
+  data      Json?    // e.g. { "reason": "Time Served" }
+  createdAt DateTime @default(now())
+
+  @@index([executeAt])
+  @@map("scheduled_tasks")
+}
+
 // Guild members - leveling, currency, etc.
 model Member {
   id        String   @id @default(cuid())

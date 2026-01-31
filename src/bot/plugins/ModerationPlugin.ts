@@ -39,6 +39,7 @@ export class ModerationPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+    private taskInterval?: NodeJS.Timeout;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
@@ -47,8 +48,10 @@ export class ModerationPlugin implements IPlugin {
         this.logger.info('Moderation Plugin initialized');
         
         // Ensure settings exist for all guilds
-        // We do this in a non-blocking way
         this.initializeSettings();
+        
+        // Start scheduler
+        this.startTaskProcessor();
     }
 
     private async initializeSettings() {
@@ -67,7 +70,43 @@ export class ModerationPlugin implements IPlugin {
         }
     }
 
-    async shutdown(): Promise<void> {}
+    private startTaskProcessor() {
+        // Run immediately then interval
+        this.processScheduledTasks();
+        this.taskInterval = setInterval(() => this.processScheduledTasks(), 60 * 1000);
+    }
+
+    private async processScheduledTasks() {
+        try {
+            const now = new Date();
+            const tasks = await this.db.scheduledTask.findMany({
+                where: { executeAt: { lte: now } }
+            });
+
+            for (const task of tasks) {
+                if (task.type === 'unban') {
+                    const guild = this.client.guilds.cache.get(task.guildId);
+                    if (guild) {
+                        try {
+                            const reason = (task.data as any)?.reason || 'Ban duration expired';
+                            await guild.members.unban(task.targetId, reason);
+                            this.logger.info(`Auto-unbanned ${task.targetId} in ${task.guildId}`);
+                        } catch (e) {
+                            this.logger.error(`Failed to auto-unban ${task.targetId} in ${task.guildId}`, e);
+                        }
+                    }
+                }
+                // Always delete processed task
+                await this.db.scheduledTask.delete({ where: { id: task.id } });
+            }
+        } catch (error) {
+            this.logger.error('Error processing scheduled tasks', error);
+        }
+    }
+
+    async shutdown(): Promise<void> {
+        if (this.taskInterval) clearInterval(this.taskInterval);
+    }
 
     // Event Handler
     async onInteractionCreate(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -115,16 +154,46 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleBan(interaction: ChatInputCommandInteraction) {
-         const target = interaction.options.getMember('user') as GuildMember;
+         const targetMember = interaction.options.getMember('user') as GuildMember;
+         const user = interaction.options.getUser('user'); 
          const reason = interaction.options.getString('reason') || 'No reason provided';
+         const durationStr = interaction.options.getString('duration');
          
-         if (!target) return interaction.reply({ content: 'User not found', ephemeral: true });
-         if (!target.bannable) return interaction.reply({ content: 'Cannot ban user.', ephemeral: true });
+         if (!user) return interaction.reply({ content: 'User not found', ephemeral: true });
+
+         // If member object exists, check permissions
+         if (targetMember && !targetMember.bannable) return interaction.reply({ content: 'Cannot ban user (higher role or missing permissions).', ephemeral: true });
 
          try {
-             await target.ban({ reason });
-             await this.logAction(interaction.guildId!, 'ban', interaction.user.id, target.id, { reason });
-             await interaction.reply({ content: `🔨 **${target.user.tag}** was banned. Reason: ${reason}` });
+             let unbanDate: Date | null = null;
+             if (durationStr) {
+                 const ms = this.parseDuration(durationStr);
+                 if (!ms) {
+                     return interaction.reply({ content: 'Invalid duration. Use 1d, 24h, 30m etc.', ephemeral: true });
+                 }
+                 unbanDate = new Date(Date.now() + ms);
+             }
+
+             await interaction.guild!.members.ban(user, { reason });
+             
+             if (unbanDate) {
+                 await this.db.scheduledTask.create({
+                     data: {
+                         guildId: interaction.guildId!,
+                         type: 'unban',
+                         targetId: user.id,
+                         executeAt: unbanDate,
+                         data: { reason: 'Ban duration expired' }
+                     }
+                 });
+             }
+
+             await this.logAction(interaction.guildId!, 'ban', interaction.user.id, user.id, { reason, duration: durationStr || 'Permanent' });
+             
+             const msg = durationStr 
+                ? `🔨 **${user.tag}** was banned for ${durationStr}. Reason: ${reason}`
+                : `🔨 **${user.tag}** was banned permanently. Reason: ${reason}`;
+             await interaction.reply({ content: msg });
          } catch (e) {
              this.logger.error('Ban failed', e);
              await interaction.reply({ content: 'Ban failed.', ephemeral: true });
@@ -209,6 +278,22 @@ export class ModerationPlugin implements IPlugin {
             }
         } catch(e) {
             this.logger.error('Failed to log action', e);
+        }
+    }
+
+    private parseDuration(input: string): number | null {
+        const regex = /^(\d+)([smhdw])$/i;
+        const match = input.match(regex);
+        if (!match) return null;
+        const value = parseInt(match[1]);
+        const unit = match[2].toLowerCase();
+        switch (unit) {
+            case 's': return value * 1000;
+            case 'm': return value * 60 * 1000;
+            case 'h': return value * 60 * 60 * 1000;
+            case 'd': return value * 24 * 60 * 60 * 1000;
+            case 'w': return value * 7 * 24 * 60 * 60 * 1000;
+            default: return null;
         }
     }
 }
