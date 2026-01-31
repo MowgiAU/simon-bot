@@ -176,10 +176,11 @@ export class WordFilterPlugin implements IPlugin {
         // This catches plurals (lime->limes, box->boxes) but avoids substring matches (Hi->This)
         const regex = new RegExp(`\\b${escapedWord}(?:s|es)?\\b`, 'gi');
         
-        if (regex.test(newContent)) {
+        const matches = newContent.match(regex);
+        if (matches && matches.length > 0) {
           newContent = newContent.replace(regex, replacementStr);
           filtered = true;
-          triggers.push(word.word);
+          triggers.push(...matches);
         }
       }
     }
