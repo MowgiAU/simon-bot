@@ -18,7 +18,9 @@ import {
   Hash,
   StickyNote,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  Plus
 } from 'lucide-react';
 
 interface LogComment {
@@ -34,6 +36,12 @@ interface UserNote {
   adminId: string;
   content: string;
   createdAt: string;
+}
+
+interface TrackedUser {
+  userId: string;
+  noteCount: number;
+  lastNoteAt: string;
 }
 
 interface ActionLog {
@@ -64,10 +72,16 @@ interface LogsProps {
 }
 
 export const Logs: React.FC<LogsProps> = ({ guildId }) => {
+  const [activeTab, setActiveTab] = useState<'logs' | 'users'>('logs');
   const [logs, setLogs] = useState<ActionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Tracked Users State
+  const [trackedUsers, setTrackedUsers] = useState<TrackedUser[]>([]);
+  const [loadingTracked, setLoadingTracked] = useState(false);
+  const [newUserToTrack, setNewUserToTrack] = useState('');
   
   // Filters
   const [activeCategory, setActiveCategory] = useState('all');
@@ -148,6 +162,55 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
       }
   };
 
+  const fetchTrackedUsers = async () => {
+    try {
+        setLoadingTracked(true);
+        const res = await fetch(`/api/guilds/${guildId}/tracked-users`, { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            setTrackedUsers(data);
+        }
+    } catch (err) {
+        console.error("Failed to fetch tracked users", err);
+    } finally {
+        setLoadingTracked(false);
+    }
+  };
+
+  const handleTrackNewUser = async () => {
+    if (!newUserToTrack.trim()) return;
+    
+    try {
+        // Create an initial note to "track" them
+        const res = await fetch(`/api/guilds/${guildId}/users/${newUserToTrack}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: 'Manual tracking started.' }),
+            credentials: 'include'
+        });
+        
+        if (res.ok) {
+            await fetchTrackedUsers();
+            setNewUserToTrack('');
+        }
+    } catch (e) {
+        console.error("Failed to track user", e);
+    }
+  };
+
+  // Switch to logs tab and filter by user when clicking a tracked user
+  const handleUserClick = (userId: string) => {
+      setActiveUser(userId);
+      setActiveTab('logs');
+  };
+  
+  // When tab changes, fetch data if needed
+  useEffect(() => {
+      if (activeTab === 'users') {
+          fetchTrackedUsers();
+      }
+  }, [activeTab]);
+
   useEffect(() => {
     if (activeUser) {
         setShowNotes(true);
@@ -209,7 +272,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
 
   const UserBadge = ({ userId, type }: { userId: string, type: 'exec' | 'target' }) => (
       <div 
-        onClick={(e) => { e.stopPropagation(); setActiveUser(userId); }}
+        onClick={(e) => { e.stopPropagation(); setActiveUser(userId); setActiveTab('logs'); }}
         style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -241,7 +304,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         position: 'relative'
     }}>
       {/* Mobile Filter Toggle */}
-      {isMobile && (
+      {isMobile && activeTab === 'logs' && (
         <button 
             onClick={() => setShowFilters(!showFilters)}
             style={{
@@ -263,7 +326,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         </button>
       )}
 
-      {/* Filters Sidebar */}
+      {/* Filters Sidebar - Only show in Logs tab */}
+      {activeTab === 'logs' && (
       <div style={{ 
         width: isMobile ? '100%' : '240px', 
         flexShrink: 0, 
@@ -309,325 +373,492 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
             ))}
         </div>
       </div>
+      )}
 
       {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ marginBottom: spacing.md }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-            <h2 style={{ color: colors.textPrimary, margin: 0, fontSize: isMobile ? '1.2rem' : '1.5rem' }}>Audit Logs</h2>
-            <div style={{ position: 'relative', width: isMobile ? '160px' : 'auto' }}>
-                <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: colors.textTertiary }} />
-                <input 
-                    type="text" 
-                    placeholder="Search logs..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                        background: colors.surface,
-                        border: `1px solid ${colors.border}`,
-                        color: colors.textPrimary,
-                        padding: '8px 12px 8px 36px',
-                        borderRadius: 4,
-                        width: '100%',
-                        maxWidth: '300px',
-                        boxSizing: 'border-box'
-                    }}
-                />
-            </div>
-          </div>
-          
-          {/* Active Filter Chips & User Notes Section */}
-          {activeUser && (
-              <div style={{ 
-                  background: 'rgba(255, 159, 28, 0.1)', 
-                  border: `1px solid ${colors.highlight}`,
-                  borderRadius: 8,
-                  padding: spacing.md,
-                  marginBottom: spacing.md,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12
-              }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: colors.highlight }}>Filtered User: {activeUser}</span>
-                        <XCircle 
-                            size={16} 
-                            style={{ cursor: 'pointer', color: colors.textSecondary }} 
-                            onClick={() => setActiveUser(null)} 
-                            title="Clear Filter"
-                        />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: colors.textSecondary }}>
-                          <StickyNote size={14} />
-                          {userNotes.length} Note{userNotes.length !== 1 ? 's' : ''}
-                      </div>
-                  </div>
-
-                  {/* Notes List */}
-                  {userNotes.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '150px', overflowY: 'auto' }}>
-                          {userNotes.map(note => (
-                              <div key={note.id} style={{ 
-                                  background: colors.surface, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}` 
-                              }}>
-                                  <div style={{ fontSize: '13px', color: colors.textPrimary }}>{note.content}</div>
-                                  <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
-                                      Admin: {note.adminId.slice(0,8)}... • {new Date(note.createdAt).toLocaleString()}
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  )}
-
-                  {/* Add Note Input */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                      <input 
-                          type="text" 
-                          placeholder="Add a persistent note for this user..."
-                          value={noteInput}
-                          onChange={(e) => setNoteInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddUserNote()}
-                          style={{
-                              flex: 1, background: colors.surface, border: `1px solid ${colors.border}`,
-                              color: colors.textPrimary, padding: '8px', borderRadius: 4, fontSize: '13px'
-                          }}
-                      />
-                      <button 
-                          onClick={handleAddUserNote}
-                          disabled={submittingNote || !noteInput.trim()}
-                          style={{
-                              background: colors.highlight, color: '#FFF', border: 'none',
-                              padding: '0 16px', borderRadius: 4, cursor: 'pointer',
-                              fontWeight: 600,
-                              opacity: (submittingNote || !noteInput.trim()) ? 0.5 : 1
-                          }}
-                      >
-                          Save
-                      </button>
-                  </div>
-              </div>
-          )}
+        
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: spacing.md, borderBottom: `1px solid ${colors.border}`, paddingBottom: 0 }}>
+             <button
+                onClick={() => setActiveTab('logs')}
+                style={{
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: `2px solid ${activeTab === 'logs' ? colors.highlight : 'transparent'}`,
+                    padding: '8px 16px',
+                    color: activeTab === 'logs' ? colors.highlight : colors.textSecondary,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 8
+                }}
+             >
+                 <ShieldAlert size={16} /> Audit Logs
+             </button>
+             <button
+                onClick={() => setActiveTab('users')}
+                style={{
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: `2px solid ${activeTab === 'users' ? colors.highlight : 'transparent'}`,
+                    padding: '8px 16px',
+                    color: activeTab === 'users' ? colors.highlight : colors.textSecondary,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 8
+                }}
+             >
+                 <Users size={16} /> Tracked Users
+             </button>
         </div>
 
-        <div style={{ 
-            flex: 1, 
-            background: colors.surface, 
-            borderRadius: 8, 
-            border: `1px solid ${colors.border}`, 
-            display: 'flex', 
-            flexDirection: 'column',
-            overflow: 'hidden'
-        }}>
-            {/* Desktop Header */}
-            {!isMobile && (
-                <div style={{
+        {activeTab === 'logs' ? (
+        <>
+            <div style={{ marginBottom: spacing.md }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                <h2 style={{ color: colors.textPrimary, margin: 0, fontSize: isMobile ? '1.2rem' : '1.5rem' }}>Audit Logs</h2>
+                <div style={{ position: 'relative', width: isMobile ? '160px' : 'auto' }}>
+                    <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: colors.textTertiary }} />
+                    <input 
+                        type="text" 
+                        placeholder="Search logs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{
+                            background: colors.surface,
+                            border: `1px solid ${colors.border}`,
+                            color: colors.textPrimary,
+                            padding: '8px 12px 8px 36px',
+                            borderRadius: 4,
+                            width: '100%',
+                            maxWidth: '300px',
+                            boxSizing: 'border-box'
+                        }}
+                    />
+                </div>
+            </div>
+            
+            {/* Active Filter Chips & User Notes Section */}
+            {activeUser && (
+                <div style={{ 
+                    background: 'rgba(255, 159, 28, 0.1)', 
+                    border: `1px solid ${colors.highlight}`,
+                    borderRadius: 8,
                     padding: spacing.md,
-                    borderBottom: `1px solid ${colors.border}`,
-                    display: 'grid',
-                    gridTemplateColumns: '140px 100px 1fr 200px',
-                    fontWeight: 600,
-                    color: colors.textSecondary,
-                    fontSize: '13px'
+                    marginBottom: spacing.md,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
                 }}>
-                    <div>Date</div>
-                    <div>Category</div>
-                    <div>Details</div>
-                    <div>Entities</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: colors.highlight }}>Filtered User: {activeUser}</span>
+                            <XCircle 
+                                size={16} 
+                                style={{ cursor: 'pointer', color: colors.textSecondary }} 
+                                onClick={() => setActiveUser(null)} 
+                                title="Clear Filter"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: colors.textSecondary }}>
+                            <StickyNote size={14} />
+                            {userNotes.length} Note{userNotes.length !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+
+                    {/* Notes List */}
+                    {userNotes.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '150px', overflowY: 'auto' }}>
+                            {userNotes.map(note => (
+                                <div key={note.id} style={{ 
+                                    background: colors.surface, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}` 
+                                }}>
+                                    <div style={{ fontSize: '13px', color: colors.textPrimary }}>{note.content}</div>
+                                    <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
+                                        Admin: {note.adminId.slice(0,8)}... • {new Date(note.createdAt).toLocaleString()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Add Note Input */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <input 
+                            type="text" 
+                            placeholder="Add a persistent note for this user..."
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddUserNote()}
+                            style={{
+                                flex: 1, background: colors.surface, border: `1px solid ${colors.border}`,
+                                color: colors.textPrimary, padding: '8px', borderRadius: 4, fontSize: '13px'
+                            }}
+                        />
+                        <button 
+                            onClick={handleAddUserNote}
+                            disabled={submittingNote || !noteInput.trim()}
+                            style={{
+                                background: colors.highlight, color: '#FFF', border: 'none',
+                                padding: '0 16px', borderRadius: 4, cursor: 'pointer',
+                                fontWeight: 600,
+                                opacity: (submittingNote || !noteInput.trim()) ? 0.5 : 1
+                            }}
+                        >
+                            Save
+                        </button>
+                    </div>
                 </div>
             )}
+            </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                {loading ? (
-                    <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>Loading...</div>
-                ) : logs.length === 0 ? (
-                    <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>No logs found for this filter.</div>
-                ) : logs.map(log => {
-                    const isExpanded = expandedLogId === log.id;
-                    
-                    const renderLogContent = () => {
-                        // 1. Check for Word Filter JSON structure
-                        if (log.action === 'message_filtered' && log.details?.triggers) {
-                            return (
-                                <div style={{ fontSize: '13px' }}>
-                                    <div>
-                                        <span style={{ color: colors.error, fontWeight: 600 }}>Filtered Words: </span>
-                                        {Array.isArray(log.details.triggers) ? log.details.triggers.join(', ') : log.details.triggers}
-                                    </div>
-                                    <div style={{ marginTop: 4, color: colors.textSecondary }}>
-                                        "{log.details.originalContent}"
-                                    </div>
-                                </div>
-                            );
-                        }
+            <div style={{ 
+                flex: 1, 
+                background: colors.surface, 
+                borderRadius: 8, 
+                border: `1px solid ${colors.border}`, 
+                display: 'flex', 
+                flexDirection: 'column',
+                overflow: 'hidden'
+            }}>
+                {/* Desktop Header */}
+                {!isMobile && (
+                    <div style={{
+                        padding: spacing.md,
+                        borderBottom: `1px solid ${colors.border}`,
+                        display: 'grid',
+                        gridTemplateColumns: '140px 100px 1fr 200px',
+                        fontWeight: 600,
+                        color: colors.textSecondary,
+                        fontSize: '13px'
+                    }}>
+                        <div>Date</div>
+                        <div>Category</div>
+                        <div>Details</div>
+                        <div>Entities</div>
+                    </div>
+                )}
 
-                        // 2. Render Embeds
-                        if (log.details?.embeds && log.details.embeds.length > 0) {
-                            // ... existing embed rendering code ...
-                            return (
-                                <div>
-                                    {log.details.embeds[0].title && <div style={{ fontWeight: 600 }}>{log.details.embeds[0].title}</div>}
-                                    {log.details.embeds[0].description && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: 4 }}>{log.details.embeds[0].description}</div>}
-                                </div>
-                            );
-                        } 
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {loading ? (
+                        <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>Loading...</div>
+                    ) : logs.length === 0 ? (
+                        <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>No logs found.</div>
+                    ) : logs.map(log => {
+                        const isExpanded = expandedLogId === log.id;
                         
-                        // 3. Fallback
+                        const renderLogContent = () => {
+                            // 1. Check for Word Filter JSON structure
+                            if (log.action === 'message_filtered' && log.details?.triggers) {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div>
+                                            <span style={{ color: colors.error, fontWeight: 600 }}>Filtered Words: </span>
+                                            {Array.isArray(log.details.triggers) ? log.details.triggers.join(', ') : log.details.triggers}
+                                        </div>
+                                        <div style={{ marginTop: 4, color: colors.textSecondary }}>
+                                            "{log.details.originalContent}"
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 2. Render Embeds
+                            if (log.details?.embeds && log.details.embeds.length > 0) {
+                                const embed = log.details.embeds[0];
+                                return (
+                                    <div>
+                                        {embed.title && <div style={{ fontWeight: 600 }}>{embed.title}</div>}
+                                        {embed.description && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: 4 }}>{embed.description}</div>}
+                                    </div>
+                                );
+                            } 
+                            
+                            // 3. Fallback
+                            return (
+                                <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
+                                    {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
+                                </div>
+                            );
+                        };
+
                         return (
-                            <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
-                                {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
-                            </div>
-                        );
-                    };
-
-                    return (
-                        <div key={log.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                             {/* Log Item Row */}
-                            <div 
-                                onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                                style={{
-                                    padding: spacing.md,
-                                    cursor: 'pointer',
-                                    background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                    ...(isMobile ? { display: 'flex', flexDirection: 'column', gap: 8 } : {
-                                        display: 'grid', gridTemplateColumns: '140px 100px 1fr 200px', gap: spacing.md, alignItems: 'start'
-                                    })
-                                }}
-                            >
-                                {/* Date */}
-                                <div style={{ color: colors.textTertiary, fontSize: '12px' }}>
-                                    {new Date(log.createdAt).toLocaleString()}
-                                </div>
-                                
-                                {/* Category */}
-                                <div>
-                                    <span style={{ 
-                                        background: 'rgba(255,255,255,0.1)', padding: '2px 8px', 
-                                        borderRadius: 4, fontSize: '11px', fontWeight: 600 
-                                    }}>
-                                        {log.action}
-                                    </span>
-                                </div>
-
-                                {/* Content */}
-                                <div style={{ color: colors.textPrimary }}>
-                                    {renderLogContent()}
-                                </div>
-
-                                {/* Entities */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {log.executorId && <UserBadge userId={log.executorId} type="exec" />}
-                                    {log.targetId && <UserBadge userId={log.targetId} type="target" />}
-                                </div>
-                                <div style={{ 
-                                    position: 'absolute', 
-                                    right: 10, 
-                                    top: '50%', 
-                                    transform: 'translateY(-50%)', 
-                                    opacity: 0.5,
-                                    display: isMobile ? 'none' : 'block'
-                                }}>
-                                    {isExpanded ? <XCircle size={16} /> : <MessageSquare size={16} />}
-                                </div>
-                            </div>
-
-                            {/* Expanded Comments Section */}
-                            {isExpanded && (
-                                <div style={{ 
-                                    padding: '0 16px 16px 16px', 
-                                    background: 'rgba(0,0,0,0.2)',
-                                    borderTop: `1px dashed ${colors.border}`
-                                }}>
-                                    <h4 style={{ color: colors.textSecondary, marginBottom: 8, fontSize: '12px', marginTop: 16 }}>Comments</h4>
+                            <div key={log.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                {/* Log Item Row */}
+                                <div 
+                                    onClick={(e) => {
+                                        // Make sure we don't toggle if clicking buttons
+                                        if ((e.target as HTMLElement).tagName === 'BUTTON' || (e.target as HTMLElement).tagName === 'INPUT') return;
+                                        setExpandedLogId(isExpanded ? null : log.id);
+                                    }}
+                                    style={{
+                                        padding: spacing.md,
+                                        cursor: 'pointer',
+                                        background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                        ...(isMobile ? { display: 'flex', flexDirection: 'column', gap: 8 } : {
+                                            display: 'grid', gridTemplateColumns: '140px 100px 1fr 200px', gap: spacing.md, alignItems: 'start'
+                                        }),
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {/* Date */}
+                                    <div style={{ color: colors.textTertiary, fontSize: '12px' }}>
+                                        {new Date(log.createdAt).toLocaleString()}
+                                    </div>
                                     
-                                    {/* List Comments */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                                        {log.comments?.map(comment => (
-                                            <div key={comment.id} style={{ 
-                                                background: colors.background, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}`
+                                    {/* Category */}
+                                    <div>
+                                        <span style={{ 
+                                            background: 'rgba(255,255,255,0.1)', padding: '2px 8px', 
+                                            borderRadius: 4, fontSize: '11px', fontWeight: 600 
+                                        }}>
+                                            {log.action}
+                                        </span>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div style={{ color: colors.textPrimary }}>
+                                        {renderLogContent()}
+                                    </div>
+
+                                    {/* Entities */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        {log.executorId && <UserBadge userId={log.executorId} type="exec" />}
+                                        {log.targetId && <UserBadge userId={log.targetId} type="target" />}
+                                    </div>
+                                    
+                                    {/* Expand Icon/Indicator */}
+                                    <div style={{ 
+                                        position: 'absolute', 
+                                        right: 10, 
+                                        top: 10, 
+                                        opacity: 0.5,
+                                        display: 'block'
+                                    }}>
+                                        {isExpanded ? <XCircle size={16} /> : <MessageSquare size={16} />}
+                                        {log.comments && log.comments.length > 0 && (
+                                            <span style={{ 
+                                                position: 'absolute', top: -5, right: -5, 
+                                                background: colors.highlight, color: '#FFF', 
+                                                fontSize: '8px', width: 12, height: 12, borderRadius: '50%', 
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center' 
                                             }}>
-                                                <div style={{ fontSize: '13px', color: colors.textPrimary }}>{comment.content}</div>
-                                                <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
-                                                    User: {comment.userId} • {new Date(comment.createdAt).toLocaleString()}
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {(!log.comments || log.comments.length === 0) && (
-                                            <div style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic' }}>No comments yet.</div>
+                                                {log.comments.length}
+                                            </span>
                                         )}
                                     </div>
+                                </div>
 
-                                    {/* Add Comment Input */}
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Write a comment..." 
-                                            value={commentInput}
-                                            onChange={(e) => setCommentInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddComment(log.id)}
-                                            style={{
-                                                flex: 1, background: colors.background, border: `1px solid ${colors.border}`,
-                                                color: colors.textPrimary, padding: '8px', borderRadius: 4
-                                            }}
-                                        />
-                                        <button 
-                                            onClick={() => handleAddComment(log.id)}
-                                            disabled={submittingComment || !commentInput.trim()}
-                                            style={{
-                                                background: colors.primary, color: '#FFF', border: 'none',
-                                                padding: '0 16px', borderRadius: 4, cursor: 'pointer',
-                                                opacity: (submittingComment || !commentInput.trim()) ? 0.5 : 1
-                                            }}
-                                        >
-                                            Add
-                                        </button>
+                                {/* Expanded Comments Section */}
+                                {isExpanded && (
+                                    <div style={{ 
+                                        padding: '0 16px 16px 16px', 
+                                        background: 'rgba(0,0,0,0.2)',
+                                        borderTop: `1px dashed ${colors.border}`
+                                    }}>
+                                        <h4 style={{ color: colors.textSecondary, marginBottom: 8, fontSize: '12px', marginTop: 16 }}>
+                                            Discussion Thread
+                                        </h4>
+                                        
+                                        {/* List Comments */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                                            {log.comments?.map(comment => (
+                                                <div key={comment.id} style={{ 
+                                                    background: colors.background, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}`
+                                                }}>
+                                                    <div style={{ fontSize: '13px', color: colors.textPrimary }}>{comment.content}</div>
+                                                    <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
+                                                        User: {comment.userId} • {new Date(comment.createdAt).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {(!log.comments || log.comments.length === 0) && (
+                                                <div style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic' }}>No comments yet. Start the discussion!</div>
+                                            )}
+                                        </div>
+
+                                        {/* Add Comment Input */}
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Write a comment..." 
+                                                value={commentInput}
+                                                onChange={(e) => setCommentInput(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleAddComment(log.id)}
+                                                onClick={(e) => e.stopPropagation()} 
+                                                style={{
+                                                    flex: 1, background: colors.background, border: `1px solid ${colors.border}`,
+                                                    color: colors.textPrimary, padding: '8px', borderRadius: 4
+                                                }}
+                                            />
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); handleAddComment(log.id); }}
+                                                disabled={submittingComment || !commentInput.trim()}
+                                                style={{
+                                                    background: colors.primary, color: '#FFF', border: 'none',
+                                                    padding: '0 16px', borderRadius: 4, cursor: 'pointer',
+                                                    opacity: (submittingComment || !commentInput.trim()) ? 0.5 : 1
+                                                }}
+                                            >
+                                                Post
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Pagination Fixed */}
+                <div style={{ padding: spacing.md, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.md }}>
+                    <button 
+                        onClick={() => setPage(p => Math.max(1, p - 1))} 
+                        disabled={page === 1} 
+                        style={{ 
+                            padding: '8px 16px',
+                            background: page === 1 ? 'transparent' : colors.surface,
+                            border: `1px solid ${page === 1 ? colors.border : colors.textSecondary}`,
+                            color: page === 1 ? colors.textTertiary : colors.textPrimary,
+                            borderRadius: 4,
+                            cursor: page === 1 ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4
+                        }}
+                    >
+                        <ChevronLeft size={16} /> Prev
+                    </button>
+                    
+                    <span style={{ color: colors.textSecondary, fontSize: '14px', fontWeight: 600 }}>
+                        Page {page} of {totalPages}
+                    </span>
+                    
+                    <button 
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                        disabled={page === totalPages} 
+                        style={{ 
+                            padding: '8px 16px',
+                            background: page === totalPages ? 'transparent' : colors.surface,
+                            border: `1px solid ${page === totalPages ? colors.border : colors.textSecondary}`,
+                            color: page === totalPages ? colors.textTertiary : colors.textPrimary,
+                            borderRadius: 4,
+                            cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4
+                        }}
+                    >
+                        Next <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+            </>
+        ) : (
+            // ------------------ USERS TAB ------------------
+            <div style={{ 
+                flex: 1, 
+                background: colors.surface, 
+                borderRadius: 8, 
+                border: `1px solid ${colors.border}`, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                padding: spacing.lg 
+            }}>
+                <div style={{ marginBottom: spacing.lg, display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                        <h3 style={{ marginTop: 0, marginBottom: 8, color: colors.textPrimary }}>Track New User</h3>
+                        <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px' }}>
+                            Add a user ID here to start tracking them. This will create an initial note.
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                         <input 
+                            type="text" 
+                            placeholder="User ID (e.g. 123456789...)" 
+                            value={newUserToTrack}
+                            onChange={(e) => setNewUserToTrack(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleTrackNewUser()}
+                            style={{
+                                background: colors.background, border: `1px solid ${colors.border}`,
+                                color: colors.textPrimary, padding: '8px 12px', borderRadius: 4,
+                                width: '250px'
+                            }}
+                        />
+                         <button 
+                            onClick={handleTrackNewUser}
+                            disabled={!newUserToTrack.trim()}
+                            style={{
+                                background: colors.highlight, color: '#FFF', border: 'none',
+                                padding: '8px 16px', borderRadius: 4, cursor: 'pointer',
+                                fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
+                                opacity: !newUserToTrack.trim() ? 0.5 : 1
+                            }}
+                        >
+                            <Plus size={16} /> Add User
+                        </button>
+                    </div>
+                </div>
+
+                <h3 style={{ color: colors.textPrimary, borderBottom: `1px solid ${colors.border}`, paddingBottom: 8 }}>
+                    Tracked Users ({trackedUsers.length})
+                </h3>
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {loadingTracked ? (
+                        <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>Loading...</div>
+                    ) : trackedUsers.length === 0 ? (
+                        <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>
+                            No tracked users yet. Add one above!
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {trackedUsers.map(user => (
+                                <div 
+                                    key={user.userId}
+                                    onClick={() => handleUserClick(user.userId)}
+                                    style={{
+                                        padding: spacing.md,
+                                        background: colors.background,
+                                        border: `1px solid ${colors.border}`,
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.highlight}
+                                    onMouseLeave={(e) => e.currentTarget.style.borderColor = colors.border}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ 
+                                            background: colors.highlight, color: '#FFF', width: 32, height: 32, 
+                                            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <Hash size={16} />
+                                        </div>
+                                        <div>
+                                            <div style={{ color: colors.textPrimary, fontWeight: 600 }}>{user.userId}</div>
+                                            <div style={{ color: colors.textTertiary, fontSize: '11px' }}>
+                                                Last note: {user.lastNoteAt ? new Date(user.lastNoteAt).toLocaleDateString() : 'Never'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ 
+                                            background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: 4, 
+                                            fontSize: '11px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: 4 
+                                        }}>
+                                            <StickyNote size={12} /> {user.noteCount} Notes
+                                        </span>
+                                        <ChevronRight size={16} color={colors.textTertiary} />
                                     </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
-                    );
-                })}
+                    )}
+                </div>
             </div>
+        )}
 
-            {/* Pagination Fixed */}
-            <div style={{ padding: spacing.md, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.md }}>
-                <button 
-                    onClick={() => setPage(p => Math.max(1, p - 1))} 
-                    disabled={page === 1} 
-                    style={{ 
-                        padding: '8px 16px',
-                        background: page === 1 ? 'transparent' : colors.surface,
-                        border: `1px solid ${page === 1 ? colors.border : colors.textSecondary}`,
-                        color: page === 1 ? colors.textTertiary : colors.textPrimary,
-                        borderRadius: 4,
-                        cursor: page === 1 ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 4
-                    }}
-                >
-                    <ChevronLeft size={16} /> Prev
-                </button>
-                
-                <span style={{ color: colors.textSecondary, fontSize: '14px', fontWeight: 600 }}>
-                    Page {page} of {totalPages}
-                </span>
-                
-                <button 
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
-                    disabled={page === totalPages} 
-                    style={{ 
-                        padding: '8px 16px',
-                        background: page === totalPages ? 'transparent' : colors.surface,
-                        border: `1px solid ${page === totalPages ? colors.border : colors.textSecondary}`,
-                        color: page === totalPages ? colors.textTertiary : colors.textPrimary,
-                        borderRadius: 4,
-                        cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 4
-                    }}
-                >
-                    Next <ChevronRight size={16} />
-                </button>
-            </div>
-      </div>
       </div>
     </div>
   );

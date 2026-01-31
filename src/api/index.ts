@@ -543,6 +543,49 @@ app.post('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
   }
 });
 
+// Get all tracked users (users with notes) for a guild
+app.get('/api/guilds/:guildId/tracked-users', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get all users who have notes in this guild
+    const usersWithNotes = await db.userNote.groupBy({
+      by: ['userId'],
+      where: { guildId },
+      _count: {
+        id: true
+      },
+      _max: {
+        createdAt: true
+      }
+    });
+    
+    // Map to a friendlier format
+    const trackedUsers = usersWithNotes.map(u => ({
+      userId: u.userId,
+      noteCount: u._count.id,
+      lastNoteAt: u._max.createdAt
+    }));
+    
+    // Sort by most recently noted
+    trackedUsers.sort((a, b) => {
+        const timeA = a.lastNoteAt ? new Date(a.lastNoteAt).getTime() : 0;
+        const timeB = b.lastNoteAt ? new Date(b.lastNoteAt).getTime() : 0;
+        return timeB - timeA;
+    });
+
+    res.json(trackedUsers);
+  } catch (error) {
+    logger.error('Failed to get tracked users', error);
+    res.status(500).json({ error: 'Failed to get tracked users' });
+  }
+});
+
 app.get('/api/guilds/:guildId/stats', async (req, res) => {
   try {
     const { guildId } = req.params;
