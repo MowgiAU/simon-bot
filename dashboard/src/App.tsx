@@ -4,11 +4,12 @@ import { Sidebar } from './layouts/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
 import Logs from './pages/Logs';
+import { StagingTest } from './pages/StagingTest';
 import { colors } from './theme/theme';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import logoUrl from './assets/logo.svg';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -116,6 +117,8 @@ const AppContent: React.FC = () => {
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':
         return <Logs guildId={selectedGuild.id} />;
+      case 'staging-test':
+        return <StagingTest />;
       case 'plugins':
         return (
           <div style={{ padding: '20px', color: colors.textPrimary }}>

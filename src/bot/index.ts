@@ -15,6 +15,7 @@ import { PluginLoader } from './utils/PluginLoader';
 import { WordFilterPlugin } from './plugins/WordFilterPlugin';
 import { StatsPlugin } from './plugins/StatsPlugin';
 import { LoggerPlugin } from './plugins/LoggerPlugin';
+import { StagingTestPlugin } from './plugins/StagingTestPlugin';
 
 dotenv.config();
 
@@ -78,6 +79,7 @@ export class SimonBot {
       this.pluginManager.register(new WordFilterPlugin());
       this.pluginManager.register(new StatsPlugin());
       this.pluginManager.register(new LoggerPlugin());
+      this.pluginManager.register(new StagingTestPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

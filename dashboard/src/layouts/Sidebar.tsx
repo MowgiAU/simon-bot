@@ -105,8 +105,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><Settings size={20} /></span>
             <span className="nav-label">Plugins</span>
-          </button>
-        </div>
+          </button>           {/* Only show in Staging - checking localhost is easiest or env var */}
+           {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+            <button
+                className={`nav-item ${activeSection === 'staging-test' ? 'active' : ''}`}
+                onClick={() => onNavigate('staging-test')}
+                style={{ color: colors.warning }}
+                title={collapsed ? "Staging Test" : ""}
+            >
+                <span className="nav-icon"><Settings size={20} /></span>
+                <span className="nav-label">Staging Test</span>
+            </button>
+           )}        </div>
       </nav>
 
       <div className="sidebar-footer">
