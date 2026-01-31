@@ -41,6 +41,24 @@ async function main() {
                             { name: 'Links', value: 'LINK' }
                         )
                 )
+        )
+        .addSubcommand(sub =>
+            sub
+                .setName('clear')
+                .setDescription('⚠️ Clear ALL logs of a specific category for this server')
+                .addStringOption(opt =>
+                    opt.setName('category')
+                        .setDescription('The category to CLEAR (MOD, AUTOMOD...)')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Moderation', value: 'MOD' },
+                            { name: 'AutoMod', value: 'AUTOMOD' },
+                            { name: 'Roles', value: 'ROLE' },
+                            { name: 'Profanity', value: 'PROFANITY' },
+                            { name: 'Piracy', value: 'PIRACY' },
+                            { name: 'Links', value: 'LINK' }
+                        )
+                )
         ).toJSON()
   ];
 

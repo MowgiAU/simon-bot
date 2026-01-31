@@ -55,8 +55,40 @@ export class LoggerPlugin implements IPlugin {
         if (!interaction.isChatInputCommand()) return;
         if (interaction.commandName !== 'logger') return;
 
-        if (interaction.options.getSubcommand() === 'import') {
+        const subcommand = interaction.options.getSubcommand();
+
+        if (subcommand === 'import') {
             await this.handleImport(interaction);
+        } else if (subcommand === 'clear') {
+            await this.handleClear(interaction);
+        }
+    }
+
+    private async handleClear(interaction: ChatInputCommandInteraction): Promise<void> {
+        if (!this.context) return;
+        
+        if (!interaction.memberPermissions?.has('Administrator')) {
+            await interaction.reply({ content: '❌ You need Administrator permissions to clear logs.', ephemeral: true });
+            return;
+        }
+
+        const category = interaction.options.getString('category', true);
+        
+        // Confirmation dialog (simple version via follow-up question, or just execute with warning for now)
+        // Ideally use buttons, but for speed:
+        await interaction.reply({ content: `⚠️ Deleting ALL logs in category **${category}**...`, ephemeral: true });
+
+        try {
+            const { count } = await this.context.db.actionLog.deleteMany({
+                where: {
+                    guildId: interaction.guildId!,
+                    action: category
+                }
+            });
+            await interaction.followUp({ content: `✅ Deleted ${count} logs in category ${category}.`, ephemeral: true });
+        } catch (error) {
+            this.logger.error('Clear logs failed', error);
+            await interaction.followUp({ content: '❌ Failed to clear logs.', ephemeral: true });
         }
     }
 
