@@ -6,6 +6,7 @@ import { WordFilterSettings } from './pages/WordFilterSettings';
 import { Logs } from './pages/Logs';
 import { colors } from './theme/theme';
 import { AuthProvider, useAuth } from './components/AuthProvider';
+import logoUrl from './assets/logo.svg';
 
 type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs';
 
