@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './layouts/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
-import { Logs } from './pages/Logs';
+import Logs from './pages/Logs';
 import { colors } from './theme/theme';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import logoUrl from './assets/logo.svg';
