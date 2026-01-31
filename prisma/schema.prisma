@@ -25,6 +25,7 @@ model Guild {
   channelStats ChannelStats[]
   serverStats  ServerStats[]
   actionLogs   ActionLog[]
+  userNotes    UserNote[]
 
   @@map("guilds")
 }
@@ -59,6 +60,20 @@ model LogComment {
 
   @@index([logId])
   @@map("log_comments")
+}
+
+model UserNote {
+  id        String    @id @default(cuid())
+  guildId   String
+  userId    String    // The user being noted on
+  adminId   String    // Admin who made the note
+  content   String
+  createdAt DateTime  @default(now())
+
+  guild     Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId])
+  @@map("user_notes")
 }
 
 // Guild members - leveling, currency, etc.

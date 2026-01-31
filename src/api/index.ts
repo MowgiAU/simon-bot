@@ -494,6 +494,55 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
   }
 });
 
+// Get notes for a user in a guild
+app.get('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
+  try {
+    const { guildId, userId } = req.params;
+    
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const notes = await db.userNote.findMany({
+      where: { guildId, userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(notes);
+  } catch (error) {
+    logger.error('Failed to get user notes', error);
+    res.status(500).json({ error: 'Failed to get user notes' });
+  }
+});
+
+// Add a note to a user
+app.post('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
+  try {
+    const { guildId, userId } = req.params;
+    const { content } = req.body;
+    
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const note = await db.userNote.create({
+      data: {
+        guildId,
+        userId,
+        adminId: req.session.user.id,
+        content
+      }
+    });
+
+    res.json(note);
+  } catch (error) {
+    logger.error('Failed to add user note', error);
+    res.status(500).json({ error: 'Failed to add user note' });
+  }
+});
+
 app.get('/api/guilds/:guildId/stats', async (req, res) => {
   try {
     const { guildId } = req.params;

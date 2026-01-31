@@ -15,12 +15,23 @@ import {
   MessageSquare,
   Filter,
   XCircle,
-  Hash
+  Hash,
+  StickyNote,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface LogComment {
   id: string;
   userId: string;
+  content: string;
+  createdAt: string;
+}
+
+interface UserNote {
+  id: string;
+  userId: string;
+  adminId: string;
   content: string;
   createdAt: string;
 }
@@ -68,6 +79,13 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   const [commentInput, setCommentInput] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   
+  // User Notes Interaction
+  const [userNotes, setUserNotes] = useState<UserNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [noteInput, setNoteInput] = useState('');
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showFilters, setShowFilters] = useState(false);
@@ -114,6 +132,53 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   useEffect(() => {
     if (page > 1) fetchLogs(page);
   }, [page]);
+
+  const fetchUserNotes = async (userId: string) => {
+      try {
+          setLoadingNotes(true);
+          const res = await fetch(`/api/guilds/${guildId}/users/${userId}/notes`, { credentials: 'include' });
+          if (res.ok) {
+              const data = await res.json();
+              setUserNotes(data);
+          }
+      } catch (err) {
+          console.error("Failed to fetch notes", err);
+      } finally {
+          setLoadingNotes(false);
+      }
+  };
+
+  useEffect(() => {
+    if (activeUser) {
+        setShowNotes(true);
+        fetchUserNotes(activeUser);
+    } else {
+        setShowNotes(false);
+        setUserNotes([]);
+    }
+  }, [activeUser]);
+
+  const handleAddUserNote = async () => {
+      if (!noteInput.trim() || !activeUser) return;
+      setSubmittingNote(true);
+      try {
+          const res = await fetch(`/api/guilds/${guildId}/users/${activeUser}/notes`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: noteInput }),
+              credentials: 'include'
+          });
+          if (res.ok) {
+              const newNote = await res.json();
+              setUserNotes(prev => [newNote, ...prev]);
+              setNoteInput('');
+          }
+      } catch (e) {
+          console.error("Failed to add user note", e);
+      } finally {
+          setSubmittingNote(false);
+      }
+  };
 
   const handleAddComment = async (logId: string) => {
       if (!commentInput.trim()) return;
@@ -271,17 +336,75 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
             </div>
           </div>
           
-          {/* Active Filter Chips */}
+          {/* Active Filter Chips & User Notes Section */}
           {activeUser && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: '12px', color: colors.textSecondary }}>Active Filters:</span>
-                  <div style={{ 
-                      display: 'flex', alignItems: 'center', gap: 4, 
-                      background: colors.highlight, color: '#FFF', 
-                      padding: '2px 8px', borderRadius: 12, fontSize: '12px' 
-                  }}>
-                      User: {activeUser}
-                      <XCircle size={14} style={{ cursor: 'pointer' }} onClick={() => setActiveUser(null)} />
+              <div style={{ 
+                  background: 'rgba(255, 159, 28, 0.1)', 
+                  border: `1px solid ${colors.highlight}`,
+                  borderRadius: 8,
+                  padding: spacing.md,
+                  marginBottom: spacing.md,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12
+              }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: colors.highlight }}>Filtered User: {activeUser}</span>
+                        <XCircle 
+                            size={16} 
+                            style={{ cursor: 'pointer', color: colors.textSecondary }} 
+                            onClick={() => setActiveUser(null)} 
+                            title="Clear Filter"
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: colors.textSecondary }}>
+                          <StickyNote size={14} />
+                          {userNotes.length} Note{userNotes.length !== 1 ? 's' : ''}
+                      </div>
+                  </div>
+
+                  {/* Notes List */}
+                  {userNotes.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '150px', overflowY: 'auto' }}>
+                          {userNotes.map(note => (
+                              <div key={note.id} style={{ 
+                                  background: colors.surface, padding: 8, borderRadius: 4, border: `1px solid ${colors.border}` 
+                              }}>
+                                  <div style={{ fontSize: '13px', color: colors.textPrimary }}>{note.content}</div>
+                                  <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
+                                      Admin: {note.adminId.slice(0,8)}... • {new Date(note.createdAt).toLocaleString()}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+
+                  {/* Add Note Input */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                      <input 
+                          type="text" 
+                          placeholder="Add a persistent note for this user..."
+                          value={noteInput}
+                          onChange={(e) => setNoteInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddUserNote()}
+                          style={{
+                              flex: 1, background: colors.surface, border: `1px solid ${colors.border}`,
+                              color: colors.textPrimary, padding: '8px', borderRadius: 4, fontSize: '13px'
+                          }}
+                      />
+                      <button 
+                          onClick={handleAddUserNote}
+                          disabled={submittingNote || !noteInput.trim()}
+                          style={{
+                              background: colors.highlight, color: '#FFF', border: 'none',
+                              padding: '0 16px', borderRadius: 4, cursor: 'pointer',
+                              fontWeight: 600,
+                              opacity: (submittingNote || !noteInput.trim()) ? 0.5 : 1
+                          }}
+                      >
+                          Save
+                      </button>
                   </div>
               </div>
           )}
@@ -466,11 +589,43 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                 })}
             </div>
 
-            {/* Pagination simplified */}
-            <div style={{ padding: spacing.md, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'center', gap: spacing.md }}>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '4px 12px' }}>Prev</button>
-                <span style={{ color: colors.textSecondary }}>{page} / {totalPages}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '4px 12px' }}>Next</button>
+            {/* Pagination Fixed */}
+            <div style={{ padding: spacing.md, borderTop: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.md }}>
+                <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                    disabled={page === 1} 
+                    style={{ 
+                        padding: '8px 16px',
+                        background: page === 1 ? 'transparent' : colors.surface,
+                        border: `1px solid ${page === 1 ? colors.border : colors.textSecondary}`,
+                        color: page === 1 ? colors.textTertiary : colors.textPrimary,
+                        borderRadius: 4,
+                        cursor: page === 1 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 4
+                    }}
+                >
+                    <ChevronLeft size={16} /> Prev
+                </button>
+                
+                <span style={{ color: colors.textSecondary, fontSize: '14px', fontWeight: 600 }}>
+                    Page {page} of {totalPages}
+                </span>
+                
+                <button 
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                    disabled={page === totalPages} 
+                    style={{ 
+                        padding: '8px 16px',
+                        background: page === totalPages ? 'transparent' : colors.surface,
+                        border: `1px solid ${page === totalPages ? colors.border : colors.textSecondary}`,
+                        color: page === totalPages ? colors.textTertiary : colors.textPrimary,
+                        borderRadius: 4,
+                        cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 4
+                    }}
+                >
+                    Next <ChevronRight size={16} />
+                </button>
             </div>
       </div>
       </div>
