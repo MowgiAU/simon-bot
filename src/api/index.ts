@@ -12,6 +12,39 @@ app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 const db = new PrismaClient();
 
+// Simple in-memory cache for user details: userId -> { username, avatar, timestamp }
+const userCache = new Map<string, { username: string; avatar: string | null; timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+const resolveUser = async (userId: string) => {
+    if (!userId) return null;
+    
+    // Check cache
+    const cached = userCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return cached;
+    }
+
+    try {
+        const response = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        
+        const userData = {
+            username: response.data.username, // Discriminators are gone in v10 usually (pomelo)
+            avatar: response.data.avatar,
+            timestamp: Date.now()
+        };
+        
+        userCache.set(userId, userData);
+        return userData;
+    } catch (e) {
+        // If 404, maybe cache a "Unknown User" state to avoid repeated 404s?
+        // For now just return null
+        return null;
+    }
+};
+
 // Debug middleware
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
@@ -445,10 +478,24 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
       skip: (Number(page) - 1) * Number(limit),
     });
     
+    // Resolve usernames
+    const enrichedLogs = await Promise.all(logs.map(async (log) => {
+        const executor = log.executorId ? await resolveUser(log.executorId) : null;
+        const target = log.targetId ? await resolveUser(log.targetId) : null;
+        
+        return {
+            ...log,
+            executorName: executor?.username,
+            targetName: target?.username,
+            executorAvatar: executor?.avatar,
+            targetAvatar: target?.avatar
+        };
+    }));
+    
     const total = await db.actionLog.count({ where: whereClause });
 
     res.json({
-        items: logs,
+        items: enrichedLogs,
         pagination: {
             total,
             page: Number(page),
@@ -566,10 +613,15 @@ app.get('/api/guilds/:guildId/tracked-users', async (req, res) => {
     });
     
     // Map to a friendlier format
-    const trackedUsers = usersWithNotes.map(u => ({
-      userId: u.userId,
-      noteCount: u._count.id,
-      lastNoteAt: u._max.createdAt
+    const trackedUsers = await Promise.all(usersWithNotes.map(async u => {
+        const userDetails = await resolveUser(u.userId);
+        return {
+            userId: u.userId,
+            username: userDetails?.username,
+            avatar: userDetails?.avatar,
+            noteCount: u._count.id,
+            lastNoteAt: u._max.createdAt
+        };
     }));
     
     // Sort by most recently noted

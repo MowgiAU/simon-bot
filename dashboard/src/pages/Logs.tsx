@@ -40,6 +40,7 @@ interface UserNote {
 
 interface TrackedUser {
   userId: string;
+  username?: string;
   noteCount: number;
   lastNoteAt: string;
 }
@@ -49,7 +50,9 @@ interface ActionLog {
   pluginId: string;
   action: string;
   executorId: string | null;
+  executorName?: string;
   targetId: string | null;
+  targetName?: string;
   details: any;
   createdAt: string;
   comments: LogComment[];
@@ -135,17 +138,18 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
     }
   };
 
+  // Reset to page 1 when filters change
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchLogs(1);
       setPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
   }, [activeCategory, searchQuery, activeUser]);
 
+  // Fetch logs when page or filters change (debounced)
   useEffect(() => {
-    if (page > 1) fetchLogs(page);
-  }, [page]);
+    const timer = setTimeout(() => {
+      fetchLogs(page);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [page, activeCategory, searchQuery, activeUser]);
 
   const fetchUserNotes = async (userId: string) => {
       try {
@@ -181,8 +185,9 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
     if (!newUserToTrack.trim()) return;
     
     try {
+        console.log("Tracking new user:", newUserToTrack);
         // Create an initial note to "track" them
-        const res = await fetch(`/api/guilds/${guildId}/users/${newUserToTrack}/notes`, {
+        const res = await fetch(`/api/guilds/${guildId}/users/${newUserToTrack.trim()}/notes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: 'Manual tracking started.' }),
@@ -192,6 +197,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
         if (res.ok) {
             await fetchTrackedUsers();
             setNewUserToTrack('');
+        } else {
+            console.error("Failed to track user, status:", res.status);
         }
     } catch (e) {
         console.error("Failed to track user", e);
@@ -270,7 +277,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
       }
   };
 
-  const UserBadge = ({ userId, type }: { userId: string, type: 'exec' | 'target' }) => (
+  const UserBadge = ({ userId, name, type }: { userId: string, name?: string, type: 'exec' | 'target' }) => (
       <div 
         onClick={(e) => { e.stopPropagation(); setActiveUser(userId); setActiveTab('logs'); }}
         style={{
@@ -285,12 +292,16 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
             color: activeUser === userId ? '#FFF' : colors.textSecondary,
             cursor: 'pointer',
             transition: 'all 0.2s',
-            marginRight: 4
+            marginRight: 4,
+            maxWidth: '100%'
         }}
         title={`Filter by this user (${type})`}
       >
         <Hash size={10} />
-        {type === 'exec' ? 'By: ' : 'To: '}{userId.slice(0, 8)}...
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {type === 'exec' ? 'By: ' : 'To: '}
+            {name ? name : userId.slice(0, 8) + '...'}
+        </span>
       </div>
   );
 
@@ -527,7 +538,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                         padding: spacing.md,
                         borderBottom: `1px solid ${colors.border}`,
                         display: 'grid',
-                        gridTemplateColumns: '140px 100px 1fr 200px',
+                        gridTemplateColumns: '140px 100px 1fr 180px 40px',
                         fontWeight: 600,
                         color: colors.textSecondary,
                         fontSize: '13px'
@@ -536,6 +547,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                         <div>Category</div>
                         <div>Details</div>
                         <div>Entities</div>
+                        <div></div>
                     </div>
                 )}
 
@@ -596,7 +608,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                         cursor: 'pointer',
                                         background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent',
                                         ...(isMobile ? { display: 'flex', flexDirection: 'column', gap: 8 } : {
-                                            display: 'grid', gridTemplateColumns: '140px 100px 1fr 200px', gap: spacing.md, alignItems: 'start'
+                                            display: 'grid', gridTemplateColumns: '140px 100px 1fr 180px 40px', gap: spacing.md, alignItems: 'start'
                                         }),
                                         position: 'relative'
                                     }}
@@ -623,22 +635,22 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
 
                                     {/* Entities */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        {log.executorId && <UserBadge userId={log.executorId} type="exec" />}
-                                        {log.targetId && <UserBadge userId={log.targetId} type="target" />}
+                                        {log.executorId && <UserBadge userId={log.executorId} name={log.executorName} type="exec" />}
+                                        {log.targetId && <UserBadge userId={log.targetId} name={log.targetName} type="target" />}
                                     </div>
                                     
-                                    {/* Expand Icon/Indicator */}
+                                    {/* Expand Icon/Indicator - Now in its own column */}
                                     <div style={{ 
-                                        position: 'absolute', 
-                                        right: 10, 
-                                        top: 10, 
                                         opacity: 0.5,
-                                        display: 'block'
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        position: 'relative'
                                     }}>
                                         {isExpanded ? <XCircle size={16} /> : <MessageSquare size={16} />}
                                         {log.comments && log.comments.length > 0 && (
                                             <span style={{ 
-                                                position: 'absolute', top: -5, right: -5, 
+                                                position: 'absolute', top: -5, right: 5, 
                                                 background: colors.highlight, color: '#FFF', 
                                                 fontSize: '8px', width: 12, height: 12, borderRadius: '50%', 
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center' 
@@ -830,12 +842,18 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                         <div style={{ 
                                             background: colors.highlight, color: '#FFF', width: 32, height: 32, 
-                                            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            overflow: 'hidden'
                                         }}>
+                                            {/* Avatar or Icon */}
                                             <Hash size={16} />
                                         </div>
                                         <div>
-                                            <div style={{ color: colors.textPrimary, fontWeight: 600 }}>{user.userId}</div>
+                                            <div style={{ color: colors.textPrimary, fontWeight: 600 }}>
+                                                {user.username ? (
+                                                    <span>{user.username} <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '11px' }}>({user.userId})</span></span>
+                                                ) : user.userId}
+                                            </div>
                                             <div style={{ color: colors.textTertiary, fontSize: '11px' }}>
                                                 Last note: {user.lastNoteAt ? new Date(user.lastNoteAt).toLocaleDateString() : 'Never'}
                                             </div>
