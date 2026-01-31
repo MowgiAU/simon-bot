@@ -419,7 +419,7 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         OR: [
             { executorId: { contains: String(search) } },
             { targetId: { contains: String(search) } },
-            { action: { contains: String(search), mode: 'insensitive' as const } }, // 'as const' depends on typescript config but safest to omit if any issue, usually string is fine
+            { action: { contains: String(search), mode: 'insensitive' } },
         ]
     } : null;
 
@@ -431,6 +431,13 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     } else if (searchFilter) {
         Object.assign(whereClause, searchFilter);
     }
+
+    logger.info(`[Logs Search] Guild: ${guildId}, Query: ${JSON.stringify(whereClause)}`);
+
+    const logs = await db.actionLog.findMany({
+      where: whereClause,
+      include: { comments: { orderBy: { createdAt: 'asc' } } },
+      orderBy: { createdAt: 'desc' },
 
     const logs = await db.actionLog.findMany({
       where: whereClause,
