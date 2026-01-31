@@ -1,4 +1,12 @@
-import { Client, GatewayIntentBits, Collection, Events } from 'discord.js';
+import { 
+    Client, 
+    GatewayIntentBits, 
+    Collection, 
+    Events, 
+    REST, 
+    Routes,
+    SlashCommandBuilder
+} from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Logger } from './utils/logger';
@@ -155,6 +163,23 @@ export class SimonBot {
     this.client.on(Events.ClientReady, async () => {
       this.logger.info(`Bot ready as ${this.client.user?.tag}`);
       await this.syncGuilds();
+      await this.registerSlashCommands();
+    });
+
+    this.client.on('interactionCreate', async interaction => {
+       const plugins = this.pluginManager.getEnabled();
+       for (const plugin of plugins) {
+         if (plugin.events.includes('interactionCreate')) {
+           const p = plugin as any;
+           if (typeof p.onInteractionCreate === 'function') {
+             try {
+                await p.onInteractionCreate(interaction);
+             } catch (error) {
+                this.logger.error(`Error in plugin ${plugin.id} interaction handler`, error);
+             }
+           }
+         }
+       }
     });
 
     this.client.on('messageCreate', async message => {
@@ -245,6 +270,69 @@ export class SimonBot {
     this.client.on('error', error => {
       this.logger.error('Discord client error', error);
     });
+  }
+
+  /**
+   * Register Slash Commands
+   */
+  private async registerSlashCommands(): Promise<void> {
+    const commands: any[] = [];
+    
+    // Logger Plugin Command
+    // Technically, plugins should export their command definitions
+    // But for this quick fix we will hardcode the known commands or ask plugins for them
+    // Ideally: this.pluginManager.getEnabled().forEach(p => commands.push(...p.commands))
+    
+    // 1. Logger Command
+    const loggerCommand = new SlashCommandBuilder()
+        .setName('logger')
+        .setDescription('Logger plugin commands')
+        .addSubcommand(sub => 
+            sub
+                .setName('import')
+                .setDescription('Import historical logs from a text channel')
+                .addChannelOption(opt => 
+                    opt.setName('channel')
+                        .setDescription('The channel to scrape logs from')
+                        .setRequired(true)
+                )
+                .addStringOption(opt =>
+                    opt.setName('category')
+                        .setDescription('The category to assign these logs (MOD, AUTOMOD, etc)')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Moderation', value: 'MOD' },
+                            { name: 'AutoMod', value: 'AUTOMOD' },
+                            { name: 'Roles', value: 'ROLE' },
+                            { name: 'Profanity', value: 'PROFANITY' },
+                            { name: 'Piracy', value: 'PIRACY' },
+                            { name: 'Links', value: 'LINK' }
+                        )
+                )
+        );
+
+    commands.push(loggerCommand.toJSON());
+
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
+
+    try {
+        this.logger.info('Started refreshing application (/) commands.');
+        
+        // Register globally (might take an hour) or per guild
+        // For development speed, let's register for all synced guilds
+        const guilds = await this.db.guild.findMany({ select: { id: true } });
+        
+        for (const guild of guilds) {
+            await rest.put(
+                Routes.applicationGuildCommands(this.client.user!.id, guild.id),
+                { body: commands },
+            );
+        }
+
+        this.logger.info(`Successfully registered commands for ${guilds.length} guilds.`);
+    } catch (error) {
+        this.logger.error('Failed to register slash commands', error);
+    }
   }
 
   /**
