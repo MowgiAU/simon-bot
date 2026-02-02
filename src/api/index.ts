@@ -993,6 +993,66 @@ app.post('/api/guilds/:guildId/access', async (req, res) => {
     }
 });
 
+// Get user's effective permissions for the UI
+app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const user = req.session?.user;
+        if (!user) return res.json({ canManagePlugins: false, accessiblePlugins: [] });
+
+        const isAdmin = isTrueAdmin(guildId, req);
+        const accessiblePlugins: string[] = [];
+
+        // If admin, they have everything
+        if (isAdmin) {
+            // Get all possible plugin IDs from our list helper or hardcoded
+            // For now, let's just return a special flag or all knowns
+            // To be consistent with the logic in checkPluginAccess, we'll perform a similar check 
+            // but optimised for batch.
+            // Actually, simpler: Frontend asks for features, we say yes/no.
+            // But sidebar needs a list.
+            
+            // Return all plugins for admin
+            return res.json({ 
+                canManagePlugins: true, 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins'] 
+            });
+        }
+
+        // For non-admins, check role whitelist
+        // 1. Get user roles
+        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        const memberRoles = memberRes.data.roles || [];
+
+        // 2. Get all plugin settings for this guild
+        const allSettings = await db.pluginSettings.findMany({
+            where: { guildId }
+        });
+
+        // 3. Match
+        for (const setting of allSettings) {
+             if (setting.enabled && setting.allowedRoles.some((r: string) => memberRoles.includes(r))) {
+                 accessiblePlugins.push(setting.pluginId);
+             }
+        }
+
+        // Special check: Log viewing (often handled by Moderation settings or separate?)
+        // Currently logs are guarded by 'moderation' plugin access in my previous edits? 
+        // No, I guarded logs with 'moderation' check in the API, so that's consistent.
+
+        res.json({
+            canManagePlugins: false,
+            accessiblePlugins
+        });
+
+    } catch (e) {
+        logger.error('Failed to fetching permissions', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);
