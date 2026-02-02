@@ -932,21 +932,25 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
 app.get('/api/plugins/list', (req, res) => {
     try {
         const pluginsDir = path.join(__dirname, '../bot/plugins');
+        logger.info(`Scanning plugins directory: ${pluginsDir}`);
+        
         if (!fs.existsSync(pluginsDir)) {
             logger.warn('Plugins directory not found:', pluginsDir);
             return res.json([]);
         }
 
         const files = fs.readdirSync(pluginsDir);
+        logger.info(`Found plugin files: ${files.join(', ')}`);
+
         const plugins = files
             .filter(file => file.endsWith('.ts'))
             .map(file => {
                 try {
                     const content = fs.readFileSync(path.join(pluginsDir, file), 'utf-8');
-                    // Regex handles optional 'readonly' and 'public' keywords, and flexible whitespace
-                    const idMatch = content.match(/(?:readonly\s+|public\s+)?id\s*=\s*['"]([^'"]+)['"]/);
-                    const nameMatch = content.match(/(?:readonly\s+|public\s+)?name\s*=\s*['"]([^'"]+)['"]/);
-                    const descMatch = content.match(/(?:readonly\s+|public\s+)?description\s*=\s*['"]([^'"]+)['"]/);
+                    // Regex handles optional modifiers (readonly/public), optional type annotation (: string), matches id, name, description
+                    const idMatch = content.match(/(?:readonly\s+|public\s+)?id\s*(?::\s*\w+\s*)?=\s*['"]([^'"]+)['"]/);
+                    const nameMatch = content.match(/(?:readonly\s+|public\s+)?name\s*(?::\s*\w+\s*)?=\s*['"]([^'"]+)['"]/);
+                    const descMatch = content.match(/(?:readonly\s+|public\s+)?description\s*(?::\s*\w+\s*)?=\s*['"]([^'"]+)['"]/);
 
                     if (idMatch && nameMatch) {
                         return {
@@ -954,7 +958,8 @@ app.get('/api/plugins/list', (req, res) => {
                             name: nameMatch[1],
                             description: descMatch ? descMatch[1] : 'No description'
                         };
-                    }
+                    } 
+                    logger.warn(`Failed to match metadata in ${file}. ID found: ${!!idMatch}, Name found: ${!!nameMatch}`);
                     return null;
                 } catch (e) {
                     logger.error(`Failed to parse plugin file ${file}`, e);
@@ -962,7 +967,8 @@ app.get('/api/plugins/list', (req, res) => {
                 }
             })
             .filter(p => p !== null);
-
+        
+        logger.info(`Returning ${plugins.length} plugins`);
         res.json(plugins);
     } catch (error) {
         logger.error('Failed to list plugins', error);
