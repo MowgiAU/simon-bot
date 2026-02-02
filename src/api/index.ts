@@ -6,6 +6,7 @@ import session from 'express-session';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import FormData from 'form-data';
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
 
@@ -1442,28 +1443,37 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                         ? `https://cdn.discordapp.com/avatars/${post.userId}/${user.avatar}.png` 
                         : `https://cdn.discordapp.com/embed/avatars/${Number(post.userId) % 5}.png`;
 
-                    // To enable the Discord Audio Player, we MUST send the URL as plain content.
-                    // Embeds with links do not create players.
-                    // We combine the original text content with the audio URL.
+                    // To enable the Discord Audio Player reliably, we must UPLOAD the file as an attachment.
+                    // Just linking it often results in a plain link if the embed fails or is suppressed.
                     
-                    const messageContent = [
-                        post.content,
-                        '',
-                        `[**📂 Audio Attachment**](${post.audioUrl})` // Markdown link for cleaner look if player fails
-                    ].filter(Boolean).join('\n');
-                    
-                    // We send the URL separately at the end to ensure unfurl works if possible, 
-                    // or just rely on the markdown link.
-                    // Actually, for Player to appear, raw URL is best.
-                    
-                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
-                        content: `${post.content || ''}\n\n${post.audioUrl}`, 
-                        username: user?.username || 'Producer',
-                        avatar_url: avatarUrl,
-                        allowed_mentions: { parse: [] } // Prevent accidental pings from reposted content
-                    }, {
-                         headers: { 'Content-Type': 'application/json' }
-                    });
+                    try {
+                        const audioRes = await axios.get(post.audioUrl, { responseType: 'stream' });
+                        const filename = post.audioUrl.split('/').pop()?.split('?')[0] || 'audio.mp3';
+
+                        const form = new FormData();
+                        form.append('payload_json', JSON.stringify({
+                            content: post.content || '',
+                            username: user?.username || 'Producer',
+                            avatar_url: avatarUrl,
+                            allowed_mentions: { parse: [] }
+                        }));
+                        form.append('files[0]', audioRes.data, filename);
+
+                        await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, form, {
+                            headers: {
+                                ...form.getHeaders() // Content-Type: multipart/form-data; boundary=...
+                            }
+                        });
+                    } catch (uploadErr) {
+                        logger.error('Failed to upload audio to webhook, falling back to link', uploadErr);
+                        // Fallback to link if upload fails
+                         await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
+                            content: `${post.content || ''}\n\n${post.audioUrl}`, 
+                            username: user?.username || 'Producer',
+                            avatar_url: avatarUrl,
+                            allowed_mentions: { parse: [] }
+                        });
+                    }
 
                 } catch (webhookErr) {
                     logger.error('Webhook execution failed', webhookErr);
