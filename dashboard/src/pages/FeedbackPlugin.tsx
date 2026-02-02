@@ -189,14 +189,11 @@ export const FeedbackPluginPage: React.FC = () => {
                 <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
                     <h3>Configuration</h3>
                     <div style={{ display: 'grid', gap: '20px', maxWidth: '600px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={settings.enabled} onChange={e => setSettings({...settings, enabled: e.target.checked})} />
-                            Enable Feedback System
-                        </label>
                         
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px' }}>Forum Channel</label>
                             <ChannelSelect
+                                guildId={selectedGuild?.id || ''}
                                 value={settings.forumChannelId || ''}
                                 onChange={(val: string) => setSettings({ ...settings, forumChannelId: val })}
                                 channelTypes={[15]} // Filter for Forum Channels
@@ -206,6 +203,7 @@ export const FeedbackPluginPage: React.FC = () => {
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px' }}>Review Channel</label>
                             <ChannelSelect
+                                guildId={selectedGuild?.id || ''}
                                 value={settings.reviewChannelId || ''}
                                 onChange={(val: string) => setSettings({ ...settings, reviewChannelId: val })}
                                 channelTypes={[0]} // Text Channels

@@ -362,18 +362,6 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
               <label className="setting-label">
                 <input
                   type="checkbox"
-                  checked={settings.enabled}
-                  onChange={e => handleSettingChange('enabled', e.target.checked)}
-                />
-                <span>Enable Word Filter</span>
-              </label>
-              <p className="setting-description">Enable/disable the word filter for this server</p>
-            </div>
-
-            <div className="setting-item">
-              <label className="setting-label">
-                <input
-                  type="checkbox"
                   checked={settings.repostEnabled}
                   onChange={e => handleSettingChange('repostEnabled', e.target.checked)}
                 />

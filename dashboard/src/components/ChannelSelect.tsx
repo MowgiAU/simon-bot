@@ -29,16 +29,23 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        if (!guildId) return;
         setLoading(true);
         fetch(`/api/guilds/${guildId}/channels`, { credentials: 'include' })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch channels');
+                return res.json();
+            })
             .then((data: Channel[]) => {
+                if (!Array.isArray(data)) {
+                    console.error('Channel API response is not an array:', data);
+                    setChannels([]);
+                    return;
+                }
                 let filtered = data;
                 if (channelTypes) {
                     filtered = data.filter(c => channelTypes.includes(c.type));
                 }
-                // Sort: Categories first, then others grouped by parent
-                // Ideally we rebuild hierarchy. For now simple flat list with Type indicators.
                 setChannels(filtered);
             })
             .catch(console.error)
