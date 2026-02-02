@@ -137,6 +137,9 @@ export const PluginManagementPage: React.FC = () => {
                 <div>
                     <h1 style={{ margin: 0 }}>Plugin Management </h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Enable/Disable features and control who can access them.</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: colors.warning }}>
+                        Note: Changes to plugin status may take up to 30 seconds to update on the bot.
+                    </p>
                 </div>
             </div>
 
