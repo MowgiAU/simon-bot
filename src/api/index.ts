@@ -918,6 +918,7 @@ app.get('/api/plugins/list', (req, res) => {
         { id: 'word-filter', name: 'Word Filter', description: 'Auto-delete bad words' },
         { id: 'stats', name: 'Server Statistics', description: 'Track member/voice stats' },
         { id: 'logger', name: 'Logger', description: 'Log channels to file/db' },
+        { id: 'economy', name: 'Economy', description: 'Bank, Shop, & Rewards' },
         { id: 'staging-test', name: 'Staging Test', description: 'Test plugin for staging' }
     ]);
 });
@@ -1053,6 +1054,174 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
     } catch (e) {
         logger.error('Failed to fetching permissions', e);
         res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// --- Economy Plugin Routes ---
+
+// Get Economy Settings
+app.get('/api/economy/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        let settings = await db.economySettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.economySettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed get economy settings', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Update Economy Settings
+app.post('/api/economy/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        const settings = await db.economySettings.upsert({
+            where: { guildId },
+            update: req.body,
+            create: { guildId, ...req.body }
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed update economy settings', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Get Shop Items
+app.get('/api/economy/items/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        const items = await db.economyItem.findMany({ where: { guildId }, orderBy: { price: 'asc' } });
+        res.json(items);
+    } catch (e) {
+        logger.error('Failed get items', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Create/Update Item
+app.post('/api/economy/items/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        const { id, name, description, price, type, stock, metadata } = req.body;
+        
+        // Validation
+        if (!name || price < 0) return res.status(400).json({ error: 'Invalid data' });
+
+        if (id) {
+             const item = await db.economyItem.update({
+                 where: { id },
+                 data: { name, description, price, type, stock, metadata }
+             });
+             res.json(item);
+        } else {
+             const item = await db.economyItem.create({
+                 data: { guildId, name, description, price, type, stock, metadata }
+             });
+             res.json(item);
+        }
+    } catch (e) {
+        logger.error('Failed save item', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Delete Item
+app.delete('/api/economy/items/:guildId/:itemId', async (req, res) => {
+    try {
+        const { guildId, itemId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        await db.economyItem.delete({ where: { id: itemId } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Failed delete item', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Update User Balance (Vault)
+app.post('/api/economy/vault/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        const { userId, amount, mode } = req.body; // mode: 'set' or 'add'
+        
+        // Find or create account
+        let account = await db.economyAccount.findUnique({
+            where: { guildId_userId: { guildId, userId } }
+        });
+        
+        let newBalance = account ? account.balance : 0;
+        
+        if (mode === 'set') {
+            newBalance = amount;
+        } else {
+            newBalance += amount;
+        }
+
+        const updated = await db.economyAccount.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { balance: newBalance },
+            create: { guildId, userId, balance: newBalance }
+        });
+
+        // Log admin action
+        await db.economyTransaction.create({
+            data: {
+                guildId,
+                amount: mode === 'set' ? (amount - (account?.balance || 0)) : amount,
+                type: 'ADMIN',
+                reason: 'Vault Adjustment',
+                toUserId: userId
+            }
+        });
+
+        res.json(updated);
+    } catch (e) {
+        logger.error('Vault update failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// User Search (for Vault)
+// We need to search discord users by name
+app.get('/api/economy/search-users/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { q } = req.query;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+
+        if (!q || String(q).length < 3) return res.json([]);
+        
+        const query = String(q).toLowerCase();
+
+        // 1. Search DB users first (who have accounts)
+        // Actually best to search Discord API if possible, but search endpoint isn't always easy.
+        // We will search the members that the bot knows about (via recent cache or DB Member model if we had one synced)
+        // We only have Member model for leveling/currency, so we can search `EconomyAccount` but that won't show new users.
+        
+        // Search Discord API via bot
+        const searchRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/search?query=${query}&limit=10`, {
+             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+
+        res.json(searchRes.data);
+    } catch (e) {
+        logger.error('Search failed', e);
+        res.json([]);
     }
 });
 
