@@ -169,7 +169,7 @@ const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d:
                         checked={data.allowTipping} 
                         onChange={e => setData({...data, allowTipping: e.target.checked})}
                     />
-                    Allow Reaction Tipping (React with {data.currencyEmoji} to tip 1 coin)
+                    <span>Allow Reaction Tipping (React with {renderCurrency(data.currencyEmoji)} to tip 1 coin)</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input 
@@ -177,7 +177,7 @@ const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d:
                         checked={data.autoNickname} 
                         onChange={e => setData({...data, autoNickname: e.target.checked})}
                     />
-                    Auto-Update Nicknames (e.g. User ({data.currencyEmoji}500))
+                    <span>Auto-Update Nicknames (e.g. User ({renderCurrency(data.currencyEmoji)}500))</span>
                 </label>
             </div>
 
@@ -258,7 +258,7 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
                     <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
                         <div>
                             <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-                            <div style={{ fontSize: '12px', color: colors.textSecondary }}>{currency} {item.price} • {item.type} • Stock: {item.stock ?? '∞'}</div>
+                            <div style={{ fontSize: '12px', color: colors.textSecondary }}>{renderCurrency(currency)} {item.price} • {item.type} • Stock: {item.stock ?? '∞'}</div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button onClick={() => setEditing(item)} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer' }}><Edit size={18}/></button>
@@ -313,8 +313,8 @@ const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) 
                 <div style={{ padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', textAlign: 'center' }}>
                     <h4>Managing: {selectedUser.user?.username || selectedUser.username}</h4>
                     <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} style={{ ...inputStyle, width: '150px', margin: '0 auto 10px auto', display: 'block' }} />
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-                        <button onClick={() => handleUpdate('add')} style={btnStyle(colors.success)}>Add {currency}</button>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                        <button onClick={() => handleUpdate('add')} style={btnStyle(colors.success)}>Add {renderCurrency(currency)}</button>
                         <button onClick={() => handleUpdate('set')} style={btnStyle(colors.warning)}>Set Balance</button>
                         <button onClick={() => setSelectedUser(null)} style={btnStyle('grey')}>Cancel</button>
                     </div>
@@ -339,3 +339,21 @@ const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) 
 // Utils
 const inputStyle: any = { padding: '8px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' };
 const btnStyle = (bg: string) => ({ background: bg, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer' });
+
+const renderCurrency = (emoji: string) => {
+    if (!emoji) return emoji;
+    const match = emoji.trim().match(/^<(a?):(\w+):(\d+)>$/);
+    if (match) {
+        const [_, animated, name, id] = match;
+        const ext = animated ? 'gif' : 'png';
+        return (
+            <img 
+                src={`https://cdn.discordapp.com/emojis/${id}.${ext}`} 
+                alt={name} 
+                title={`:${name}:`}
+                style={{ width: '1.2em', height: '1.2em', verticalAlign: 'text-bottom', objectFit: 'contain', display: 'inline-block' }} 
+            />
+        );
+    }
+    return emoji;
+};
