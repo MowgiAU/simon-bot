@@ -138,6 +138,20 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
             this.logger.info(`Successfully deducted ${cost} coins from ${userId}`);
             
+            // Log to Audit Log
+            if (this.context) {
+                await this.context.logAction({
+                    guildId,
+                    actionType: 'FEEDBACK_THREAD_CREATED',
+                    executorId: userId,
+                    details: { 
+                        threadId: thread.id, 
+                        cost,
+                        threadName: thread.name
+                    }
+                });
+            }
+            
             // Send ephemeral confirmation in thread
             try {
                 // We cannot send ephemeral messages to a thread easily without an interaction.
@@ -301,6 +315,16 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 reason: 'High quality feedback'
             }
         });
+
+        // Audit Log
+        if (this.context) {
+            await this.context.logAction({
+                guildId,
+                actionType: 'FEEDBACK_REWARD_GIVEN',
+                targetId: userId,
+                details: { amount }
+            });
+        }
     }
 
     private async handleAudioIntercept(message: Message) {

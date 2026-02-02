@@ -1346,6 +1346,29 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
             // 1. Update DB
             await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
 
+            // 1b. Reward User
+            try {
+                const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+                if (settings && settings.currencyReward > 0) {
+                     await db.economyAccount.upsert({
+                        where: { guildId_userId: { guildId, userId: post.userId } },
+                        update: { balance: { increment: settings.currencyReward }, totalEarned: { increment: settings.currencyReward } },
+                        create: { guildId, userId: post.userId, balance: settings.currencyReward, totalEarned: settings.currencyReward }
+                     });
+                     await db.economyTransaction.create({
+                        data: {
+                            guildId,
+                            toUserId: post.userId,
+                            amount: settings.currencyReward,
+                            type: 'FEEDBACK_REWARD',
+                            reason: 'Staff approved feedback'
+                        }
+                    });
+                }
+            } catch (e) {
+                logger.error('Failed to reward user', e);
+            }
+
             // 2. Logic based on type
             // If it has AUDIO, we need to REPOST it
             if (post.hasAudio && post.audioUrl) {
@@ -1412,24 +1435,28 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                     }, {
                          headers: { 'Content-Type': 'application/json' }
                     });
-                    
-                    // Note: We cannot "attach" the file URL as an attachment object in JSON easily without multipart/form-data.
-                    // But we can include the URL in content? 
-                    // If we include the URL in content, Discord normally previews it.
-                    // post.audioUrl is the URL from the logging channel.
-                    
-                    // BETTER APPROACH: POST again using content pointing to the file?
-                    // Or if we want a real attachment, we have to download and upload using FormData.
-                    // For simplicity in this environment, sending the URL is 90% effective if the file is accessible.
-                    // BUT user requested "Embed not be a link to download".
-                    // If the URL is cdn.discordapp... it usually embeds a player.
-                    // However, to guarantee it, we should just send the URL as content.
-                    
-                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
-                        content: post.audioUrl, // Just the URL often autoplays
-                        username: user?.username || 'Producer',
-                        avatar_url: avatarUrl
-                    });
+            }
+
+            // 3. Log Action
+            await db.actionLog.create({
+                data: {
+                    guildId,
+                    pluginId: 'production-feedback',
+                    action: 'FEEDBACK_APPROVED',
+                    executorId: (req.session?.user as any)?.id || 'system',
+                    targetId: post.userId,
+                    details: { postId: post.id, hasAudio: post.hasAudio }
+                }
+            });
+
+            return res.json({ success: true });
+        }
+        
+    } catch (e) {
+        logger.error('Feedback action failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
                     // But just appending the link is easier and works for "Review".
                     // Let's append the link to content.
                     await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
