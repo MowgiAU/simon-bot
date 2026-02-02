@@ -37,7 +37,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['balance', 'pay', 'shop', 'buy', 'daily', 'leaderboard', 'item', 'inventory', 'give', 'take'];
+    commands = ['wallet', 'wealth', 'market', 'buy'];
 
     private client: any;
     private db: any;
@@ -105,12 +105,14 @@ export class EconomyPlugin implements IPlugin {
         const message = reaction.message as Message;
         if (message.author.id === user.id) return; // Can't tip self
 
+        if (!message.guild) return;
         const settings = await this.getSettings(message.guild.id);
         if (!settings.allowTipping) return;
 
         // Check emoji
         if (reaction.emoji.name !== settings.currencyEmoji) return;
 
+        if (!message.guild) return;
         // Process tip (1 coin)
         const success = await this.transfer(message.guild.id, user.id, message.author.id, 1, 'TIP', `Tip for message ${message.id}`);
         
@@ -158,7 +160,7 @@ export class EconomyPlugin implements IPlugin {
 
         const settings = await this.getSettings(interaction.guildId);
         
-        const description = await Promise.all(accounts.map(async (acc, index) => {
+        const description = await Promise.all(accounts.map(async (acc: any, index: number) => {
              const user = await this.client.users.fetch(acc.userId).catch(() => ({ username: 'Unknown' }));
              return `**${index + 1}.** ${user.username} — ${settings.currencyEmoji} ${acc.balance}`;
         }));
@@ -191,7 +193,7 @@ export class EconomyPlugin implements IPlugin {
         if (items.length === 0) {
             embed.setDescription('The shop is currently empty.');
         } else {
-            items.forEach(item => {
+            items.forEach((item: any) => {
                  let stockStr = item.stock === null ? '∞' : item.stock;
                  embed.addFields({
                      name: `${item.name} (${settings.currencyEmoji} ${item.price})`,
@@ -412,32 +414,5 @@ export class EconomyPlugin implements IPlugin {
         } catch (e) {
             // Ignore errors (permissions etc)
         }
-    }
-
-    public get commands() {
-        return [
-            new SlashCommandBuilder()
-                .setName('wallet')
-                .setDescription('Check your balance')
-                .addUserOption(opt => opt.setName('user').setDescription('User to check')),
-            
-            new SlashCommandBuilder()
-                .setName('wealth')
-                .setDescription('View greatest earners'),
-
-            new SlashCommandBuilder()
-                .setName('market')
-                .setDescription('View shop items'),
-
-            new SlashCommandBuilder()
-                .setName('buy')
-                .setDescription('Buy an item')
-                .addStringOption(opt => 
-                        opt.setName('item')
-                        .setDescription('Item name')
-                        .setRequired(true)
-                        .setAutocomplete(true)
-                )
-        ];
     }
 }
