@@ -336,13 +336,19 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   };
 
   return (
-    <div className="word-filter-settings">
+    <div className="word-filter-settings" style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
       {error && <div className="error-banner">{error}</div>}
       {saveMessage && <div className="success-banner">{saveMessage}</div>}
       
-      <div className="settings-header">
-        <h2>Word Filter Settings</h2>
-        <p className="description">Configure message filtering and word replacement</p>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+         {/* Using MessageSquare as placeholder or similar icon */}
+         <div style={{ marginRight: '16px' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+         </div>
+         <div>
+             <h1 style={{ margin: 0, fontSize: '2em' }}>Word Filter</h1>
+             <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure message filtering and word replacement.</p>
+         </div>
       </div>
 
       {loading ? (

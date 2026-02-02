@@ -55,9 +55,7 @@ export const FeedbackPluginPage: React.FC = () => {
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ background: colors.primary, padding: '12px', borderRadius: '50%', marginRight: '16px' }}>
-                    <MessageSquare size={24} color="white" />
-                </div>
+                <MessageSquare size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
                     <h1 style={{ margin: 0 }}>Feedback Moderation</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>AI-assisted moderation queue for music production feedback.</p>

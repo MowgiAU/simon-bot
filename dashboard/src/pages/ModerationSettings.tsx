@@ -167,12 +167,12 @@ export const ModerationSettingsPage: React.FC = () => {
                 <Shield size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
                     <h1 style={{ margin: 0 }}>Moderation Settings</h1>
-                    {/* <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure your server's defensive measures.</p> */}
+                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure basic moderation commands and logging.</p>
                 </div>
             </div>
 
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                 <p style={{ margin: 0, color: colors.textPrimary }}>Configure how Simon Bot moderates your server. Set up log channels, customize punishment messages (kicks, bans), and assign moderation permissions to specific roles without giving them Discord administrator powers.</p>
+                 <p style={{ margin: 0, color: colors.textPrimary }}>Set up your moderation logs, custom messages for actions (kick, ban, timeout), and configure which roles are allowed to use specific moderation commands.</p>
             </div>
 
             {msg && (
