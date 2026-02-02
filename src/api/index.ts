@@ -934,6 +934,7 @@ app.get('/api/plugins/list', (req, res) => {
         { id: 'stats', name: 'Server Statistics', description: 'Track member/voice stats' },
         { id: 'logger', name: 'Logger', description: 'Log channels to file/db' },
         { id: 'economy', name: 'Economy', description: 'Bank, Shop, & Rewards' },
+        { id: 'production-feedback', name: 'Production Feedback', description: 'AI Feedback & Economy for Tracks' },
         { id: 'staging-test', name: 'Staging Test', description: 'Test plugin for staging' }
     ]);
 });
