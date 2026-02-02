@@ -13,11 +13,17 @@ export interface Guild {
   icon?: string;
 }
 
+interface Permissions {
+  canManagePlugins: boolean;
+  accessiblePlugins: string[];
+}
+
 interface AuthContextType {
   user: User | null;
   mutualAdminGuilds: Guild[];
   selectedGuild: Guild | null;
   setSelectedGuild: (guild: Guild) => void;
+  permissions: Permissions;
   loading: boolean;
   login: () => void;
   logout: () => void;
@@ -29,7 +35,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [mutualAdminGuilds, setMutualAdminGuilds] = useState<Guild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
+  const [permissions, setPermissions] = useState<Permissions>({ canManagePlugins: false, accessiblePlugins: [] });
   const [loading, setLoading] = useState(true);
+
+  // Fetch permissions when guild changes
+  useEffect(() => {
+    if (!selectedGuild) {
+        setPermissions({ canManagePlugins: false, accessiblePlugins: [] });
+        return;
+    }
+    fetch(`/api/guilds/${selectedGuild.id}/my-permissions`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            setPermissions({ 
+                canManagePlugins: data.canManagePlugins || false, 
+                accessiblePlugins: data.accessiblePlugins || [] 
+            });
+        })
+        .catch(err => console.error(err));
+  }, [selectedGuild]);
 
   useEffect(() => {
     fetch('/api/auth/status', { credentials: 'include' })
@@ -38,8 +62,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.authenticated) {
           setUser(data.user);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
-          if (data.mutualAdminGuilds && data.mutualAdminGuilds.length === 1) {
-            setSelectedGuild(data.mutualAdminGuilds[0]);
+          if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
+              // Prefer user's last choice or first one? For simplicity first one
+              // Just picking first one for now
+             setSelectedGuild(data.mutualAdminGuilds[0]);
           }
         }
         setLoading(false);
@@ -55,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

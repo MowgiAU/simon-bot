@@ -20,10 +20,11 @@ interface SidebarProps {
   onNavigate: (section: string) => void;
   user: User;
   guild: Guild;
+  permissions: { canManagePlugins: boolean; accessiblePlugins: string[] };
   logout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, logout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, permissions, logout }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -75,6 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><LayoutDashboard size={20} /></span>
             <span className="nav-label">Overview</span>
           </button>
+          
+          {(permissions.accessiblePlugins.includes('logs') || permissions.accessiblePlugins.includes('moderation')) && (
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
             onClick={() => onNavigate('logs')}
@@ -83,10 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><ScrollText size={20} /></span>
             <span className="nav-label">Audit Logs</span>
           </button>
+          )}
         </div>
 
         <div className="nav-group">
           <h3 className="nav-group-title">Plugins</h3>
+          {permissions.accessiblePlugins.includes('moderation') && (
           <button
             className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
             onClick={() => onNavigate('moderation')}
@@ -95,6 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><ShieldAlert size={20} /></span>
             <span className="nav-label">Moderation</span>
           </button>
+          )}
+          
+          {permissions.accessiblePlugins.includes('word-filter') && (
           <button
             className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
             onClick={() => onNavigate('word-filter-settings')}
@@ -103,9 +111,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><Type size={20} /></span>
             <span className="nav-label">Word Filter</span>
           </button>
+          )}
         </div>
 
         <div className="nav-group">
+          {permissions.canManagePlugins && (
+          <>
           <h3 className="nav-group-title">Admin</h3>
           <button
             className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`}
@@ -114,7 +125,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><Settings size={20} /></span>
             <span className="nav-label">Plugins</span>
-          </button>           {/* Only show in Staging - checking localhost is easiest or env var */}
+          </button>
+          </>
+          )}
+           {/* Only show in Staging - checking localhost is easiest or env var */}
            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
             <button
                 className={`nav-item ${activeSection === 'staging-test' ? 'active' : ''}`}

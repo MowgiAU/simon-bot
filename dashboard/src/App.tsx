@@ -16,7 +16,7 @@ type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'stag
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, loading, login, logout } = useAuth();
+  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
   if (loading) return (
     <div style={{ 
@@ -137,7 +137,14 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={`app ${sidebarOpen ? 'sidebar-open' : ''}`}>
-      <Sidebar activeSection={activeSection} onNavigate={handleNavigate} user={user} guild={selectedGuild} logout={logout} />
+      <Sidebar 
+          activeSection={activeSection} 
+          onNavigate={handleNavigate} 
+          user={user} 
+          guild={selectedGuild} 
+          permissions={permissions} 
+          logout={logout} 
+      />
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
