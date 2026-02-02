@@ -4,6 +4,7 @@ import { Sidebar } from './layouts/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
 import { ModerationSettingsPage } from './pages/ModerationSettings';
+import { PluginManagementPage } from './pages/PluginManagement';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 import { colors } from './theme/theme';
@@ -123,12 +124,7 @@ const AppContent: React.FC = () => {
       case 'staging-test':
         return <StagingTest />;
       case 'plugins':
-        return (
-          <div style={{ padding: '20px', color: colors.textPrimary }}>
-            <h2>Plugins</h2>
-            <p>Plugin management coming soon</p>
-          </div>
-        );
+        return <PluginManagementPage />;
       default:
         return null;
     }

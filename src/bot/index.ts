@@ -180,9 +180,14 @@ export class SimonBot {
     });
 
     this.client.on('interactionCreate', async interaction => {
+       if (!interaction.guildId) return;
        const plugins = this.pluginManager.getEnabled();
        for (const plugin of plugins) {
          if (plugin.events.includes('interactionCreate')) {
+           // Check if enabled for this guild
+           const isEnabled = await this.isPluginEnabled(interaction.guildId, plugin.id);
+           if (!isEnabled) continue;
+
            const p = plugin as any;
            if (typeof p.onInteractionCreate === 'function') {
              try {
@@ -283,6 +288,28 @@ export class SimonBot {
     this.client.on('error', error => {
       this.logger.error('Discord client error', error);
     });
+  }
+
+  private pluginCache = new Map<string, boolean>();
+
+  private async isPluginEnabled(guildId: string, pluginId: string): Promise<boolean> {
+      const key = `${guildId}:${pluginId}`;
+      if (this.pluginCache.has(key)) return this.pluginCache.get(key)!;
+
+      try {
+          const setting = await this.db.pluginSettings.findUnique({
+              where: { guildId_pluginId: { guildId, pluginId } }
+          });
+          // Default to TRUE if no setting found
+          const enabled = setting ? setting.enabled : true;
+          
+          this.pluginCache.set(key, enabled);
+          setTimeout(() => this.pluginCache.delete(key), 30000); // 30s cache
+          
+          return enabled;
+      } catch (e) {
+          return true; 
+      }
   }
 
   /**

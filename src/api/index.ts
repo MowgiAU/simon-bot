@@ -125,11 +125,43 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     const userGuilds = guildsRes.data;
     // Get bot guilds from DB
     const botGuilds = await getBotGuildIds();
-    // Find mutual guilds where user is admin/owner and bot is present
-    const mutualAdminGuilds = userGuilds.filter((g: any) => {
-      const isAdmin = g.owner || (g.permissions & 0x8) === 0x8;
-      return isAdmin && botGuilds.some(bg => bg.id === g.id);
-    });
+    
+    // Find mutual guilds where user is admin/owner OR has allowed role
+    const mutualAdminGuilds = [];
+    const candidateGuilds = userGuilds.filter((g: any) => botGuilds.some(bg => bg.id === g.id));
+
+    for (const guild of candidateGuilds) {
+        // 1. Admin Check
+        // permissions is a string in v10, but JS bitwise ops convert to 32-bit int which works for 0x8 (8)
+        // For safety/strictness with large bitfields, BigInt is better, but this likely worked before.
+        const permissions = BigInt(guild.permissions);
+        const isAdmin = guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8);
+
+        if (isAdmin) {
+            mutualAdminGuilds.push(guild);
+            continue;
+        }
+
+        // 2. Role Access Check
+        try {
+            const access = await db.dashboardAccess.findUnique({ where: { guildId: guild.id } });
+            if (access && access.allowedRoles.length > 0) {
+                 // Fetch member to get roles
+                 const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guild.id}/members/${user.id}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                const memberRoles = memberRes.data.roles || [];
+                const hasRole = memberRoles.some((r: string) => access.allowedRoles.includes(r));
+                
+                if (hasRole) {
+                    mutualAdminGuilds.push(guild);
+                }
+            }
+        } catch (e) {
+            // Ignore fetch errors
+        }
+    }
+
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
@@ -839,6 +871,93 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
         });
         res.json(response.data);
     } catch (e) { res.status(500).json([]); }
+});
+
+// --- Plugin Management Routes ---
+
+app.get('/api/plugins/list', (req, res) => {
+    // Return known plugins
+    res.json([
+        { id: 'moderation', name: 'Moderation System', description: 'Kick, Ban, Warn, Timeout' },
+        { id: 'word-filter', name: 'Word Filter', description: 'Auto-delete bad words' },
+        { id: 'stats', name: 'Server Statistics', description: 'Track member/voice stats' },
+        { id: 'logger', name: 'Logger', description: 'Log channels to file/db' },
+        { id: 'staging-test', name: 'Staging Test', description: 'Test plugin for staging' }
+    ]);
+});
+
+// Get all plugin settings for a guild
+app.get('/api/guilds/:guildId/plugins-settings', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+        
+        // Fetch DB settings
+        const settings = await db.pluginSettings.findMany({
+            where: { guildId }
+        });
+        
+        // Fetch dashboard access
+        const access = await db.dashboardAccess.findUnique({
+            where: { guildId }
+        });
+
+        res.json({
+            plugins: settings,
+            access: access || { allowedRoles: [] }
+        });
+    } catch (e) {
+        logger.error('Failed to get plugin settings', e);
+        res.status(500).json({ error: 'Internal Error' });
+    }
+});
+
+// Update specific plugin
+app.post('/api/guilds/:guildId/plugins/:pluginId', async (req, res) => {
+    try {
+        const { guildId, pluginId } = req.params;
+        const { enabled, allowedRoles } = req.body;
+        
+        // STRICT AUTH: Only real admins can change these settings
+        if (!req.session?.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+             return res.status(403).json({ error: 'Only admins can manage plugins' });
+        }
+
+        const updated = await db.pluginSettings.upsert({
+            where: { guildId_pluginId: { guildId, pluginId } },
+            update: { enabled, allowedRoles },
+            create: { guildId, pluginId, enabled, allowedRoles }
+        });
+        
+        res.json(updated);
+    } catch (e) {
+        logger.error('Failed to update plugin', e);
+        res.status(500).json({ error: 'Update failed' });
+    }
+});
+
+// Update dashboard access
+app.post('/api/guilds/:guildId/access', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { allowedRoles } = req.body;
+        
+        // STRICT AUTH: Only real admins
+        if (!req.session?.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+             return res.status(403).json({ error: 'Only admins can manage access' });
+        }
+
+        const updated = await db.dashboardAccess.upsert({
+            where: { guildId },
+            update: { allowedRoles },
+            create: { guildId, allowedRoles }
+        });
+        
+        res.json(updated);
+    } catch (e) {
+        logger.error('Failed to update access', e);
+        res.status(500).json({ error: 'Update failed' });
+    }
 });
 
 // Error handling

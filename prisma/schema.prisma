@@ -24,8 +24,11 @@ model Guild {
   filterSettings     FilterSettings?
   channelStats       ChannelStats[]
   serverStats        ServerStats[]
+  pluginSettings     PluginSettings[]
+  dashboardAccess    DashboardAccess?
   actionLogs         ActionLog[]
   userNotes          UserNote[]
+
   moderationSettings ModerationSettings?
 
   @@map("guilds")
@@ -243,5 +246,30 @@ model ServerStats {
   
   @@unique([guildId, date])
   @@map("server_stats")
+}
+
+// Plugin Management
+model PluginSettings {
+  id             String   @id @default(cuid())
+  guildId        String
+  pluginId       String
+  
+  enabled        Boolean  @default(true)
+  allowedRoles   String[] @default([]) // Roles that can configure this plugin
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@unique([guildId, pluginId])
+  @@map("plugin_settings")
+}
+
+model DashboardAccess {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  allowedRoles   String[] @default([]) // Roles that can login to dashboard
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@map("dashboard_access")
 }
 
