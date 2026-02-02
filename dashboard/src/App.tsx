@@ -1,6 +1,9 @@
 
 import React, { useState } from 'react';
 import { Sidebar } from './layouts/Sidebar';
+import { AuthProvider, useAuth } from './components/AuthProvider';
+import { colors } from './theme/theme';
+import logoUrl from './assets/logo.svg';
 import { Dashboard } from './pages/Dashboard';
 import { WordFilterSettings } from './pages/WordFilterSettings';
 import { ModerationSettingsPage } from './pages/ModerationSettings';
@@ -8,6 +11,7 @@ import { PluginManagementPage } from './pages/PluginManagement';
 import { EconomyPluginPage } from './pages/EconomyPlugin';
 import { FeedbackPluginPage } from './pages/FeedbackPlugin';
 import Logs from './pages/Logs';
+import { StagingTest } from './pages/StagingTest';
 
 type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback';
 
