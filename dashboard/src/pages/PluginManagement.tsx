@@ -50,7 +50,9 @@ export const PluginManagementPage: React.FC = () => {
                 setPlugins(metaRes.data);
                 setSettings(settingsRes.data.plugins);
                 setAccessRoles(settingsRes.data.access.allowedRoles);
-                setRoles(rolesRes.data.sort((a: any, b: any) => b.position - a.position));
+                setRoles(rolesRes.data
+                    .filter((r: any) => r.name !== '@everyone')
+                    .sort((a: any, b: any) => b.position - a.position));
             } catch (error) {
                 console.error('Fetch error:', error);
             } finally {
