@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon } from 'lucide-react';
+import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X } from 'lucide-react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 export const EconomyPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -87,7 +88,7 @@ export const EconomyPluginPage: React.FC = () => {
 
             <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
                 {activeTab === 'settings' && settings && (
-                    <SettingsTab settings={settings} onSave={saveSettings} />
+                    <SettingsTab settings={settings} onSave={saveSettings} guildId={selectedGuild?.id} />
                 )}
                 {activeTab === 'inventory' && (
                     <InventoryTab items={items} refresh={refreshData} guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} />
@@ -101,7 +102,7 @@ export const EconomyPluginPage: React.FC = () => {
 };
 
 // --- Settings Tab ---
-const SettingsTab = ({ settings, onSave }: { settings: any, onSave: (d: any) => void }) => {
+const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d: any) => void, guildId?: string }) => {
     const [data, setData] = useState(settings);
     
     return (
@@ -118,14 +119,13 @@ const SettingsTab = ({ settings, onSave }: { settings: any, onSave: (d: any) => 
                 </div>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px' }}>Currency Symbol/Emoji</label>
-                    <input 
+                    <HybridEmojiPicker 
                         value={data.currencyEmoji} 
-                        onChange={e => setData({...data, currencyEmoji: e.target.value})}
-                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
-                        placeholder="e.g. 🪙 or <:coin:123456789>"
+                        onChange={val => setData({...data, currencyEmoji: val})}
+                        guildId={guildId}
                     />
                     <small style={{ color: colors.textSecondary, marginTop: '4px', display: 'block' }}>
-                        For custom emojis, paste the full code (e.g. <code>&lt;:name:id&gt;</code>) or just use the unicode emoji.
+                        For custom emojis, you can also paste the full code (e.g. <code>&lt;:name:id&gt;</code>).
                     </small>
                 </div>
             </div>
@@ -339,3 +339,128 @@ const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) 
 // Utils
 const inputStyle: any = { padding: '8px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' };
 const btnStyle = (bg: string) => ({ background: bg, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer' });
+
+// --- Hybrid Emoji Picker ---
+const HybridEmojiPicker = ({ value, onChange, guildId }: { value: string, onChange: (v: string) => void, guildId?: string }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [tab, setTab] = useState<'standard' | 'custom'>('standard');
+    const [customEmojis, setCustomEmojis] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (tab === 'custom' && guildId && customEmojis.length === 0) {
+            setLoading(true);
+            axios.get(`/api/guilds/${guildId}/emojis`, { withCredentials: true })
+                .then(res => setCustomEmojis(res.data))
+                .catch(console.error)
+                .finally(() => setLoading(false));
+        }
+    }, [tab, guildId]);
+
+    const handleSelect = (val: string) => {
+        onChange(val);
+        setIsOpen(false);
+    };
+
+    return (
+        <div style={{ position: 'relative' }} ref={wrapperRef}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                    value={value} 
+                    onChange={e => onChange(e.target.value)}
+                    style={{ flex: 1, ...inputStyle }}
+                    placeholder="Select or type..."
+                />
+                <button 
+                    onClick={() => setIsOpen(!isOpen)}
+                    style={{ ...btnStyle(colors.surface), border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center' }}
+                >
+                    {isOpen ? <X size={18}/> : <Smile size={18}/>}
+                </button>
+            </div>
+
+            {isOpen && (
+                <div style={{ 
+                    position: 'absolute', 
+                    top: '100%', 
+                    right: 0, 
+                    zIndex: 100, 
+                    background: '#2b2d31', 
+                    border: `1px solid ${colors.border}`, 
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    width: '350px',
+                    marginTop: '8px',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
+                        <button 
+                            onClick={() => setTab('standard')}
+                            style={{ flex: 1, padding: '10px', background: tab === 'standard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}
+                        >
+                            Standard
+                        </button>
+                        <button 
+                            onClick={() => setTab('custom')}
+                            style={{ flex: 1, padding: '10px', background: tab === 'custom' ? 'rgba(255,255,255,0.1)' : 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}
+                        >
+                            Server Emojis
+                        </button>
+                    </div>
+
+                    <div style={{ padding: '10px', maxHeight: '350px', overflowY: 'auto' }}>
+                        {tab === 'standard' ? (
+                            <EmojiPicker 
+                                onEmojiClick={(data) => handleSelect(data.emoji)} 
+                                width="100%" 
+                                height={300}
+                                theme={'dark' as any}
+                                lazyLoadEmojis={true}
+                            />
+                        ) : (
+                            <div>
+                                {loading && <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>}
+                                {!loading && customEmojis.length === 0 && <div style={{ textAlign: 'center', padding: '20px' }}>No emojis found.</div>}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px' }}>
+                                    {customEmojis.map(emoji => (
+                                        <button 
+                                            key={emoji.id}
+                                            onClick={() => handleSelect(`<:${emoji.name}:${emoji.id}>`)}
+                                            title={`:${emoji.name}:`}
+                                            style={{ 
+                                                background: 'transparent', 
+                                                border: 'none', 
+                                                cursor: 'pointer', 
+                                                padding: '4px',
+                                                borderRadius: '4px',
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <img 
+                                                src={`https://cdn.discordapp.com/emojis/${emoji.id}.png?v=1`} 
+                                                alt={emoji.name} 
+                                                style={{ width: '32px', height: '32px', objectFit: 'contain' }} 
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

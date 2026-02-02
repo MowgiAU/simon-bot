@@ -973,6 +973,26 @@ app.post('/api/guilds/:guildId/plugins/:pluginId', async (req, res) => {
     }
 });
 
+// Get Guild Emojis
+app.get('/api/guilds/:guildId/emojis', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        // Basic auth check - user must have some access to this guild
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        
+        // Fetch emojis from Discord API
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/emojis`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        
+        res.json(response.data);
+    } catch (e) {
+        logger.error('Failed to fetch guild emojis', e);
+        res.status(500).json({ error: 'Failed to fetch emojis' });
+    }
+});
+
 // Update dashboard access
 app.post('/api/guilds/:guildId/access', async (req, res) => {
     try {
