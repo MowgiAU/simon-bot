@@ -10,7 +10,9 @@ import {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
-    ChatInputCommandInteraction
+    ChatInputCommandInteraction,
+    AutocompleteInteraction,
+    Interaction
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -57,12 +59,43 @@ export class EconomyPlugin implements IPlugin {
         this.messageCooldowns.clear();
     }
 
+    private async handleAutocomplete(interaction: AutocompleteInteraction) {
+        if (!interaction.guildId) return;
+
+        const focusedValue = interaction.options.getFocused();
+        
+        // Search items
+        const items = await this.db.economyItem.findMany({
+            where: {
+                guildId: interaction.guildId,
+                name: {
+                    contains: focusedValue,
+                    mode: 'insensitive'
+                }
+            },
+            orderBy: { name: 'asc' },
+            take: 25
+        });
+
+        await interaction.respond(
+            items.map((item: any) => ({ 
+                name: `${item.name} ($${item.price})`, 
+                value: item.name 
+            }))
+        );
+    }
+
 
 
     /**
      * Handle commands
      */
-    async onInteractionCreate(interaction: ChatInputCommandInteraction): Promise<void> {
+    async onInteractionCreate(interaction: Interaction): Promise<void> {
+        if (interaction.isAutocomplete()) {
+            if (interaction.commandName === 'buy') await this.handleAutocomplete(interaction);
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         const { commandName } = interaction;
