@@ -275,6 +275,24 @@ export const SidebarStyles = `
       font-size: 15px;
       padding: ${spacing.md} ${spacing.lg};
     }
+    
+    /* Ensure content margin is zero on mobile */
+    .sidebar.collapsed ~ .main-content,
+    .main-content {
+        margin-left: 0 !important;
+    }
+    
+    /* Hide desktop collapse interaction on mobile */
+    .collapse-btn {
+        display: none !important;
+    }
+  }
+
+  /* Desktop - Layout Adjustment */
+  @media (min-width: 769px) {
+    .sidebar.collapsed ~ .main-content {
+      margin-left: 80px;
+    }
   }
 `;
 

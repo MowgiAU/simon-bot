@@ -34,17 +34,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
     style.innerHTML = SidebarStyles;
     document.head.appendChild(style);
     
-    // Update main content margin based on collapse state
-    // This is a bit hacky but works without refactoring the whole Layout structure
-    const mainContent = document.querySelector('.main-content') as HTMLElement;
-    if (mainContent) {
-        mainContent.style.marginLeft = collapsed ? '80px' : '260px';
-    }
-
     return () => {
       document.head.removeChild(style);
     };
-  }, [collapsed]);
+  }, []);
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
