@@ -206,6 +206,12 @@ export class SimonBot {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
         if (plugin.events.includes('messageCreate')) {
+            // Check guild plugin status
+            if (message.guildId) {
+                const isEnabled = await this.isPluginEnabled(message.guildId, plugin.id);
+                if (!isEnabled) continue;
+            }
+
           // Require specific typing or cast to any to access dynamic methods
           const p = plugin as any;
           
@@ -227,6 +233,10 @@ export class SimonBot {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
         if (plugin.events.includes('voiceStateUpdate')) {
+            const guildId = newState.guild.id;
+            const isEnabled = await this.isPluginEnabled(guildId, plugin.id);
+            if (!isEnabled) continue;
+
           const p = plugin as any;
           if (typeof p.onVoiceStateUpdate === 'function') {
             try {
@@ -243,6 +253,9 @@ export class SimonBot {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
         if (plugin.events.includes('guildBanAdd')) {
+            const isEnabled = await this.isPluginEnabled(ban.guild.id, plugin.id);
+            if (!isEnabled) continue;
+
           const p = plugin as any;
           if (typeof p.onGuildBanAdd === 'function') {
             try {
