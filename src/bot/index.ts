@@ -445,7 +445,7 @@ export class SimonBot {
     const buyCommand = new SlashCommandBuilder()
         .setName('buy')
         .setDescription('Buy an item from the shop')
-        .addStringOption(opt => opt.setName('item').setRequired(true).setDescription('The name of the item to buy'));
+        .addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('The name of the item to buy'));
 
     commands.push(walletCommand.toJSON());
     commands.push(wealthCommand.toJSON());
