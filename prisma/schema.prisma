@@ -37,6 +37,11 @@ model ModerationSettings {
   guildId        String   @unique
   logChannelId   String?  // Channel to send nice embeds to
   dmUponAction   Boolean  @default(true) // DM user when kicked/banned?
+
+  // Custom Messages
+  kickMessage    String?  // e.g. "You were kicked from {server} for: {reason}"
+  banMessage     String?
+  timeoutMessage String?
   
   permissions    ModerationPermission[]
   

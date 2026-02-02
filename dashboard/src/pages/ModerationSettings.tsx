@@ -2,13 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { Shield, Save, Check, X, AlertTriangle } from 'lucide-react';
+import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List } from 'lucide-react';
 
 interface ModerationSettings {
     id: string;
     guildId: string;
     logChannelId: string | null;
     dmUponAction: boolean;
+    kickMessage: string | null;
+    banMessage: string | null;
+    timeoutMessage: string | null;
     permissions: Permission[];
 }
 
@@ -42,6 +45,9 @@ export const ModerationSettingsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    
+    // UI State for Role Permissions
+    const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
 
     // Initial Fetch
     useEffect(() => {
@@ -61,7 +67,10 @@ export const ModerationSettingsPage: React.FC = () => {
                 
                 // Filter roles (exclude @everyone usually, but maybe keep it for basic perms?)
                 // Discord API returns roles sorted by position usually.
-                setRoles(rolesRes.data.sort((a: any, b: any) => b.position - a.position));
+                const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
+                setRoles(sortedRoles);
+                if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
+
                 setChannels(channelsRes.data);
             } catch (err) {
                 console.error(err);
@@ -80,10 +89,13 @@ export const ModerationSettingsPage: React.FC = () => {
         try {
             await axios.post(`/api/guilds/${selectedGuild.id}/moderation`, {
                 logChannelId: settings.logChannelId === '' ? null : settings.logChannelId,
-                dmUponAction: settings.dmUponAction
+                dmUponAction: settings.dmUponAction,
+                kickMessage: settings.kickMessage,
+                banMessage: settings.banMessage,
+                timeoutMessage: settings.timeoutMessage
             }, { withCredentials: true });
             
-            setMsg({ type: 'success', text: 'General settings saved.' });
+            setMsg({ type: 'success', text: 'Settings saved.' });
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to save settings.' });
         } finally {
@@ -134,6 +146,20 @@ export const ModerationSettingsPage: React.FC = () => {
 
     if (loading) return <div>Loading...</div>;
 
+    const selectedRole = roles.find(r => r.id === selectedRoleId);
+    const selectedRolePerms = settings?.permissions.find(p => p.roleId === selectedRoleId) || {
+        canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false
+    };
+
+    const permissionLabels: Record<string, string> = {
+        canWarn: 'Warn Members',
+        canTimeout: 'Timeout Members',
+        canKick: 'Kick Members',
+        canBan: 'Ban Members',
+        canPurge: 'Purge Messages',
+        canViewLogs: 'View Audit Logs'
+    };
+
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
@@ -167,7 +193,7 @@ export const ModerationSettingsPage: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Log Channel</label>
-                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post case logs (bans, kicks, etc)?</p>
+                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post case logs?</p>
                         <select 
                             value={settings?.logChannelId || ''} 
                             onChange={(e) => setSettings({ ...settings!, logChannelId: e.target.value })}
@@ -189,7 +215,7 @@ export const ModerationSettingsPage: React.FC = () => {
 
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>DM Users</label>
-                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Send a DM to users explaining why they were moderated?</p>
+                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Send DM when moderated?</p>
                         <div style={{ display: 'flex', alignItems: 'center', marginTop: '12px' }}>
                             <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
                                 <input 
@@ -211,6 +237,46 @@ export const ModerationSettingsPage: React.FC = () => {
                                 </span>
                             </label>
                         </div>
+                    </div>
+                </div>
+
+                <h3 style={{ margin: '20px 0 10px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MessageSquare size={16} /> Custom DM Messages
+                </h3>
+                <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px' }}>
+                    Variables: <code>{'{server}'}</code>, <code>{'{user}'}</code>, <code>{'{reason}'}</code>, <code>{'{duration}'}</code>
+                </p>
+
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                    <div>
+                        <label style={{ fontSize: '14px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Kick Message</label>
+                        <input 
+                            type="text"
+                            placeholder="You were kicked from {server} for: {reason}"
+                            value={settings?.kickMessage || ''}
+                            onChange={(e) => setSettings({...settings!, kickMessage: e.target.value})}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '14px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Ban Message</label>
+                        <input 
+                            type="text"
+                            placeholder="You were banned from {server} for: {reason}"
+                            value={settings?.banMessage || ''}
+                            onChange={(e) => setSettings({...settings!, banMessage: e.target.value})}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '14px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Timeout Message</label>
+                        <input 
+                            type="text"
+                            placeholder="You were timed out in {server} for {duration}. Reason: {reason}"
+                            value={settings?.timeoutMessage || ''}
+                            onChange={(e) => setSettings({...settings!, timeoutMessage: e.target.value})}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                        />
                     </div>
                 </div>
 
@@ -237,54 +303,80 @@ export const ModerationSettingsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Role Permissions Matrix */}
-            <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
-                <h2 style={{ marginTop: 0, marginBottom: '10px' }}>Role Permissions</h2>
-                <p style={{ color: colors.textSecondary, marginBottom: '24px' }}>Who is allowed to use moderation commands?</p>
+            {/* Role Permissions Matrix - Redesigned */}
+            <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
+                
+                {/* Left: Role List */}
+                <div style={{ background: colors.surface, padding: '20px', borderRadius: borderRadius.lg }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <List size={20} /> Roles
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '500px', overflowY: 'auto' }}>
+                        {roles.map(role => (
+                            <div 
+                                key={role.id}
+                                onClick={() => setSelectedRoleId(role.id)}
+                                style={{ 
+                                    padding: '10px', 
+                                    borderRadius: borderRadius.md, 
+                                    cursor: 'pointer',
+                                    backgroundColor: selectedRoleId === role.id ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    border: selectedRoleId === role.id ? `1px solid ${colors.primary}` : '1px solid transparent',
+                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                }}
+                            >
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
+                                <span style={{ fontWeight: selectedRoleId === role.id ? 600 : 400 }}>{role.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
-                        <thead>
-                            <tr style={{ background: 'rgba(0,0,0,0.2)', borderBottom: `2px solid ${colors.border}` }}>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Role</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>Warn</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>Timeout</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>Kick</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>Ban</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>Purge</th>
-                                <th style={{ padding: '12px', textAlign: 'center' }}>View Logs</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {roles.map(role => {
-                                const perms = settings?.permissions.find(p => p.roleId === role.id) || {
-                                    canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false
-                                };
-                                
-                                return (
-                                    <tr key={role.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                                        <td style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ 
-                                                width: '12px', height: '12px', borderRadius: '50%', 
-                                                backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' 
-                                            }} />
-                                            <span style={{ fontWeight: 500 }}>{role.name}</span>
-                                        </td>
-                                        {['canWarn', 'canTimeout', 'canKick', 'canBan', 'canPurge', 'canViewLogs'].map((key) => (
-                                            <td key={key} style={{ textAlign: 'center', padding: '12px' }}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={(perms as any)[key]} 
-                                                    onChange={() => togglePermission(role.id, key as any)}
-                                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                                />
-                                            </td>
-                                        ))}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                {/* Right: Permissions */}
+                <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
+                    {selectedRole ? (
+                        <>
+                            <h2 style={{ marginTop: 0, borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px' }}>
+                                Permissions for <span style={{ color: selectedRole.color ? `#${selectedRole.color.toString(16).padStart(6, '0')}` : 'inherit' }}>{selectedRole.name}</span>
+                            </h2>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                {Object.entries(permissionLabels).map(([key, label]) => (
+                                    <div key={key} style={{ 
+                                        padding: '16px', 
+                                        background: colors.background, 
+                                        borderRadius: borderRadius.md,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                    }}>
+                                        <span style={{ fontWeight: 500 }}>{label}</span>
+                                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={(selectedRolePerms as any)[key]} 
+                                                onChange={() => togglePermission(selectedRole.id, key as any)}
+                                                style={{ opacity: 0, width: 0, height: 0 }} 
+                                            />
+                                            <span style={{ 
+                                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                                                backgroundColor: (selectedRolePerms as any)[key] ? colors.primary : '#ccc', 
+                                                transition: '.4s', borderRadius: '34px' 
+                                            }}>
+                                                <span style={{ 
+                                                    position: 'absolute', content: "", height: '16px', width: '16px', left: '4px', bottom: '4px', 
+                                                    backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                                    transform: (selectedRolePerms as any)[key] ? 'translateX(26px)' : 'translateX(0)'
+                                                }}/>
+                                            </span>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: colors.textSecondary }}>
+                            Select a role to configure permissions
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

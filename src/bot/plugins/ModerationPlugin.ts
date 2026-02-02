@@ -123,6 +123,30 @@ export class ModerationPlugin implements IPlugin {
 
     // --- Commands ---
 
+    private async sendDM(guildId: string, member: GuildMember, action: 'kick' | 'ban' | 'timeout', reason: string, duration?: string) {
+        try {
+            const settings = await this.db.moderationSettings.findUnique({ where: { guildId } });
+            if (!settings || !settings.dmUponAction) return;
+
+            let messageTemplate = '';
+            switch (action) {
+                case 'kick': messageTemplate = settings.kickMessage || 'You were kicked from **{server}** for: {reason}'; break;
+                case 'ban': messageTemplate = settings.banMessage || 'You were banned from **{server}** for: {reason}'; break;
+                case 'timeout': messageTemplate = settings.timeoutMessage || 'You were timed out in **{server}** for {duration}. Reason: {reason}'; break;
+            }
+
+            const message = messageTemplate
+                .replace(/{server}/g, member.guild.name)
+                .replace(/{user}/g, member.user.tag)
+                .replace(/{reason}/g, reason)
+                .replace(/{duration}/g, duration || '');
+
+            await member.send({ content: message }).catch(() => {});
+        } catch (e) {
+            // Ignore DM failures (user might have DMs closed)
+        }
+    }
+
     private async handleKick(interaction: ChatInputCommandInteraction) {
         const target = interaction.options.getMember('user') as GuildMember;
         const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -137,6 +161,9 @@ export class ModerationPlugin implements IPlugin {
         }
 
         try {
+            // Send DM before action
+            await this.sendDM(interaction.guildId!, target, 'kick', reason);
+
             await target.kick(reason);
             
             // Log & Reply
@@ -174,6 +201,11 @@ export class ModerationPlugin implements IPlugin {
                  unbanDate = new Date(Date.now() + ms);
              }
 
+             // Send DM if member is present
+             if (targetMember) {
+                 await this.sendDM(interaction.guildId!, targetMember, 'ban', reason, durationStr || undefined);
+             }
+
              await interaction.guild!.members.ban(user, { reason });
              
              if (unbanDate) {
@@ -209,6 +241,8 @@ export class ModerationPlugin implements IPlugin {
         if (!target.moderatable) return interaction.reply({ content: 'Cannot timeout user.', ephemeral: true });
 
         try {
+            await this.sendDM(interaction.guildId!, target, 'timeout', reason, `${durationMinutes}m`);
+
             await target.timeout(durationMinutes * 60 * 1000, reason);
             await this.logAction(interaction.guildId!, 'timeout', interaction.user.id, target.id, { reason, duration: `${durationMinutes}m` });
             await interaction.reply({ content: `⏳ **${target.user.tag}** timed out for ${durationMinutes} minutes.`, ephemeral: false });

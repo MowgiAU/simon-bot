@@ -761,7 +761,7 @@ app.get('/api/guilds/:guildId/moderation', async (req, res) => {
 app.post('/api/guilds/:guildId/moderation', async (req, res) => {
     try {
         const { guildId } = req.params;
-        const { logChannelId, dmUponAction } = req.body;
+        const { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage } = req.body;
         
         if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
             return res.status(403).json({ error: 'Access denied' });
@@ -769,8 +769,8 @@ app.post('/api/guilds/:guildId/moderation', async (req, res) => {
 
         const settings = await db.moderationSettings.upsert({
             where: { guildId },
-            update: { logChannelId, dmUponAction },
-            create: { guildId, logChannelId, dmUponAction },
+            update: { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage },
+            create: { guildId, logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage },
             include: { permissions: true }
         });
         res.json(settings);
