@@ -943,9 +943,10 @@ app.get('/api/plugins/list', (req, res) => {
             .map(file => {
                 try {
                     const content = fs.readFileSync(path.join(pluginsDir, file), 'utf-8');
-                    const idMatch = content.match(/id\s*=\s*['"]([^'"]+)['"]/);
-                    const nameMatch = content.match(/name\s*=\s*['"]([^'"]+)['"]/);
-                    const descMatch = content.match(/description\s*=\s*['"]([^'"]+)['"]/);
+                    // Regex handles optional 'readonly' and 'public' keywords, and flexible whitespace
+                    const idMatch = content.match(/(?:readonly\s+|public\s+)?id\s*=\s*['"]([^'"]+)['"]/);
+                    const nameMatch = content.match(/(?:readonly\s+|public\s+)?name\s*=\s*['"]([^'"]+)['"]/);
+                    const descMatch = content.match(/(?:readonly\s+|public\s+)?description\s*=\s*['"]([^'"]+)['"]/);
 
                     if (idMatch && nameMatch) {
                         return {

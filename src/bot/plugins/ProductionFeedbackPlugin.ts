@@ -1,7 +1,11 @@
-import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
+import path from 'path';
+import axios from 'axios';
+import FormData from 'form-data';
+import fs from 'fs';
 import { FeedbackAIService } from '../services/FeedbackAIService';
 
 export class ProductionFeedbackPlugin implements IPlugin {
@@ -13,7 +17,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
     requiredPermissions = [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageThreads, PermissionFlagsBits.ManageWebhooks]; // Updated to use flags if possible, or string
     commands = ['feedback-init']; // Command to post the sticky
-    events = ['messageCreate', 'threadCreate'];
+    events = ['messageCreate', 'threadCreate', 'interactionCreate'];
     dashboardSections = ['feedback-queue', 'feedback-settings'];
     defaultEnabled = true;
 
@@ -330,45 +334,39 @@ export class ProductionFeedbackPlugin implements IPlugin {
     private async handleAudioIntercept(message: Message) {
         if (!this.context || !message.guild) return;
 
-        // 1. Re-upload for persistence (BEFORE delete)
-        // User requirement: "file is sent to the dashboard". 
-        // We must re-host it because the original URL dies when the message is deleted.
-        
         const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: message.guildId } });
         const reviewChannelId = settings?.reviewChannelId;
         
         let storedUrl = '';
+        let referenceUrl = '';
+        let reviewMessage: Message | null = null;
+        
         const attachment = message.attachments.first();
         
+        // 1. Re-host to Review Channel
         if (reviewChannelId && attachment) {
              const reviewChannel = message.guild.channels.cache.get(reviewChannelId) as TextChannel;
              if (reviewChannel) {
                  try {
-                     const logMsg = await reviewChannel.send({
-                         content: `Pending Audio Review from <@${message.author.id}> in <#${message.channel.id}>`,
-                         files: [attachment] // Pass the Attachment object; djs handles the re-upload
+                     reviewMessage = await reviewChannel.send({
+                         content: `**Pending Audio Review**\nUser: <@${message.author.id}>\nThread: <#${message.channel.id}>\nOriginal Content: "${message.content}"`,
+                         files: [attachment] 
                      });
-                     storedUrl = logMsg.attachments.first()?.url || '';
-                     this.logger.info(`Re-hosted audio for review: ${storedUrl}`);
+                     storedUrl = reviewMessage.attachments.first()?.url || '';
                  } catch (e) {
                      this.logger.error('Failed to re-host audio file', e);
-                     // If we fail to backup, we shouldn't delete the user's message blindly?
-                     // But we must enforce the rule. We'll proceed but log error.
                  }
-             } else {
-                 this.logger.warn(`Review channel ${reviewChannelId} not found in cache.`);
              }
         }
 
         // 2. Delete Original
         try {
-            await message.delete();
+            if (message.deletable) await message.delete();
         } catch (e) {
-            this.logger.error('Failed to delete audio message', e);
+            this.logger.error('Failed to delete message', e);
         }
 
-        // 3. fetch Starter Audio for Comparison (Reference)
-        let referenceUrl = '';
+        // 3. Comparison Audio
         try {
             if (message.channel.isThread()) {
                  const starter = await message.channel.fetchStarterMessage().catch(() => null);
@@ -377,36 +375,178 @@ export class ProductionFeedbackPlugin implements IPlugin {
                      if (startAudio) referenceUrl = startAudio.url;
                  }
             }
-        } catch (e) {
-             this.logger.warn('Failed to fetch reference audio', e);
-        }
+        } catch (e) {}
 
-        // 4. Queue in DB
-        await this.context.db.feedbackPost.create({
+        // 4. Create DB Entry
+        const post = await this.context.db.feedbackPost.create({
             data: {
                 guildId: message.guildId,
                 channelId: (message.channel as ThreadChannel).parentId!,
                 threadId: message.channel.id,
                 userId: message.author.id,
-                messageId: message.id, // ID of deleted message (reference only)
-                content: message.content, // Original text
+                messageId: message.id, 
+                content: message.content, 
                 hasAudio: true,
-                audioUrl: storedUrl, // The persistent URL from logging
-                referenceUrl: referenceUrl, // Original Thread Audio
-                aiState: 'PENDING', // Waiting for staff
-                postType: 'FEEDBACK' // Implicitly
+                audioUrl: storedUrl, 
+                referenceUrl: referenceUrl, 
+                aiState: 'PENDING', 
+                postType: 'FEEDBACK' 
             }
         });
+
+        // 5. Add Buttons to Review Message
+        if (reviewMessage) {
+            const row = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`feedback_approve_${post.id}`)
+                        .setLabel('Approve')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`feedback_deny_${post.id}`)
+                        .setLabel('Deny')
+                        .setStyle(ButtonStyle.Danger)
+                );
+            
+            await reviewMessage.edit({ components: [row] });
+        }
 
         // Notify user
         const response = await (message.channel as TextChannel).send(`<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`);
         setTimeout(() => response.delete().catch(() => {}), 10000);
     }
-    
-    // API-like method for the Dashboard to call "Approve"
-    // This logic should likely be in the API route, but we can put helper here if we want.
-    // We'll put the "execute webhook" logic in the API route or a centralized service? 
-    // API route can import this plugin instance if we export it or register it?
-    // Better: API route handles DB update, then triggers an event or we just handle it all in API route using standard Discord.js client.
-    // We already have `client` in the API context usually.
+
+    async onInteractionCreate(interaction: Interaction) {
+        if (!interaction.isButton() || !interaction.guildId || !this.context) return;
+        
+        const { customId, user } = interaction;
+        if (!customId.startsWith('feedback_')) return;
+
+        // Check Permissions
+        const pluginSettings = await this.context.db.pluginSettings.findUnique({ 
+            where: { guildId_pluginId: { guildId: interaction.guildId, pluginId: 'production-feedback' } }
+        });
+        
+        const member = interaction.member as any; 
+        const allowedRoles = pluginSettings?.allowedRoles || [];
+        const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ManageGuild);
+        const hasRole = allowedRoles.some((r: string) => member.roles.cache.has(r));
+
+        if (!isAdmin && !hasRole) {
+            await interaction.reply({ content: '❌ You do not have permission to review feedback.', ephemeral: true });
+            return;
+        }
+
+        const [_, action, postId] = customId.split('_');
+        await interaction.deferUpdate();
+
+        const post = await this.context.db.feedbackPost.findUnique({ where: { id: postId } });
+        if (!post) {
+            await interaction.followUp({ content: 'Post not found', ephemeral: true });
+            return;
+        }
+
+        // Check if already processed
+        if (post.aiState === 'APPROVED' || post.aiState === 'REJECTED') {
+             await interaction.followUp({ content: `Already ${post.aiState}`, ephemeral: true });
+             return;
+        }
+
+        if (action === 'approve') {
+             try {
+                // Determine Avatar
+                const authorUser = await this.context.client.users.fetch(post.userId).catch(() => null);
+                const avatarUrl = authorUser?.displayAvatarURL({ extension: 'png' }) || '';
+                
+                const channel = interaction.guild!.channels.cache.get(post.channelId); // Forum
+                
+                // Repost Logic
+                if (channel && channel.type === ChannelType.GuildForum) {
+                    const webhooks = await channel.fetchWebhooks();
+                    let webhook = webhooks.find(w => w.name === 'Simon-Masquerade');
+                    if (!webhook) {
+                         webhook = await channel.createWebhook({ name: 'Simon-Masquerade' });
+                    }
+
+                    // Prepare Multipart for reliable audio player
+                    let payload: any = {
+                        content: post.content || '',
+                        username: authorUser?.username || 'Producer',
+                        avatarURL: avatarUrl,
+                        threadId: post.threadId,
+                        allowedMentions: { parse: [] }
+                    };
+
+                    if (post.audioUrl) {
+                        try {
+                            const audioStream = await axios.get(post.audioUrl, { responseType: 'stream' });
+                            const filename = post.audioUrl.split('/').pop()?.split('?')[0] || 'audio.mp3';
+                            const formData = new FormData();
+                            // Note: DiscordJS webhook.send supports 'files' array with buffers/streams directly
+                            // We don't need 'form-data' package here if using djs
+                            payload.files = [{ attachment: audioStream.data, name: filename }];
+                        } catch (e) {
+                             payload.content += `\n\n${post.audioUrl}`;
+                        }
+                    }
+
+                    await webhook.send(payload);
+                } else {
+                    const thread = interaction.guild!.channels.cache.get(post.threadId);
+                    if (thread && thread.isThread()) {
+                        await thread.send({
+                            content: `**Feedback from <@${post.userId}>**:\n${post.content}\n${post.audioUrl}`
+                        });
+                    }
+                }
+
+                // Reward
+                const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: interaction.guildId } });
+                const reward = settings?.currencyReward || 1;
+                await this.context.db.$transaction(async (tx: any) => {
+                     await tx.economyAccount.upsert({
+                        where: { guildId_userId: { guildId: post.guildId, userId: post.userId } },
+                        update: { balance: { increment: reward }, totalEarned: { increment: reward } },
+                        create: { guildId: post.guildId, userId: post.userId, balance: reward, totalEarned: reward }
+                    });
+                    await tx.economyTransaction.create({
+                        data: {
+                            guildId: post.guildId,
+                            toUserId: post.userId,
+                            amount: reward,
+                            type: 'FEEDBACK_REWARD',
+                            reason: 'Feedback Approved by Admin (Button)'
+                        }
+                    });
+                });
+
+                // Update DB state
+                await this.context.db.feedbackPost.update({
+                    where: { id: postId },
+                    data: { aiState: 'APPROVED' }
+                });
+
+                // Update Review Message
+                await interaction.editReply({
+                    content: `✅ **Approved by <@${user.id}>**\nUser: <@${post.userId}>\nThread: <#${post.threadId}>`,
+                    components: [] 
+                });
+
+             } catch (e) {
+                 this.logger.error('Approval failed', e);
+                 await interaction.followUp({ content: 'Approval failed internally.', ephemeral: true });
+             }
+
+        } else if (action === 'deny') {
+            await this.context.db.feedbackPost.update({
+                where: { id: postId },
+                data: { aiState: 'REJECTED' }
+            });
+
+             await interaction.editReply({
+                content: `🚫 **Denied by <@${user.id}>**\nUser: <@${post.userId}>\nReason: Manual Rejection`,
+                components: []
+            });
+        }
+    }
 }
