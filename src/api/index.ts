@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
 
@@ -927,16 +929,43 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
 // --- Plugin Management Routes ---
 
 app.get('/api/plugins/list', (req, res) => {
-    // Return known plugins
-    res.json([
-        { id: 'moderation', name: 'Moderation System', description: 'Kick, Ban, Warn, Timeout' },
-        { id: 'word-filter', name: 'Word Filter', description: 'Auto-delete bad words' },
-        { id: 'stats', name: 'Server Statistics', description: 'Track member/voice stats' },
-        { id: 'logger', name: 'Logger', description: 'Log channels to file/db' },
-        { id: 'economy', name: 'Economy', description: 'Bank, Shop, & Rewards' },
-        { id: 'production-feedback', name: 'Production Feedback', description: 'AI Feedback & Economy for Tracks' },
-        { id: 'staging-test', name: 'Staging Test', description: 'Test plugin for staging' }
-    ]);
+    try {
+        const pluginsDir = path.join(__dirname, '../bot/plugins');
+        if (!fs.existsSync(pluginsDir)) {
+            logger.warn('Plugins directory not found:', pluginsDir);
+            return res.json([]);
+        }
+
+        const files = fs.readdirSync(pluginsDir);
+        const plugins = files
+            .filter(file => file.endsWith('.ts'))
+            .map(file => {
+                try {
+                    const content = fs.readFileSync(path.join(pluginsDir, file), 'utf-8');
+                    const idMatch = content.match(/id\s*=\s*['"]([^'"]+)['"]/);
+                    const nameMatch = content.match(/name\s*=\s*['"]([^'"]+)['"]/);
+                    const descMatch = content.match(/description\s*=\s*['"]([^'"]+)['"]/);
+
+                    if (idMatch && nameMatch) {
+                        return {
+                            id: idMatch[1],
+                            name: nameMatch[1],
+                            description: descMatch ? descMatch[1] : 'No description'
+                        };
+                    }
+                    return null;
+                } catch (e) {
+                    logger.error(`Failed to parse plugin file ${file}`, e);
+                    return null;
+                }
+            })
+            .filter(p => p !== null);
+
+        res.json(plugins);
+    } catch (error) {
+        logger.error('Failed to list plugins', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
 });
 
 // Get all plugin settings for a guild
@@ -1435,6 +1464,10 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                     }, {
                          headers: { 'Content-Type': 'application/json' }
                     });
+
+                } catch (webhookErr) {
+                    logger.error('Webhook execution failed', webhookErr);
+                }
             }
 
             // 3. Log Action
@@ -1457,61 +1490,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
         res.status(500).json({ error: 'Failed' });
     }
 });
-                    // But just appending the link is easier and works for "Review".
-                    // Let's append the link to content.
-                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
-                        content: `${post.content || ''}\n\n**Audio Attachment:**\n${post.audioUrl}`,
-                        username: user?.username || 'Producer',
-                        avatar_url: avatarUrl
-                    });
 
-                } catch (webhookErr) {
-                    logger.error('Webhook execution failed', webhookErr);
-                    // Don't fail the request, just log
-                }
-            } else {
-                // If it was just feedback (text) that was unsure, and now Approved.
-                // We Reward the user.
-                const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
-                const reward = settings?.currencyReward || 1;
-
-                // Transaction
-                await db.$transaction(async (tx) => {
-                     await tx.economyAccount.upsert({
-                        where: { guildId_userId: { guildId, userId: post.userId } },
-                        update: { 
-                            balance: { increment: reward },
-                            totalEarned: { increment: reward }
-                        },
-                        create: {
-                            guildId,
-                            userId: post.userId,
-                            balance: reward,
-                            totalEarned: reward
-                        }
-                    });
-                    await tx.economyTransaction.create({
-                        data: {
-                            guildId,
-                            toUserId: post.userId,
-                            amount: reward,
-                            type: 'FEEDBACK_REWARD',
-                            reason: 'Feedback Approved by Staff' // Different reason so we know it was manual
-                        }
-                    });
-                });
-            }
-
-            return res.json({ success: true });
-        }
-        
-        res.status(400).json({ error: 'Invalid Action' });
-
-    } catch (e) {
-        logger.error('Feedback action failed', e);
-        res.status(500).json({ error: 'Failed' });
-    }
-});
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
