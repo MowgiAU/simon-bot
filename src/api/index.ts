@@ -1040,7 +1040,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback'] 
             });
         }
 

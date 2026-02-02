@@ -93,6 +93,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
         <div className="nav-group">
           <h3 className="nav-group-title">Plugins</h3>
+          
+          {permissions.accessiblePlugins.includes('word-filter') && (
+            <button
+                className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
+                onClick={() => onNavigate('word-filter-settings')}
+                title={collapsed ? "Word Filter" : ""}
+            >
+                <span className="nav-icon"><Type size={20} /></span>
+                <span className="nav-label">Word Filter</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('moderation') && (
           <button
             className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
