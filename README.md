@@ -4,8 +4,13 @@
 
 ## 🚀 Key Features
 
--   **Modular Architecture**: Built on a strict plugin system (TypeScript).
--   **Dashboard**: React/Vite-based web interface for server admins.
+-   **Modular Architecture**: Built on a strict plugin system (TypeScript). Plugins are auto-discovered from `src/bot/plugins`.
+-   **Dynamic Dashboard**: React/Vite-based web interface for managing plugins, roles, and configuration.
+-   **Production Feedback**: Specialized system for music producer communities:
+    -   AI-driven feedback analysis (Basic vs Constructive).
+    -   Economy integration (Currency rewards/costs).
+    -   **Audio Audition**: Native audio player support for feedback reviews, preventing dead links.
+    -   **Interactive Moderation**: Approve/Deny feedback directly from Discord or Dashboard.
 -   **Analytics**: Tracks voice, message, and member stats with persistence.
 -   **Moderation**: Advanced word filter with regex support and auto-reposting.
 -   **Performance**: Optimized for large scale usage.
@@ -13,7 +18,7 @@
 ## 📚 Documentation
 
 *   **[Installation Guide](INSTALL.md)**: Steps to set up your own instance (Local & VPS).
-*   **[AI Instructions](AI_INSTRUCTIONS.md)**: Rules and guidelines for AI agents working on this repo.
+*   **[Plugin Development](src/bot/plugins/README.md)**: How to create new plugins.
 
 ## 🛠️ Tech Stack
 

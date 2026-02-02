@@ -35,6 +35,13 @@ export const PluginManagementPage: React.FC = () => {
 
     // Expanded state for role configuration per plugin
     const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -189,12 +196,12 @@ export const PluginManagementPage: React.FC = () => {
 
                     return (
                         <div key={plugin.id} style={{ background: colors.surface, borderRadius: borderRadius.lg, overflow: 'hidden' }}>
-                            <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div>
+                            <div style={{ padding: '20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? '16px' : '0' }}>
+                                <div style={{ marginBottom: isMobile ? '10px' : '0' }}>
                                     <div style={{ fontSize: '18px', fontWeight: 600 }}>{plugin.name}</div>
                                     <div style={{ color: colors.textSecondary, fontSize: '14px' }}>{plugin.description}</div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '24px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
                                     <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
                                         <input 
                                             type="checkbox" 
