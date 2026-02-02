@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { MessageSquare } from 'lucide-react';
 import './WordFilterSettings.css';
 
 interface WordGroup {
@@ -341,12 +342,9 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       {saveMessage && <div className="success-banner">{saveMessage}</div>}
       
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-         {/* Using MessageSquare as placeholder or similar icon */}
-         <div style={{ marginRight: '16px' }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-         </div>
+         <MessageSquare size={32} color={colors.primary} style={{ marginRight: '16px' }} />
          <div>
-             <h1 style={{ margin: 0, fontSize: '2em' }}>Word Filter</h1>
+             <h1 style={{ margin: 0 }}>Word Filter</h1>
              <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure message filtering and word replacement.</p>
          </div>
       </div>
@@ -356,8 +354,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
       ) : (
         <>
           <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-             <h3 style={{ marginTop: 0 }}>Word Filter System</h3>
-             <p>Automatically detect and manage inappropriate language in your server. You can create groups of words (like "Slurs", "Scams") and define custom replacements that include emojis. Messages containing these words will be deleted and optionally reposted with the bad words censored.</p>
+             <p style={{ margin: 0, color: colors.textPrimary }}>Automatically detect and manage inappropriate language in your server. You can create groups of words (like "Slurs", "Scams") and define custom replacements that include emojis. Messages containing these words will be deleted and optionally reposted with the bad words censored.</p>
           </div>
 
           {/* Global Settings Section */}

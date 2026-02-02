@@ -61,6 +61,10 @@ export const EconomyPluginPage: React.FC = () => {
                 </div>
             </div>
 
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                 <p style={{ margin: 0, color: colors.textPrimary }}>Create a virtual economy for your server. Configure currency symbols, passive earning rates per message, and manage a shop where users can buy roles or items with their earned coins.</p>
+            </div>
+
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
                 {[
