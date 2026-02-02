@@ -99,13 +99,22 @@ export class ProductionFeedbackPlugin implements IPlugin {
             const userId = starterMsg.author.id;
             const guildId = thread.guildId;
 
+            this.logger.info(`Processing feedback cost of ${cost} for user ${userId} in guild ${guildId}`);
+
             // Transaction: Check balance -> Deduct -> Allow
             await this.context.db.$transaction(async (tx: any) => {
-                const account = await tx.economyAccount.findUnique({
+                let account = await tx.economyAccount.findUnique({
                     where: { guildId_userId: { guildId, userId } }
                 });
 
-                if (!account || account.balance < cost) {
+                // If account doesn't exist, create it (with 0 balance, so check will fail properly)
+                if (!account) {
+                    account = await tx.economyAccount.create({ 
+                        data: { guildId, userId, balance: 0, totalEarned: 0 } 
+                    });
+                }
+
+                if (account.balance < cost) {
                     throw new Error('Insufficient funds');
                 }
 
@@ -127,10 +136,17 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 });
             });
 
-            // If success, maybe post a confirmation?
-            /* await thread.send({
-                embeds: [new EmbedBuilder().setDescription(`✅ **Thread Created**\nConsumed ${cost} coins. Good luck!`)]
-            }); */
+            this.logger.info(`Successfully deducted ${cost} coins from ${userId}`);
+            
+            // Send ephemeral confirmation in thread
+            try {
+                // We cannot send ephemeral messages to a thread easily without an interaction.
+                // We'll send a normal message and delete it, or just leave it.
+                const confirmMsg = await thread.send(`✅ **Feedback Thread Opened**\nConsumed ${settings.currencyEmoji || '🪙'} ${cost}.`);
+                // setTimeout(() => confirmMsg.delete().catch(() => {}), 5000); 
+            } catch (e) {
+                this.logger.error('Failed to send confirmation message', e);
+            }
 
         } catch (error: any) {
             if (error.message === 'Insufficient funds') {
