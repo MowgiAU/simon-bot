@@ -184,13 +184,26 @@ export class SimonBot {
     });
 
     this.client.on('interactionCreate', async interaction => {
-       if (!interaction.guildId) return;
+       // Handle DM/No-Guild interactions
+       if (!interaction.guildId) {
+           if (interaction.isRepliable()) {
+               try {
+                   await interaction.reply({ content: 'I can only be used in servers!', ephemeral: true });
+               } catch (e) {
+                   // Ignore if already replied or missing permissions
+               }
+           }
+           return;
+       }
+
        const plugins = this.pluginManager.getEnabled();
-       for (const plugin of plugins) {
+       
+       // Handle plugins in parallel to prevent timeouts
+       await Promise.all(plugins.map(async (plugin) => {
          if (plugin.events.includes('interactionCreate')) {
            // Check if enabled for this guild
-           const isEnabled = await this.isPluginEnabled(interaction.guildId, plugin.id);
-           if (!isEnabled) continue;
+           const isEnabled = await this.isPluginEnabled(interaction.guildId!, plugin.id);
+           if (!isEnabled) return;
 
            const p = plugin as any;
            if (typeof p.onInteractionCreate === 'function') {
@@ -201,7 +214,7 @@ export class SimonBot {
              }
            }
          }
-       }
+       }));
     });
 
     this.client.on('messageCreate', async message => {
