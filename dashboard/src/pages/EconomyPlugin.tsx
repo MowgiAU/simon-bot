@@ -183,22 +183,24 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
             </div>
 
             <h3>Features</h3>
-             <div style={{ display: 'flex', gap: '20px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
                     <input 
                         type="checkbox" 
                         checked={data.allowTipping} 
                         onChange={e => setData({...data, allowTipping: e.target.checked})}
+                        style={{ marginTop: '4px' }}
                     />
-                    <span>Allow Reaction Tipping (React with {renderCurrency(data.currencyEmoji)} to tip 1 coin)</span>
+                    <span style={{ lineHeight: '1.4' }}>Allow Reaction Tipping (React with {renderCurrency(data.currencyEmoji)} to tip 1 coin)</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
                     <input 
                         type="checkbox" 
                         checked={data.autoNickname} 
                         onChange={e => setData({...data, autoNickname: e.target.checked})}
+                        style={{ marginTop: '4px' }}
                     />
-                    <span>Auto-Update Nicknames (e.g. User ({renderCurrency(data.currencyEmoji)}500))</span>
+                    <span style={{ lineHeight: '1.4' }}>Auto-Update Nicknames (e.g. User ({renderCurrency(data.currencyEmoji)}500))</span>
                 </label>
             </div>
 

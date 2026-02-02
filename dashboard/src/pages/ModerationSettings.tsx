@@ -353,10 +353,11 @@ export const ModerationSettingsPage: React.FC = () => {
                                         padding: '16px', 
                                         background: colors.background, 
                                         borderRadius: borderRadius.md,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        minHeight: '56px'
                                     }}>
-                                        <span style={{ fontWeight: 500 }}>{label}</span>
-                                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
+                                        <span style={{ fontWeight: 500, flex: 1, paddingRight: '12px' }}>{label}</span>
+                                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px', flexShrink: 0 }}>
                                             <input 
                                                 type="checkbox" 
                                                 checked={(selectedRolePerms as any)[key]} 
