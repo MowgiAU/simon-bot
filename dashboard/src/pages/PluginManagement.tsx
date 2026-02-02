@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useMobile } from '../hooks/useMobile';
 import axios from 'axios';
 import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -23,17 +24,7 @@ interface Role {
     color: number;
 }
 
-export const PluginManagementPage: React.FC = () => {
-    const { selectedGuild } = useAuth();
-    const [plugins, setPlugins] = useState<PluginMetadata[]>([]);
-    const [settings, setSettings] = useState<PluginSetting[]>([]);
-    const [accessRoles, setAccessRoles] = useState<string[]>([]); // roles allowed to login
-    
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
 
-import { useMobile } from '../hooks/useMobile';
 
 export const PluginManagementPage: React.FC = () => {
     const { selectedGuild } = useAuth();
