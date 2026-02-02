@@ -15,7 +15,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
     commands = ['feedback-init']; // Command to post the sticky
     events = ['messageCreate', 'threadCreate'];
     dashboardSections = ['feedback-queue', 'feedback-settings'];
-    defaultEnabled = false;
+    defaultEnabled = true;
 
     configSchema = z.object({
         enabled: z.boolean().default(false),
