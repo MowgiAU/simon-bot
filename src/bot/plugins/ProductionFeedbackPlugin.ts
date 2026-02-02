@@ -341,11 +341,23 @@ export class ProductionFeedbackPlugin implements IPlugin {
             await message.delete();
         } catch (e) {
             this.logger.error('Failed to delete audio message', e);
-            // If we can't delete, we probably shouldn't queue it as "pending review", 
-            // because it's still public. But let's proceed to be safe.
         }
 
-        // 3. Queue in DB
+        // 3. fetch Starter Audio for Comparison (Reference)
+        let referenceUrl = '';
+        try {
+            if (message.channel.isThread()) {
+                 const starter = await message.channel.fetchStarterMessage().catch(() => null);
+                 if (starter) {
+                     const startAudio = starter.attachments.find(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'));
+                     if (startAudio) referenceUrl = startAudio.url;
+                 }
+            }
+        } catch (e) {
+             this.logger.warn('Failed to fetch reference audio', e);
+        }
+
+        // 4. Queue in DB
         await this.context.db.feedbackPost.create({
             data: {
                 guildId: message.guildId,
@@ -356,6 +368,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 content: message.content, // Original text
                 hasAudio: true,
                 audioUrl: storedUrl, // The persistent URL from logging
+                referenceUrl: referenceUrl, // Original Thread Audio
                 aiState: 'PENDING', // Waiting for staff
                 postType: 'FEEDBACK' // Implicitly
             }

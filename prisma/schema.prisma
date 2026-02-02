@@ -420,6 +420,7 @@ model FeedbackPost {
   
   hasAudio    Boolean  @default(false)
   audioUrl    String?
+  referenceUrl String? // URL of the thread starter audio (for comparison)
   
   aiScore     Int?
   aiState     String   @default("PENDING") // PENDING, APPROVED, DENIED, UNSURE, REJECTED

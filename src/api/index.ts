@@ -1399,15 +1399,27 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                                 color: 0x43b581
                             }
                         ]
-                        // Note: We cannot "attach" the file URL as an attachment object in JSON easily without multipart/form-data.
-                        // But we can include the URL in content? 
-                        // If we include the URL in content, Discord normally previews it.
-                        // post.audioUrl is the URL from the logging channel.
                     }, {
                          headers: { 'Content-Type': 'application/json' }
                     });
                     
-                    // Actually, if we want it to look like a file upload, we usually need multipart.
+                    // Note: We cannot "attach" the file URL as an attachment object in JSON easily without multipart/form-data.
+                    // But we can include the URL in content? 
+                    // If we include the URL in content, Discord normally previews it.
+                    // post.audioUrl is the URL from the logging channel.
+                    
+                    // BETTER APPROACH: POST again using content pointing to the file?
+                    // Or if we want a real attachment, we have to download and upload using FormData.
+                    // For simplicity in this environment, sending the URL is 90% effective if the file is accessible.
+                    // BUT user requested "Embed not be a link to download".
+                    // If the URL is cdn.discordapp... it usually embeds a player.
+                    // However, to guarantee it, we should just send the URL as content.
+                    
+                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
+                        content: post.audioUrl, // Just the URL often autoplays
+                        username: user?.username || 'Producer',
+                        avatar_url: avatarUrl
+                    });
                     // But just appending the link is easier and works for "Review".
                     // Let's append the link to content.
                     await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {

@@ -133,13 +133,27 @@ export const FeedbackPluginPage: React.FC = () => {
                                     <div style={{ whiteSpace: 'pre-wrap', marginBottom: '16px', lineHeight: '1.5' }}>{item.content}</div>
                                     
                                     {item.hasAudio && item.audioUrl && (
-                                        <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px' }}>
-                                                <Play size={14} /> Audio Preview
-                                            </div>
-                                            <audio controls src={item.audioUrl} style={{ width: '100%' }} />
-                                            <div style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
-                                                Note: URL proxied from review channel.
+                                        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: item.referenceUrl ? '1fr 1fr' : '1fr', gap: '12px' }}>
+                                            {/* Original Reference (if available) */}
+                                            {item.referenceUrl && (
+                                                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
+                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#aaa', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#888' }} /> 
+                                                        Original / Reference
+                                                    </div>
+                                                    <audio controls src={item.referenceUrl} style={{ width: '100%' }} />
+                                                </div>
+                                            )}
+
+                                            {/* New Audio (Pending Review) */}
+                                            <div style={{ padding: '12px', background: 'rgba(59, 165, 93, 0.1)', border: '1px solid rgba(59, 165, 93, 0.3)', borderRadius: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#3BA55D', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+                                                    <Play size={12} /> New Version (Review)
+                                                </div>
+                                                <audio controls src={item.audioUrl} style={{ width: '100%' }} />
+                                                <div style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '4px' }}>
+                                                    Source: Review Channel Proxy
+                                                </div>
                                             </div>
                                         </div>
                                     )}
