@@ -6,6 +6,7 @@ import {
   ScrollText, 
   Type, 
   ShieldAlert, // Import Shield for Moderation
+  Coins,
   Settings, 
   LogOut, 
   ChevronLeft, 
@@ -101,7 +102,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Moderation</span>
           </button>
           )}
-          
+
+          {permissions.accessiblePlugins.includes('economy') && (
+          <button
+            className={`nav-item ${activeSection === 'economy' ? 'active' : ''}`}
+            onClick={() => onNavigate('economy')}
+            title={collapsed ? "Economy" : ""}
+          >
+            <span className="nav-icon"><Coins size={20} /></span>
+            <span className="nav-label">Economy</span>
+          </button>
+          )}
+
           {permissions.accessiblePlugins.includes('word-filter') && (
           <button
             className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}

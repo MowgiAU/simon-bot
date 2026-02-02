@@ -12,6 +12,7 @@ import {
     ButtonStyle, 
     ChatInputCommandInteraction
 } from 'discord.js';
+import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 
 interface EconomyContext extends IPluginContext {}
@@ -26,6 +27,18 @@ export class EconomyPlugin implements IPlugin {
     // Core properties
     events = ['messageCreate', 'messageReactionAdd', 'interactionCreate'];
     
+    requiredPermissions: any[] = [
+        PermissionsBitField.Flags.ManageRoles
+    ];
+
+    dashboardSections = ['economy'];
+    
+    defaultEnabled = true;
+
+    configSchema = z.object({});
+
+    commands = ['balance', 'pay', 'shop', 'buy', 'daily', 'leaderboard', 'item', 'inventory', 'give', 'take'];
+
     private client: any;
     private db: any;
     private logger: any;
@@ -38,6 +51,10 @@ export class EconomyPlugin implements IPlugin {
         this.db = context.db;
         this.logger = context.logger;
         this.logAction = context.logAction;
+    }
+
+    async shutdown(): Promise<void> {
+        this.messageCooldowns.clear();
     }
 
 

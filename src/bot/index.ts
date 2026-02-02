@@ -17,6 +17,7 @@ import { StatsPlugin } from './plugins/StatsPlugin';
 import { LoggerPlugin } from './plugins/LoggerPlugin';
 import { StagingTestPlugin } from './plugins/StagingTestPlugin';
 import { ModerationPlugin } from './plugins/ModerationPlugin';
+import { EconomyPlugin } from './plugins/EconomyPlugin';
 
 dotenv.config();
 
@@ -82,6 +83,7 @@ export class SimonBot {
       this.pluginManager.register(new LoggerPlugin());
       this.pluginManager.register(new StagingTestPlugin());
       this.pluginManager.register(new ModerationPlugin());
+      this.pluginManager.register(new EconomyPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -249,6 +251,31 @@ export class SimonBot {
       }
     });
 
+    this.client.on('messageReactionAdd', async (reaction, user) => {
+      // Partial handling is done in the plugin or here, but djs usually requires fetching if partials are enabled in options
+      if (user.bot) return;
+
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('messageReactionAdd')) {
+            // Check guild plugin status
+            if (reaction.message.guildId) {
+                const isEnabled = await this.isPluginEnabled(reaction.message.guildId, plugin.id);
+                if (!isEnabled) continue;
+            }
+
+          const p = plugin as any;
+          if (typeof p.onMessageReactionAdd === 'function') {
+            try {
+              await p.onMessageReactionAdd(reaction, user);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} reaction handler`, error);
+            }
+          }
+        }
+      }
+    });
+
     this.client.on('guildBanAdd', async (ban) => {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
@@ -328,7 +355,7 @@ export class SimonBot {
   /**
    * Register Slash Commands
    */
-  private async registerSlashCommands(): Promise<void> {
+  private async registerSlashCommands(targetGuildId?: string): Promise<void> {
     const commands: any[] = [];
     
     // Logger Plugin Command
@@ -401,8 +428,32 @@ export class SimonBot {
     commands.push(timeoutCommand.toJSON());
     commands.push(purgeCommand.toJSON());
 
+    // 3. Economy Commands
+    const walletCommand = new SlashCommandBuilder()
+        .setName('wallet')
+        .setDescription('Check your or another user\'s balance')
+        .addUserOption(opt => opt.setName('user').setDescription('User to check'));
+
+    const wealthCommand = new SlashCommandBuilder()
+        .setName('wealth')
+        .setDescription('View the richest users');
+
+    const marketCommand = new SlashCommandBuilder()
+        .setName('market')
+        .setDescription('View items available in the shop');
+    
+    const buyCommand = new SlashCommandBuilder()
+        .setName('buy')
+        .setDescription('Buy an item from the shop')
+        .addStringOption(opt => opt.setName('item').setRequired(true).setDescription('The name of the item to buy'));
+
+    commands.push(walletCommand.toJSON());
+    commands.push(wealthCommand.toJSON());
+    commands.push(marketCommand.toJSON());
+    commands.push(buyCommand.toJSON());
+
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
-    const guildId = process.env.GUILD_ID;
+    const guildId = targetGuildId || process.env.GUILD_ID;
 
     if (!guildId) {
         this.logger.error('No GUILD_ID specified in .env, skipping slash command registration');
