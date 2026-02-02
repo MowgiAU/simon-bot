@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { ChannelSelect } from '../components/ChannelSelect';
 import axios from 'axios';
 import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List } from 'lucide-react';
 
@@ -166,8 +167,12 @@ export const ModerationSettingsPage: React.FC = () => {
                 <Shield size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
                     <h1 style={{ margin: 0 }}>Moderation Settings</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure your server's defensive measures.</p>
+                    {/* <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure your server's defensive measures.</p> */}
                 </div>
+            </div>
+
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                 <p style={{ margin: 0, color: colors.textPrimary }}>Configure how Simon Bot moderates your server. Set up log channels, customize punishment messages (kicks, bans), and assign moderation permissions to specific roles without giving them Discord administrator powers.</p>
             </div>
 
             {msg && (
@@ -194,23 +199,13 @@ export const ModerationSettingsPage: React.FC = () => {
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Log Channel</label>
                         <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post case logs?</p>
-                        <select 
+                        <ChannelSelect 
+                            guildId={selectedGuild?.id || ''}
                             value={settings?.logChannelId || ''} 
-                            onChange={(e) => setSettings({ ...settings!, logChannelId: e.target.value })}
-                            style={{ 
-                                width: '100%', 
-                                padding: '10px', 
-                                background: colors.background, 
-                                border: `1px solid ${colors.border}`, 
-                                color: colors.textPrimary,
-                                borderRadius: borderRadius.sm 
-                            }}
-                        >
-                            <option value="">-- No Logging --</option>
-                            {channels.map(c => (
-                                <option key={c.id} value={c.id}>#{c.name}</option>
-                            ))}
-                        </select>
+                            onChange={(val) => setSettings({ ...settings!, logChannelId: val as string })}
+                            placeholder="-- No Logging --"
+                            channelTypes={[0, 15]}
+                        />
                     </div>
 
                     <div>

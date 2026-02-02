@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { colors, spacing } from '../theme/theme';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
+import { ChannelSelect } from '../components/ChannelSelect';
 import './WordFilterSettings.css';
 
 interface WordGroup {
@@ -348,6 +349,11 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         <p style={{ color: '#8a8d93', padding: '32px', textAlign: 'center' }}>Loading settings...</p>
       ) : (
         <>
+          <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+             <h3 style={{ marginTop: 0 }}>Word Filter System</h3>
+             <p>Automatically detect and manage inappropriate language in your server. You can create groups of words (like "Slurs", "Scams") and define custom replacements that include emojis. Messages containing these words will be deleted and optionally reposted with the bad words censored.</p>
+          </div>
+
           {/* Global Settings Section */}
           <div className="settings-section">
             <h3>Global Settings</h3>
@@ -378,9 +384,16 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
 
             <div className="setting-item">
               <label className="setting-label">Excluded Channels</label>
-              <div className="channel-list">
-                <p className="placeholder">No excluded channels</p>
+              <div style={{ marginTop: 8 }}>
+                 <ChannelSelect
+                    guildId={guildId}
+                    value={settings.excludedChannels}
+                    onChange={(val) => handleSettingChange('excludedChannels', val)}
+                    multiple
+                    placeholder="Select channels to exclude..."
+                 />
               </div>
+              <p className="setting-description">Messages in these channels will not be filtered.</p>
             </div>
 
             <div className="setting-item">

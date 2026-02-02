@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { ChannelSelect } from '../components/ChannelSelect';
 import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare } from 'lucide-react';
 
 export const FeedbackPluginPage: React.FC = () => {
@@ -61,6 +62,10 @@ export const FeedbackPluginPage: React.FC = () => {
                     <h1 style={{ margin: 0 }}>Feedback Moderation</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>AI-assisted moderation queue for music production feedback.</p>
                 </div>
+            </div>
+
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                 <p style={{ margin: 0, color: colors.textPrimary }}>AI-assisted moderation queue for music production feedback. This system automatically scans feedback for quality and queues audio uploads for manual review.</p>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
@@ -190,22 +195,20 @@ export const FeedbackPluginPage: React.FC = () => {
                         </label>
                         
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px' }}>Forum Channel ID</label>
-                            <input 
-                                value={settings.forumChannelId || ''} 
-                                onChange={e => setSettings({...settings, forumChannelId: e.target.value})}
-                                placeholder="Channel ID for Threads"
-                                style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                            <label style={{ display: 'block', marginBottom: '8px' }}>Forum Channel</label>
+                            <ChannelSelect
+                                value={settings.forumChannelId || ''}
+                                onChange={(val: string) => setSettings({ ...settings, forumChannelId: val })}
+                                channelTypes={[15]} // Filter for Forum Channels
                             />
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', marginBottom: '8px' }}>Review Channel ID</label>
-                            <input 
-                                value={settings.reviewChannelId || ''} 
-                                onChange={e => setSettings({...settings, reviewChannelId: e.target.value})}
-                                placeholder="Channel ID for private logging"
-                                style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                            <label style={{ display: 'block', marginBottom: '8px' }}>Review Channel</label>
+                            <ChannelSelect
+                                value={settings.reviewChannelId || ''}
+                                onChange={(val: string) => setSettings({ ...settings, reviewChannelId: val })}
+                                channelTypes={[0]} // Text Channels
                             />
                             <small style={{ color: colors.textSecondary }}>Used to store audio files temporarily for review.</small>
                         </div>

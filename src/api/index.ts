@@ -894,10 +894,24 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
-        // Filter for text channels only
-        const channels = response.data.filter((c: any) => c.type === 0);
+        
+        // Filter relevant types: 0=GUILD_TEXT, 2=GUILD_VOICE, 4=GUILD_CATEGORY, 15=GUILD_FORUM
+        const channels = response.data
+            .filter((c: any) => [0, 2, 4, 15].includes(c.type))
+            .map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                type: c.type,
+                parentId: c.parent_id,
+                position: c.position
+            }))
+            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+            
         res.json(channels);
-    } catch (e) { res.status(500).json([]); }
+    } catch (e) { 
+        logger.error('Failed to fetch channels', e);
+        res.status(500).json([]); 
+    }
 });
 
 app.get('/api/guilds/:guildId/roles', async (req, res) => {
@@ -1449,7 +1463,6 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
         res.status(500).json({ error: 'Failed' });
     }
 });
-
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
