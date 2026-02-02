@@ -50,17 +50,34 @@ export class ProductionFeedbackPlugin implements IPlugin {
         
         // 1. Get Settings
         const settings = await this.getSettings(thread.guildId);
-        if (!settings || !settings.enabled || settings.forumChannelId !== thread.parentId) return;
+        
+        if (!settings || !settings.enabled) return;
+
+        // Debug logging to help troubleshoot
+        if (settings.forumChannelId !== thread.parentId) {
+            this.logger.debug(`Thread created in parent ${thread.parentId}, but feedback is configured for ${settings.forumChannelId}. Ignoring.`);
+            return;
+        }
 
         try {
             // 2. Initial Post Check (Audio + Cost)
-            // Wait a moment for the starter message to be available?
-            // Actually, `thread.fetchStarterMessage()` might fail if it's not ready yet.
-            // But usually for forum channels, the thread is created WITH the message.
-            const starterMsg = await thread.fetchStarterMessage().catch(() => null);
+            // Wait a moment for the starter message to be available
+            let starterMsg = await thread.fetchStarterMessage().catch(() => null);
+            
+            // Retry strategy for slow Discord API API availability
+            if (!starterMsg) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                starterMsg = await thread.fetchStarterMessage().catch(() => null);
+            }
+
+            if (!starterMsg) {
+                // Determine if we can fetch it via messages.fetch
+                const messages = await thread.messages.fetch({ limit: 1 }).catch(() => null);
+                starterMsg = messages?.first() || null;
+            }
             
             if (!starterMsg) {
-                // If we can't find it, we can't moderate it.
+                this.logger.warn(`Could not fetch starter message for thread ${thread.id}. Skipping feedback cost logic.`);
                 return;
             }
 
