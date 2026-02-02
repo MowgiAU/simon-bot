@@ -65,6 +65,25 @@
 
 ---
 
+## 7. Frontend UI Standards
+*   **Plugin Page Headers**: Must follow the standard pattern:
+    ```tsx
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+        <Icon size={32} color={colors.primary} style={{ marginRight: '16px' }} />
+        <div>
+            <h1 style={{ margin: 0 }}>Title</h1>
+            <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Subtitle</p>
+        </div>
+    </div>
+    ```
+*   **Explanations**: All plugin settings pages must include a prominent explanation block below the header:
+    ```tsx
+    <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+         <p style={{ margin: 0, color: colors.textPrimary }}>Explanation text...</p>
+    </div>
+    ```
+*   **Dropdowns**: Use the `<ChannelSelect />` component for any channel selection. Do not use raw `<select>` or `<input>` for IDs.
+
 ## 🔄 Development Process
 
 1.  **Analyze**: Understand if the request is Core (System) or Plugin (Feature).
