@@ -30,7 +30,8 @@ export class EconomyPlugin implements IPlugin {
     events = ['messageCreate', 'messageReactionAdd', 'interactionCreate'];
     
     requiredPermissions: any[] = [
-        PermissionsBitField.Flags.ManageRoles
+        PermissionsBitField.Flags.ManageRoles,
+        PermissionsBitField.Flags.ManageNicknames
     ];
 
     dashboardSections = ['economy'];
@@ -177,20 +178,27 @@ export class EconomyPlugin implements IPlugin {
     private async handleWallet(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
         
-        const target = interaction.options.getUser('user') || interaction.user;
-        const account = await this.getAccount(interaction.guildId, target.id);
-        const settings = await this.getSettings(interaction.guildId);
+        try {
+            await interaction.deferReply();
+            
+            const target = interaction.options.getUser('user') || interaction.user;
+            const account = await this.getAccount(interaction.guildId, target.id);
+            const settings = await this.getSettings(interaction.guildId);
 
-        const embed = new EmbedBuilder()
-            .setTitle(`${target.username}'s Wallet`)
-            .setColor('#FFD700')
-            .addFields(
-                { name: 'Balance', value: `${settings.currencyEmoji} ${account.balance}`, inline: true },
-                { name: 'Lifetime Earned', value: `${settings.currencyEmoji} ${account.totalEarned}`, inline: true },
-                { name: 'Rank', value: '#'+(await this.getRank(interaction.guildId, target.id)), inline: true }
-            );
+            const embed = new EmbedBuilder()
+                .setTitle(`${target.username}'s Wallet`)
+                .setColor('#FFD700')
+                .addFields(
+                    { name: 'Balance', value: `${settings.currencyEmoji} ${account.balance}`, inline: true },
+                    { name: 'Lifetime Earned', value: `${settings.currencyEmoji} ${account.totalEarned}`, inline: true },
+                    { name: 'Rank', value: '#'+(await this.getRank(interaction.guildId, target.id)), inline: true }
+                );
 
-        await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Wallet command failed', e);
+            await interaction.editReply({ content: 'Failed to retrieve wallet functionality.' });
+        }
     }
 
      /**
@@ -199,25 +207,32 @@ export class EconomyPlugin implements IPlugin {
      private async handleWealth(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
         
-        const accounts = await this.db.economyAccount.findMany({
-            where: { guildId: interaction.guildId },
-            orderBy: { balance: 'desc' },
-            take: 10
-        });
+        try {
+            await interaction.deferReply();
 
-        const settings = await this.getSettings(interaction.guildId);
-        
-        const description = await Promise.all(accounts.map(async (acc: any, index: number) => {
-             const user = await this.client.users.fetch(acc.userId).catch(() => ({ username: 'Unknown' }));
-             return `**${index + 1}.** ${user.username} — ${settings.currencyEmoji} ${acc.balance}`;
-        }));
+            const accounts = await this.db.economyAccount.findMany({
+                where: { guildId: interaction.guildId },
+                orderBy: { balance: 'desc' },
+                take: 10
+            });
 
-        const embed = new EmbedBuilder()
-            .setTitle(`Wealth Leaderboard`)
-            .setDescription(description.join('\n') || 'No rich people here yet.')
-            .setColor('#FFD700');
+            const settings = await this.getSettings(interaction.guildId);
+            
+            const description = await Promise.all(accounts.map(async (acc: any, index: number) => {
+                const user = await this.client.users.fetch(acc.userId).catch(() => ({ username: 'Unknown' }));
+                return `**${index + 1}.** ${user.username} — ${settings.currencyEmoji} ${acc.balance}`;
+            }));
 
-        await interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle(`Wealth Leaderboard`)
+                .setDescription(description.join('\n') || 'No rich people here yet.')
+                .setColor('#FFD700');
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Wealth command failed', e);
+            await interaction.editReply({ content: 'Failed to retrieve leaderboard.' });
+        }
     }
 
     /**
@@ -226,30 +241,37 @@ export class EconomyPlugin implements IPlugin {
     private async handleMarket(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
 
-        const items = await this.db.economyItem.findMany({
-            where: { guildId: interaction.guildId },
-            orderBy: { price: 'asc' }
-        });
-        const settings = await this.getSettings(interaction.guildId);
+        try {
+            await interaction.deferReply();
 
-        const embed = new EmbedBuilder()
-            .setTitle(`${interaction.guild?.name} Market`)
-            .setColor('#5865F2')
-            .setDescription('Use `/buy [item]` to purchase.');
-
-        if (items.length === 0) {
-            embed.setDescription('The shop is currently empty.');
-        } else {
-            items.forEach((item: any) => {
-                 let stockStr = item.stock === null ? '∞' : item.stock;
-                 embed.addFields({
-                     name: `${item.name} (${settings.currencyEmoji} ${item.price})`,
-                     value: `${item.description || 'No description'}\nType: ${item.type} | Stock: ${stockStr}`
-                 });
+            const items = await this.db.economyItem.findMany({
+                where: { guildId: interaction.guildId },
+                orderBy: { price: 'asc' }
             });
-        }
+            const settings = await this.getSettings(interaction.guildId);
 
-        await interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle(`${interaction.guild?.name} Market`)
+                .setColor('#5865F2')
+                .setDescription('Use `/buy [item]` to purchase.');
+
+            if (items.length === 0) {
+                embed.setDescription('The shop is currently empty.');
+            } else {
+                items.forEach((item: any) => {
+                    let stockStr = item.stock === null ? '∞' : item.stock;
+                    embed.addFields({
+                        name: `${item.name} (${settings.currencyEmoji} ${item.price})`,
+                        value: `${item.description || 'No description'}\nType: ${item.type} | Stock: ${stockStr}`
+                    });
+                });
+            }
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Market command failed', e);
+            await interaction.editReply({ content: 'Failed to retrieve market.' });
+        }
     }
 
     /**
