@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Overview</span>
           </button>
           
-          {(permissions.accessiblePlugins.includes('logs') || permissions.accessiblePlugins.includes('moderation')) && (
+          {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
             onClick={() => onNavigate('logs')}

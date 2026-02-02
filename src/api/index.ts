@@ -506,8 +506,11 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     const { guildId } = req.params;
     const { page = 1, limit = 20, action, search, userId } = req.query as any;
     
-    // Auth check using Moderation plugin access
-    if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+    // Auth check using Moderation OR Logger plugin access
+    const hasModAccess = await checkPluginAccess(guildId, req, 'moderation');
+    const hasLoggerAccess = await checkPluginAccess(guildId, req, 'logger');
+    
+    if (!hasModAccess && !hasLoggerAccess) return res.status(403).json({ error: 'Forbidden' });
 
     const whereClause: any = { guildId };
 
