@@ -122,7 +122,11 @@ const SettingsTab = ({ settings, onSave }: { settings: any, onSave: (d: any) => 
                         value={data.currencyEmoji} 
                         onChange={e => setData({...data, currencyEmoji: e.target.value})}
                         style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                        placeholder="e.g. 🪙 or <:coin:123456789>"
                     />
+                    <small style={{ color: colors.textSecondary, marginTop: '4px', display: 'block' }}>
+                        For custom emojis, paste the full code (e.g. <code>&lt;:name:id&gt;</code>) or just use the unicode emoji.
+                    </small>
                 </div>
             </div>
 

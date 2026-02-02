@@ -143,7 +143,21 @@ export class EconomyPlugin implements IPlugin {
         if (!settings.allowTipping) return;
 
         // Check emoji
-        if (reaction.emoji.name !== settings.currencyEmoji) return;
+        const configEmoji = settings.currencyEmoji;
+        const reactionEmojiId = reaction.emoji.id;
+        const reactionEmojiName = reaction.emoji.name;
+
+        // 1. Literal Match (Standard Emoji)
+        let isMatch = reactionEmojiName === configEmoji;
+
+        // 2. Custom Emoji ID Match (if config is <:name:id>)
+        if (!isMatch && reactionEmojiId) {
+             if (configEmoji.includes(reactionEmojiId)) {
+                 isMatch = true;
+             }
+        }
+
+        if (!isMatch) return;
 
         if (!message.guild) return;
         // Process tip (1 coin)
