@@ -895,9 +895,9 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
         
-        // Filter relevant types: 0=TEXT, 2=VOICE, 4=CATEGORY, 5=NEWS, 13=STAGE, 15=FORUM, 16=MEDIA
+        // Return ALL channels and let frontend filter. 
+        // We only map necessary fields to reduce payload size.
         const channels = response.data
-            .filter((c: any) => [0, 2, 4, 5, 13, 15, 16].includes(c.type))
             .map((c: any) => ({
                 id: c.id,
                 name: c.name,
