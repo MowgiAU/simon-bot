@@ -291,6 +291,25 @@ export class SimonBot {
       }
     });
 
+    this.client.on('threadCreate', async (thread, newlyCreated) => {
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('threadCreate')) {
+            const isEnabled = await this.isPluginEnabled(thread.guildId, plugin.id);
+            if (!isEnabled) continue;
+
+          const p = plugin as any;
+          if (typeof p.onThreadCreate === 'function') {
+            try {
+              await p.onThreadCreate(thread, newlyCreated);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} thread handler`, error);
+            }
+          }
+        }
+      }
+    });
+
     this.client.on('guildBanAdd', async (ban) => {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
