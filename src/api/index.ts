@@ -213,6 +213,45 @@ const getGuildId = async () => {
   return guild?.id || 'default-guild';
 };
 
+// Helper: Check if True Admin (Owner or Administrator perm)
+const isTrueAdmin = (guildId: string, req: any) => {
+    const userGuilds = req.session.guilds || [];
+    const guild = userGuilds.find((g: any) => g.id === guildId);
+    if (!guild) return false;
+    const permissions = BigInt(guild.permissions);
+    return Boolean(guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8));
+};
+
+// Helper: Check Plugin Access
+const checkPluginAccess = async (guildId: string, req: any, pluginId: string): Promise<boolean> => {
+    const user = req.session.user;
+    if (!user) return false;
+
+    // 1. Check if Admin (via session cache)
+    if (isTrueAdmin(guildId, req)) return true;
+
+    // 2. Check Role Whitelist
+    try {
+        const settings = await db.pluginSettings.findUnique({
+             where: { guildId_pluginId: { guildId, pluginId } }
+        });
+        
+        // If settings don't exist or no roles allowed, allow ONLY Admins (which returned above)
+        if (!settings || settings.allowedRoles.length === 0) return false;
+
+        // Fetch User Roles from Discord
+        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        const memberRoles = memberRes.data.roles || [];
+        
+        return memberRoles.some((r: string) => settings.allowedRoles.includes(r));
+    } catch (e) {
+        logger.error(`Access check failed for ${pluginId}`, e);
+        return false;
+    }
+};
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -222,6 +261,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     
     // Simply fetch - the bot has already created these on startup
     const settings = await db.filterSettings.findUnique({
@@ -249,6 +289,7 @@ app.get('/api/word-filter/settings/:guildId', async (req, res) => {
 app.post('/api/word-filter/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { enabled, repostEnabled, excludedChannels, excludedRoles } = req.body;
 
     const settings = await db.filterSettings.update({
@@ -279,6 +320,7 @@ app.post('/api/word-filter/settings/:guildId', async (req, res) => {
 app.post('/api/word-filter/groups/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { name, replacementText, replacementEmoji, useEmoji } = req.body;
 
     // Settings should already exist from bot initialization
@@ -304,6 +346,8 @@ app.post('/api/word-filter/groups/:guildId', async (req, res) => {
 
 app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
+    const { guildId } = req.params; // Note: groupId is also there but we need guildId for permission
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { groupId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji, enabled } = req.body;
 
@@ -330,6 +374,8 @@ app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
 
 app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
   try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { groupId } = req.params;
 
     await db.wordGroup.delete({
@@ -346,6 +392,8 @@ app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
 // Word Routes
 app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => {
   try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { groupId } = req.params;
     const { word } = req.body;
 
@@ -383,6 +431,8 @@ app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => 
 
 app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req, res) => {
   try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { wordId } = req.params;
 
     await db.filterWord.delete({
@@ -450,20 +500,14 @@ app.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
-// Server Stats Route
+// Server Stats Route (Actually logs)
 app.get('/api/guilds/:guildId/logs', async (req, res) => {
   try {
     const { guildId } = req.params;
     const { page = 1, limit = 20, action, search, userId } = req.query as any;
     
-    // Auth check
-    if (req.session && req.session.user) {
-        if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-    } else {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
+    // Auth check using Moderation plugin access
+    if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
 
     const whereClause: any = { guildId };
 
@@ -675,13 +719,8 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
     const { guildId } = req.params;
     
     // Auth check
-    if (req.session && req.session.user) {
-        if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-    } else {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
+    // Auth check (Stats plugin)
+    if (!await checkPluginAccess(guildId, req, 'stats')) return res.status(403).json({ error: 'Forbidden' });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -764,9 +803,7 @@ app.get('/api/guilds/:guildId/moderation', async (req, res) => {
     try {
         const { guildId } = req.params;
         // Auth check
-        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
 
         const settings = await db.moderationSettings.findUnique({
             where: { guildId },
@@ -795,9 +832,7 @@ app.post('/api/guilds/:guildId/moderation', async (req, res) => {
         const { guildId } = req.params;
         const { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage } = req.body;
         
-        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
 
         const settings = await db.moderationSettings.upsert({
             where: { guildId },
@@ -818,9 +853,7 @@ app.post('/api/guilds/:guildId/moderation/permissions', async (req, res) => {
         const { guildId } = req.params;
         const { roleId, permissions } = req.body;
         
-        if (!req.session?.user || !req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
 
         // Ensure parent settings exist
         let settings = await db.moderationSettings.findUnique({ where: { guildId } });
@@ -919,7 +952,7 @@ app.post('/api/guilds/:guildId/plugins/:pluginId', async (req, res) => {
         const { enabled, allowedRoles } = req.body;
         
         // STRICT AUTH: Only real admins can change these settings
-        if (!req.session?.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        if (!isTrueAdmin(guildId, req)) {
              return res.status(403).json({ error: 'Only admins can manage plugins' });
         }
 
@@ -943,7 +976,7 @@ app.post('/api/guilds/:guildId/access', async (req, res) => {
         const { allowedRoles } = req.body;
         
         // STRICT AUTH: Only real admins
-        if (!req.session?.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        if (!isTrueAdmin(guildId, req)) {
              return res.status(403).json({ error: 'Only admins can manage access' });
         }
 
