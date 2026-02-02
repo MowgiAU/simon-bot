@@ -92,6 +92,7 @@ app.get('/api/auth/discord/login', (req, res) => {
     scope: 'identify guilds',
     prompt: 'none'
   });
+  logger.info(`[Auth] Redirecting to Discord with redirect_uri: ${DISCORD_REDIRECT_URI}`);
   res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
 });
 
