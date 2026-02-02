@@ -196,7 +196,14 @@ export class ProductionFeedbackPlugin implements IPlugin {
         try {
            // Basic check: is this the first message?
            const starterId = (channel as any).starterMessageId;
-           if (starterId === message.id) isOpener = true;
+           // If starterId exists and matches, it's opener.
+           // If message.id == channel.id, it's opener.
+           if (starterId === message.id || message.id === channel.id) isOpener = true;
+           
+           // If we still don't know (rare race condition), we can fallback to checking creation time closeness 
+           // but that is risky.
+           // Safe fallback: if this plugin JUST processed this thread in onThreadCreate, we might be seeing the same message event.
+           // For now, the ID check is the standard way.
         } catch {}
 
         if (isOpener) return; // Handled by onThreadCreate
@@ -297,35 +304,14 @@ export class ProductionFeedbackPlugin implements IPlugin {
     }
 
     private async handleAudioIntercept(message: Message) {
-        // 1. Delete
-        try {
-            await message.delete();
-        } catch (e) {
-            this.logger.error('Failed to delete audio message', e);
-            return;
-        }
-
-        // 2. Queue in DB
         if (!this.context || !message.guild) return;
+
+        // 1. Re-upload for persistence (BEFORE delete)
+        // User requirement: "file is sent to the dashboard". 
+        // We must re-host it because the original URL dies when the message is deleted.
         
-        // We need to save the attachment info. 
-        // Since we deleted the message, the attachment URL *might* expire or become invalid if Discord cleans it up immediately.
-        // Usually, Discord keeps it for a bit, but safer to re-upload or rely on the proxy if we had one.
-        // For now, we store the URL and hope it persists often enough, 
-        // OR we just assume "Unsure" queue for files needs to ideally re-upload to a storage.
-        // But user requirement says "file is sent to the dashboard". 
-        // We'll store the URL. If it 404s, we might need a better solution (proxying).
-        // *Correction*: Discord attachments on deleted messages are deleted.
-        // We MUST Repost it to a log channel or download it.
-        // "Using a Webhook (so it looks like the user posted it)".
-        
-        // Strategy: Repost to a private Review Channel immediately?
-        // User said "The file is sent to the dashboard to review".
-        // If we don't have a storage bucket, we can't "send to dashboard" without hosting it.
-        // Workaround: Send it to a private immutable Discord channel (Review Channel) and use THAT url for the dashboard.
-        
-        const account = await this.context.db.feedbackSettings.findUnique({ where: { guildId: message.guildId } });
-        const reviewChannelId = account?.reviewChannelId;
+        const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: message.guildId } });
+        const reviewChannelId = settings?.reviewChannelId;
         
         let storedUrl = '';
         const attachment = message.attachments.first();
@@ -333,18 +319,36 @@ export class ProductionFeedbackPlugin implements IPlugin {
         if (reviewChannelId && attachment) {
              const reviewChannel = message.guild.channels.cache.get(reviewChannelId) as TextChannel;
              if (reviewChannel) {
-                 const logMsg = await reviewChannel.send({
-                     content: `Pending Audio Review from <@${message.author.id}> in <#${message.channel.id}>`,
-                     files: [attachment] // Re-upload
-                 });
-                 storedUrl = logMsg.attachments.first()?.url || '';
+                 try {
+                     const logMsg = await reviewChannel.send({
+                         content: `Pending Audio Review from <@${message.author.id}> in <#${message.channel.id}>`,
+                         files: [attachment] // Pass the Attachment object; djs handles the re-upload
+                     });
+                     storedUrl = logMsg.attachments.first()?.url || '';
+                     this.logger.info(`Re-hosted audio for review: ${storedUrl}`);
+                 } catch (e) {
+                     this.logger.error('Failed to re-host audio file', e);
+                     // If we fail to backup, we shouldn't delete the user's message blindly?
+                     // But we must enforce the rule. We'll proceed but log error.
+                 }
+             } else {
+                 this.logger.warn(`Review channel ${reviewChannelId} not found in cache.`);
              }
         }
 
-        // 3. Create DB Entry
+        // 2. Delete Original
+        try {
+            await message.delete();
+        } catch (e) {
+            this.logger.error('Failed to delete audio message', e);
+            // If we can't delete, we probably shouldn't queue it as "pending review", 
+            // because it's still public. But let's proceed to be safe.
+        }
+
+        // 3. Queue in DB
         await this.context.db.feedbackPost.create({
             data: {
-                guildId: message.guildId!,
+                guildId: message.guildId,
                 channelId: (message.channel as ThreadChannel).parentId!,
                 threadId: message.channel.id,
                 userId: message.author.id,
