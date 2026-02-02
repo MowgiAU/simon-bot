@@ -83,7 +83,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
             const guildId = thread.guildId;
 
             // Transaction: Check balance -> Deduct -> Allow
-            await this.context.db.$transaction(async (tx) => {
+            await this.context.db.$transaction(async (tx: any) => {
                 const account = await tx.economyAccount.findUnique({
                     where: { guildId_userId: { guildId, userId } }
                 });
@@ -162,7 +162,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
         let isOpener = false;
         try {
            // Basic check: is this the first message?
-           const starterId = (channel as ThreadChannel).starterMessageId;
+           const starterId = (channel as any).starterMessageId;
            if (starterId === message.id) isOpener = true;
         } catch {}
 
@@ -202,7 +202,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 }
             });
 
-            if (result.state === 'APPROVED') {
+            if (result.state === 'APPROVED' && message.guildId) {
                 // Reward
                 await this.rewardUser(message.author.id, message.guildId, settings.currencyReward);
                 // React to indicate success
@@ -325,7 +325,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
         });
 
         // Notify user
-        const response = await message.channel.send(`<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`);
+        const response = await (message.channel as TextChannel).send(`<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`);
         setTimeout(() => response.delete().catch(() => {}), 10000);
     }
     
