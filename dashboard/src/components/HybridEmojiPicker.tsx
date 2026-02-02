@@ -57,28 +57,40 @@ export const HybridEmojiPicker: React.FC<HybridEmojiPickerProps> = ({ value = ''
     }, [tab, guildId]);
 
     const handleSelect = (val: string) => {
-        // If previous val was not empty and we want to append? 
-        // For WordFilter we might want to append, but for config usually replace.
-        // The component contract here is "value" controlled input.
-        // If the user wants to append they can implement onChange logic.
-        // But for this picker, we will just call onChange with the NEW emoji inserted?
-        // Wait, standard input behavior is text.
-        
-        // Actually for WordFilter reusing this might be tricky if it expects appending to string.
-        // But let's assume this component REPLACES or SETS the value.
-        // If the user wants to type, they can type in the input box.
-        // If they pick an emoji, it appends to cursor? Too complex for now.
-        // We will make it Append to the end if text exists, or replace.
-        
-        // Let's stick to: Picker appends to current text in input, or replaces selection.
-        // Simpler: Just append to the end of current value
+        // Simple append - enables constructing sentences in WordFilter or just picking one
         onChange(value + val);
         setIsOpen(false);
+    };
+
+    const renderPreview = () => {
+        if (!value) return null;
+        const match = value.trim().match(/^<(a?):(\w+):(\d+)>$/);
+        if (match) {
+            const [_, animated, name, id] = match;
+            const ext = animated ? 'gif' : 'png';
+            const url = `https://cdn.discordapp.com/emojis/${id}.${ext}`;
+            return (
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.2)',
+                    borderRadius: '6px',
+                    padding: '0 8px',
+                    border: `1px solid ${colors.border || 'rgba(255,255,255,0.1)'}`,
+                    minWidth: '40px'
+                }}>
+                    <img src={url} alt={name} title={name} style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+                </div>
+            );
+        }
+        return null;
     };
 
     return (
         <div style={{ position: 'relative' }} ref={wrapperRef}>
             <div style={{ display: 'flex', gap: '8px' }}>
+                {renderPreview()}
                 <input 
                     value={value} 
                     onChange={e => onChange(e.target.value)}
