@@ -31,6 +31,12 @@ model Guild {
 
   moderationSettings ModerationSettings?
 
+  economyAccounts    EconomyAccount[]
+  economySettings    EconomySettings?
+  economyItems       EconomyItem[]
+  economyInventory   EconomyInventory[]
+  economyTrans       EconomyTransaction[]
+
   @@map("guilds")
 }
 
@@ -271,5 +277,107 @@ model DashboardAccess {
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   
   @@map("dashboard_access")
+}
+
+// Economy System
+model EconomyAccount {
+  id             String   @id @default(cuid())
+  guildId        String
+  userId         String
+  balance        Int      @default(0)
+  totalEarned    Int      @default(0) // Lifetime earnings
+  lastDaily      DateTime?
+  lastWeekly     DateTime?
+  
+  // Relations
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@map("economy_accounts")
+}
+
+model EconomySettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  
+  // Configuration
+  currencyName   String   @default("Coins")
+  currencyEmoji  String   @default("🪙")
+  
+  // Earning
+  messageReward  Int      @default(5)
+  messageCooldown Int     @default(60) // Seconds between message rewards
+  minMessageLength Int    @default(10)
+  
+  // Features
+  autoNickname   Boolean  @default(false)
+  allowTipping   Boolean  @default(true)
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("economy_settings")
+}
+
+model EconomyItem {
+  id             String   @id @default(cuid())
+  guildId        String
+  
+  name           String
+  description    String?
+  price          Int
+  type           String   // ROLE, EXTERNAL, ITEM
+  category       String   @default("General")
+  
+  // Metadata for types (e.g., Role ID for ROLE type)
+  metadata       Json?    
+  
+  // Stock control
+  stock          Int?     // Null = infinite
+  maxPerUser     Int?
+  
+  createdAt      DateTime @default(now())
+
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@unique([guildId, name]) // Unique names per guild
+  @@map("economy_items")
+}
+
+model EconomyInventory {
+  id             String   @id @default(cuid())
+  guildId        String
+  userId         String
+  itemId         String
+  quantity       Int      @default(1)
+  
+  acquiredAt     DateTime @default(now())
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  // No strict relation to item to allow keeping items if they are deleted from shop (legacy support)
+  // But for now, let's keep it simple. If we delete from shop, maybe we want to keep it in inventory?
+  // Let's create a relation but set OnDelete SetNull? Or just rely on ID string.
+  // Using ID string is safer for "archived" items.
+
+  @@unique([guildId, userId, itemId])
+  @@map("economy_inventory")
+}
+
+model EconomyTransaction {
+  id             String   @id @default(cuid())
+  guildId        String
+  
+  fromUserId     String?  // Null if system
+  toUserId       String?  // Null if burning/system
+  amount         Int
+  type           String   // MESSAGE, SHOP, TIP, DAILY, ADMIN
+  reason         String?
+  
+  createdAt      DateTime @default(now())
+
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@index([guildId, fromUserId])
+  @@index([guildId, toUserId])
+  @@map("economy_transactions")
 }
 
