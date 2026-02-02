@@ -6,9 +6,13 @@ import session from 'express-session';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import FormData from 'form-data';
 import { PrismaClient } from '@prisma/client';
 import { Logger } from '../bot/utils/logger';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
