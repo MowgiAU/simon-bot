@@ -895,9 +895,9 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
         
-        // Filter relevant types: 0=GUILD_TEXT, 2=GUILD_VOICE, 4=GUILD_CATEGORY, 15=GUILD_FORUM
+        // Filter relevant types: 0=TEXT, 2=VOICE, 4=CATEGORY, 5=NEWS, 13=STAGE, 15=FORUM, 16=MEDIA
         const channels = response.data
-            .filter((c: any) => [0, 2, 4, 15].includes(c.type))
+            .filter((c: any) => [0, 2, 4, 5, 13, 15, 16].includes(c.type))
             .map((c: any) => ({
                 id: c.id,
                 name: c.name,

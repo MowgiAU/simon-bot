@@ -37,6 +37,7 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
                 return res.json();
             })
             .then((data: Channel[]) => {
+                console.log('API Channels:', data); // Debug link
                 if (!Array.isArray(data)) {
                     console.error('Channel API response is not an array:', data);
                     setChannels([]);
@@ -44,8 +45,10 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
                 }
                 let filtered = data;
                 if (channelTypes) {
+                    console.log(`Filtering for types: ${channelTypes}`);
                     filtered = data.filter(c => channelTypes.includes(c.type));
                 }
+                console.log('Filtered Channels:', filtered);
                 setChannels(filtered);
             })
             .catch(console.error)
@@ -66,7 +69,10 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
             case 0: return '#'; // Text
             case 2: return '🔊'; // Voice
             case 4: return '📁'; // Category
+            case 5: return '📢'; // News/Announcement
+            case 13: return '🎤'; // Stage
             case 15: return '💬'; // Forum
+            case 16: return '🖼️'; // Media
             default: return '';
         }
     };

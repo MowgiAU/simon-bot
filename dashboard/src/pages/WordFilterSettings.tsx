@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { colors, spacing } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { ChannelSelect } from '../components/ChannelSelect';
 import './WordFilterSettings.css';
