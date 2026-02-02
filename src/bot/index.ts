@@ -18,6 +18,7 @@ import { LoggerPlugin } from './plugins/LoggerPlugin';
 import { StagingTestPlugin } from './plugins/StagingTestPlugin';
 import { ModerationPlugin } from './plugins/ModerationPlugin';
 import { EconomyPlugin } from './plugins/EconomyPlugin';
+import { ProductionFeedbackPlugin } from './plugins/ProductionFeedbackPlugin';
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ export class SimonBot {
       this.pluginManager.register(new StagingTestPlugin());
       this.pluginManager.register(new ModerationPlugin());
       this.pluginManager.register(new EconomyPlugin());
+      this.pluginManager.register(new ProductionFeedbackPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

@@ -10,7 +10,8 @@ import {
   Settings, 
   LogOut, 
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 import logoUrl from '../assets/logo.svg'; 
 
@@ -114,15 +115,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           </button>
           )}
 
-          {permissions.accessiblePlugins.includes('word-filter') && (
-          <button
-            className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
-            onClick={() => onNavigate('word-filter-settings')}
-            title={collapsed ? "Word Filter" : ""}
-          >
-            <span className="nav-icon"><Type size={20} /></span>
-            <span className="nav-label">Word Filter</span>
-          </button>
+          {permissions.accessiblePlugins.includes('production-feedback') && (
+            <button
+                className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}
+                onClick={() => onNavigate('feedback')}
+                title={collapsed ? "Feedback" : ""}
+            >
+                <span className="nav-icon"><MessageSquare size={20} /></span>
+                <span className="nav-label">Feedback</span>
+            </button>
           )}
         </div>
 

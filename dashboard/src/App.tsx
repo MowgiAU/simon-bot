@@ -6,13 +6,10 @@ import { WordFilterSettings } from './pages/WordFilterSettings';
 import { ModerationSettingsPage } from './pages/ModerationSettings';
 import { PluginManagementPage } from './pages/PluginManagement';
 import { EconomyPluginPage } from './pages/EconomyPlugin';
+import { FeedbackPluginPage } from './pages/FeedbackPlugin';
 import Logs from './pages/Logs';
-import { StagingTest } from './pages/StagingTest';
-import { colors } from './theme/theme';
-import { AuthProvider, useAuth } from './components/AuthProvider';
-import logoUrl from './assets/logo.svg';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -120,6 +117,8 @@ const AppContent: React.FC = () => {
         return <ModerationSettingsPage />;
       case 'economy':
         return <EconomyPluginPage />;
+      case 'feedback':
+        return <FeedbackPluginPage />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':

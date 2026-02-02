@@ -37,6 +37,11 @@ model Guild {
   economyInventory   EconomyInventory[]
   economyTrans       EconomyTransaction[]
 
+  // Feedback Plugin
+  feedbackProfiles   FeedbackProfile[]
+  feedbackPosts      FeedbackPost[]
+  feedbackSettings   FeedbackSettings?
+
   @@map("guilds")
 }
 
@@ -158,6 +163,7 @@ model Member {
 
   // Relations
   guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  feedbackProfile    FeedbackProfile?
 
   @@unique([guildId, userId])
   @@map("members")
@@ -379,5 +385,72 @@ model EconomyTransaction {
   @@index([guildId, fromUserId])
   @@index([guildId, toUserId])
   @@map("economy_transactions")
+}
+
+// Feedback / AI Production System (New Plugin)
+model FeedbackProfile {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  
+  genre      String?
+  daw        String?
+  experience String?
+  
+  joinedAt   DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  // We can treat Member as optional relation or just store IDs if Member not guaranteed
+  // But strictly Member should exist.
+  member     Member   @relation(fields: [guildId, userId], references: [guildId, userId], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@map("feedback_profiles")
+}
+
+model FeedbackPost {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  threadId    String?
+  userId      String
+  messageId   String   @unique
+  content     String
+  
+  hasAudio    Boolean  @default(false)
+  audioUrl    String?
+  
+  aiScore     Int?
+  aiState     String   @default("PENDING") // PENDING, APPROVED, DENIED, UNSURE, REJECTED
+  aiReason    String?
+  
+  postType    String   @default("COMMENT") // COMMENT, FEEDBACK
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, aiState])
+  @@map("feedback_posts")
+}
+
+model FeedbackSettings {
+  id              String   @id @default(cuid())
+  guildId         String   @unique
+  
+  enabled         Boolean  @default(false)
+  forumChannelId  String?
+  reviewChannelId String?
+  
+  currencyReward  Int      @default(1)
+  threadCost      Int      @default(5)
+  
+  aiModel         String   @default("gpt-4o-mini")
+  
+  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("feedback_settings")
 }
 

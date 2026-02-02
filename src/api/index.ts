@@ -1245,6 +1245,211 @@ app.get('/api/economy/search-users/:guildId', async (req, res) => {
     }
 });
 
+// --- Feedback Plugin Routes ---
+
+// Get Feedback Settings
+app.get('/api/feedback/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+        
+        let settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            // Create default
+             settings = await db.feedbackSettings.create({
+                 data: { guildId, enabled: false }
+             });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Feedback settings fetch', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Update Feedback Settings
+app.post('/api/feedback/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const updated = await db.feedbackSettings.update({
+            where: { guildId },
+            data: req.body
+        });
+        res.json(updated);
+    } catch (e) {
+         logger.error('Feedback settings update', e);
+         res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Get Feedback Queue (Pending/Unsure)
+app.get('/api/feedback/queue/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const queue = await db.feedbackPost.findMany({
+            where: { 
+                guildId,
+                aiState: { in: ['PENDING', 'UNSURE'] }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Resolve user info for items
+        const enriched = await Promise.all(queue.map(async (item) => {
+            const user = await resolveUser(item.userId);
+            return { ...item, user };
+        }));
+
+        res.json(enriched);
+    } catch (e) {
+        logger.error('Feedback queue fetch', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Approve/Reject Action
+app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
+    try {
+        const { guildId, postId } = req.params;
+        const { action } = req.body; // 'APPROVE' | 'DENY'
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const post = await db.feedbackPost.findUnique({ where: { id: postId } });
+        if (!post) return res.status(404).json({ error: 'Not Found' });
+
+        if (action === 'DENY') {
+            await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'REJECTED' } });
+            return res.json({ success: true });
+        }
+
+        if (action === 'APPROVE') {
+            // 1. Update DB
+            await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
+
+            // 2. Logic based on type
+            // If it has AUDIO, we need to REPOST it
+            if (post.hasAudio && post.audioUrl) {
+                // Fetch Webhook
+                // We need the thread channel ID. 
+                // We need a webhook in the PARENT (Forum) channel usually, because webhooks belong to channel, but can post in threads?
+                // Webhooks created in a channel can post to threads in that channel using ?thread_id query param.
+                
+                const DISCORD_API_BASE = 'https://discord.com/api/v10';
+                
+                // A. Find/Create Webhook
+                // We can't reuse bot-created webhooks easily unless we store them. 
+                // Let's look for one named "Simon-Masquerade" or create it.
+                // We need the PARENT channel (Forum ID). post.channelId stores Forum ID in our schema?
+                // Schema: channelId = post.channelId? 
+                // In ProductionFeedbackPlugin: channelId: channel.parentId (Forum).
+                
+                const forumId = post.channelId; 
+                let webhookId, webhookToken;
+
+                try {
+                    const hooksRes = await axios.get(`${DISCORD_API_BASE}/channels/${forumId}/webhooks`, {
+                         headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                    });
+                    const hooks = hooksRes.data;
+                    const existing = hooks.find((h: any) => h.name === 'Simon-Masquerade' && h.token);
+                    
+                    if (existing) {
+                        webhookId = existing.id;
+                        webhookToken = existing.token;
+                    } else {
+                        const createRes = await axios.post(`${DISCORD_API_BASE}/channels/${forumId}/webhooks`, {
+                            name: 'Simon-Masquerade'
+                        }, { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } });
+                        webhookId = createRes.data.id;
+                        webhookToken = createRes.data.token;
+                    }
+
+                    // B. Execute Webhook
+                    const user = await resolveUser(post.userId);
+                    const avatarUrl = user?.avatar 
+                        ? `https://cdn.discordapp.com/avatars/${post.userId}/${user.avatar}.png` 
+                        : `https://cdn.discordapp.com/embed/avatars/${Number(post.userId) % 5}.png`;
+
+                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
+                        content: post.content || undefined, // Must have content or file. if content empty, ensure undefined?
+                        username: user?.username || 'Producer',
+                        avatar_url: avatarUrl,
+                        embeds: [
+                            {
+                                description: `*Reposted from <@${post.userId}> (Approved Audio)*`,
+                                color: 0x43b581
+                            }
+                        ]
+                        // Note: We cannot "attach" the file URL as an attachment object in JSON easily without multipart/form-data.
+                        // But we can include the URL in content? 
+                        // If we include the URL in content, Discord normally previews it.
+                        // post.audioUrl is the URL from the logging channel.
+                    }, {
+                         headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    // Actually, if we want it to look like a file upload, we usually need multipart.
+                    // But just appending the link is easier and works for "Review".
+                    // Let's append the link to content.
+                    await axios.post(`${DISCORD_API_BASE}/webhooks/${webhookId}/${webhookToken}?thread_id=${post.threadId}`, {
+                        content: `${post.content || ''}\n\n**Audio Attachment:**\n${post.audioUrl}`,
+                        username: user?.username || 'Producer',
+                        avatar_url: avatarUrl
+                    });
+
+                } catch (webhookErr) {
+                    logger.error('Webhook execution failed', webhookErr);
+                    // Don't fail the request, just log
+                }
+            } else {
+                // If it was just feedback (text) that was unsure, and now Approved.
+                // We Reward the user.
+                const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+                const reward = settings?.currencyReward || 1;
+
+                // Transaction
+                await db.$transaction(async (tx) => {
+                     await tx.economyAccount.upsert({
+                        where: { guildId_userId: { guildId, userId: post.userId } },
+                        update: { 
+                            balance: { increment: reward },
+                            totalEarned: { increment: reward }
+                        },
+                        create: {
+                            guildId,
+                            userId: post.userId,
+                            balance: reward,
+                            totalEarned: reward
+                        }
+                    });
+                    await tx.economyTransaction.create({
+                        data: {
+                            guildId,
+                            toUserId: post.userId,
+                            amount: reward,
+                            type: 'FEEDBACK_REWARD',
+                            reason: 'Feedback Approved by Staff' // Different reason so we know it was manual
+                        }
+                    });
+                });
+            }
+
+            return res.json({ success: true });
+        }
+        
+        res.status(400).json({ error: 'Invalid Action' });
+
+    } catch (e) {
+        logger.error('Feedback action failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);
