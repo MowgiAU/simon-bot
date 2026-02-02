@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing } from '../theme/theme';
+import { useMobile } from '../hooks/useMobile';
 import { 
   ShieldAlert, 
   Bot, 
@@ -104,14 +105,8 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   const [showNotes, setShowNotes] = useState(false);
   
   // Responsive state
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useMobile();
   const [showFilters, setShowFilters] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const fetchLogs = async (pageNum: number) => {
     try {

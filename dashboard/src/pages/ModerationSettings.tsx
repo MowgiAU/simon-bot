@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import axios from 'axios';
 import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List } from 'lucide-react';
@@ -40,6 +41,7 @@ interface Channel {
 
 export const ModerationSettingsPage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const isMobile = useMobile();
     const [settings, setSettings] = useState<ModerationSettings | null>(null);
     const [roles, setRoles] = useState<Role[]>([]);
     const [channels, setChannels] = useState<Channel[]>([]);
@@ -162,17 +164,23 @@ export const ModerationSettingsPage: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                <Shield size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                <div>
-                    <h1 style={{ margin: 0 }}>Moderation Settings</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure basic moderation commands and logging.</p>
+        <div style={{ padding: isMobile ? '16px' : '20px', maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+                    <Shield size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Moderation Settings</h1>
                 </div>
+                 {!isMobile && (
+                    <div style={{ marginLeft: '16px' }}>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure basic moderation commands and logging.</p>
+                    </div>
+                 )}
             </div>
+            
+            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Configure basic moderation commands and logging.</p>}
 
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                 <p style={{ margin: 0, color: colors.textPrimary }}>Set up your moderation logs, custom messages for actions (kick, ban, timeout), and configure which roles are allowed to use specific moderation commands.</p>
+                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Set up your moderation logs, custom messages for actions (kick, ban, timeout), and configure which roles are allowed to use specific moderation commands.</p>
             </div>
 
             {msg && (
@@ -192,10 +200,10 @@ export const ModerationSettingsPage: React.FC = () => {
             )}
 
             {/* General Settings */}
-            <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
+            <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '20px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '12px' }}>General Configuration</h2>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Log Channel</label>
                         <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post case logs?</p>
@@ -289,7 +297,9 @@ export const ModerationSettingsPage: React.FC = () => {
                             opacity: saving ? 0.7 : 1,
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '8px'
+                            gap: '8px',
+                            width: isMobile ? '100%' : 'auto',
+                            justifyContent: 'center'
                         }}
                     >
                         <Save size={18} />
@@ -299,14 +309,14 @@ export const ModerationSettingsPage: React.FC = () => {
             </div>
 
             {/* Role Permissions Matrix - Redesigned */}
-            <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '250px 1fr', gap: '24px' }}>
                 
                 {/* Left: Role List */}
                 <div style={{ background: colors.surface, padding: '20px', borderRadius: borderRadius.lg }}>
                     <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <List size={20} /> Roles
                     </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '500px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '8px', maxHeight: isMobile ? 'auto' : '500px', overflowX: isMobile ? 'auto' : 'hidden', overflowY: isMobile ? 'hidden' : 'auto', paddingBottom: isMobile ? '8px' : '0' }}>
                         {roles.map(role => (
                             <div 
                                 key={role.id}
@@ -317,10 +327,12 @@ export const ModerationSettingsPage: React.FC = () => {
                                     cursor: 'pointer',
                                     backgroundColor: selectedRoleId === role.id ? 'rgba(255,255,255,0.1)' : 'transparent',
                                     border: selectedRoleId === role.id ? `1px solid ${colors.primary}` : '1px solid transparent',
-                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    whiteSpace: isMobile ? 'nowrap' : 'normal',
+                                    minWidth: isMobile ? 'fit-content' : 'auto'
                                 }}
                             >
-                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5', flexShrink: 0 }} />
                                 <span style={{ fontWeight: selectedRoleId === role.id ? 600 : 400 }}>{role.name}</span>
                             </div>
                         ))}
@@ -328,14 +340,14 @@ export const ModerationSettingsPage: React.FC = () => {
                 </div>
 
                 {/* Right: Permissions */}
-                <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
+                <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
                     {selectedRole ? (
                         <>
                             <h2 style={{ marginTop: 0, borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px' }}>
                                 Permissions for <span style={{ color: selectedRole.color ? `#${selectedRole.color.toString(16).padStart(6, '0')}` : 'inherit' }}>{selectedRole.name}</span>
                             </h2>
                             
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                                 {Object.entries(permissionLabels).map(([key, label]) => (
                                     <div key={key} style={{ 
                                         padding: '16px', 

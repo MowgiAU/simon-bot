@@ -33,15 +33,21 @@ export const PluginManagementPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+import { useMobile } from '../hooks/useMobile';
+
+export const PluginManagementPage: React.FC = () => {
+    const { selectedGuild } = useAuth();
+    const [plugins, setPlugins] = useState<PluginMetadata[]>([]);
+    const [settings, setSettings] = useState<PluginSetting[]>([]);
+    const [accessRoles, setAccessRoles] = useState<string[]>([]); // roles allowed to login
+    
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
     // Expanded state for role configuration per plugin
     const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const isMobile = useMobile();
 
     useEffect(() => {
         if (!selectedGuild) return;

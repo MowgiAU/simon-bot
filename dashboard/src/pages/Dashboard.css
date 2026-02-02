@@ -423,3 +423,10 @@
     font-size: 14px;
   }
 }
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 16px;
+  }
+}
+

@@ -4,6 +4,7 @@ import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare } from 'lucide-react';
+import { useMobile } from '../hooks/useMobile';
 
 export const FeedbackPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -11,6 +12,7 @@ export const FeedbackPluginPage: React.FC = () => {
     const [queue, setQueue] = useState<any[]>([]);
     const [settings, setSettings] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const isMobile = useMobile();
 
     const fetchData = async () => {
         if (!selectedGuild) return;
@@ -53,27 +55,33 @@ export const FeedbackPluginPage: React.FC = () => {
     };
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                <MessageSquare size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                <div>
-                    <h1 style={{ margin: 0 }}>Feedback Moderation</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>AI-assisted moderation queue for music production feedback.</p>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isMobile ? '16px' : '20px' }}>
+             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+                    <MessageSquare size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Feedback Moderation</h1>
                 </div>
+                {!isMobile && (
+                    <div style={{ marginLeft: '16px' }}>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>AI-assisted moderation queue.</p>
+                    </div>
+                )}
             </div>
+            
+            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>AI-assisted moderation queue for music production.</p>}
 
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                 <p style={{ margin: 0, color: colors.textPrimary }}>AI-assisted moderation queue for music production feedback. This system automatically scans feedback for quality and queues audio uploads for manual review.</p>
+                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>AI-assisted moderation queue for music production feedback. This system automatically scans feedback for quality and queues audio uploads for manual review.</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexDirection: isMobile ? 'column' : 'row' }}>
                 <button 
                     onClick={() => setActiveTab('queue')}
                     style={{ 
                         padding: '10px 20px', 
                         background: activeTab === 'queue' ? colors.primary : colors.surface, 
                         color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '8px'
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
                     <RefreshCw size={18} /> Review Queue ({queue.length})
@@ -84,7 +92,7 @@ export const FeedbackPluginPage: React.FC = () => {
                         padding: '10px 20px', 
                         background: activeTab === 'settings' ? colors.primary : colors.surface, 
                         color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '8px'
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
                     <Settings size={18} /> Settings
@@ -133,7 +141,7 @@ export const FeedbackPluginPage: React.FC = () => {
                                     <div style={{ whiteSpace: 'pre-wrap', marginBottom: '16px', lineHeight: '1.5' }}>{item.content}</div>
                                     
                                     {item.hasAudio && item.audioUrl && (
-                                        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: item.referenceUrl ? '1fr 1fr' : '1fr', gap: '12px' }}>
+                                        <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: (!isMobile && item.referenceUrl) ? '1fr 1fr' : '1fr', gap: '12px' }}>
                                             {/* Original Reference (if available) */}
                                             {item.referenceUrl && (
                                                 <div style={{ padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
@@ -223,7 +231,7 @@ export const FeedbackPluginPage: React.FC = () => {
                             <small style={{ color: colors.textSecondary }}>Used to store audio files temporarily for review.</small>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '8px' }}>Post Cost (Coins)</label>
                                 <input 
@@ -247,7 +255,7 @@ export const FeedbackPluginPage: React.FC = () => {
                         <button 
                             onClick={saveSettings}
                             style={{ 
-                                marginTop: '20px', padding: '12px', 
+                                marginTop: '20px', padding: '12px', width: isMobile ? '100%' : 'auto',
                                 background: colors.primary, color: 'white', border: 'none', 
                                 borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' 
                             }}

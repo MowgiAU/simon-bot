@@ -4,10 +4,12 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X } from 'lucide-react';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
+import { useMobile } from '../hooks/useMobile';
 
 export const EconomyPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
     const [activeTab, setActiveTab] = useState<'settings' | 'inventory' | 'vault'>('settings');
+    const isMobile = useMobile();
     
     // Data State
     const [settings, setSettings] = useState<any>(null);
@@ -52,21 +54,35 @@ export const EconomyPluginPage: React.FC = () => {
     if (loading) return <div>Loading...</div>;
 
     return (
-        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                <Coins size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                <div>
-                    <h1 style={{ margin: 0 }}>Economy Manager</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage currency, shop items, and user balances.</p>
+        <div style={{ padding: isMobile ? '16px' : '20px', maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+                    <Coins size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Economy Manager</h1>
                 </div>
+                 {!isMobile && (
+                    <div style={{ marginLeft: '16px' }}>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage currency, shop items, and user balances.</p>
+                    </div>
+                 )}
             </div>
+            
+            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Manage currency, shop items, and user balances.</p>}
 
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                 <p style={{ margin: 0, color: colors.textPrimary }}>Create a virtual economy for your server. Configure currency symbols, passive earning rates per message, and manage a shop where users can buy roles or items with their earned coins.</p>
+                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Create a virtual economy for your server. Configure currency symbols, passive earning rates per message, and manage a shop where users can buy roles or items with their earned coins.</p>
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
+            <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginBottom: '24px', 
+                overflowX: 'auto', 
+                paddingBottom: '4px',
+                width: '100%',
+                whiteSpace: 'nowrap'
+            }}>
                 {[
                     { id: 'settings', label: 'Settings', icon: <Coins size={18} /> },
                     { id: 'inventory', label: 'Inventory (Shop)', icon: <ShoppingBag size={18} /> },
@@ -82,7 +98,8 @@ export const EconomyPluginPage: React.FC = () => {
                             border: 'none',
                             borderRadius: borderRadius.md,
                             cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '8px'
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            flexShrink: 0 
                         }}
                     >
                         {tab.icon} {tab.label}
@@ -90,15 +107,15 @@ export const EconomyPluginPage: React.FC = () => {
                 ))}
             </div>
 
-            <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
+            <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
                 {activeTab === 'settings' && settings && (
-                    <SettingsTab settings={settings} onSave={saveSettings} guildId={selectedGuild?.id} />
+                    <SettingsTab settings={settings} onSave={saveSettings} guildId={selectedGuild?.id} isMobile={isMobile} />
                 )}
                 {activeTab === 'inventory' && (
-                    <InventoryTab items={items} refresh={refreshData} guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} />
+                    <InventoryTab items={items} refresh={refreshData} guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} isMobile={isMobile} />
                 )}
                 {activeTab === 'vault' && (
-                    <VaultTab guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} />
+                    <VaultTab guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} isMobile={isMobile} />
                 )}
             </div>
         </div>
@@ -106,13 +123,13 @@ export const EconomyPluginPage: React.FC = () => {
 };
 
 // --- Settings Tab ---
-const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d: any) => void, guildId?: string }) => {
+const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, onSave: (d: any) => void, guildId?: string, isMobile: boolean }) => {
     const [data, setData] = useState(settings);
     
     return (
         <div style={{ display: 'grid', gap: '20px' }}>
             <h3>Currency Configuration</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px' }}>Currency Name</label>
                     <input 
@@ -135,7 +152,7 @@ const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d:
             </div>
 
             <h3>Earning (Passive)</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '20px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px' }}>Coins per Message</label>
                     <input 
@@ -205,7 +222,7 @@ const SettingsTab = ({ settings, onSave, guildId }: { settings: any, onSave: (d:
 };
 
 // --- Inventory Tab ---
-const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], refresh: () => void, guildId: string, currency: string }) => {
+const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: any[], refresh: () => void, guildId: string, currency: string, isMobile: boolean }) => {
     const [editing, setEditing] = useState<any | null>(null);
 
     const handleDelete = async (id: string) => {
@@ -222,11 +239,11 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <h3>Shop Items</h3>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '20px', gap: isMobile ? '10px' : '0' }}>
+                <h3 style={{ margin: 0 }}>Shop Items</h3>
                 <button 
                     onClick={() => setEditing({ name: '', price: 0, type: 'ROLE', description: '' })}
-                    style={{ background: colors.success, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    style={{ background: colors.success, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}
                 >
                     <Plus size={16} /> Add Item
                 </button>
@@ -235,7 +252,7 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
             {editing && (
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${colors.border}` }}>
                     <h4>{editing.id ? 'Edit Item' : 'New Item'}</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                          <input placeholder="Name" value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} style={inputStyle} />
                          <input placeholder="Price" type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} style={inputStyle} />
                          <select value={editing.type} onChange={e => setEditing({...editing, type: e.target.value})} style={inputStyle}>
@@ -250,7 +267,7 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
                          <input placeholder="Role ID to Grant" value={editing.metadata?.roleId || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, roleId: e.target.value }})} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
                     )}
 
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexDirection: isMobile ? 'column' : 'row' }}>
                         <button onClick={() => handleSave(editing)} style={btnStyle(colors.success)}>Save</button>
                         <button onClick={() => setEditing(null)} style={btnStyle(colors.textSecondary)}>Cancel</button>
                     </div>
@@ -259,14 +276,14 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
 
             <div style={{ display: 'grid', gap: '10px' }}>
                 {items.map(item => (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                    <div key={item.id} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', gap: isMobile ? '10px' : '0' }}>
                         <div>
                             <div style={{ fontWeight: 'bold' }}>{item.name}</div>
                             <div style={{ fontSize: '12px', color: colors.textSecondary }}>{renderCurrency(currency)} {item.price} • {item.type} • Stock: {item.stock ?? '∞'}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => setEditing(item)} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer' }}><Edit size={18}/></button>
-                            <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: colors.error, cursor: 'pointer' }}><Trash2 size={18}/></button>
+                        <div style={{ display: 'flex', gap: '8px', alignSelf: isMobile ? 'flex-end' : 'auto' }}>
+                            <button onClick={() => setEditing(item)} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', padding: '8px' }}><Edit size={18}/></button>
+                            <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: colors.error, cursor: 'pointer', padding: '8px' }}><Trash2 size={18}/></button>
                         </div>
                     </div>
                 ))}
@@ -276,7 +293,7 @@ const InventoryTab = ({ items, refresh, guildId, currency }: { items: any[], ref
 };
 
 // --- Vault Tab ---
-const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) => {
+const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: string, isMobile: boolean }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -302,7 +319,7 @@ const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) 
     return (
         <div>
             <h3>Vault Manager</h3>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
                 <input 
                     placeholder="Search user by name..." 
                     value={query} 
@@ -310,17 +327,17 @@ const VaultTab = ({ guildId, currency }: { guildId: string, currency: string }) 
                     onKeyDown={e => e.key === 'Enter' && handleSearch()}
                     style={{ ...inputStyle, flex: 1 }} 
                 />
-                <button onClick={handleSearch} style={btnStyle(colors.primary)}>Search</button>
+                <button onClick={handleSearch} style={{ ...btnStyle(colors.primary), width: isMobile ? '100%' : 'auto' }}>Search</button>
             </div>
 
             {selectedUser ? (
                 <div style={{ padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', textAlign: 'center' }}>
                     <h4>Managing: {selectedUser.user?.username || selectedUser.username}</h4>
-                    <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} style={{ ...inputStyle, width: '150px', margin: '0 auto 10px auto', display: 'block' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                        <button onClick={() => handleUpdate('add')} style={btnStyle(colors.success)}>Add {renderCurrency(currency)}</button>
-                        <button onClick={() => handleUpdate('set')} style={btnStyle(colors.warning)}>Set Balance</button>
-                        <button onClick={() => setSelectedUser(null)} style={btnStyle('grey')}>Cancel</button>
+                    <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} style={{ ...inputStyle, width: isMobile ? '100%' : '150px', margin: '0 auto 10px auto', display: 'block' }} />
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                        <button onClick={() => handleUpdate('add')} style={{ ...btnStyle(colors.success), width: isMobile ? '100%' : 'auto' }}>Add {renderCurrency(currency)}</button>
+                        <button onClick={() => handleUpdate('set')} style={{ ...btnStyle(colors.warning), width: isMobile ? '100%' : 'auto' }}>Set Balance</button>
+                        <button onClick={() => setSelectedUser(null)} style={{ ...btnStyle('grey'), width: isMobile ? '100%' : 'auto' }}>Cancel</button>
                     </div>
                 </div>
             ) : (

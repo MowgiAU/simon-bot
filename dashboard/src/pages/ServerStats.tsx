@@ -3,6 +3,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
 import { colors, spacing, typography } from '../theme/theme';
+import { useMobile } from '../hooks/useMobile';
 
 interface ServerStatsData {
   history: Array<{
@@ -36,6 +37,7 @@ interface Props {
 const API_BASE = '/api';
 
 export const ServerStats: React.FC<Props> = ({ guildId }) => {
+  const isMobile = useMobile();
   const [data, setData] = useState<ServerStatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export const ServerStats: React.FC<Props> = ({ guildId }) => {
   const formatNumber = (num: number) => new Intl.NumberFormat('en-US', { notation: "compact", compactDisplay: "short" }).format(num);
 
   return (
-    <div style={{ padding: spacing.xl, maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? spacing.md : spacing.xl, maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ ...typography.h2, color: colors.textPrimary, marginBottom: spacing.xl }}>Server Statistics</h2>
 
       {/* Summary Cards */}
@@ -85,7 +87,7 @@ export const ServerStats: React.FC<Props> = ({ guildId }) => {
       </div>
 
       {/* Charts Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: spacing.xl }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(500px, 1fr))', gap: spacing.xl }}>
         
         {/* Message Activity */}
         <ChartContainer title="Message Activity (30 Days)">

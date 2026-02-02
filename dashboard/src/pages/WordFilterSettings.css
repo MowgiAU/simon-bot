@@ -634,3 +634,72 @@
   overflow: hidden; /* For rounded corners */
 }
 
+
+@media (max-width: 768px) {
+  .word-filter-settings {
+    padding: 16px;
+  }
+  
+  .settings-section {
+    padding: 16px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .section-header button {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  .group-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  /* Ensure header-left takes full width to accommodate children if needed */
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .header-right {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .word-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .word-input-group button {
+    width: 100%;
+  }
+
+  .settings-footer {
+    display: flex;
+    width: 100%;
+  }
+  
+  .settings-footer button {
+    width: 100%;
+  }
+}
+
