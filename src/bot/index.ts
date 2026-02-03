@@ -205,18 +205,23 @@ export class SimonBot {
               activities: activityText ? [{ name: activityText, type }] : []
           });
 
-          // Update Global User (Rate-limited, check carefully)
-          // We only update if it CHANGED and stored value is different from current
-          /* 
+          // Update Global User (Rate-limited: 2 requests per hour)
           if (settings.username && settings.username !== this.client.user?.username) {
-             // await this.client.user?.setUsername(settings.username);
+             this.logger.info(`Updating username to: ${settings.username}`);
+             await this.client.user?.setUsername(settings.username);
           }
-          if (settings.avatarUrl && settings.avatarUrl !== this.client.user?.avatarURL()) {
-             // await this.client.user?.setAvatar(settings.avatarUrl);
+          
+          if (settings.avatarUrl && settings.avatarUrl !== this.client.user?.displayAvatarURL()) {
+             // Basic check, might re-upload if URL string is different but image is same. 
+             // Ideally we shouldn't do this often.
+             this.logger.info(`Updating avatar to: ${settings.avatarUrl}`);
+             // check if it is a valid url
+             try {
+                await this.client.user?.setAvatar(settings.avatarUrl);
+             } catch (avatarError) {
+                this.logger.error('Failed to set avatar (invalid URL or rate limit)', avatarError);
+             }
           }
-          */
-          // Note: Updating username/avatar automatically is dangerous due to rate limits.
-          // For now, only presence is automated safely.
       } catch (e) {
           this.logger.error('Failed to update bot identity', e);
       }
