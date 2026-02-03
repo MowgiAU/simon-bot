@@ -1570,6 +1570,67 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     }
 });
 
+// --- Bot Identity Routes ---
+app.get('/api/bot/identity', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    // TODO: strictly check for Bot Owner/Admin here if needed.
+    
+    try {
+        const botId = process.env.DISCORD_CLIENT_ID || 'global';
+        let settings = await db.botSettings.findUnique({
+            where: { botId }
+        });
+
+        if (!settings) {
+            settings = await db.botSettings.create({
+                data: { 
+                    botId,
+                    status: 'online',
+                    activityType: 'PLAYING'
+                }
+            });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to fetch bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/api/bot/identity', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const botId = process.env.DISCORD_CLIENT_ID || 'global';
+        const { status, activityType, activityText, username, avatarUrl } = req.body;
+
+        const settings = await db.botSettings.upsert({
+            where: { botId },
+            create: {
+                botId,
+                status,
+                activityType,
+                activityText,
+                username,
+                avatarUrl
+            },
+            update: {
+                status,
+                activityType,
+                activityText,
+                username,
+                avatarUrl
+            }
+        });
+
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

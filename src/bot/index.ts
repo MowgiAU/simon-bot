@@ -189,6 +189,8 @@ export class SimonBot {
           // Update Presence
           const { status, activityType, activityText } = settings;
           
+          this.logger.info(`Updating presence: ${status} - ${activityType} ${activityText}`);
+
           let type = 0; // Playing
           switch (activityType) {
               case 'PLAYING': type = 0; break;
