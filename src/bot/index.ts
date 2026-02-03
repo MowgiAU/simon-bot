@@ -210,6 +210,11 @@ export class SimonBot {
          if (plugin.events.includes('interactionCreate')) {
            // Check if enabled for this guild
            const isEnabled = await this.isPluginEnabled(interaction.guildId!, plugin.id);
+           // debug log
+           if (interaction.isChatInputCommand() && interaction.commandName === 'setup-welcome' && plugin.id === 'welcome-gate') {
+               this.logger.info(`WelcomeGate check: enabled=${isEnabled}, guild=${interaction.guildId}`);
+           }
+
            if (!isEnabled) return;
 
            const p = plugin as any;
