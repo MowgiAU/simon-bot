@@ -11,10 +11,11 @@ import { PluginManagementPage } from './pages/PluginManagement';
 import { EconomyPluginPage } from './pages/EconomyPlugin';
 import { FeedbackPluginPage } from './pages/FeedbackPlugin';
 import { WelcomeGatePluginPage } from './pages/WelcomeGate';
+import { BotIdentityPage } from './pages/BotIdentity';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -126,6 +127,8 @@ const AppContent: React.FC = () => {
         return <FeedbackPluginPage />;
       case 'welcome-gate':
         return <WelcomeGatePluginPage />;
+      case 'bot-identity':
+        return <BotIdentityPage />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':

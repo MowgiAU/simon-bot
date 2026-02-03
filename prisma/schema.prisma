@@ -46,6 +46,19 @@ model Guild {
   @@map("guilds")
 }
 
+// Bot Identity Settings
+model BotSettings {
+  botId       String @id
+  status      String @default("online")
+  activityType String @default("PLAYING")
+  activityText String?
+  username    String?
+  avatarUrl   String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("bot_settings")
+}
+
 // Moderation Settings
 model ModerationSettings {
   id             String   @id @default(cuid())

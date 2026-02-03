@@ -169,6 +169,58 @@ export class SimonBot {
   }
 
   /**
+   * Start the identity update loop
+   */
+  private startIdentityLoop() {
+    // Run immediately
+    this.updateIdentity();
+    // Then every 30 seconds
+    setInterval(() => this.updateIdentity(), 30000);
+  }
+
+  private async updateIdentity() {
+      try {
+          const settings = await this.db.botSettings.findUnique({
+              where: { botId: process.env.DISCORD_CLIENT_ID || 'global' }
+          });
+
+          if (!settings) return;
+
+          // Update Presence
+          const { status, activityType, activityText } = settings;
+          
+          let type = 0; // Playing
+          switch (activityType) {
+              case 'PLAYING': type = 0; break;
+              case 'WATCHING': type = 3; break;
+              case 'LISTENING': type = 2; break;
+              case 'COMPETING': type = 5; break;
+              case 'CUSTOM': type = 4; break;
+          }
+
+          this.client.user?.setPresence({
+              status: status as any,
+              activities: activityText ? [{ name: activityText, type }] : []
+          });
+
+          // Update Global User (Rate-limited, check carefully)
+          // We only update if it CHANGED and stored value is different from current
+          /* 
+          if (settings.username && settings.username !== this.client.user?.username) {
+             // await this.client.user?.setUsername(settings.username);
+          }
+          if (settings.avatarUrl && settings.avatarUrl !== this.client.user?.avatarURL()) {
+             // await this.client.user?.setAvatar(settings.avatarUrl);
+          }
+          */
+          // Note: Updating username/avatar automatically is dangerous due to rate limits.
+          // For now, only presence is automated safely.
+      } catch (e) {
+          this.logger.error('Failed to update bot identity', e);
+      }
+  }
+
+  /**
    * Setup Discord event listeners
    */
   private setupEventListeners(): void {
@@ -191,6 +243,9 @@ export class SimonBot {
               this.logger.error(`Failed to register commands for ${guild.name}`, e);
           }
       }
+
+      // Start Bot Identity Manager
+      this.startIdentityLoop();
     });
 
     this.client.on('interactionCreate', async interaction => {

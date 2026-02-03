@@ -9,6 +9,7 @@ import {
   Shield,
   Coins,
   Settings, 
+  User,
   LogOut, 
   ChevronLeft, 
   ChevronRight,
@@ -71,6 +72,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><LayoutDashboard size={20} /></span>
             <span className="nav-label">Overview</span>
+          </button>
+
+          <button
+            className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`}
+            onClick={() => onNavigate('bot-identity')}
+            title={collapsed ? "Bot Identity" : ""}
+          >
+            <span className="nav-icon"><User size={20} /></span>
+            <span className="nav-label">Bot Identity</span>
           </button>
           
           {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
