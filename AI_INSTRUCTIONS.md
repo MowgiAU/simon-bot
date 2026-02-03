@@ -23,6 +23,7 @@
     *   **NO** direct dependencies between plugins.
     *   Plugins provide **Dashboard Content** (Pages), Core provides **Structure** (Layouts/Theme).
     *   **NEVER** use hardcoded colors. Use `src/theme/theme.ts`.
+    *   **API Exposure** When adding a new plugin, you **MUST** update `src/api/index.ts` to include the plugin ID in the `accessiblePlugins` list for administrators, otherwise it will not appear in the dashboard sidebar.
 
 ---
 
