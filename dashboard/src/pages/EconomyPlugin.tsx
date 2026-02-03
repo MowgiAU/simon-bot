@@ -74,38 +74,61 @@ export const EconomyPluginPage: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginBottom: '24px', 
-                overflowX: 'auto', 
-                paddingBottom: '4px',
-                width: '100%',
-                whiteSpace: 'nowrap'
-            }}>
-                {[
-                    { id: 'settings', label: 'Settings', icon: <Coins size={18} /> },
-                    { id: 'inventory', label: 'Inventory (Shop)', icon: <ShoppingBag size={18} /> },
-                    { id: 'vault', label: 'Vault (Balances)', icon: <Vault size={18} /> }
-                ].map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+            {isMobile ? (
+                <div style={{ marginBottom: '24px' }}>
+                    <select
+                        value={activeTab}
+                        onChange={(e) => setActiveTab(e.target.value as any)}
                         style={{
-                            padding: '10px 20px',
-                            background: activeTab === tab.id ? colors.primary : colors.surface,
-                            color: 'white',
-                            border: 'none',
+                            width: '100%',
+                            padding: '12px',
+                            background: colors.surface,
+                            color: colors.textPrimary,
+                            border: `1px solid ${colors.border}`,
                             borderRadius: borderRadius.md,
-                            cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            flexShrink: 0 
+                            fontSize: '16px',
+                            outline: 'none'
                         }}
                     >
-                        {tab.icon} {tab.label}
-                    </button>
-                ))}
-            </div>
+                        <option value="settings">Settings</option>
+                        <option value="inventory">Inventory (Shop)</option>
+                        <option value="vault">Vault (Balances)</option>
+                    </select>
+                </div>
+            ) : (
+                <div style={{ 
+                    display: 'flex', 
+                    gap: '10px', 
+                    marginBottom: '24px', 
+                    overflowX: 'auto', 
+                    paddingBottom: '4px',
+                    width: '100%',
+                    whiteSpace: 'nowrap'
+                }}>
+                    {[
+                        { id: 'settings', label: 'Settings', icon: <Coins size={18} /> },
+                        { id: 'inventory', label: 'Inventory (Shop)', icon: <ShoppingBag size={18} /> },
+                        { id: 'vault', label: 'Vault (Balances)', icon: <Vault size={18} /> }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            style={{
+                                padding: '10px 20px',
+                                background: activeTab === tab.id ? colors.primary : colors.surface,
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: borderRadius.md,
+                                cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                flexShrink: 0 
+                            }}
+                        >
+                            {tab.icon} {tab.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
                 {activeTab === 'settings' && settings && (

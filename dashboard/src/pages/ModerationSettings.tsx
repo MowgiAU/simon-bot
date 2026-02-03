@@ -316,34 +316,54 @@ export const ModerationSettingsPage: React.FC = () => {
                     <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <List size={20} /> Roles
                     </h3>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: '8px', maxHeight: isMobile ? 'auto' : '500px', overflowX: isMobile ? 'auto' : 'hidden', overflowY: isMobile ? 'hidden' : 'auto', paddingBottom: isMobile ? '8px' : '0' }}>
-                        {roles.map(role => (
-                            <div 
-                                key={role.id}
-                                onClick={() => setSelectedRoleId(role.id)}
-                                style={{ 
-                                    padding: '10px', 
-                                    borderRadius: borderRadius.md, 
-                                    cursor: 'pointer',
-                                    backgroundColor: selectedRoleId === role.id ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                    border: selectedRoleId === role.id ? `1px solid ${colors.primary}` : '1px solid transparent',
-                                    display: 'flex', alignItems: 'center', gap: '10px',
-                                    whiteSpace: isMobile ? 'nowrap' : 'normal',
-                                    minWidth: isMobile ? 'fit-content' : 'auto'
-                                }}
-                            >
-                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5', flexShrink: 0 }} />
-                                <span style={{ fontWeight: selectedRoleId === role.id ? 600 : 400 }}>{role.name}</span>
-                            </div>
-                        ))}
-                    </div>
+                    {isMobile ? (
+                        <select
+                            value={selectedRoleId || ''}
+                            onChange={(e) => setSelectedRoleId(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: colors.background,
+                                color: 'white',
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: borderRadius.md,
+                                fontSize: '16px',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="" disabled>Select a role...</option>
+                            {roles.map(role => (
+                                <option key={role.id} value={role.id}>{role.name}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '500px', overflowY: 'auto' }}>
+                            {roles.map(role => (
+                                <div 
+                                    key={role.id}
+                                    onClick={() => setSelectedRoleId(role.id)}
+                                    style={{ 
+                                        padding: '10px', 
+                                        borderRadius: borderRadius.md, 
+                                        cursor: 'pointer',
+                                        backgroundColor: selectedRoleId === role.id ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                        border: selectedRoleId === role.id ? `1px solid ${colors.primary}` : '1px solid transparent',
+                                        display: 'flex', alignItems: 'center', gap: '10px'
+                                    }}
+                                >
+                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5', flexShrink: 0 }} />
+                                    <span style={{ fontWeight: selectedRoleId === role.id ? 600 : 400 }}>{role.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right: Permissions */}
                 <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
                     {selectedRole ? (
                         <>
-                            <h2 style={{ marginTop: 0, borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px' }}>
+                            <h2 style={{ marginTop: 0, borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px', wordBreak: 'break-word' }}>
                                 Permissions for <span style={{ color: selectedRole.color ? `#${selectedRole.color.toString(16).padStart(6, '0')}` : 'inherit' }}>{selectedRole.name}</span>
                             </h2>
                             

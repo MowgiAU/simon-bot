@@ -687,10 +687,17 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    align-items: center;
   }
   
-  .word-input-group button {
+  .word-input-group .input-field,
+  .word-input-group button,
+  .word-input-group .btn-primary {
     width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    text-align: center;
   }
 
   .settings-footer {
