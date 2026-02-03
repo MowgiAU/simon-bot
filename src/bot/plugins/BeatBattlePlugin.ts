@@ -60,7 +60,44 @@ export class BeatBattlePlugin implements IPlugin {
     
     private async checkStates() {
         try {
-            // Find battles in transitional states
+            // 1. Check for Auto-Scheduling Transitions (Time-based watchdog)
+            const activeBattles = await this.db.beatBattle.findMany({
+                where: { status: { not: 'ARCHIVED' } }
+            });
+
+            const now = new Date();
+
+            for (const battle of activeBattles) {
+                // SETUP -> ANNOUNCED (Logic: If start date reached, announce it)
+                // Actually start date usually means "Submission Open". 
+                // Let's assume Announcement happens manually or immediately on creation, 
+                // and StartDate = Open Submissions.
+                
+                // SETUP/ANNOUNCED -> SUBMISSIONS
+                // If now >= startDate and status is < SUBMISSIONS
+                if (battle.startDate && now >= new Date(battle.startDate) && 
+                   ['SETUP', 'ANNOUNCED'].includes(battle.status)) {
+                        this.logger.info(`Auto-opening submissions for ${battle.title}`);
+                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'OPENING_SUBS' } });
+                }
+
+                // SUBMISSIONS -> VOTING
+                // If now >= votingDate and status is SUBMISSIONS
+                if (battle.votingDate && now >= new Date(battle.votingDate) && battle.status === 'SUBMISSIONS') {
+                        this.logger.info(`Auto-starting voting for ${battle.title}`);
+                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'STARTING_VOTING' } });
+                }
+
+                // VOTING -> ENDING
+                // If now >= endDate and status is VOTING
+                if (battle.endDate && now >= new Date(battle.endDate) && battle.status === 'VOTING') {
+                        this.logger.info(`Auto-ending battle ${battle.title}`);
+                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ENDING' } });
+                }
+            }
+
+
+            // 2. Process Transition Queue (State-change watchdog)
             const pendingBattles = await this.db.beatBattle.findMany({
                 where: {
                     status: { in: ['ANNOUNCING', 'OPENING_SUBS', 'STARTING_VOTING', 'ENDING', 'ARCHIVING'] }
@@ -198,6 +235,30 @@ export class BeatBattlePlugin implements IPlugin {
     
     private async doArchive(battle: any) {
          // Logic to rename/move channel
+         const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
+         
+         if (config?.submissionChannelId && config?.archiveCategoryId) {
+             try {
+                const channel = await this.client.channels.fetch(config.submissionChannelId) as TextChannel;
+                if (channel) {
+                    // Rename: battle-name-archived
+                    const oldName = `archived-${battle.number}`;
+                    await channel.setName(oldName.substring(0, 100)); // Discord limit
+                    
+                    // Move to Archive Category and Sync Permissions (Lock it)
+                    await channel.setParent(config.archiveCategoryId, { lockPermissions: true });
+                    
+                    // Clear the submission channel from config so a new one can be made
+                    await this.db.beatBattleConfig.update({
+                        where: { guildId: battle.guildId },
+                        data: { submissionChannelId: null }
+                    });
+                }
+             } catch (e) {
+                 this.logger.error('Failed to archive channel', e);
+             }
+         }
+
          await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ARCHIVED' } });
     }
 
