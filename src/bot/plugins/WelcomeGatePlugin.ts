@@ -35,7 +35,7 @@ export class WelcomeGatePlugin implements IPlugin {
     readonly commands = ['setup-welcome'];
     readonly events = ['interactionCreate', 'guildMemberAdd'];
     readonly dashboardSections = ['welcome-gate']; // Future dashboard page
-    readonly defaultEnabled = false;
+    readonly defaultEnabled = true;
 
     // Config schema for validation
     readonly configSchema = z.object({
