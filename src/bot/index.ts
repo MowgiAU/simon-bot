@@ -189,21 +189,29 @@ export class SimonBot {
           // Update Presence
           const { status, activityType, activityText } = settings;
           
-          this.logger.info(`Updating presence: ${status} - ${activityType} ${activityText}`);
+          // Create a signature to check for changes
+          const currentSignature = `${status}-${activityType}-${activityText}`;
+          
+          // Only update if something changed
+          if (currentSignature !== this.lastPresenceSignature) {
+              this.logger.info(`Updating presence: ${status} - ${activityType} ${activityText}`);
 
-          let type = 0; // Playing
-          switch (activityType) {
-              case 'PLAYING': type = 0; break;
-              case 'WATCHING': type = 3; break;
-              case 'LISTENING': type = 2; break;
-              case 'COMPETING': type = 5; break;
-              case 'CUSTOM': type = 4; break;
+              let type = 0; // Playing
+              switch (activityType) {
+                  case 'PLAYING': type = 0; break;
+                  case 'WATCHING': type = 3; break;
+                  case 'LISTENING': type = 2; break;
+                  case 'COMPETING': type = 5; break;
+                  case 'CUSTOM': type = 4; break;
+              }
+
+              this.client.user?.setPresence({
+                  status: status as any,
+                  activities: activityText ? [{ name: activityText, type }] : []
+              });
+              
+              this.lastPresenceSignature = currentSignature;
           }
-
-          this.client.user?.setPresence({
-              status: status as any,
-              activities: activityText ? [{ name: activityText, type }] : []
-          });
 
           // Update Global User (Rate-limited: 2 requests per hour)
           if (settings.username && settings.username !== this.client.user?.username) {
@@ -445,6 +453,7 @@ export class SimonBot {
 
   private pluginCache = new Map<string, boolean>();
   private lastProcessedAvatarUrl: string | null = null;
+  private lastPresenceSignature: string = '';
 
   private async isPluginEnabled(guildId: string, pluginId: string): Promise<boolean> {
       const key = `${guildId}:${pluginId}`;
