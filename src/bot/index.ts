@@ -208,16 +208,18 @@ export class SimonBot {
           // Update Global User (Rate-limited: 2 requests per hour)
           if (settings.username && settings.username !== this.client.user?.username) {
              this.logger.info(`Updating username to: ${settings.username}`);
-             await this.client.user?.setUsername(settings.username);
+             try {
+                await this.client.user?.setUsername(settings.username);
+             } catch (e) {
+                this.logger.error('Failed to set username', e);
+             }
           }
           
-          if (settings.avatarUrl && settings.avatarUrl !== this.client.user?.displayAvatarURL()) {
-             // Basic check, might re-upload if URL string is different but image is same. 
-             // Ideally we shouldn't do this often.
+          if (settings.avatarUrl && settings.avatarUrl !== this.lastProcessedAvatarUrl) {
              this.logger.info(`Updating avatar to: ${settings.avatarUrl}`);
-             // check if it is a valid url
              try {
                 await this.client.user?.setAvatar(settings.avatarUrl);
+                this.lastProcessedAvatarUrl = settings.avatarUrl;
              } catch (avatarError) {
                 this.logger.error('Failed to set avatar (invalid URL or rate limit)', avatarError);
              }
@@ -442,6 +444,7 @@ export class SimonBot {
   }
 
   private pluginCache = new Map<string, boolean>();
+  private lastProcessedAvatarUrl: string | null = null;
 
   private async isPluginEnabled(guildId: string, pluginId: string): Promise<boolean> {
       const key = `${guildId}:${pluginId}`;
