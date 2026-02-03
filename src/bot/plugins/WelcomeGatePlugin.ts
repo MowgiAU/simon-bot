@@ -194,22 +194,31 @@ export class WelcomeGatePlugin implements IPlugin {
             return interaction.reply({ content: 'Missing Permissions', ephemeral: true });
         }
 
-        const channel = interaction.options.getChannel('channel') as TextChannel || interaction.channel;
+        try {
+            const channel = interaction.options.getChannel('channel') as TextChannel || interaction.channel;
 
-        const embed = new EmbedBuilder()
-            .setTitle(interaction.options.getString('title') || 'Verify to gain access')
-            .setDescription(interaction.options.getString('description') || 'Please read the rules and click the button below to verify yourself and gain access to the rest of the server.')
-            .setColor(Colors.Green);
+            const embed = new EmbedBuilder()
+                .setTitle(interaction.options.getString('title') || 'Verify to gain access')
+                .setDescription(interaction.options.getString('description') || 'Please read the rules and click the button below to verify yourself and gain access to the rest of the server.')
+                .setColor(Colors.Green);
 
-        const row = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('welcome_verify_btn')
-                    .setLabel('Verify')
-                    .setStyle(ButtonStyle.Success)
-            );
+            const row = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('welcome_verify_btn')
+                        .setLabel('Verify')
+                        .setStyle(ButtonStyle.Success)
+                );
 
-        await channel.send({ embeds: [embed], components: [row] });
-        await interaction.reply({ content: `Verification panel sent to ${channel}`, ephemeral: true });
+            await channel.send({ embeds: [embed], components: [row] });
+            await interaction.reply({ content: `Verification panel sent to ${channel}`, ephemeral: true });
+        } catch (error: any) {
+            this.logger.error('Error in setup-welcome command', error);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: `Failed to send panel: ${error.message}. Check bot permissions in that channel.`, ephemeral: true });
+            } else {
+                await interaction.followUp({ content: `Failed to send panel: ${error.message}`, ephemeral: true });
+            }
+        }
     }
 }
