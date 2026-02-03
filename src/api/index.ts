@@ -1679,11 +1679,28 @@ app.get('/api/guilds/:guildId/beat-battle/current', async (req, res) => {
 // Create/Update Battle Metadata
 app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
     const { guildId } = req.params;
-    const { battleId, title, description, number, startDate, endDate } = req.body;
+    const { 
+        battleId, 
+        title, 
+        description, 
+        number, 
+        startDate, 
+        endDate,
+        sponsorName,
+        sponsorLink,
+        prizePool,
+        rules,
+        votingDate,
+        announceText,
+        openText,
+        voteText,
+        winnerText
+    } = req.body;
     
     try {
         const cleanStartDate = startDate ? new Date(startDate) : null;
         const cleanEndDate = endDate ? new Date(endDate) : null;
+        const cleanVotingDate = votingDate ? new Date(votingDate) : null;
 
         let battle;
         if (battleId) {
@@ -1694,7 +1711,16 @@ app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
                     description, 
                     number: parseInt(number), 
                     startDate: cleanStartDate, 
-                    endDate: cleanEndDate 
+                    endDate: cleanEndDate,
+                    votingDate: cleanVotingDate,
+                    sponsorName,
+                    sponsorLink,
+                    prizePool,
+                    rules,
+                    announceText,
+                    openText,
+                    voteText,
+                    winnerText
                 }
             });
         } else {
@@ -1706,8 +1732,17 @@ app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
                     description,
                     number: parseInt(number),
                     startDate: cleanStartDate,
-                    endDate: cleanEndDate, 
-                    status: 'SETUP'
+                    endDate: cleanEndDate,
+                    votingDate: cleanVotingDate,
+                    status: 'SETUP',
+                    sponsorName,
+                    sponsorLink,
+                    prizePool,
+                    rules,
+                    announceText,
+                    openText,
+                    voteText,
+                    winnerText
                 }
             });
         }

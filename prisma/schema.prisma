@@ -57,9 +57,12 @@ model BeatBattleConfig {
   
   announcementChannelId String?
   submissionChannelId   String?  // The active submission channel
+  chatChannelId         String?  // New: Chat channel
+  activeCategoryId      String?  // New: Category for active battles
   archiveCategoryId     String?  
   votingEmoji           String   @default("🔥")
   managerRoleId         String?  // Role allowed to manage battles
+  notifyRoleId          String?  // New: Role to ping
   
   guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   
@@ -75,12 +78,25 @@ model BeatBattle {
   title           String   @default("New Beat Battle")
   number          Int      @default(1) // e.g. Battle #42
   description     String?  // Rich text rules/details
-  params          Json?    // Store prizes, rules, sponsors as JSON structure
+  params          Json?    // Deprecated in favor of specific fields below
   
+  // Extended Metadata (Screenshot matching)
+  sponsorName     String?
+  sponsorLink     String?
+  prizePool       String? @db.Text
+  rules           String? @db.Text
+  
+  // Custom Texts
+  announceText    String? @db.Text
+  openText        String? @db.Text
+  voteText        String? @db.Text
+  winnerText      String? @db.Text
+
   // State
   status          String   @default("SETUP") // SETUP, ANNOUNCING, SUBMISSIONS, VOTING, ENDED, ARCHIVED
-  startDate       DateTime?
-  endDate         DateTime?
+  startDate       DateTime? // Open Submissions
+  votingDate      DateTime? // New: Start Voting
+  endDate         DateTime? // Close Battle
   
   // Relations
   submissions     BeatBattleSubmission[]

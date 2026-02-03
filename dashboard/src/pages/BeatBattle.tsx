@@ -18,6 +18,15 @@ interface Battle {
     startDate: string;
     endDate: string;
     description: string;
+    sponsorName?: string;
+    sponsorLink?: string;
+    prizePool?: string;
+    rules?: string;
+    announceText?: string;
+    openText?: string;
+    voteText?: string;
+    winnerText?: string;
+    votingDate?: string;
     _count: { submissions: number };
 }
 
@@ -28,7 +37,22 @@ export const BeatBattlePage: React.FC<{ guildId: string }> = ({ guildId }) => {
     const [loading, setLoading] = useState(true);
 
     // Form State
-    const [metadata, setMetadata] = useState({ title: 'New Battle', number: 1, description: '', startDate: '', endDate: '' });
+    const [metadata, setMetadata] = useState({ 
+        title: 'New Battle', 
+        number: 1, 
+        description: '', 
+        startDate: '', 
+        endDate: '',
+        votingDate: '',
+        sponsorName: '',
+        sponsorLink: '',
+        prizePool: '',
+        rules: '',
+        announceText: '',
+        openText: '',
+        voteText: '',
+        winnerText: ''
+    });
 
     useEffect(() => {
         fetchData();
@@ -48,7 +72,16 @@ export const BeatBattlePage: React.FC<{ guildId: string }> = ({ guildId }) => {
                     number: battleRes.data.number,
                     description: battleRes.data.description || '',
                     startDate: battleRes.data.startDate ? new Date(battleRes.data.startDate).toISOString().split('T')[0] : '',
-                    endDate: battleRes.data.endDate ? new Date(battleRes.data.endDate).toISOString().split('T')[0] : ''
+                    endDate: battleRes.data.endDate ? new Date(battleRes.data.endDate).toISOString().split('T')[0] : '',
+                    votingDate: battleRes.data.votingDate ? new Date(battleRes.data.votingDate).toISOString().split('T')[0] : '',
+                    sponsorName: battleRes.data.sponsorName || '',
+                    sponsorLink: battleRes.data.sponsorLink || '',
+                    prizePool: battleRes.data.prizePool || '',
+                    rules: battleRes.data.rules || '',
+                    announceText: battleRes.data.announceText || '',
+                    openText: battleRes.data.openText || '',
+                    voteText: battleRes.data.voteText || '',
+                    winnerText: battleRes.data.winnerText || ''
                 });
             }
         } catch (e) {
@@ -198,11 +231,14 @@ export const BeatBattlePage: React.FC<{ guildId: string }> = ({ guildId }) => {
                         </div>
 
                         {/* Metadata Editor */}
-                         <div style={{ backgroundColor: colors.surface, padding: '24px', borderRadius: borderRadius.md }}>
-                            <h3 style={{ marginTop: 0 }}>Metadata</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div style={{ backgroundColor: colors.surface, padding: '24px', borderRadius: borderRadius.md }}>
+                            <h3 style={{ marginTop: 0 }}>Battle Configuration</h3>
+                            
+                            {/* Basic Info */}
+                            <h4 style={{ color: colors.primary, marginBottom: '12px', borderBottom: `1px solid ${colors.border}` }}>Basic Info</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Title</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Battle Title</label>
                                     <input 
                                         style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
                                         value={metadata.title}
@@ -219,16 +255,137 @@ export const BeatBattlePage: React.FC<{ guildId: string }> = ({ guildId }) => {
                                     />
                                 </div>
                             </div>
-                            <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Description / Rules</label>
-                            <textarea 
-                                style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', minHeight: '100px' }}
-                                value={metadata.description}
-                                onChange={e => setMetadata({...metadata, description: e.target.value})}
-                            />
-                            <div style={{ marginTop: '16px' }}>
-                                <button onClick={handleCreateOrUpdate} style={buttonStyle}>Save Metadata</button>
+
+                            {/* Dates */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Start Date</label>
+                                    <input 
+                                        type="date"
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                        value={metadata.startDate}
+                                        onChange={e => setMetadata({...metadata, startDate: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Voting Date</label>
+                                    <input 
+                                        type="date"
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                        value={metadata.votingDate}
+                                        onChange={e => setMetadata({...metadata, votingDate: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>End Date</label>
+                                    <input 
+                                        type="date"
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                        value={metadata.endDate}
+                                        onChange={e => setMetadata({...metadata, endDate: e.target.value})}
+                                    />
+                                </div>
                             </div>
-                         </div>
+
+                            {/* Sponsors */}
+                            <h4 style={{ color: colors.primary, marginBottom: '12px', marginTop: '24px', borderBottom: `1px solid ${colors.border}` }}>Sponsorship & Prizes</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Sponsor Name</label>
+                                    <input 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                        value={metadata.sponsorName}
+                                        onChange={e => setMetadata({...metadata, sponsorName: e.target.value})}
+                                        placeholder="Optionally display a sponsor"
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Sponsor Link</label>
+                                    <input 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                        value={metadata.sponsorLink}
+                                        onChange={e => setMetadata({...metadata, sponsorLink: e.target.value})}
+                                        placeholder="https://..."
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Prize Pool Text</label>
+                                <input 
+                                    style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                                    value={metadata.prizePool}
+                                    onChange={e => setMetadata({...metadata, prizePool: e.target.value})}
+                                    placeholder="$100 + Plugins..."
+                                />
+                            </div>
+
+                            {/* Details */}
+                            <h4 style={{ color: colors.primary, marginBottom: '12px', marginTop: '24px', borderBottom: `1px solid ${colors.border}` }}>Details</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Description</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', minHeight: '100px' }}
+                                        value={metadata.description}
+                                        onChange={e => setMetadata({...metadata, description: e.target.value})}
+                                        placeholder="General description..."
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Specific Rules</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', minHeight: '100px' }}
+                                        value={metadata.rules}
+                                        onChange={e => setMetadata({...metadata, rules: e.target.value})}
+                                        placeholder="One entry per person, MUST use the sample, etc."
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Custom Text Overrides */}
+                            <h4 style={{ color: colors.primary, marginBottom: '12px', marginTop: '24px', borderBottom: `1px solid ${colors.border}` }}>Custom Announcement Text</h4>
+                             <p style={{ fontSize: '12px', color: colors.textSecondary }}>Leave blank to use default messages.</p>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Announce Msg</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', height: '60px' }}
+                                        value={metadata.announceText}
+                                        onChange={e => setMetadata({...metadata, announceText: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Open Subs Msg</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', height: '60px' }}
+                                        value={metadata.openText}
+                                        onChange={e => setMetadata({...metadata, openText: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Voting Msg</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', height: '60px' }}
+                                        value={metadata.voteText}
+                                        onChange={e => setMetadata({...metadata, voteText: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Winner Msg</label>
+                                    <textarea 
+                                        style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', height: '60px' }}
+                                        value={metadata.winnerText}
+                                        onChange={e => setMetadata({...metadata, winnerText: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+
+                            <div style={{ marginTop: '24px' }}>
+                                <button onClick={handleCreateOrUpdate} style={buttonStyle}>Save All Metadata</button>
+                            </div>
+                        </div>
                     </div>
                     
                     {/* Sidebar Info */}

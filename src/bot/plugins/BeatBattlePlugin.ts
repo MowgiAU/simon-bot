@@ -79,12 +79,36 @@ export class BeatBattlePlugin implements IPlugin {
         if (channel) {
             const embed = new EmbedBuilder()
                 .setTitle(`🥁 ${battle.title}`)
-                .setDescription(battle.description || 'New Beat Battle starting soon!')
-                .addFields(
-                    { name: 'Battle #', value: battle.number.toString(), inline: true },
-                    { name: 'Dates', value: `${new Date(battle.startDate).toLocaleDateString()} - ${new Date(battle.endDate).toLocaleDateString()}`, inline: true }
-                )
+                .setDescription(battle.announceText || battle.description || 'New Beat Battle starting soon!')
                 .setColor(0x00ff00);
+
+            // Dates Field
+            const datesValue = [
+                `**Start:** ${new Date(battle.startDate).toLocaleDateString()}`,
+                battle.votingDate ? `**Voting:** ${new Date(battle.votingDate).toLocaleDateString()}` : null,
+                `**End:** ${new Date(battle.endDate).toLocaleDateString()}`
+            ].filter(Boolean).join('\n');
+            
+            embed.addFields({ name: '📅 Timeline', value: datesValue, inline: true });
+            
+            // Battle Number
+            embed.addFields({ name: '#', value: battle.number.toString(), inline: true });
+
+            // Sponsor
+            if (battle.sponsorName) {
+                const val = battle.sponsorLink ? `[${battle.sponsorName}](${battle.sponsorLink})` : battle.sponsorName;
+                embed.addFields({ name: '🤝 Sponsor', value: val, inline: true });
+            }
+
+            // Prize Pool
+            if (battle.prizePool) {
+                embed.addFields({ name: '🏆 Prize', value: battle.prizePool, inline: true });
+            }
+
+            // Rules
+            if (battle.rules) {
+                embed.addFields({ name: '📜 Rules', value: battle.rules, inline: false });
+            }
             
             await channel.send({ embeds: [embed] });
         }
@@ -102,7 +126,9 @@ export class BeatBattlePlugin implements IPlugin {
                  SendMessages: true,
                  AddReactions: false // Only allowed in voting
              });
-             await channel.send('🔓 **Submissions are now OPEN!**\nUpload your .mp3 / .wav file below.');
+             
+             const msg = battle.openText || '🔓 **Submissions are now OPEN!**\nUpload your .mp3 / .wav file below.';
+             await channel.send(msg);
         }
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'SUBMISSIONS' } });
     }
@@ -117,18 +143,39 @@ export class BeatBattlePlugin implements IPlugin {
                  AddReactions: true
              });
              
-             // Auto-seed (react to all existing subs) if needed
-             // ...
+             // Auto-seed: Find all submissions and react
+             const submissions = await this.db.beatBattleSubmission.findMany({
+                 where: { battleId: battle.id }
+             });
+
+             this.logger.info(`Auto-seeding ${submissions.length} submissions for battle ${battle.id}`);
+
+             for (const sub of submissions) {
+                 try {
+                     const message = await channel.messages.fetch(sub.messageId);
+                     if (message) await message.react('🔥');
+                 } catch (e) {
+                     this.logger.warn(`Failed to seed reaction for message ${sub.messageId}`);
+                 }
+             }
              
-             await channel.send('🔒 **Submissions CLOSED.**\nVoting has begun! React to your favorites.');
+             const msg = battle.voteText || '🔒 **Submissions CLOSED.**\nVoting has begun! React with 🔥 to vote for your favorites.';
+             await channel.send(msg);
         }
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'VOTING' } });
     }
     
     private async doEnd(battle: any) {
         const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
-        // Calculate winner
-        // ... (Logic to count votes, excluding bot)
+        // Calculate winner logic would go here
+        
+        // Notification
+        if (config?.announcementChannelId) {
+             const channel = await this.client.channels.fetch(config.announcementChannelId) as TextChannel;
+             const msg = battle.winnerText || `🏆 **Beat Battle #${battle.number} has ended!**`;
+             await channel.send(msg);
+        }
+
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ENDED' } });
     }
     
