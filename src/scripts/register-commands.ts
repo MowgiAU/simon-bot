@@ -15,51 +15,36 @@ async function main() {
     return;
   }
 
-  const commands = [
+const commands = [
+    // 1. Logger
     new SlashCommandBuilder()
         .setName('logger')
         .setDescription('Logger plugin commands')
         .addSubcommand(sub => 
-            sub
-                .setName('import')
-                .setDescription('Import historical logs from a text channel')
-                .addChannelOption(opt => 
-                    opt.setName('channel')
-                        .setDescription('The channel to scrape logs from')
-                        .setRequired(true)
-                )
-                .addStringOption(opt =>
-                    opt.setName('category')
-                        .setDescription('The category to assign these logs (MOD, AUTOMOD, etc)')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'Moderation', value: 'MOD' },
-                            { name: 'AutoMod', value: 'AUTOMOD' },
-                            { name: 'Roles', value: 'ROLE' },
-                            { name: 'Profanity', value: 'PROFANITY' },
-                            { name: 'Piracy', value: 'PIRACY' },
-                            { name: 'Links', value: 'LINK' }
-                        )
-                )
-        )
-        .addSubcommand(sub =>
-            sub
-                .setName('clear')
-                .setDescription('⚠️ Clear ALL logs of a specific category for this server')
-                .addStringOption(opt =>
-                    opt.setName('category')
-                        .setDescription('The category to CLEAR (MOD, AUTOMOD...)')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'Moderation', value: 'MOD' },
-                            { name: 'AutoMod', value: 'AUTOMOD' },
-                            { name: 'Roles', value: 'ROLE' },
-                            { name: 'Profanity', value: 'PROFANITY' },
-                            { name: 'Piracy', value: 'PIRACY' },
-                            { name: 'Links', value: 'LINK' }
-                        )
-                )
-        ).toJSON()
+            sub.setName('import').setDescription('Import historical logs').addChannelOption(opt => opt.setName('channel').setDescription('Channel').setRequired(true)).addStringOption(opt => opt.setName('category').setDescription('Category').setRequired(true).addChoices({ name: 'Moderation', value: 'MOD' }, { name: 'AutoMod', value: 'AUTOMOD' }, { name: 'Roles', value: 'ROLE' }, { name: 'Profanity', value: 'PROFANITY' }, { name: 'Piracy', value: 'PIRACY' }, { name: 'Links', value: 'LINK' })))
+        .addSubcommand(sub => sub.setName('clear').setDescription('⚠️ Clear ALL logs of a specific category').addStringOption(opt => opt.setName('category').setDescription('Category').setRequired(true).addChoices({ name: 'Moderation', value: 'MOD' }, { name: 'AutoMod', value: 'AUTOMOD' }, { name: 'Roles', value: 'ROLE' }, { name: 'Profanity', value: 'PROFANITY' }, { name: 'Piracy', value: 'PIRACY' }, { name: 'Links', value: 'LINK' }))).toJSON(),
+
+    // 2. Moderation
+    new SlashCommandBuilder().setName('kick').setDescription('Kick a user').setDefaultMemberPermissions(0x2).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
+    new SlashCommandBuilder().setName('ban').setDescription('Ban a user').setDefaultMemberPermissions(0x4).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('duration').setDescription('Duration')).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
+    new SlashCommandBuilder().setName('timeout').setDescription('Timeout a user').setDefaultMemberPermissions(0x10000000000).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addIntegerOption(opt => opt.setName('duration').setDescription('Minutes').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
+    new SlashCommandBuilder().setName('purge').setDescription('Delete messages').setDefaultMemberPermissions(0x2000).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true)).toJSON(),
+
+    // 3. Economy
+    new SlashCommandBuilder().setName('wallet').setDescription('Check balance').addUserOption(opt => opt.setName('user').setDescription('User')).toJSON(),
+    new SlashCommandBuilder().setName('wealth').setDescription('View richest users').toJSON(),
+    new SlashCommandBuilder().setName('market').setDescription('View shop').toJSON(),
+    new SlashCommandBuilder().setName('buy').setDescription('Buy item').addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('Item name')).toJSON(),
+
+    // 4. Welcome Gate
+    new SlashCommandBuilder()
+        .setName('setup-welcome')
+        .setDescription('Create the verification panel')
+        .setDefaultMemberPermissions(0x10) // Manage Channels
+        .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to (default: current)'))
+        .addStringOption(opt => opt.setName('title').setDescription('Embed Title'))
+        .addStringOption(opt => opt.setName('description').setDescription('Embed Description'))
+        .toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);

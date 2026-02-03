@@ -176,10 +176,15 @@ export class SimonBot {
       this.logger.info(`Bot ready as ${this.client.user?.tag}`);
       await this.syncGuilds();
       
-      // Register slash commands to the first joined guild (Staging environment usually has 1)
-      const guild = this.client.guilds.cache.first();
-      if (guild) {
-        await this.registerSlashCommands(guild.id);
+      // Register slash commands to ALL joined guilds
+      this.logger.info(`Registering slash commands for ${this.client.guilds.cache.size} guilds to database...`);
+      for (const [id, guild] of this.client.guilds.cache) {
+          try { 
+              await this.registerSlashCommands(id);
+              this.logger.info(`Registered commands for ${guild.name}`);
+          } catch (e) {
+              this.logger.error(`Failed to register commands for ${guild.name}`, e);
+          }
       } else {
         this.logger.warn('No guilds found to register commands to, skipping registration');
       }
