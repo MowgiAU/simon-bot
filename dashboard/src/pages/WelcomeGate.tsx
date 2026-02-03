@@ -89,6 +89,16 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 </button>
             </div>
 
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                 <p style={{ margin: '0 0 10px', color: colors.textPrimary, fontWeight: 600, fontSize: isMobile ? '14px' : '15px' }}>How it works:</p>
+                 <ol style={{ margin: 0, paddingLeft: '20px', color: colors.textSecondary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
+                     <li><strong>Configure Roles:</strong> Select an "Unverified" role (assigned on join) and a "Verified" role (given after approval).</li>
+                     <li><strong>Setup Channel:</strong> Select your welcome channel below. Ensure the Unverified role can ONLY see this channel.</li>
+                     <li><strong>Create Panel:</strong> Run <code>/setup-welcome</code> in your Discord server's welcome channel to post the "Verify" button.</li>
+                     <li><strong>Customize:</strong> Add questions below that users must answer in the modal popup.</li>
+                 </ol>
+            </div>
+
             <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg, display: 'grid', gap: '24px' }}>
                 
                 {/* Enable Switch */}
