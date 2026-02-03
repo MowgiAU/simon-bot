@@ -9,7 +9,7 @@ import {
   Shield,
   Coins,
   Settings, 
-  User,
+  User as UserIcon,
   LogOut, 
   ChevronLeft, 
   ChevronRight,
@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('bot-identity')}
             title={collapsed ? "Bot Identity" : ""}
           >
-            <span className="nav-icon"><User size={20} /></span>
+            <span className="nav-icon"><UserIcon size={20} /></span>
             <span className="nav-label">Bot Identity</span>
           </button>
           
