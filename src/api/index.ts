@@ -1631,16 +1631,20 @@ app.post('/api/guilds/:guildId/beat-battle/config', async (req, res) => {
                 guildId,
                 announcementChannelId: data.announcementChannelId,
                 submissionChannelId: data.submissionChannelId,
+                activeCategoryId: data.activeCategoryId,
                 archiveCategoryId: data.archiveCategoryId,
                 votingEmoji: data.votingEmoji || '🔥',
-                managerRoleId: data.managerRoleId
+                managerRoleId: data.managerRoleId,
+                notifyRoleId: data.notifyRoleId
             },
             update: {
                 announcementChannelId: data.announcementChannelId,
                 submissionChannelId: data.submissionChannelId,
+                activeCategoryId: data.activeCategoryId,
                 archiveCategoryId: data.archiveCategoryId,
                 votingEmoji: data.votingEmoji,
-                managerRoleId: data.managerRoleId
+                managerRoleId: data.managerRoleId,
+                notifyRoleId: data.notifyRoleId
             }
         });
         res.json(config);
@@ -1794,10 +1798,10 @@ app.post('/api/guilds/:guildId/beat-battle/transition', async (req, res) => {
         
         switch (action) {
             case 'ANNOUNCE': newStatus = 'ANNOUNCING'; break;
-            case 'OPEN_SUBS': newStatus = 'SUBMISSIONS'; break;
-            case 'START_VOTING': newStatus = 'VOTING'; break;
-            case 'END': newStatus = 'ENDED'; break;
-            case 'ARCHIVE': newStatus = 'ARCHIVED'; break;
+            case 'OPEN_SUBS': newStatus = 'OPENING_SUBS'; break;
+            case 'START_VOTING': newStatus = 'STARTING_VOTING'; break;
+            case 'END': newStatus = 'ENDING'; break;
+            case 'ARCHIVE': newStatus = 'ARCHIVING'; break;
         }
         
         await db.beatBattle.update({

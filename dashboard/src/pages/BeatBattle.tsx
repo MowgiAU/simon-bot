@@ -7,6 +7,8 @@ interface BattleConfig {
     announcementChannelId: string;
     submissionChannelId: string;
     archiveCategoryId: string;
+    activeCategoryId: string;
+    notifyRoleId: string;
     managerRoleId: string;
 }
 
@@ -425,12 +427,32 @@ export const BeatBattlePage: React.FC<{ guildId: string }> = ({ guildId }) => {
                     </div>
 
                     <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px' }}>Active Category ID</label>
+                         <input 
+                             style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                             value={config.activeCategoryId || ''}
+                             onChange={e => setConfig({...config, activeCategoryId: e.target.value})}
+                              placeholder="Where new channels are created"
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
                         <label style={{ display: 'block', marginBottom: '8px' }}>Archive Category ID</label>
                          <input 
                              style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
                              value={config.archiveCategoryId || ''}
                              onChange={e => setConfig({...config, archiveCategoryId: e.target.value})}
-                              placeholder="Category ID (123456...)"
+                              placeholder="Where finished channels are moved"
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px' }}>Notification Role ID</label>
+                         <input 
+                             style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white' }}
+                             value={config.notifyRoleId || ''}
+                             onChange={e => setConfig({...config, notifyRoleId: e.target.value})}
+                              placeholder="Role to ping"
                         />
                     </div>
                     

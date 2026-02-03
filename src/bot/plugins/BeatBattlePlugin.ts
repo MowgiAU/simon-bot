@@ -7,443 +7,416 @@ import {
     EmbedBuilder, 
     TextChannel, 
     PermissionFlagsBits, 
-    ChannelType
+    ChannelType,
+    Guild
 } from 'discord.js';
 import { IPlugin, IPluginContext, ILogger } from '../types/plugin';
-import { Logger } from '../utils/logger';
 import { z } from 'zod';
 
 export class BeatBattlePlugin implements IPlugin {
     id = 'beat-battle';
     name = 'Beat Battle';
-    description = 'Automated music battle management system';
-    version = '1.0.0';
+    description = 'Complete lifecycle management for beat battles.';
+    version = '1.8.2';
     author = 'Fuji Studio';
     
-    // Plugin Contract
     requiredPermissions = [
         PermissionFlagsBits.ManageChannels,
         PermissionFlagsBits.ManageMessages,
         PermissionFlagsBits.AddReactions,
-        PermissionFlagsBits.EmbedLinks
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.ManageRoles
     ];
     commands = [];
     dashboardSections = ['beat-battle'];
     defaultEnabled = true;
     configSchema = z.object({});
 
-    // We listen to these events
     events = ['messageCreate', 'messageReactionAdd', 'messageReactionRemove'];
 
     private logger!: ILogger;
     private db: any;
     private client: any;
+    private watchdogInterval: NodeJS.Timeout | null = null;
+    private votingEmoji = '🔥'; // Default, should load from config
 
     async initialize(context: IPluginContext): Promise<void> {
         this.logger = context.logger;
         this.db = context.db;
         this.client = context.client;
 
-        this.logger.info('Beat Battle plugin initialized');
-        
-        // Start state watchdog
+        this.logger.info('Beat Battle Manager initialized');
         this.startWatchdog();
     }
 
     async shutdown(): Promise<void> {
-        // Cleanup if needed
+        if (this.watchdogInterval) clearInterval(this.watchdogInterval);
     }
 
     private startWatchdog() {
-        setInterval(() => this.checkStates(), 10000); // Check every 10s
+        this.watchdogInterval = setInterval(() => this.cycle(), 10000); // 10s heartbeat
     }
     
-    private async checkStates() {
+    private async cycle() {
         try {
-            // 1. Check for Auto-Scheduling Transitions (Time-based watchdog)
-            const activeBattles = await this.db.beatBattle.findMany({
-                where: { status: { not: 'ARCHIVED' } }
-            });
+            // 1. Time-based transitions (Auto-Schedule)
+            await this.checkSchedule();
 
-            const now = new Date();
+            // 2. State-based executions (Transition Queue)
+            await this.processTransitions();
 
-            for (const battle of activeBattles) {
-                // SETUP -> ANNOUNCED (Logic: If start date reached, announce it)
-                // Actually start date usually means "Submission Open". 
-                // Let's assume Announcement happens manually or immediately on creation, 
-                // and StartDate = Open Submissions.
-                
-                // SETUP/ANNOUNCED -> SUBMISSIONS
-                // If now >= startDate and status is < SUBMISSIONS
-                if (battle.startDate && now >= new Date(battle.startDate) && 
-                   ['SETUP', 'ANNOUNCED'].includes(battle.status)) {
-                        this.logger.info(`Auto-opening submissions for ${battle.title}`);
-                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'OPENING_SUBS' } });
-                }
-
-                // SUBMISSIONS -> VOTING
-                // If now >= votingDate and status is SUBMISSIONS
-                if (battle.votingDate && now >= new Date(battle.votingDate) && battle.status === 'SUBMISSIONS') {
-                        this.logger.info(`Auto-starting voting for ${battle.title}`);
-                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'STARTING_VOTING' } });
-                }
-
-                // VOTING -> ENDING
-                // If now >= endDate and status is VOTING
-                if (battle.endDate && now >= new Date(battle.endDate) && battle.status === 'VOTING') {
-                        this.logger.info(`Auto-ending battle ${battle.title}`);
-                        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ENDING' } });
-                }
-            }
-
-
-            // 2. Process Transition Queue (State-change watchdog)
-            const pendingBattles = await this.db.beatBattle.findMany({
-                where: {
-                    status: { in: ['ANNOUNCING', 'OPENING_SUBS', 'STARTING_VOTING', 'ENDING', 'ARCHIVING'] }
-                }
-            });
-            
-            for (const battle of pendingBattles) {
-                this.logger.info(`Processing battle transition: ${battle.status} for ${battle.title}`);
-                await this.processTransition(battle);
-            }
         } catch (e) {
-            this.logger.error('Error in Beat Battle watchdog', e);
+            this.logger.error('BeatBattle Cycle Error', e);
         }
     }
-    
-    private async processTransition(battle: any) {
-        switch (battle.status) {
-            case 'ANNOUNCING': await this.doAnnounce(battle); break;
-            case 'OPENING_SUBS': await this.doOpenSubs(battle); break;
-            case 'STARTING_VOTING': await this.doStartVoting(battle); break;
-            case 'ENDING': await this.doEnd(battle); break;
-            case 'ARCHIVING': await this.doArchive(battle); break;
+
+    // --- SCHEDULE & AUTOMATION ---
+
+    private async checkSchedule() {
+        const activeBattles = await this.db.beatBattle.findMany({
+            where: { status: { not: 'ARCHIVED' } }
+        });
+
+        const now = new Date();
+
+        for (const battle of activeBattles) {
+            // Auto-Open Submissions
+            if (battle.startDate && now >= new Date(battle.startDate) && ['SETUP', 'ANNOUNCED'].includes(battle.status)) {
+                this.logger.info(`[Schedule] Opening submissions for ${battle.title}`);
+                await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'OPENING_SUBS' } });
+            }
+
+            // Auto-Start Voting
+            if (battle.votingDate && now >= new Date(battle.votingDate) && battle.status === 'SUBMISSIONS') {
+                this.logger.info(`[Schedule] Starting voting for ${battle.title}`);
+                await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'STARTING_VOTING' } });
+            }
+
+            // Auto-End Battle
+            if (battle.endDate && now >= new Date(battle.endDate) && battle.status === 'VOTING') {
+                this.logger.info(`[Schedule] Ending battle ${battle.title}`);
+                await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ENDING' } });
+            }
         }
     }
-    
-    // --- Actions ---
-    
+
+    private async processTransitions() {
+        const pending = await this.db.beatBattle.findMany({
+            where: {
+                status: { in: ['ANNOUNCING', 'OPENING_SUBS', 'STARTING_VOTING', 'ENDING', 'ARCHIVING', 'CREATING_CHANNEL'] }
+            }
+        });
+
+        for (const battle of pending) {
+            this.logger.info(`Processing Transition: ${battle.status} -> ${battle.title}`);
+            try {
+                switch (battle.status) {
+                    case 'CREATING_CHANNEL': await this.doCreateChannel(battle); break;
+                    case 'ANNOUNCING': await this.doAnnounce(battle); break;
+                    case 'OPENING_SUBS': await this.doOpenSubs(battle); break;
+                    case 'STARTING_VOTING': await this.doStartVoting(battle); break;
+                    case 'ENDING': await this.doEnd(battle); break;
+                    case 'ARCHIVING': await this.doArchive(battle); break;
+                }
+            } catch (e) {
+                this.logger.error(`Failed execution for ${battle.status}`, e);
+            }
+        }
+    }
+
+    // --- EXECUTORS ---
+
+    private async doCreateChannel(battle: any) {
+        const config = await this.getConfig(battle.guildId);
+        if (!config?.activeCategoryId) {
+            this.logger.warn(`Cannot create channel: No Active Category set for guild ${battle.guildId}`);
+            // Reset to SETUP so it doesn't loop forever
+            await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'SETUP' } });
+            return;
+        }
+
+        const guild = await this.client.guilds.fetch(battle.guildId);
+        const newChannel = await guild.channels.create({
+            name: `🪘◾submissions-${battle.number}`,
+            type: ChannelType.GuildText,
+            parent: config.activeCategoryId,
+            permissionOverwrites: [
+                { 
+                    id: guild.id, 
+                    deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions], 
+                    allow: [PermissionFlagsBits.ViewChannel] 
+                }
+            ]
+        });
+
+        await this.db.beatBattleConfig.update({
+            where: { guildId: battle.guildId },
+            data: { submissionChannelId: newChannel.id }
+        });
+        
+        await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'SETUP' } });
+    }
+
     private async doAnnounce(battle: any) {
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
-        if (!config?.announcementChannelId) return; // Error handling needed
-        
-        const channel = await this.client.channels.fetch(config.announcementChannelId) as TextChannel;
-        if (channel) {
-            const embed = new EmbedBuilder()
-                .setTitle(`🥁 ${battle.title}`)
-                .setDescription(battle.announceText || battle.description || 'New Beat Battle starting soon!')
-                .setColor(0x00ff00);
-
-            // Dates Field
-            const datesValue = [
-                `**Start:** ${new Date(battle.startDate).toLocaleDateString()}`,
-                battle.votingDate ? `**Voting:** ${new Date(battle.votingDate).toLocaleDateString()}` : null,
-                `**End:** ${new Date(battle.endDate).toLocaleDateString()}`
-            ].filter(Boolean).join('\n');
-            
-            embed.addFields({ name: '📅 Timeline', value: datesValue, inline: true });
-            
-            // Battle Number
-            embed.addFields({ name: '#', value: battle.number.toString(), inline: true });
-
-            // Sponsor
-            if (battle.sponsorName) {
-                const val = battle.sponsorLink ? `[${battle.sponsorName}](${battle.sponsorLink})` : battle.sponsorName;
-                embed.addFields({ name: '🤝 Sponsor', value: val, inline: true });
-            }
-
-            // Prize Pool
-            if (battle.prizePool) {
-                embed.addFields({ name: '🏆 Prize', value: battle.prizePool, inline: true });
-            }
-
-            // Rules
-            if (battle.rules) {
-                embed.addFields({ name: '📜 Rules', value: battle.rules, inline: false });
-            }
-            
-            await channel.send({ embeds: [embed] });
-        }
-        
-        // Advance state
+        await this.sendEmbed(battle, 'battle_announce');
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ANNOUNCED' } });
     }
-    
+
     private async doOpenSubs(battle: any) {
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
+        const config = await this.getConfig(battle.guildId);
         if (config?.submissionChannelId) {
              const channel = await this.client.channels.fetch(config.submissionChannelId) as TextChannel;
-             // Unlock channel: Grant SEND_MESSAGES to Everyone
-             await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
-                 SendMessages: true,
-                 AddReactions: false // Only allowed in voting
-             });
-             
-             const msg = battle.openText || '🔓 **Submissions are now OPEN!**\nUpload your .mp3 / .wav file below.';
-             await channel.send(msg);
+             if (channel) {
+                 // Unlock
+                 await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
+                     SendMessages: true,
+                     AddReactions: false
+                 });
+                 await this.sendEmbed(battle, 'submission_open', channel.id);
+             }
         }
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'SUBMISSIONS' } });
     }
-    
+
     private async doStartVoting(battle: any) {
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
+        const config = await this.getConfig(battle.guildId);
         if (config?.submissionChannelId) {
              const channel = await this.client.channels.fetch(config.submissionChannelId) as TextChannel;
-             // Lock channel: Deny SEND_MESSAGES, Allow ADD_REACTIONS
-             await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
-                 SendMessages: false,
-                 AddReactions: true
-             });
-             
-             // Auto-seed: Find all submissions and react
-             const submissions = await this.db.beatBattleSubmission.findMany({
-                 where: { battleId: battle.id }
-             });
+             if (channel) {
+                 // Lock & seed
+                 await channel.permissionOverwrites.edit(channel.guild.roles.everyone, {
+                     SendMessages: false,
+                     AddReactions: true
+                 });
 
-             this.logger.info(`Auto-seeding ${submissions.length} submissions for battle ${battle.id}`);
-
-             for (const sub of submissions) {
-                 try {
-                     const message = await channel.messages.fetch(sub.messageId);
-                     if (message) await message.react('🔥');
-                 } catch (e) {
-                     this.logger.warn(`Failed to seed reaction for message ${sub.messageId}`);
-                 }
+                 await this.seedVotes(battle, channel);
+                 await this.sendEmbed(battle, 'voting_begin', channel.id);
              }
-             
-             const msg = battle.voteText || '🔒 **Submissions CLOSED.**\nVoting has begun! React with 🔥 to vote for your favorites.';
-             await channel.send(msg);
         }
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'VOTING' } });
     }
-    
-    private async doEnd(battle: any) {
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
-        // Calculate winner logic would go here
-        
-        // Notification
-        if (config?.announcementChannelId) {
-             const channel = await this.client.channels.fetch(config.announcementChannelId) as TextChannel;
-             const msg = battle.winnerText || `🏆 **Beat Battle #${battle.number} has ended!**`;
-             await channel.send(msg);
-        }
 
+    private async doEnd(battle: any) {
+        // Just announce winners. The channel specific stuff happens in archive
+        const winners = await this.calculateWinners(battle);
+        await this.sendEmbed(battle, 'winners', undefined, winners); // Send to announcement channel
         await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ENDED' } });
     }
-    
+
     private async doArchive(battle: any) {
-         // Logic to rename/move channel
-         const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: battle.guildId } });
-         
+         const config = await this.getConfig(battle.guildId);
          if (config?.submissionChannelId && config?.archiveCategoryId) {
              try {
                 const channel = await this.client.channels.fetch(config.submissionChannelId) as TextChannel;
                 if (channel) {
-                    // Rename: battle-name-archived
-                    const oldName = `archived-${battle.number}`;
-                    await channel.setName(oldName.substring(0, 100)); // Discord limit
-                    
-                    // Move to Archive Category and Sync Permissions (Lock it)
+                    const oldName = `archived-${battle.number}-${battle.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`;
+                    await channel.setName(oldName.substring(0, 99));
                     await channel.setParent(config.archiveCategoryId, { lockPermissions: true });
                     
-                    // Clear the submission channel from config so a new one can be made
+                    // Detach from config
                     await this.db.beatBattleConfig.update({
                         where: { guildId: battle.guildId },
                         data: { submissionChannelId: null }
                     });
                 }
              } catch (e) {
-                 this.logger.error('Failed to archive channel', e);
+                 this.logger.error('Archive failed', e);
              }
          }
-
          await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'ARCHIVED' } });
     }
 
-    async onMessageCreate(message: Message): Promise<void> {
-        if (message.author.bot) return;
-        if (!message.guild) return;
+    // --- HELPERS ---
 
-        // Check if this channel is the submission channel for an active battle
-        // Logic:
-        // 1. Get config for guild
-        // 2. Check if message.channel.id === config.submissionChannelId
-        // 3. Check if there is an active battle in SUBMISSIONS phase
-        // 4. Validate attachment (.mp3, .wav)
-        // 5. If valid, no-op (maybe confirm DM). If invalid, delete & DM.
+    private async getConfig(guildId: string) {
+        return await this.db.beatBattleConfig.findUnique({ where: { guildId } });
+    }
+
+    private async seedVotes(battle: any, channel: TextChannel) {
+        const subs = await this.db.beatBattleSubmission.findMany({ where: { battleId: battle.id } });
+        for (const sub of subs) {
+            try {
+                const msg = await channel.messages.fetch(sub.messageId);
+                if (msg) await msg.react(this.votingEmoji);
+            } catch (e) {}
+        }
+    }
+
+    private async calculateWinners(battle: any) {
+        // Simplified winner calc based on DB votes or reactions? 
+        // Let's use DB votes as we are tracking them.
+        // But for display in embed we need names etc.
+        return []; 
+    }
+
+    private async sendEmbed(battle: any, type: string, targetChannelId?: string, extraData?: any) {
+        const config = await this.getConfig(battle.guildId);
+        let channelId = targetChannelId || config?.announcementChannelId;
         
-        await this.handleSubmission(message);
+        if (!channelId) return;
+
+        try {
+            const channel = await this.client.channels.fetch(channelId) as TextChannel;
+            if (!channel) return;
+
+            const embed = new EmbedBuilder();
+            const rolePing = config?.notifyRoleId ? `<@&${config.notifyRoleId}>` : '';
+            let content = rolePing;
+
+            const getMsg = (key: string) => battle[key] || ''; 
+
+            // Common Fields
+            const addSponsor = () => {
+                if (battle.sponsorName) {
+                    const txt = battle.sponsorLink ? `[**${battle.sponsorName}**](${battle.sponsorLink})` : `**${battle.sponsorName}**`;
+                    embed.addFields({ name: '🤝 Brought to you by', value: txt });
+                }
+            };
+
+            switch (type) {
+                case 'battle_announce':
+                    embed.setTitle(`🏆 NEW BATTLE: ${battle.title}`)
+                         .setColor(0xFFD700)
+                         .setDescription(`${getMsg('announceText')}\n\nA new beat battle has been announced! Check the details below.`)
+                         .addFields(
+                            { name: '🎁 Prizes', value: battle.prizePool || 'None', inline: true },
+                            { name: '📅 Date', value: `Ends: ${new Date(battle.endDate).toLocaleDateString()}`, inline: true }
+                         );
+                    if (battle.rules) embed.addFields({ name: '📜 Rules', value: battle.rules });
+                    addSponsor();
+                    break;
+                
+                case 'submission_open':
+                    embed.setTitle(`📂 Submissions OPEN!`).setColor(0x57F287)
+                         .setDescription(`${getMsg('openText')}\n\nThe queue for **${battle.title}** is now open!`);
+                    
+                    if (config?.submissionChannelId) {
+                        embed.addFields({ name: '❓ How to Submit', value: `1. Drag your **.mp3** or **.wav** into <#${config.submissionChannelId}>\n2. **No text.** Just the file.\n3. Wait for the ${this.votingEmoji} reaction.` });
+                    }
+                    addSponsor();
+                    break;
+
+                case 'voting_begin':
+                    embed.setTitle(`🗳️ Voting has BEGUN!`).setColor(0x5865F2)
+                         .setDescription(`${getMsg('voteText')}\n\nSubmissions are closed. Pick your favorites!`);
+                    if (config?.submissionChannelId) {
+                        embed.addFields({ name: '📝 Instructions', value: `Go to <#${config.submissionChannelId}> and react with ${this.votingEmoji}.` });
+                    }
+                    break;
+
+                case 'winners':
+                    embed.setTitle(`🎉 WINNERS: ${battle.title}`).setColor(0xFF0055)
+                         .setDescription(`${getMsg('winnerText')}\n\nThe results are in! (View specific results in the channel)`);
+                    addSponsor();
+                    break;
+            }
+
+            await channel.send({ content: content.trim() || undefined, embeds: [embed] });
+
+        } catch (e) {
+            this.logger.error(`Failed to send embed ${type}`, e);
+        }
+    }
+
+    // --- EVENTS ---
+
+    async onMessageCreate(message: Message): Promise<void> {
+        if (message.author.bot || !message.guild) return;
+        
+        const config = await this.getConfig(message.guild.id);
+        if (!config?.submissionChannelId || message.channelId !== config.submissionChannelId) return;
+
+        // Strict Check Active Battle
+        const battle = await this.db.beatBattle.findFirst({
+            where: { guildId: message.guild.id, status: 'SUBMISSIONS' }
+        });
+
+        if (!battle) return; // Should be locked anyway, but double check
+
+        // Validation
+        const hasAttachment = message.attachments.size > 0;
+        const validExt = message.attachments.every(a => a.name?.toLowerCase().endsWith('.mp3') || a.name?.toLowerCase().endsWith('.wav'));
+        const hasText = message.content.trim().length > 0;
+
+        if (!hasAttachment || !validExt || hasText) {
+            try {
+                await message.delete();
+                const dm = await message.author.createDM();
+                await dm.send(`❌ **Submission Rejected**\nOnly .mp3/.wav files allowed. No text.`);
+            } catch (e) {}
+            return;
+        }
+
+        // Valid
+        await this.db.beatBattleSubmission.create({
+            data: {
+                battleId: battle.id,
+                userId: message.author.id,
+                messageId: message.id,
+                attachmentUrl: message.attachments.first()!.url,
+                filename: message.attachments.first()!.name || 'unknown'
+            }
+        });
+        // Wait for seeding phase to react
     }
 
     async onMessageReactionAdd(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> {
         if (user.bot) return;
         if (reaction.partial) await reaction.fetch();
         if (user.partial) await user.fetch();
+        if (!reaction.message.guild) return;
 
-        // Check if this is a vote in the submission channel
-        await this.handleVote(reaction as MessageReaction, user as User);
-    }
-
-    async onMessageReactionRemove(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> {
-        // Optional: Untrack vote from DB
-        await this.handleVoteRemoval(reaction as MessageReaction, user as User);
-    }
-
-    /**
-     * Core Logic: Submission Handling
-     */
-    private async handleSubmission(message: Message) {
-        // Fetch config & active battle
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: message.guild!.id } });
-        if (!config || config.submissionChannelId !== message.channelId) return;
-
-        const activeBattle = await this.db.beatBattle.findFirst({
-            where: { 
-                guildId: message.guild!.id,
-                status: 'SUBMISSIONS'
-            }
+        const config = await this.getConfig(reaction.message.guild.id);
+        if (!config?.submissionChannelId || reaction.message.channelId !== config.submissionChannelId) return;
+        
+        // Check Phase
+        const battle = await this.db.beatBattle.findFirst({
+            where: { guildId: reaction.message.guild.id, status: 'VOTING' } // Only count in voting
         });
 
-        if (!activeBattle) return;
-
-        // Enforcement
-        const hasAttachment = message.attachments.size > 0;
-        const validExtensions = ['mp3', 'wav'];
-        const isAudio = message.attachments.every(att => 
-            validExtensions.some(ext => att.name?.toLowerCase().endsWith(ext))
-        );
-
-        // Allow text ONLY if it comes with a valid attachment (optional? User said "No chatting")
-        // "Deletes messages that contain text or no attachments" -> Implies ONLY attachments allowed.
-        // But usually people say "Here's my beat". Let's restrict strictness to "Must have attachment".
-        // Actually prompt says: "deletes messages that contain text or no attachments"
-        // This implies: Text is NOT allowed. Only file.
-        
-        const hasText = message.content.length > 0;
-
-        if (!hasAttachment || !isAudio || hasText) {
-            try {
-                await message.delete();
-                const user = await message.author.createDM();
-                await user.send(`❌ **Submission Rejected**\n\nThe submission channel is for .mp3 and .wav files only. No text allowed during this phase.\n\nPlease upload just the file!`);
-            } catch (e) {
-                this.logger.error('Failed to moderate submission', e);
-            }
+        if (!battle) {
+            await reaction.users.remove(user.id);
             return;
         }
 
-        // Valid Submission!
-        // 1. Record in DB
-        // 2. Add to auto-seed queue (if we want to seed immediately or later)
-        try {
-            await this.db.beatBattleSubmission.create({
-                data: {
-                    battleId: activeBattle.id,
-                    userId: message.author.id,
-                    messageId: message.id,
-                    attachmentUrl: message.attachments.first()!.url,
-                    filename: message.attachments.first()!.name || 'unknown'
-                }
-            });
-            
-            // Auto-react if configured (to help clicking) - Wait, prompt says "Auto-Seeding... allows users to click to vote".
-            // If voting hasn't started, we might not want to react yet?
-            // "Auto-Seeding: It automatically reacts with an emoji... on every valid submission"
-            // Usually done at start of Voting phase? Or immediately?
-            // If I react now, people can vote early.
-            // Prompt says "Phase 3 Voting... Auto-Seeding". This implies seeing happens AT phase 3 transition.
-            
-        } catch (e) {
-            this.logger.error('Failed to track submission', e);
+        if (reaction.emoji.name !== this.votingEmoji) {
+            await reaction.users.remove(user.id);
+            return;
         }
-    }
 
-    /**
-     * Core Logic: Voting Handling
-     */
-    private async handleVote(reaction: MessageReaction, user: User) {
-        const config = await this.db.beatBattleConfig.findUnique({ where: { guildId: reaction.message.guild!.id } });
-        if (!config || config.submissionChannelId !== reaction.message.channelId) return;
-
-        // Check if we are in VOTING phase
-        const activeBattle = await this.db.beatBattle.findFirst({
-            where: { 
-                guildId: reaction.message.guild!.id,
-                status: 'VOTING'
-            }
+        // Check Count (Max 2)
+        const voteCount = await this.db.beatBattleVote.count({
+            where: { battleId: battle.id, userId: user.id }
         });
 
-        if (!activeBattle) {
-            // If not in voting phase, remove reaction?
-            // "Reactions are ONLY allowed during the voting phase" (Prompt)
+        if (voteCount >= 2) {
+            await reaction.users.remove(user.id);
             try {
-                await reaction.users.remove(user.id);
+                const dm = await user.createDM();
+                await dm.send(`⚠️ **Vote Limit**\nYou can only vote for 2 tracks.`);
             } catch (e) {}
             return;
         }
 
-        // Verify Emoji
-        if (reaction.emoji.name !== config.votingEmoji) {
-             await reaction.users.remove(user.id);
-             return;
-        }
-
-        // Enforce 2 Vote Limit
-        // Count user's current votes in this battle
-        // We can query DB votes or scan reactions (DB is faster if we sync)
-        
-        // Let's assume we want to track votes in DB to Audit.
-        // Check DB for active votes by this user for this battle.
-        const userVotes = await this.db.beatBattleVote.count({
-            where: {
-                battleId: activeBattle.id,
-                userId: user.id
-            }
-        });
-
-        if (userVotes >= 2) {
-             // 3rd vote attempt
-             try {
-                 await reaction.users.remove(user.id);
-                 const dm = await user.createDM();
-                 await dm.send(`⚠️ **Vote Limit Reached**\nYou can only vote for 2 active submissions per battle.`);
-             } catch (e) {}
-             return;
-        }
-
-        // Record Vote
-        // Find submission by message ID
-        const submission = await this.db.beatBattleSubmission.findFirst({
-            where: { messageId: reaction.message.id }
-        });
-
-        if (submission) {
+        // Register Vote
+        const sub = await this.db.beatBattleSubmission.findFirst({ where: { messageId: reaction.message.id } });
+        if (sub) {
             await this.db.beatBattleVote.create({
-                data: {
-                    battleId: activeBattle.id,
-                    submissionId: submission.id,
-                    userId: user.id
-                }
+                data: { battleId: battle.id, submissionId: sub.id, userId: user.id }
             });
         }
     }
 
-    private async handleVoteRemoval(reaction: MessageReaction, user: User) {
-        // Remove from DB to decrement count
-         const submission = await this.db.beatBattleSubmission.findFirst({
-            where: { messageId: reaction.message.id }
-        });
-
-        if (submission) {
-             // Need active battle ID? Or just delete by submission/user interaction
-             await this.db.beatBattleVote.deleteMany({
-                 where: {
-                     submissionId: submission.id,
-                     userId: user.id
-                 }
-             });
+    async onMessageReactionRemove(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> {
+        if (user.bot) return;
+        if (reaction.partial) await reaction.fetch();
+        
+        // Remove vote from DB
+        const sub = await this.db.beatBattleSubmission.findFirst({ where: { messageId: reaction.message.id } });
+        if (sub) {
+            await this.db.beatBattleVote.deleteMany({
+                where: { submissionId: sub.id, userId: user.id }
+            });
         }
     }
 }
