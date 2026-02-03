@@ -62,6 +62,10 @@ export class WelcomeGatePlugin implements IPlugin {
         await this.initializeSettings();
     }
 
+    async shutdown(): Promise<void> {
+        this.logger.info('Welcome Gate Plugin shutting down');
+    }
+
     private async initializeSettings() {
         const guilds = this.client.guilds.cache;
         for (const [id] of guilds) {
