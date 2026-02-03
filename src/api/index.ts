@@ -1682,11 +1682,20 @@ app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
     const { battleId, title, description, number, startDate, endDate } = req.body;
     
     try {
+        const cleanStartDate = startDate ? new Date(startDate) : null;
+        const cleanEndDate = endDate ? new Date(endDate) : null;
+
         let battle;
         if (battleId) {
             battle = await db.beatBattle.update({
                 where: { id: battleId },
-                data: { title, description, number: parseInt(number), startDate, endDate }
+                data: { 
+                    title, 
+                    description, 
+                    number: parseInt(number), 
+                    startDate: cleanStartDate, 
+                    endDate: cleanEndDate 
+                }
             });
         } else {
             // Check if active one exists?
@@ -1696,8 +1705,8 @@ app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
                     title,
                     description,
                     number: parseInt(number),
-                    startDate,
-                    endDate, // optional
+                    startDate: cleanStartDate,
+                    endDate: cleanEndDate, 
                     status: 'SETUP'
                 }
             });
