@@ -10,10 +10,11 @@ import { ModerationSettingsPage } from './pages/ModerationSettings';
 import { PluginManagementPage } from './pages/PluginManagement';
 import { EconomyPluginPage } from './pages/EconomyPlugin';
 import { FeedbackPluginPage } from './pages/FeedbackPlugin';
+import { WelcomeGatePluginPage } from './pages/WelcomeGate';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -123,6 +124,8 @@ const AppContent: React.FC = () => {
         return <EconomyPluginPage />;
       case 'feedback':
         return <FeedbackPluginPage />;
+      case 'welcome-gate':
+        return <WelcomeGatePluginPage />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':

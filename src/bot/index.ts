@@ -19,6 +19,7 @@ import { StagingTestPlugin } from './plugins/StagingTestPlugin';
 import { ModerationPlugin } from './plugins/ModerationPlugin';
 import { EconomyPlugin } from './plugins/EconomyPlugin';
 import { ProductionFeedbackPlugin } from './plugins/ProductionFeedbackPlugin';
+import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
 
 dotenv.config();
 
@@ -86,6 +87,7 @@ export class SimonBot {
       this.pluginManager.register(new ModerationPlugin());
       this.pluginManager.register(new EconomyPlugin());
       this.pluginManager.register(new ProductionFeedbackPlugin());
+      this.pluginManager.register(new WelcomeGatePlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -485,6 +487,17 @@ export class SimonBot {
     commands.push(wealthCommand.toJSON());
     commands.push(marketCommand.toJSON());
     commands.push(buyCommand.toJSON());
+
+    // 4. Welcome Gate
+    const setupWelcomeCommand = new SlashCommandBuilder()
+        .setName('setup-welcome')
+        .setDescription('Create the verification panel')
+        .setDefaultMemberPermissions(0x10) // Manage Channels
+        .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to (default: current)'))
+        .addStringOption(opt => opt.setName('title').setDescription('Embed Title'))
+        .addStringOption(opt => opt.setName('description').setDescription('Embed Description'));
+
+    commands.push(setupWelcomeCommand.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
     const guildId = targetGuildId || process.env.GUILD_ID;

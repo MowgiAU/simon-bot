@@ -30,6 +30,7 @@ model Guild {
   userNotes          UserNote[]
 
   moderationSettings ModerationSettings?
+  welcomeGateSettings WelcomeGateSettings?
 
   economyAccounts    EconomyAccount[]
   economySettings    EconomySettings?
@@ -455,3 +456,24 @@ model FeedbackSettings {
   @@map("feedback_settings")
 }
 
+
+// Welcome Gate System
+model WelcomeGateSettings {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+  enabled          Boolean  @default(false)
+  
+  welcomeChannelId String?
+  unverifiedRoleId String?
+  verifiedRoleId   String?
+  
+  questions        String[] // Array of questions
+  modalTitle       String   @default("Server Verification")
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("welcome_gate_settings")
+}

@@ -5,7 +5,8 @@ import {
   LayoutDashboard, 
   ScrollText, 
   Type, 
-  ShieldAlert, // Import Shield for Moderation
+  ShieldAlert, 
+  Shield,
   Coins,
   Settings, 
   LogOut, 
@@ -107,6 +108,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><ShieldAlert size={20} /></span>
             <span className="nav-label">Moderation</span>
           </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('welcome-gate') && (
+            <button
+              className={`nav-item ${activeSection === 'welcome-gate' ? 'active' : ''}`}
+              onClick={() => onNavigate('welcome-gate')}
+              title={collapsed ? "Welcome Gate" : ""}
+            >
+              <span className="nav-icon"><Shield size={20} /></span>
+              <span className="nav-label">Welcome Gate</span>
+            </button>
           )}
 
           {permissions.accessiblePlugins.includes('economy') && (

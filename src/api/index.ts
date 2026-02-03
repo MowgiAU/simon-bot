@@ -1513,6 +1513,64 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 });
 
 
+// --- Welcome Gate Routes ---
+app.get('/api/guilds/:guildId/welcome', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        let settings = await db.welcomeGateSettings.findUnique({
+             where: { guildId }
+        });
+        
+        if (!settings) {
+            settings = await db.welcomeGateSettings.create({
+                data: { guildId }
+            });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to fetch welcome settings', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/api/guilds/:guildId/welcome', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+        const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions } = req.body;
+        
+        const settings = await db.welcomeGateSettings.upsert({
+            where: { guildId },
+            create: {
+                guildId,
+                enabled,
+                welcomeChannelId,
+                unverifiedRoleId,
+                verifiedRoleId,
+                modalTitle,
+                questions
+            },
+            update: {
+                enabled,
+                welcomeChannelId,
+                unverifiedRoleId,
+                verifiedRoleId,
+                modalTitle,
+                questions
+            }
+        });
+        
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update welcome settings', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);
