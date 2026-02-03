@@ -178,6 +178,11 @@ export class SimonBot {
       
       // Register slash commands to ALL joined guilds
       this.logger.info(`Registering slash commands for ${this.client.guilds.cache.size} guilds to database...`);
+      
+      if (this.client.guilds.cache.size === 0) {
+        this.logger.warn('No guilds found to register commands to, skipping registration');
+      }
+
       for (const [id, guild] of this.client.guilds.cache) {
           try { 
               await this.registerSlashCommands(id);
@@ -185,8 +190,6 @@ export class SimonBot {
           } catch (e) {
               this.logger.error(`Failed to register commands for ${guild.name}`, e);
           }
-      } else {
-        this.logger.warn('No guilds found to register commands to, skipping registration');
       }
     });
 

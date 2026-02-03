@@ -14,7 +14,8 @@ import {
     ButtonInteraction,
     ModalSubmitInteraction,
     ChatInputCommandInteraction,
-    SlashCommandBuilder
+    SlashCommandBuilder,
+    Colors
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
