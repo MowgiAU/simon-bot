@@ -84,15 +84,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Bot Identity</span>
           </button>
 
-          <button
-            className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
-            onClick={() => onNavigate('beat-battle')}
-            title={collapsed ? "Beat Battle" : ""}
-          >
-            <span className="nav-icon"><Music size={20} /></span>
-            <span className="nav-label">Beat Battle</span>
-          </button>
-          
           {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
@@ -107,6 +98,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
         <div className="nav-group">
           <h3 className="nav-group-title">Plugins</h3>
+
+          {permissions.accessiblePlugins.includes('beat-battle') && (
+            <button
+              className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
+              onClick={() => onNavigate('beat-battle')}
+              title={collapsed ? "Beat Battle" : ""}
+            >
+              <span className="nav-icon"><Music size={20} /></span>
+              <span className="nav-label">Beat Battle</span>
+            </button>
+          )}
           
           {permissions.accessiblePlugins.includes('word-filter') && (
             <button

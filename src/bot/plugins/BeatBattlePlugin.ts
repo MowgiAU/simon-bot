@@ -53,8 +53,6 @@ export class BeatBattlePlugin implements IPlugin {
     async shutdown(): Promise<void> {
         // Cleanup if needed
     }
-    
-    private startWatchdog() {
         setInterval(() => this.checkStates(), 10000); // Check every 10s
     }
     
@@ -385,6 +383,4 @@ export class BeatBattlePlugin implements IPlugin {
              });
         }
     }
-
-    async shutdown(): Promise<void> {}
 }
