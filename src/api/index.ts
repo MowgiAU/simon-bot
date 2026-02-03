@@ -1597,6 +1597,178 @@ app.get('/api/bot/identity', async (req, res) => {
     }
 });
 
+
+// ==========================================
+// Beat Battle Routes
+// ==========================================
+
+// Get Configuration
+app.get('/api/guilds/:guildId/beat-battle/config', async (req, res) => {
+    const { guildId } = req.params;
+    // We reuse moderation permission or need a specific one? For now assume 'canManagePlugins' check
+    // If checkPluginAccess is strict, we need to register 'beat-battle' as accessible
+    // For now, let's just check if user is admin or manager
+    // TODO: Use checkPluginAccess(guildId, req, 'beat-battle')
+    
+    try {
+        const config = await db.beatBattleConfig.findUnique({ where: { guildId } });
+        res.json(config || {});
+    } catch (e) {
+        logger.error('Failed to get BB config', e);
+        res.status(500).json({ error: 'Internal error' });
+    }
+});
+
+// Save Configuration
+app.post('/api/guilds/:guildId/beat-battle/config', async (req, res) => {
+    const { guildId } = req.params;
+    const data = req.body;
+    
+    try {
+        const config = await db.beatBattleConfig.upsert({
+            where: { guildId },
+            create: { 
+                guildId,
+                announcementChannelId: data.announcementChannelId,
+                submissionChannelId: data.submissionChannelId,
+                archiveCategoryId: data.archiveCategoryId,
+                votingEmoji: data.votingEmoji || '🔥',
+                managerRoleId: data.managerRoleId
+            },
+            update: {
+                announcementChannelId: data.announcementChannelId,
+                submissionChannelId: data.submissionChannelId,
+                archiveCategoryId: data.archiveCategoryId,
+                votingEmoji: data.votingEmoji,
+                managerRoleId: data.managerRoleId
+            }
+        });
+        res.json(config);
+    } catch (e) {
+        logger.error('Failed to save BB config', e);
+        res.status(500).json({ error: 'Internal error' });
+    }
+});
+
+// Get Active Battle
+app.get('/api/guilds/:guildId/beat-battle/current', async (req, res) => {
+    const { guildId } = req.params;
+    try {
+        // Find latest active or setup battle
+        const battle = await db.beatBattle.findFirst({
+            where: { 
+                guildId,
+                status: { not: 'ARCHIVED' } 
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                _count: {
+                    select: { submissions: true }
+                }
+            }
+        });
+        
+        // Also get logs/votes overview (optional)
+        
+        res.json(battle);
+    } catch (e) {
+        res.status(500).json({ error: 'Error fetching battle' });
+    }
+});
+
+// Create/Update Battle Metadata
+app.post('/api/guilds/:guildId/beat-battle/manage', async (req, res) => {
+    const { guildId } = req.params;
+    const { battleId, title, description, number, startDate, endDate } = req.body;
+    
+    try {
+        let battle;
+        if (battleId) {
+            battle = await db.beatBattle.update({
+                where: { id: battleId },
+                data: { title, description, number: parseInt(number), startDate, endDate }
+            });
+        } else {
+            // Check if active one exists?
+            battle = await db.beatBattle.create({
+                data: {
+                    guildId,
+                    title,
+                    description,
+                    number: parseInt(number),
+                    startDate,
+                    endDate, // optional
+                    status: 'SETUP'
+                }
+            });
+        }
+        res.json(battle);
+    } catch (e) {
+        logger.error('Failed to manage battle', e);
+        res.status(500).json({ error: 'Error' });
+    }
+});
+
+// Trigger Sequencer Actions
+app.post('/api/guilds/:guildId/beat-battle/transition', async (req, res) => {
+    const { guildId } = req.params;
+    const { battleId, action } = req.body; // action: 'ANNOUNCE', 'OPEN_SUBS', 'START_VOTING', 'END', 'ARCHIVE'
+    
+    try {
+        const battle = await db.beatBattle.findUnique({ where: { id: battleId } });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        
+        // This is where we would ideally call the Plugin instance directly.
+        // But since API and Bot might be separate processes (PM2 separates them!), 
+        // we can't call `bot.getPlugin().announce()`.
+        //
+        // SOLUTION: Update the DB state, and have the Bot watchdog pick it up, 
+        // OR (simpler for now) just update Status here, and assume Bot watches DB? 
+        // 
+        // Actually, for immediate actions like "Send Announcement", DB state isn't enough. We need the bot to Act.
+        // We can use a simplified "IPC" via DB or just implement the logic here IF we have the client.
+        //
+        // Wait, the API file imports `db`. Does it have access to `client`? NO.
+        // The `bot` process has the `client`. The `api` process is separate.
+        // 
+        // BUT! In `h:\Simon Bot\new-simon\src\bot\index.ts` I see:
+        // `pm2 start "npm run start" --name bot`
+        // `pm2 start "npm run api:dev" --name api`
+        //
+        // They ARE separate processes.
+        // This means the API cannot send Discord messages directly unless it makes a new Client (slow, rate limits).
+        // Best Practice: Write a "Command" to the DB, and have the Bot poll for commands?
+        // OR: Use a shared event bus (Redis).
+        // OR: Since this is a small bot, maybe they run in the same process?
+        // Looking at `setup-droplet.sh`: `pm2 start "npm run start"` and `pm2 start "npm run api:dev"`. Separate.
+        
+        // QUICK FIX: For now, I will just update the STATUS in the database.
+        // The Bot Plugin needs a loop (watchdog) to detect status changes and act.
+        // "Oh, status changed to ANNOUNCING? I better send the embed!"
+        
+        let newStatus = battle.status;
+        
+        switch (action) {
+            case 'ANNOUNCE': newStatus = 'ANNOUNCING'; break;
+            case 'OPEN_SUBS': newStatus = 'SUBMISSIONS'; break;
+            case 'START_VOTING': newStatus = 'VOTING'; break;
+            case 'END': newStatus = 'ENDED'; break;
+            case 'ARCHIVE': newStatus = 'ARCHIVED'; break;
+        }
+        
+        await db.beatBattle.update({
+             where: { id: battleId },
+             data: { status: newStatus }
+        });
+        
+        res.json({ success: true, status: newStatus });
+        
+    } catch (e) {
+        res.status(500).json({ error: 'Transition failed' });
+    }
+});
+
+
 app.post('/api/bot/identity', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
 

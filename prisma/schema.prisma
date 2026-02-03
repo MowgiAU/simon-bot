@@ -43,7 +43,85 @@ model Guild {
   feedbackPosts      FeedbackPost[]
   feedbackSettings   FeedbackSettings?
 
+  // Beat Battle Plugin
+  beatBattleConfig   BeatBattleConfig?
+  beatBattles        BeatBattle[]
+
   @@map("guilds")
+}
+
+// Beat Battle Configuration (Persistent settings)
+model BeatBattleConfig {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  
+  announcementChannelId String?
+  submissionChannelId   String?  // The active submission channel
+  archiveCategoryId     String?  
+  votingEmoji           String   @default("🔥")
+  managerRoleId         String?  // Role allowed to manage battles
+  
+  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@map("beat_battle_configs")
+}
+
+// Individual Battle Instance
+model BeatBattle {
+  id              String   @id @default(cuid())
+  guildId         String
+  
+  // Metadata
+  title           String   @default("New Beat Battle")
+  number          Int      @default(1) // e.g. Battle #42
+  description     String?  // Rich text rules/details
+  params          Json?    // Store prizes, rules, sponsors as JSON structure
+  
+  // State
+  status          String   @default("SETUP") // SETUP, ANNOUNCING, SUBMISSIONS, VOTING, ENDED, ARCHIVED
+  startDate       DateTime?
+  endDate         DateTime?
+  
+  // Relations
+  submissions     BeatBattleSubmission[]
+  votes           BeatBattleVote[]
+  
+  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("beat_battles")
+}
+
+model BeatBattleSubmission {
+  id              String   @id @default(cuid())
+  battleId        String
+  userId          String
+  messageId       String   // Discord Message ID
+  attachmentUrl   String
+  filename        String
+  
+  votes           BeatBattleVote[]
+  
+  battle          BeatBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  createdAt       DateTime   @default(now())
+  
+  @@map("beat_battle_submissions")
+}
+
+model BeatBattleVote {
+  id              String   @id @default(cuid())
+  battleId        String
+  submissionId    String
+  userId          String   // The voter
+  
+  battle          BeatBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  submission      BeatBattleSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([battleId, userId, submissionId]) // User can only vote once per submission (handled by reaction logic too)
+  @@map("beat_battle_votes")
 }
 
 // Bot Identity Settings

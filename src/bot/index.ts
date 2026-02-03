@@ -20,6 +20,7 @@ import { ModerationPlugin } from './plugins/ModerationPlugin';
 import { EconomyPlugin } from './plugins/EconomyPlugin';
 import { ProductionFeedbackPlugin } from './plugins/ProductionFeedbackPlugin';
 import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
+import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
 
 dotenv.config();
 
@@ -88,6 +89,7 @@ export class SimonBot {
       this.pluginManager.register(new EconomyPlugin());
       this.pluginManager.register(new ProductionFeedbackPlugin());
       this.pluginManager.register(new WelcomeGatePlugin());
+      this.pluginManager.register(new BeatBattlePlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
