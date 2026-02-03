@@ -15,7 +15,9 @@ import {
     ModalSubmitInteraction,
     ChatInputCommandInteraction,
     SlashCommandBuilder,
-    Colors
+    Colors,
+    Message,
+    VoiceState
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -30,11 +32,13 @@ export class WelcomeGatePlugin implements IPlugin {
 
     readonly requiredPermissions = [
         PermissionFlagsBits.ManageRoles,
-        PermissionFlagsBits.ManageChannels
+        PermissionFlagsBits.ManageChannels,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.MoveMembers
     ];
 
     readonly commands = ['setup-welcome'];
-    readonly events = ['interactionCreate', 'guildMemberAdd'];
+    readonly events = ['interactionCreate', 'guildMemberAdd', 'messageCreate', 'voiceStateUpdate'];
     readonly dashboardSections = ['welcome-gate']; // Future dashboard page
     readonly defaultEnabled = true;
 
@@ -223,6 +227,13 @@ export class WelcomeGatePlugin implements IPlugin {
                 );
 
             await channel.send({ embeds: [embed], components: [row] });
+            
+            // Update settings with the channel ID
+            await this.db.welcomeGateSettings.update({
+                where: { guildId: interaction.guildId! },
+                data: { welcomeChannelId: channel.id }
+            });
+
             await interaction.reply({ content: `Verification panel sent to ${channel}`, ephemeral: true });
         } catch (error: any) {
             this.logger.error('Error in setup-welcome command', error);
@@ -231,6 +242,78 @@ export class WelcomeGatePlugin implements IPlugin {
             } else {
                 await interaction.followUp({ content: `Failed to send panel: ${error.message}`, ephemeral: true });
             }
+        }
+    }
+
+    // 4. Message Handling (Delete if unverified)
+    async onMessageCreate(message: Message) {
+        if (!message.guild || message.author.bot) return;
+
+        try {
+            const settings = await this.db.welcomeGateSettings.findUnique({
+                where: { guildId: message.guild.id }
+            });
+
+            if (!settings || !settings.enabled || !settings.unverifiedRoleId) return;
+
+            // Check if user has unverified role
+            if (message.member?.roles.cache.has(settings.unverifiedRoleId)) {
+                
+                // Allow messages in the welcome channel so they can verify!
+                if (settings.welcomeChannelId && message.channelId === settings.welcomeChannelId) {
+                    return; 
+                }
+
+                // Delete message
+                if (message.deletable) {
+                    await message.delete();
+                    
+                    // DM User
+                    try {
+                        const embed = new EmbedBuilder()
+                            .setTitle('Verification Required')
+                            .setDescription(`Your message in **${message.guild.name}** was deleted because you are not verified yet.\nPlease go to the welcome channel and complete the verification process.`)
+                            .setColor(Colors.Red);
+                        
+                        await message.author.send({ embeds: [embed] });
+                    } catch (e) {
+                         // DMs might be closed, ignore
+                    }
+                }
+            }
+        } catch (error) {
+            this.logger.error('Error in welcome gate message handler', error);
+        }
+    }
+
+    // 5. Voice Handling (Disconnect if unverified)
+    async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState) {
+        // Only care about joins or moves (when channel is present)
+        if (!newState.channelId || !newState.guild) return;
+
+        try {
+            const settings = await this.db.welcomeGateSettings.findUnique({
+                where: { guildId: newState.guild.id }
+            });
+
+            if (!settings || !settings.enabled || !settings.unverifiedRoleId) return;
+
+            // Check if user has unverified role
+            if (newState.member?.roles.cache.has(settings.unverifiedRoleId)) {
+                 // Disconnect
+                 await newState.disconnect('User not verified');
+                 
+                 // DM User
+                 try {
+                     const embed = new EmbedBuilder()
+                        .setTitle('Access Denied')
+                        .setDescription(`You were disconnected from the voice channel in **${newState.guild.name}** because you are not verified.`)
+                        .setColor(Colors.Red);
+                    await newState.member.send({ embeds: [embed] });
+                 } catch (e) {}
+            }
+        } catch (error) {
+            this.logger.error('Error in voice gate handler', error);
         }
     }
 }
