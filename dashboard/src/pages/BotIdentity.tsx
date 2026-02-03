@@ -34,7 +34,7 @@ export const BotIdentityPage: React.FC = () => {
     const handleSave = async () => {
         try {
             await axios.post(`/api/bot/identity`, settings, { withCredentials: true });
-            alert('Settings saved! It may take up to 30 seconds for the bot to update its presence.');
+            alert('Settings saved! \n\n• status updates: ~30 seconds\n• Username/Avatar: May take minutes to appear (Discord caches these heavily). Reload Discord (Ctrl+R) to force check.');
         } catch (e) {
             alert('Failed to save settings');
         }
