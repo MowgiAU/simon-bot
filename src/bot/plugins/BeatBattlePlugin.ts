@@ -9,8 +9,9 @@ import {
     PermissionFlagsBits, 
     ChannelType
 } from 'discord.js';
-import { IPlugin, IPluginContext } from '../types/plugin';
+import { IPlugin, IPluginContext, ILogger } from '../types/plugin';
 import { Logger } from '../utils/logger';
+import { z } from 'zod';
 
 export class BeatBattlePlugin implements IPlugin {
     id = 'beat-battle';
@@ -19,10 +20,22 @@ export class BeatBattlePlugin implements IPlugin {
     version = '1.0.0';
     author = 'Fuji Studio';
     
+    // Plugin Contract
+    requiredPermissions = [
+        PermissionFlagsBits.ManageChannels,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.AddReactions,
+        PermissionFlagsBits.EmbedLinks
+    ];
+    commands = [];
+    dashboardSections = ['beat-battle'];
+    defaultEnabled = true;
+    configSchema = z.object({});
+
     // We listen to these events
     events = ['messageCreate', 'messageReactionAdd', 'messageReactionRemove'];
 
-    private logger!: Logger;
+    private logger!: ILogger;
     private db: any;
     private client: any;
 
@@ -35,6 +48,10 @@ export class BeatBattlePlugin implements IPlugin {
         
         // Start state watchdog
         this.startWatchdog();
+    }
+
+    async shutdown(): Promise<void> {
+        // Cleanup if needed
     }
     
     private startWatchdog() {

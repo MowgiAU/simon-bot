@@ -173,7 +173,7 @@ export class WelcomeGatePlugin implements IPlugin {
         if (!settings) return;
 
         // Validate that user answered "Yes" to all questions
-        const invalidAnswer = interaction.fields.fields.some(field => field.value.trim().toLowerCase() !== 'yes');
+        const invalidAnswer = interaction.fields.fields.some((field: any) => field.value.trim().toLowerCase() !== 'yes');
         if (invalidAnswer) {
             await interaction.editReply({ content: 'Verification failed. You must type "Yes" in all response boxes to be verified.' });
             return;
