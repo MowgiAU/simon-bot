@@ -14,6 +14,7 @@ import {
   ChevronLeft, 
   ChevronRight,
   MessageSquare,
+  Music,    // New
 } from 'lucide-react';
 import logoUrl from '../assets/logo.svg'; 
 
@@ -81,6 +82,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><UserIcon size={20} /></span>
             <span className="nav-label">Bot Identity</span>
+          </button>
+
+          <button
+            className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
+            onClick={() => onNavigate('beat-battle')}
+            title={collapsed ? "Beat Battle" : ""}
+          >
+            <span className="nav-icon"><Music size={20} /></span>
+            <span className="nav-label">Beat Battle</span>
           </button>
           
           {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
