@@ -1806,6 +1806,16 @@ app.get('/api/email/list/:category?', async (req, res) => {
     res.json(emails);
 });
 
+// Get Thread
+app.get('/api/email/thread', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const subject = req.query.subject as string;
+    if (!subject) return res.status(400).json({ error: 'Subject required' });
+    
+    const thread = await emailService.getThread(subject);
+    res.json(thread);
+});
+
 // Update Email
 app.patch('/api/email/:threadId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });

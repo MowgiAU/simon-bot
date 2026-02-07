@@ -30,44 +30,50 @@ export const EmailClientPage: React.FC = () => {
     const [view, setView] = useState<'inbox' | 'sent' | 'trash' | 'settings'>('inbox');
     const [emails, setEmails] = useState<Email[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+    const [currentThread, setCurrentThread] = useState<Email[]>([]); // New Thread State
     const [settings, setSettings] = useState<EmailSettings>({});
     const [loading, setLoading] = useState(false);
     
     // Compose / Reply State
-    // If composing is true, we show the modal.
     const [composing, setComposing] = useState(false);
     const [composeData, setComposeData] = useState<{
         to: string;
         subject: string;
         body: string;
         attachments: File[];
-        replyToMsg?: Email; // If set, this is a reply
+        replyToMsg?: Email;
     }>({ to: '', subject: '', body: '', attachments: [] });
 
     // Helper for Reply Mode in the reading pane (quick reply)
-    // We will now redirect quick reply to the main Compose Modal for consistency/features,
-    // OR keep the quick reply simple. User asked for "new email compose ability" with formatting.
-    // Let's toggle the full composer even for replies to give them the features.
-
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Processed body parts for reading
-    const { mainBody, quotedBody } = useProcessedBody(selectedEmail?.body);
-    const [showQuoted, setShowQuoted] = useState(false);
+    // Processed body parts for reading (for the main/selected email)
+    // In thread view, we will just use a simple quote collapse logic component per message
+    // const { mainBody, quotedBody } = useProcessedBody(selectedEmail?.body);
+    // const [showQuoted, setShowQuoted] = useState(false);
 
     useEffect(() => {
         if (view === 'settings') {
             fetchSettings();
         } else {
             fetchEmails(view);
-            // Poll for new emails every 30s
             const interval = setInterval(() => fetchEmails(view), 30000);
             return () => clearInterval(interval);
         }
     }, [view]);
 
+    // When an email is selected, fetch its full thread
     useEffect(() => {
-        setShowQuoted(false);
+        if (selectedEmail) {
+            fetchThread(selectedEmail.subject);
+            // Mark read if needed
+            if (!selectedEmail.read && selectedEmail.category === 'inbox') {
+                axios.patch(`/api/email/${selectedEmail.threadId}`, { updates: { read: true } }, { withCredentials: true })
+                    .then(() => setEmails(prev => prev.map(e => e.threadId === selectedEmail.threadId ? { ...e, read: true } : e)));
+            }
+        } else {
+            setCurrentThread([]);
+        }
     }, [selectedEmail]);
 
     const fetchEmails = async (category: string) => {
@@ -81,6 +87,17 @@ export const EmailClientPage: React.FC = () => {
             setLoading(false);
         }
     };
+    
+    const fetchThread = async (subject: string) => {
+        try {
+            const res = await axios.get(`/api/email/thread?subject=${encodeURIComponent(subject)}`, { withCredentials: true });
+            setCurrentThread(res.data);
+        } catch(e) {
+            console.error('Failed to fetch thread', e);
+            // Fallback to just showing the selected email
+            if (selectedEmail) setCurrentThread([selectedEmail]);
+        }
+    };
 
     const fetchSettings = async () => {
         try {
@@ -91,14 +108,8 @@ export const EmailClientPage: React.FC = () => {
         }
     };
 
-    const handleSelectEmail = async (email: Email) => {
+    const handleSelectEmail = (email: Email) => {
         setSelectedEmail(email);
-        if (!email.read && email.category === 'inbox') {
-            try {
-                await axios.patch(`/api/email/${email.threadId}`, { updates: { read: true } }, { withCredentials: true });
-                setEmails(prev => prev.map(e => e.threadId === email.threadId ? { ...e, read: true } : e));
-            } catch (e) {}
-        }
     };
 
     // Prepare a reply
@@ -145,12 +156,20 @@ export const EmailClientPage: React.FC = () => {
             alert('Sent!');
             setComposing(false);
             setComposeData({ to: '', subject: '', body: '', attachments: [] });
+            
+            // Refresh logic:
+            // If we are viewing a thread that matches the subject we just sent, refresh the thread
+            if (selectedEmail && normalizeSubject(selectedEmail.subject) === normalizeSubject(composeData.subject)) {
+                fetchThread(selectedEmail.subject);
+            }
             fetchEmails(view);
         } catch (e) {
             alert('Failed to send');
             console.error(e);
         }
     };
+
+    const normalizeSubject = (s: string) => s.replace(/^(Re|Fwd|FW):\s*/i, '').trim().toLowerCase();
 
     const handleDelete = async (email: Email) => {
         if (!confirm('Move to trash?')) return;
@@ -224,6 +243,100 @@ export const EmailClientPage: React.FC = () => {
         </button>
     );
 
+    // --- Callbacks for Thread Render ---
+    
+    // Renders a single message in the thread
+    const ThreadMessage = ({ msg, isLast, startReply }: { msg: Email, isLast: boolean, startReply: () => void }) => {
+        const { mainBody, quotedBody } = useProcessedBody(msg.body);
+        const [showQuoted, setShowQuoted] = useState(false);
+        const [collapsed, setCollapsed] = useState(!isLast); // Collapse all except last by default
+
+        // Expand if clicked
+        const toggleCollapse = () => setCollapsed(!collapsed);
+
+        return (
+            <div style={{ borderBottom: isLast ? 'none' : '1px solid #e5e7eb', background: '#fff' }}>
+                {/* Header (Clickable for collapse) */}
+                <div 
+                    onClick={toggleCollapse}
+                    style={{ 
+                        padding: '16px 24px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px',
+                        background: collapsed ? '#f4f6f8' : '#fff'
+                    }}
+                >
+                     <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600 }}>
+                        {msg.from.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                             <span style={{ fontWeight: 700, fontSize: '14px', color: '#202124' }}>{msg.from}</span>
+                             <span style={{ fontSize: '12px', color: '#5f6368' }}>{new Date(msg.date).toLocaleString()}</span>
+                         </div>
+                         <div style={{ fontSize: '12px', color: '#5f6368' }}>to {msg.toEmail || 'me'}</div>
+                         {collapsed && (
+                             <div style={{ marginTop: '4px', color: '#5f6368', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                 {mainBody.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}...
+                             </div>
+                         )}
+                    </div>
+                </div>
+
+                {/* Expanded Body */}
+                {!collapsed && (
+                    <div className="email-body-scroll" style={{ padding: '0 24px 24px', paddingLeft: '76px', fontSize: '14px', lineHeight: '1.5', color: '#222' }}>
+                        {/* Attachments */}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                            <div style={{ marginBottom: '16px' }}>
+                            {msg.attachments.map((att, i) => {
+                                if (!att.path) return null;
+                                const ext = att.filename.split('.').pop()?.toLowerCase() || '';
+                                const url = `/api/email/attachment/${att.path}`;
+                                    
+                                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                                    return (
+                                        <div key={i} style={{ marginBottom: '16px' }}>
+                                            <img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #eee' }} />
+                                        </div>
+                                    );
+                                }
+                                if (['mp3', 'wav', 'ogg'].includes(ext)) {
+                                    return (
+                                        <div key={i} style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #eee' }}>
+                                            <div style={{fontSize: '12px', color: '#5f6368', marginBottom: '8px', fontWeight: 500 }}>{att.filename}</div>
+                                            <audio controls src={url} style={{ width: '100%' }} />
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '4px', textDecoration: 'none', color: '#333', marginRight: '8px', marginBottom: '8px', fontSize: '13px', border: '1px solid #ddd' }}>
+                                        <Paperclip size={14} /> {att.filename}
+                                    </a>
+                                );
+                            })}
+                            </div>
+                        )}
+
+                        <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: mainBody }} />
+                        
+                        {quotedBody && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <button 
+                                    onClick={() => setShowQuoted(!showQuoted)}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: '1px solid #dadce0', borderRadius: '4px', background: '#f1f3f4', cursor: 'pointer', color: '#5f6368' }}
+                                    >
+                                        <MoreHorizontal size={14} />
+                                    </button>
+                                    {showQuoted && (
+                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
+                                    )}
+                                </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // --- Renders ---
 
     return (
@@ -282,13 +395,13 @@ export const EmailClientPage: React.FC = () => {
                 </div>
             </div>
             
-            {/* Detail View */}
+            {/* Detail View (Thread) */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff', overflow: 'hidden' }}>
                 {selectedEmail ? (
                     <>
                         {/* Header */}
                         <div style={{ padding: '20px 24px', borderBottom: `1px solid #e5e7eb` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                                 <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: '#202124', lineHeight: '1.2' }}>
                                     {selectedEmail.subject}
                                 </h2>
@@ -298,108 +411,19 @@ export const EmailClientPage: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-                            
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600 }}>
-                                    {selectedEmail.from.charAt(0).toUpperCase()}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#202124' }}>{selectedEmail.from}</span>
-                                        <span style={{ fontSize: '12px', color: '#5f6368' }}>&lt;{selectedEmail.fromEmail}&gt;</span>
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#5f6368' }}>
-                                        to me <span style={{ margin: '0 4px' }}>•</span> {new Date(selectedEmail.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                                    </div>
-                                </div>
-                            </div>
+                            {/* Tags or additional header info could go here */}
                         </div>
                         
-                        {/* Body - Added Padding Bottom */}
-                        <div className="email-body-scroll" style={{ flex: 1, padding: '24px', paddingBottom: '100px', overflowY: 'auto', color: '#222', fontSize: '14px', lineHeight: '1.5' }}>
-                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                                     {selectedEmail.attachments.map((att, i) => {
-                                         // If 'path' is missing, it's an old attachment or failed save
-                                         // Construct the URL properly, or disable if invalid
-                                         const link = att.path ? `/api/email/attachment/${att.path}` : null;
-                                         
-                                         // If it's a null link, render a div instead of an anchor to prevent href="#" behavior
-                                         if (!link) {
-                                              return (
-                                                <div key={i} style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f5f5', fontSize: '13px', color: '#888' }}>
-                                                    <Paperclip size={14} />
-                                                    <span style={{ fontWeight: 500 }}>{att.filename} (Unavailable)</span>
-                                                </div>
-                                              );
-                                         }
-
-                                         return (
-                                         <a 
-                                            key={i} 
-                                            href={link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{ 
-                                                textDecoration: 'none', color: 'inherit',
-                                                border: '1px solid #e0e0e0', borderRadius: '4px', 
-                                                padding: '8px 12px', display: 'flex', alignItems: 'center', 
-                                                gap: '8px', background: '#f5f5f5', fontSize: '13px',
-                                                cursor: 'pointer'
-                                            }}
-                                            className='hover-bg'
-                                         >
-                                             <Paperclip size={14} />
-                                             <span style={{ fontWeight: 500 }}>{att.filename}</span>
-                                         </a>
-                                         );
-                                     })}
-                                 </div>
-                             )}
-
-                             {/* Media Previews */}
-                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                                 <div style={{ marginBottom: '24px' }}>
-                                    {selectedEmail.attachments.map((att, i) => {
-                                        if (!att.path) return null;
-                                        const ext = att.filename.split('.').pop()?.toLowerCase() || '';
-                                        const url = `/api/email/attachment/${att.path}`;
-                                         
-                                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-                                            return (
-                                                <div key={i} style={{ marginBottom: '16px' }}>
-                                                    <img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #eee' }} />
-                                                </div>
-                                            );
-                                        }
-                                        if (['mp3', 'wav', 'ogg'].includes(ext)) {
-                                            return (
-                                                <div key={i} style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #eee' }}>
-                                                    <div style={{fontSize: '12px', color: '#5f6368', marginBottom: '8px', fontWeight: 500 }}>{att.filename}</div>
-                                                    <audio controls src={url} style={{ width: '100%' }} />
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    })}
-                                 </div>
-                             )}
-
-                             <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: mainBody }} />
-                             
-                             {quotedBody && (
-                                 <div style={{ marginTop: '16px' }}>
-                                     <button 
-                                        onClick={() => setShowQuoted(!showQuoted)}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: '1px solid #dadce0', borderRadius: '4px', background: '#f1f3f4', cursor: 'pointer', color: '#5f6368' }}
-                                     >
-                                         <MoreHorizontal size={14} />
-                                     </button>
-                                     {showQuoted && (
-                                         <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
-                                     )}
-                                 </div>
-                             )}
+                        {/* Scrollable Thread Container */}
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                             {currentThread.map((msg, idx) => (
+                                 <ThreadMessage 
+                                    key={msg.threadId} 
+                                    msg={msg} 
+                                    isLast={idx === currentThread.length - 1} 
+                                    startReply={startReply}
+                                 />
+                             ))}
 
                              <style>{`
                                 .email-content-reset a { color: #1a73e8; text-decoration: none; }
@@ -412,8 +436,8 @@ export const EmailClientPage: React.FC = () => {
                              `}</style>
                         </div>
                         
-                        {/* Quick Reply Button (if not composing) */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid #eee' }}>
+                        {/* Quick Reply Button (Always visible at bottom of thread) */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid #eee', marginBottom: '40px' }}>
                             <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: '1px solid #dadce0', background: '#fff', color: '#5f6368', cursor: 'pointer', fontWeight: 500 }}>
                                 <RefreshCw size={16} /> Reply
                             </button>

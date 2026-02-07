@@ -88,6 +88,16 @@ export class EmailService {
         await fs.writeFile(SETTINGS_FILE, JSON.stringify(updated, null, 2));
     }
 
+    async getThread(subject: string): Promise<EmailMessage[]> {
+        const emails = await this.getEmails();
+        const normalize = (s: string) => s.replace(/^(Re|Fwd|FW):\s*/i, '').trim().toLowerCase();
+        const target = normalize(subject);
+        
+        return emails.filter(e => 
+            normalize(e.subject) === target && e.category !== 'trash'
+        ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+
     async getUnnotified(): Promise<EmailMessage[]> {
         const emails = await this.getEmails();
         return emails.filter(e => e.category === 'inbox' && !e.notified);
