@@ -498,7 +498,8 @@ export const EmailClientPage: React.FC = () => {
                     background: '#fff', borderRadius: '8px 8px 0 0', 
                     boxShadow: '0 0 16px rgba(0,0,0,0.15)', 
                     display: 'flex', flexDirection: 'column',
-                    zIndex: 100, border: '1px solid #d3d3d3'
+                    zIndex: 100, border: '1px solid #d3d3d3',
+                    paddingBottom: '16px' // Added padding for the footer area
                 }}>
                     {/* Header */}
                     <div style={{ background: '#404040', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -583,6 +584,9 @@ export const EmailClientPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+                {/* Spacer to prevent cut-off */}
+                <div style={{ height: '12px' }}></div>
+            </div>
             )}
         </div>
     );
