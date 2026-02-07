@@ -381,7 +381,7 @@ export const EmailClientPage: React.FC = () => {
                     zIndex: 100, border: '1px solid #d3d3d3'
                 }}>
                     {/* Header */}
-                    <div style={{ background: '#404040', color: '#fff', padding: '10px 16px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ background: '#404040', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
                            <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={16} /></button>
@@ -394,18 +394,18 @@ export const EmailClientPage: React.FC = () => {
                             placeholder="To" 
                             value={composeData.to}
                             onChange={e => setComposeData({...composeData, to: e.target.value})}
-                            style={{ padding: '8px 16px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                            style={{ padding: '12px 20px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
                         />
                         <input 
                             placeholder="Subject" 
                             value={composeData.subject}
                             onChange={e => setComposeData({...composeData, subject: e.target.value})}
-                            style={{ padding: '8px 16px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                            style={{ padding: '12px 20px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
                         />
                         
                         {/* Attachments List */}
                         {composeData.attachments.length > 0 && (
-                            <div style={{ padding: '8px 16px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: '#f8f9fa' }}>
+                            <div style={{ padding: '4px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: '#f8f9fa' }}>
                                 {composeData.attachments.map((f, i) => (
                                     <div key={i} style={{ background: '#fff', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}><X size={12}/></button>
@@ -416,18 +416,20 @@ export const EmailClientPage: React.FC = () => {
 
                         {/* Toolbar + Editor */}
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <EditorToolbar />
+                            <div style={{ padding: '0 12px' }}>
+                                <EditorToolbar />
+                            </div>
                             <div 
                                 contentEditable
                                 onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
-                                style={{ flex: 1, padding: '16px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif' }}
+                                style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif' }}
                                 data-placeholder="Message body..."
                             />
                         </div>
                     </div>
 
                     {/* Footer */}
-                    <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee' }}>
+                    <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
                                 onClick={handleSend}
