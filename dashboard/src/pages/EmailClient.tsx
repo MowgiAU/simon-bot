@@ -339,6 +339,7 @@ export const EmailClientPage: React.FC = () => {
 
     // --- Renders ---
 
+    const renderFolder = () => {
     return (
         <div style={{ display: 'flex', height: 'calc(100vh - 100px)', backgroundColor: '#fff', position: 'relative' }}>
             
@@ -391,7 +392,7 @@ export const EmailClientPage: React.FC = () => {
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
                             <span style={{ fontWeight: !email.read ? 700 : 500, color: '#202124', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                {email.from}
+                                {view === 'sent' ? `To: ${email.toEmail || email.from}` : email.from}
                             </span>
                             <span style={{ fontSize: '11px', color: '#5f6368', whiteSpace: 'nowrap' }}>
                                 {new Date(email.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -560,6 +561,7 @@ export const EmailClientPage: React.FC = () => {
             )}
         </div>
     );
+    };
 
     const renderSettings = () => (
         <div style={{ maxWidth: '600px', margin: '24px' }}>
