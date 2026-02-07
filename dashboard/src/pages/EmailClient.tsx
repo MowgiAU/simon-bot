@@ -319,10 +319,25 @@ export const EmailClientPage: React.FC = () => {
                         <div className="email-body-scroll" style={{ flex: 1, padding: '24px', paddingBottom: '100px', overflowY: 'auto', color: '#222', fontSize: '14px', lineHeight: '1.5' }}>
                              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                                  <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                                     {selectedEmail.attachments.map((att, i) => (
+                                     {selectedEmail.attachments.map((att, i) => {
+                                         // If 'path' is missing, it's an old attachment or failed save
+                                         // Construct the URL properly, or disable if invalid
+                                         const link = att.path ? `/api/email/attachment/${att.path}` : null;
+                                         
+                                         // If it's a null link, render a div instead of an anchor to prevent href="#" behavior
+                                         if (!link) {
+                                              return (
+                                                <div key={i} style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f5f5', fontSize: '13px', color: '#888' }}>
+                                                    <Paperclip size={14} />
+                                                    <span style={{ fontWeight: 500 }}>{att.filename} (Unavailable)</span>
+                                                </div>
+                                              );
+                                         }
+
+                                         return (
                                          <a 
                                             key={i} 
-                                            href={att.path ? `/api/email/attachment/${att.path}` : '#'} 
+                                            href={link}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             style={{ 
@@ -337,7 +352,36 @@ export const EmailClientPage: React.FC = () => {
                                              <Paperclip size={14} />
                                              <span style={{ fontWeight: 500 }}>{att.filename}</span>
                                          </a>
-                                     ))}
+                                         );
+                                     })}
+                                 </div>
+                             )}
+
+                             {/* Media Previews */}
+                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                                 <div style={{ marginBottom: '24px' }}>
+                                    {selectedEmail.attachments.map((att, i) => {
+                                        if (!att.path) return null;
+                                        const ext = att.filename.split('.').pop()?.toLowerCase() || '';
+                                        const url = `/api/email/attachment/${att.path}`;
+                                         
+                                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                                            return (
+                                                <div key={i} style={{ marginBottom: '16px' }}>
+                                                    <img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #eee' }} />
+                                                </div>
+                                            );
+                                        }
+                                        if (['mp3', 'wav', 'ogg'].includes(ext)) {
+                                            return (
+                                                <div key={i} style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #eee' }}>
+                                                    <div style={{fontSize: '12px', color: '#5f6368', marginBottom: '8px', fontWeight: 500 }}>{att.filename}</div>
+                                                    <audio controls src={url} style={{ width: '100%' }} />
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })}
                                  </div>
                              )}
 
