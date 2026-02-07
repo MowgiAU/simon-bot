@@ -16,6 +16,8 @@ interface Email {
     date: string;
     category: 'inbox' | 'sent' | 'trash';
     read: boolean;
+    messageId?: string;
+    references?: string[] | string;
     attachments?: Array<{ filename: string; path: string; }>;
 }
 
@@ -149,6 +151,19 @@ export const EmailClientPage: React.FC = () => {
             formData.append('subject', composeData.subject);
             formData.append('body', composeData.body); // Currently HTML from contentEditable
             if (settings.fromEmail) formData.append('replyTo', settings.fromEmail);
+
+            // Handle Threading Headers
+            if (composeData.replyToMsg?.messageId) {
+                const originalId = composeData.replyToMsg.messageId;
+                formData.append('inReplyTo', originalId);
+                
+                let refs = composeData.replyToMsg.references || '';
+                if (Array.isArray(refs)) refs = refs.join(' ');
+                
+                // Append original ID to references
+                const newRefs = refs ? `${refs} ${originalId}` : originalId;
+                formData.append('references', newRefs);
+            }
 
             composeData.attachments.forEach(file => {
                 formData.append('attachments', file);

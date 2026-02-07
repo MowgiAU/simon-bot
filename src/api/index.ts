@@ -1747,6 +1747,9 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
             category: 'inbox' as const,
             read: false,
             notified: false,
+            messageId: parsed.messageId,
+            inReplyTo: parsed.inReplyTo,
+            references: Array.isArray(parsed.references) ? parsed.references : (parsed.references ? [parsed.references] : []),
             attachments: savedAttachments
         };
 
@@ -1766,7 +1769,7 @@ app.post('/api/email/send', upload.array('attachments'), async (req, res) => {
         const settings = await emailService.getSettings();
         if (!settings.resendApiKey) return res.status(400).json({ error: 'Resend API Key not configured' });
 
-        const { to, subject, body, replyTo } = req.body;
+        const { to, subject, body, replyTo, inReplyTo, references } = req.body;
         const resend = new Resend(settings.resendApiKey);
 
         const attachments = (req.files as Express.Multer.File[])?.map(f => ({
@@ -1777,12 +1780,17 @@ app.post('/api/email/send', upload.array('attachments'), async (req, res) => {
         const from = settings.fromEmail || 'onboarding@resend.dev';
         const fromName = settings.fromName || 'Simon Bot';
 
+        const headers: Record<string, string> = {};
+        if (inReplyTo) headers['In-Reply-To'] = inReplyTo;
+        if (references) headers['References'] = references;
+
         const { data, error } = await resend.emails.send({
             from: `${fromName} <${from}>`,
             to: [to],
             subject,
             html: body,
             reply_to: replyTo,
+            headers,
             attachments
         });
 

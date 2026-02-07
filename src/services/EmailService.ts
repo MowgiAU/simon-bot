@@ -12,6 +12,9 @@ export interface EmailMessage {
     category: 'inbox' | 'sent' | 'trash';
     read: boolean;
     notified?: boolean; // Internal flag for Discord alerts
+    messageId?: string;
+    inReplyTo?: string;
+    references?: string[];
     attachments?: Array<{
         filename: string;
         path: string;
