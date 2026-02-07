@@ -76,6 +76,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'supersecret',
   resave: false,
@@ -1673,11 +1674,15 @@ app.get('/api/email/attachment/:filename', (req, res) => {
 
 // Webhook for Cloudflare Email Workers
 app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
+    const start = Date.now();
+    logger.info(`[Email Webhook] Hit! Headers: ${JSON.stringify(req.headers['content-type'])} Length: ${req.headers['content-length']}`);
+    
     try {
         const settings = await emailService.getSettings();
         const token = req.headers['x-auth-token'];
         
         if (!settings.webhookSecret || token !== settings.webhookSecret) {
+             logger.warn(`[Email Webhook] Unauthorized attempt from ${req.ip}`);
              return res.status(401).json({ error: 'Unauthorized' });
         }
 
@@ -1697,9 +1702,15 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
              } catch {}
         }
 
-        if (!rawEmail) return res.status(400).json({ error: 'No email body found' });
+        if (!rawEmail) {
+            logger.error('[Email Webhook] No email body found in request');
+            return res.status(400).json({ error: 'No email body found' });
+        }
 
+        logger.info(`[Email Webhook] Parsing email... Size: ${rawEmail.length} bytes`);
         const parsed = await simpleParser(rawEmail);
+        logger.info(`[Email Webhook] Parsed: ${parsed.subject} from ${parsed.from?.text}`);
+
         const threadId = `live_${Date.now()}`;
         
         // Handle Attachments
