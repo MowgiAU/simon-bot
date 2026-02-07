@@ -92,3 +92,29 @@ ssh root@simon-bot-main "cd ~/new-simon && git pull && npm install && npm run bu
 *   **Dashboard Build Says "Killed"**: Out of memory. Enable swap (see Section 1).
 *   **Bot Offline**: Check logs with `pm2 logs bot-prod`.
 
+---
+
+## 5. Nginx Configuration (Vital for Emails)
+
+To receive large email attachments (up to 50MB), you must configure Nginx to allow large request bodies.
+
+1.  Edit your site config: `nano /etc/nginx/sites-available/default` (or your specific domain file).
+2.  Add `client_max_body_size 50M;` to the `server` block.
+
+**Example:**
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    # ALLOW LARGE UPLOADS FOR EMAILS
+    client_max_body_size 50M; 
+
+    location / {
+        proxy_pass http://localhost:3001;
+        # ... standard proxy headers ...
+    }
+}
+```
+3.  Reload Nginx: `systemctl reload nginx`
+
