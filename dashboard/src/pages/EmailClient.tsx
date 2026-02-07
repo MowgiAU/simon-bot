@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
-import { Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip } from 'lucide-react';
+import { Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, MoreHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Email {
     threadId: string;
@@ -13,6 +13,7 @@ interface Email {
     date: string;
     category: 'inbox' | 'sent' | 'trash';
     read: boolean;
+    attachments?: Array<{ filename: string; path: string; }>;
 }
 
 interface EmailSettings {
@@ -31,10 +32,14 @@ export const EmailClientPage: React.FC = () => {
     const [settings, setSettings] = useState<EmailSettings>({});
     const [loading, setLoading] = useState(false);
     const [replyMode, setReplyMode] = useState(false);
+    const [showQuoted, setShowQuoted] = useState(false);
     
     // Reply Form
     const [replyBody, setReplyBody] = useState('');
-    const [fromIdentity, setFromIdentity] = useState(''); // e.g. "Staff <staff@example.com>"
+    const [fromIdentity, setFromIdentity] = useState(''); 
+
+    // Processed body parts
+    const { mainBody, quotedBody } = useProcessedBody(selectedEmail?.body);
 
     useEffect(() => {
         if (view === 'settings') {
@@ -43,6 +48,12 @@ export const EmailClientPage: React.FC = () => {
             fetchEmails(view);
         }
     }, [view]);
+
+    // Reset quoted view when selection changes
+    useEffect(() => {
+        setShowQuoted(false);
+        setReplyMode(false);
+    }, [selectedEmail]);
 
     const fetchEmails = async (category: string) => {
         setLoading(true);
@@ -89,18 +100,13 @@ export const EmailClientPage: React.FC = () => {
     };
 
     const handleSend = async () => {
-        if (!selectedEmail && !replyMode) return; // Only reply implemented for now
+        if (!selectedEmail && !replyMode) return;
         
         try {
-            // Parse Identity
-            // Simplistic: "Name <email>" or just "email"
-            let name = settings.fromName;
-            let email = settings.fromEmail;
-            
-            // If user edited the identity string, try to parse it (Optional)
+            const email = settings.fromEmail;
             
             await axios.post('/api/email/send', {
-                to: selectedEmail ? selectedEmail.fromEmail : '', // Reply to sender
+                to: selectedEmail ? selectedEmail.fromEmail : '', 
                 subject: selectedEmail?.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail?.subject}`,
                 body: replyBody,
                 replyTo: email
@@ -109,7 +115,6 @@ export const EmailClientPage: React.FC = () => {
             alert('Sent!');
             setReplyMode(false);
             setReplyBody('');
-            fetchEmails(view); // Refresh to show in Sent? Actually we are in Inbox/Trash usually.
         } catch (e) {
             alert('Failed to send');
         }
@@ -126,85 +131,222 @@ export const EmailClientPage: React.FC = () => {
         }
     };
 
+    // --- Helpers ---
+
+    function useProcessedBody(html?: string) {
+        if (!html) return { mainBody: '', quotedBody: '' };
+        
+        // Simple heuristic for splitting quoted text
+        // 1. Look for <div class="gmail_quote">
+        const gmailQuoteIdx = html.indexOf('class="gmail_quote"');
+        if (gmailQuoteIdx !== -1) {
+            // Find the opening <div before it
+            const splitPoint = html.lastIndexOf('<div', gmailQuoteIdx);
+            if (splitPoint !== -1) {
+                return {
+                    mainBody: html.substring(0, splitPoint),
+                    quotedBody: html.substring(splitPoint)
+                };
+            }
+        }
+
+        // 2. Look for "On ... wrote:" pattern specific to many clients if gmail_quote not found
+        // This is harder in raw HTML without DOM parsing. 
+        // We often see <blockquote> tags.
+        const blockquoteIdx = html.indexOf('<blockquote');
+        if (blockquoteIdx !== -1) {
+             return {
+                mainBody: html.substring(0, blockquoteIdx),
+                quotedBody: html.substring(blockquoteIdx)
+            };
+        }
+
+        return { mainBody: html, quotedBody: '' };
+    }
+
     // --- Renders ---
 
     const renderFolder = () => (
-        <div style={{ display: 'flex', height: 'calc(100vh - 100px)' }}>
-            {/* List */}
-            <div style={{ width: '350px', borderRight: `1px solid ${colors.border}`, overflowY: 'auto' }}>
-                {emails.map(email => (
+        <div style={{ display: 'flex', height: 'calc(100vh - 100px)', backgroundColor: '#fff' }}>
+            {/* List - Light/Grey theme for list */}
+            <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, overflowY: 'auto', backgroundColor: '#f8f9fa' }}>
+                {emails.map(email => {
+                    const isSelected = selectedEmail?.threadId === email.threadId;
+                    return (
                     <div 
                         key={email.threadId}
                         onClick={() => handleSelectEmail(email)}
                         style={{
-                            padding: '16px',
-                            borderBottom: `1px solid ${colors.border}`,
-                            background: selectedEmail?.threadId === email.threadId ? colors.surface : 'transparent',
+                            padding: '12px 16px',
+                            borderBottom: `1px solid #e5e7eb`,
+                            background: isSelected ? '#e8f0fe' : (email.read ? '#fff' : '#f0f4f8'),
                             cursor: 'pointer',
-                            borderLeft: !email.read ? `3px solid ${colors.primary}` : '3px solid transparent'
+                            borderLeft: isSelected ? `4px solid ${colors.primary}` : (!email.read ? `4px solid ${colors.primary}` : '4px solid transparent'),
+                            transition: 'background 0.2s',
                         }}
                     >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span style={{ fontWeight: !email.read ? 700 : 400, color: 'white' }}>{email.from}</span>
-                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>{new Date(email.date).toLocaleDateString()}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
+                            <span style={{ fontWeight: !email.read ? 700 : 500, color: '#202124', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                                {email.from}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#5f6368', whiteSpace: 'nowrap' }}>
+                                {new Date(email.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
                         </div>
-                        <div style={{ fontWeight: !email.read ? 600 : 400, marginBottom: '4px', fontSize: '14px' }}>{email.subject}</div>
-                        <div style={{ fontSize: '13px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                             {email.body.replace(/<[^>]*>?/gm, '')}
+                        <div style={{ fontWeight: !email.read ? 700 : 400, marginBottom: '2px', fontSize: '13px', color: '#202124' }}>
+                            {email.subject || '(No Subject)'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#5f6368', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', height: '20px' }}>
+                             {email.body.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}
                         </div>
                     </div>
-                ))}
+                )})}
+                {emails.length === 0 && (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#5f6368', fontSize: '14px' }}>
+                        No emails in {view}
+                    </div>
+                )}
             </div>
             
-            {/* Detail */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Detail - Light Mode Reader */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff', overflow: 'hidden' }}>
                 {selectedEmail ? (
                     <>
-                        <div style={{ padding: '24px', borderBottom: `1px solid ${colors.border}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <h2>{selectedEmail.subject}</h2>
+                        {/* Email Header */}
+                        <div style={{ padding: '20px 24px', borderBottom: `1px solid #e5e7eb` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: '#202124', lineHeight: '1.2' }}>
+                                    {selectedEmail.subject}
+                                </h2>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={() => handleDelete(selectedEmail)} style={{ background: colors.error, border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: 'white' }}><Trash2 size={18} /></button>
+                                    <button 
+                                        onClick={() => handleDelete(selectedEmail)} 
+                                        title="Delete"
+                                        style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: '#5f6368', borderRadius: '50%' }}
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '14px' }}>
-                                <span><strong>From:</strong> {selectedEmail.from} &lt;{selectedEmail.fromEmail}&gt;</span>
-                                <span style={{ color: colors.textSecondary }}>{new Date(selectedEmail.date).toLocaleString()}</span>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {/* Avatar placeholder */}
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600 }}>
+                                    {selectedEmail.from.charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#202124' }}>{selectedEmail.from}</span>
+                                        <span style={{ fontSize: '12px', color: '#5f6368' }}>&lt;{selectedEmail.fromEmail}&gt;</span>
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#5f6368' }}>
+                                        to me <span style={{ margin: '0 4px' }}>•</span> {new Date(selectedEmail.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                             {/* Safe(ish) HTML Render */}
-                             <div dangerouslySetInnerHTML={{ __html: selectedEmail.body }} />
+                        {/* Email Body */}
+                        <div className="email-body-scroll" style={{ flex: 1, padding: '24px', overflowY: 'auto', color: '#222', fontSize: '14px', lineHeight: '1.5' }}>
+                             {/* Attachments */}
+                             {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                                     {selectedEmail.attachments.map((att, i) => (
+                                         <div key={i} style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f5f5', fontSize: '13px' }}>
+                                             <Paperclip size={14} />
+                                             <span style={{ fontWeight: 500 }}>{att.filename}</span>
+                                             {/* Download link logic would go here */}
+                                         </div>
+                                     ))}
+                                 </div>
+                             )}
+
+                             {/* Main Content */}
+                             <div 
+                                className="email-content-reset"
+                                dangerouslySetInnerHTML={{ __html: mainBody }} 
+                                style={{ paddingBottom: '16px' }}
+                             />
+                             
+                             {/* Quoted Content */}
+                             {quotedBody && (
+                                 <div style={{ marginTop: '16px' }}>
+                                     <button 
+                                        onClick={() => setShowQuoted(!showQuoted)}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: '1px solid #dadce0', borderRadius: '4px', background: '#f1f3f4', cursor: 'pointer', color: '#5f6368' }}
+                                        title={showQuoted ? "Hide trimmed content" : "Show trimmed content"}
+                                     >
+                                         <MoreHorizontal size={14} />
+                                     </button>
+                                     {showQuoted && (
+                                         <div 
+                                            className="email-content-reset gmail_quote_container"
+                                            style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }}
+                                            dangerouslySetInnerHTML={{ __html: quotedBody }} 
+                                         />
+                                     )}
+                                 </div>
+                             )}
+
+                             {/* CSS Reset Injection for Email Content */}
+                             <style>{`
+                                .email-content-reset a { color: #1a73e8; text-decoration: none; }
+                                .email-content-reset a:hover { text-decoration: underline; }
+                                .email-content-reset img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
+                                .email-content-reset p { margin: 0 0 12px 0; }
+                                .email-content-reset blockquote { margin-left: 0; padding-left: 12px; border-left: 1px solid #ccc; color: #666; }
+                                .email-body-scroll::-webkit-scrollbar { width: 8px; }
+                                .email-body-scroll::-webkit-scrollbar-track { background: transparent; }
+                                .email-body-scroll::-webkit-scrollbar-thumb { background-color: #dadce0; borderRadius: 4px; }
+                             `}</style>
                         </div>
 
                         {/* Reply Box */}
-                        <div style={{ padding: '24px', borderTop: `1px solid ${colors.border}`, background: colors.surface }}>
+                        <div style={{ padding: '16px 24px 24px', borderTop: `1px solid #e5e7eb`, background: '#fff' }}>
                             {replyMode ? (
-                                <div>
+                                <div style={{ border: '1px solid #dadce0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                                    <div style={{ padding: '8px 12px', background: '#f1f3f4', borderBottom: '1px solid #dadce0', display: 'flex', gap: '4px', fontSize: '13px', color: '#5f6368' }}>
+                                        <ArrowLeft size={14} /> <span>Replying to <strong>{selectedEmail.from}</strong></span>
+                                    </div>
                                     <textarea 
-                                        style={{ width: '100%', height: '150px', background: colors.background, color: 'white', padding: '12px', borderRadius: borderRadius.md, border: 'none', marginBottom: '12px' }}
-                                        placeholder="Write your reply..."
+                                        style={{ width: '100%', height: '150px', background: 'white', color: '#202124', padding: '12px', border: 'none', resize: 'none', outline: 'none', fontFamily: 'Arial, sans-serif' }}
+                                        autoFocus
                                         value={replyBody}
                                         onChange={e => setReplyBody(e.target.value)}
                                     />
-                                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                         <button onClick={() => setReplyMode(false)} style={{ background: 'transparent', color: colors.textSecondary, border: 'none', cursor: 'pointer' }}>Cancel</button>
-                                         <button onClick={handleSend} style={{ background: colors.primary, color: 'white', padding: '8px 16px', borderRadius: borderRadius.md, border: 'none', cursor: 'pointer', display: 'flex', gap: '8px' }}>
-                                             <Send size={16} /> Send
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', alignItems: 'center', background: '#fff' }}>
+                                         <button onClick={() => setReplyMode(false)} style={{ background: 'transparent', color: '#5f6368', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>Cancel</button>
+                                         <button onClick={handleSend} style={{ background: '#1a73e8', color: 'white', padding: '8px 24px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                             Send <Send size={14} /> 
                                          </button>
                                     </div>
                                 </div>
                             ) : (
-                                <button onClick={() => setReplyMode(true)} style={{ background: colors.secondary, color: 'white', padding: '8px 16px', borderRadius: borderRadius.md, border: 'none', cursor: 'pointer' }}>
-                                    Reply
+                                <button 
+                                    onClick={() => setReplyMode(true)} 
+                                    style={{ 
+                                        border: '1px solid #dadce0', 
+                                        borderRadius: '24px', 
+                                        background: '#fff', 
+                                        color: '#5f6368', 
+                                        padding: '10px 24px', 
+                                        cursor: 'pointer', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    <RefreshCw size={16} /> Reply
                                 </button>
                             )}
                         </div>
                     </>
                 ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: colors.textSecondary }}>
-                        Select an email to view
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#5f6368' }}>
+                        <Mail size={48} color="#dadce0" />
+                        <p style={{ marginTop: '16px', fontSize: '16px' }}>Select an email to read</p>
                     </div>
                 )}
             </div>
