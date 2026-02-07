@@ -1659,7 +1659,7 @@ app.post('/api/bot/identity', async (req, res) => {
 // ==========================================
 
 // Webhook for Cloudflare Email Workers
-app.post('/api/email/webhook', express.text({ type: '*/*' }), async (req, res) => {
+app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
     try {
         const settings = await emailService.getSettings();
         const token = req.headers['x-auth-token'];
