@@ -320,10 +320,23 @@ export const EmailClientPage: React.FC = () => {
                              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                                  <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
                                      {selectedEmail.attachments.map((att, i) => (
-                                         <div key={i} style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f5f5', fontSize: '13px' }}>
+                                         <a 
+                                            key={i} 
+                                            href={att.path ? `/api/email/attachment/${att.path}` : '#'} 
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ 
+                                                textDecoration: 'none', color: 'inherit',
+                                                border: '1px solid #e0e0e0', borderRadius: '4px', 
+                                                padding: '8px 12px', display: 'flex', alignItems: 'center', 
+                                                gap: '8px', background: '#f5f5f5', fontSize: '13px',
+                                                cursor: 'pointer'
+                                            }}
+                                            className='hover-bg'
+                                         >
                                              <Paperclip size={14} />
                                              <span style={{ fontWeight: 500 }}>{att.filename}</span>
-                                         </div>
+                                         </a>
                                      ))}
                                  </div>
                              )}

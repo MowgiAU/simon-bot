@@ -1658,6 +1658,19 @@ app.post('/api/bot/identity', async (req, res) => {
 // Email Client Plugin Routes
 // ==========================================
 
+// Serve Attachments
+app.get('/api/email/attachment/:filename', (req, res) => {
+    // Basic security: ensure no traversal
+    const filename = path.basename(req.params.filename);
+    const filepath = path.join(process.cwd(), 'data', 'attachments', filename);
+    
+    if (fs.existsSync(filepath)) {
+        res.download(filepath);
+    } else {
+        res.status(404).send('Not found');
+    }
+});
+
 // Webhook for Cloudflare Email Workers
 app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
     try {
@@ -1687,9 +1700,33 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
         if (!rawEmail) return res.status(400).json({ error: 'No email body found' });
 
         const parsed = await simpleParser(rawEmail);
+        const threadId = `live_${Date.now()}`;
         
+        // Handle Attachments
+        const attachmentsDir = path.join(process.cwd(), 'data', 'attachments');
+        if (!fs.existsSync(attachmentsDir)) {
+            fs.mkdirSync(attachmentsDir, { recursive: true });
+        }
+
+        const savedAttachments = [];
+        if (parsed.attachments && parsed.attachments.length > 0) {
+            for (const att of parsed.attachments) {
+                const safeName = (att.filename || 'attachment').replace(/[^a-z0-9.]/gi, '_');
+                const fileName = `${threadId}_${safeName}`;
+                const filePath = path.join(attachmentsDir, fileName);
+                
+                // Write buffer to disk
+                fs.writeFileSync(filePath, att.content);
+                
+                savedAttachments.push({
+                    filename: att.filename || 'attachment',
+                    path: fileName // Store just the filename, we serve from attachments dir
+                });
+            }
+        }
+
         const newEmail = {
-            threadId: `live_${Date.now()}`,
+            threadId,
             from: parsed.from?.text || 'Unknown',
             fromEmail: parsed.from?.value?.[0]?.address || 'unknown@example.com',
             toEmail: parsed.to && Array.isArray(parsed.to) ? parsed.to[0].text : (parsed.to as any)?.text || '',
@@ -1699,10 +1736,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
             category: 'inbox' as const,
             read: false,
             notified: false,
-            attachments: parsed.attachments?.map(a => ({
-                 filename: a.filename || 'attachment',
-                 path: '' 
-            }))
+            attachments: savedAttachments
         };
 
         await emailService.addEmail(newEmail);
