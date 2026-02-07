@@ -11,7 +11,7 @@ Ensure your server matches these requirements:
 *   **Node.js**: Version 20.x or higher
 *   **Database**: PostgreSQL 15+
 *   **Process Manager**: PM2
-*   **Web Server**: Nginx (Reverse Proxy)
+*   **Web Server**: Nginx (Reverse Proxy) - **Requires `client_max_body_size 50M;`** for email attachments.
 *   **Memory**: Min 1GB RAM + **4GB Swap File** (Crucial for building React)
 
 ### Setting up Swap (If < 2GB RAM)
