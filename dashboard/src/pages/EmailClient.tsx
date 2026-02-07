@@ -583,9 +583,9 @@ export const EmailClientPage: React.FC = () => {
                             <Trash2 size={16} />
                         </button>
                     </div>
+                    {/* Spacer to prevent cut-off */}
+                    <div style={{ height: '24px' }}></div>
                 </div>
-                {/* Spacer to prevent cut-off */}
-                <div style={{ height: '12px' }}></div>
             </div>
             )}
         </div>
