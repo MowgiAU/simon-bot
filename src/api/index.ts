@@ -75,7 +75,7 @@ app.use(cors({
   origin: process.env.DASHBOARD_ORIGIN || true,
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'supersecret',
   resave: false,

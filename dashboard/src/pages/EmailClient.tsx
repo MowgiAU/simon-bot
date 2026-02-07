@@ -33,6 +33,7 @@ export const EmailClientPage: React.FC = () => {
     const [currentThread, setCurrentThread] = useState<Email[]>([]); // New Thread State
     const [settings, setSettings] = useState<EmailSettings>({});
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     
     // Compose / Reply State
     const [composing, setComposing] = useState(false);
@@ -78,6 +79,7 @@ export const EmailClientPage: React.FC = () => {
 
     const fetchEmails = async (category: string) => {
         setLoading(true);
+        setRefreshing(true);
         try {
             const res = await axios.get(`/api/email/list/${category}`, { withCredentials: true });
             setEmails(res.data);
@@ -85,6 +87,7 @@ export const EmailClientPage: React.FC = () => {
             console.error(e);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
     
@@ -100,11 +103,14 @@ export const EmailClientPage: React.FC = () => {
     };
 
     const fetchSettings = async () => {
+        setRefreshing(true);
         try {
             const res = await axios.get('/api/email/settings', { withCredentials: true });
             setSettings(res.data);
         } catch (e) {
             console.error(e);
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -367,11 +373,15 @@ export const EmailClientPage: React.FC = () => {
                             background: 'transparent', border: '1px solid #e5e7eb',
                             borderRadius: '50%', width: '40px', height: '40px',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', color: '#5f6368'
+                            cursor: 'pointer', color: '#5f6368',
+                            transition: 'color .2s'
                         }}
                         title="Refresh"
                     >
-                        <RefreshCw size={20} />
+                        <RefreshCw size={20} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                        <style>{`
+                            @keyframes spin { 100% { transform: rotate(360deg); } }
+                        `}</style>
                     </button>
                 </div>
 
