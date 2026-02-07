@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import { colors, borderRadius } from '../theme/theme';
-import { Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, MoreHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { colors } from '../theme/theme';
+import { 
+    Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, 
+    MoreHorizontal, X, Plus, Bold, Italic, Underline, List, Link as LinkIcon 
+} from 'lucide-react';
 
 interface Email {
     threadId: string;
@@ -18,8 +21,6 @@ interface Email {
 
 interface EmailSettings {
     webhookSecret?: string;
-    channelId?: string;
-    roleId?: string;
     resendApiKey?: string;
     fromName?: string;
     fromEmail?: string;
@@ -31,28 +32,42 @@ export const EmailClientPage: React.FC = () => {
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [settings, setSettings] = useState<EmailSettings>({});
     const [loading, setLoading] = useState(false);
-    const [replyMode, setReplyMode] = useState(false);
-    const [showQuoted, setShowQuoted] = useState(false);
     
-    // Reply Form
-    const [replyBody, setReplyBody] = useState('');
-    const [fromIdentity, setFromIdentity] = useState(''); 
+    // Compose / Reply State
+    // If composing is true, we show the modal.
+    const [composing, setComposing] = useState(false);
+    const [composeData, setComposeData] = useState<{
+        to: string;
+        subject: string;
+        body: string;
+        attachments: File[];
+        replyToMsg?: Email; // If set, this is a reply
+    }>({ to: '', subject: '', body: '', attachments: [] });
 
-    // Processed body parts
+    // Helper for Reply Mode in the reading pane (quick reply)
+    // We will now redirect quick reply to the main Compose Modal for consistency/features,
+    // OR keep the quick reply simple. User asked for "new email compose ability" with formatting.
+    // Let's toggle the full composer even for replies to give them the features.
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Processed body parts for reading
     const { mainBody, quotedBody } = useProcessedBody(selectedEmail?.body);
+    const [showQuoted, setShowQuoted] = useState(false);
 
     useEffect(() => {
         if (view === 'settings') {
             fetchSettings();
         } else {
             fetchEmails(view);
+            // Poll for new emails every 30s
+            const interval = setInterval(() => fetchEmails(view), 30000);
+            return () => clearInterval(interval);
         }
     }, [view]);
 
-    // Reset quoted view when selection changes
     useEffect(() => {
         setShowQuoted(false);
-        setReplyMode(false);
     }, [selectedEmail]);
 
     const fetchEmails = async (category: string) => {
@@ -71,52 +86,69 @@ export const EmailClientPage: React.FC = () => {
         try {
             const res = await axios.get('/api/email/settings', { withCredentials: true });
             setSettings(res.data);
-            setFromIdentity(`${res.data.fromName || 'Simon Bot'} <${res.data.fromEmail || ''}>`);
         } catch (e) {
             console.error(e);
         }
     };
 
-    const saveSettings = async () => {
-        try {
-            await axios.post('/api/email/settings', settings, { withCredentials: true });
-            alert('Settings Saved');
-        } catch (e) {
-            alert('Error saving settings');
-        }
-    };
-
     const handleSelectEmail = async (email: Email) => {
         setSelectedEmail(email);
-        setReplyMode(false);
         if (!email.read && email.category === 'inbox') {
-            // Mark read
             try {
                 await axios.patch(`/api/email/${email.threadId}`, { updates: { read: true } }, { withCredentials: true });
-                // Update local
                 setEmails(prev => prev.map(e => e.threadId === email.threadId ? { ...e, read: true } : e));
             } catch (e) {}
         }
     };
 
+    // Prepare a reply
+    const startReply = () => {
+        if (!selectedEmail) return;
+        setComposeData({
+            to: selectedEmail.fromEmail,
+            subject: selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
+            body: '', // Start empty, maybe quote later
+            attachments: [],
+            replyToMsg: selectedEmail
+        });
+        setComposing(true);
+    };
+
+    // Prepare a new email
+    const startCompose = () => {
+        setComposeData({
+            to: '',
+            subject: '',
+            body: '',
+            attachments: []
+        });
+        setComposing(true);
+    };
+
     const handleSend = async () => {
-        if (!selectedEmail && !replyMode) return;
-        
         try {
-            const email = settings.fromEmail;
-            
-            await axios.post('/api/email/send', {
-                to: selectedEmail ? selectedEmail.fromEmail : '', 
-                subject: selectedEmail?.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail?.subject}`,
-                body: replyBody,
-                replyTo: email
-            }, { withCredentials: true });
+            const formData = new FormData();
+            formData.append('to', composeData.to);
+            formData.append('subject', composeData.subject);
+            formData.append('body', composeData.body); // Currently HTML from contentEditable
+            if (settings.fromEmail) formData.append('replyTo', settings.fromEmail);
+
+            composeData.attachments.forEach(file => {
+                formData.append('attachments', file);
+            });
+
+            await axios.post('/api/email/send', formData, { 
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             
             alert('Sent!');
-            setReplyMode(false);
-            setReplyBody('');
+            setComposing(false);
+            setComposeData({ to: '', subject: '', body: '', attachments: [] });
+            fetchEmails(view);
         } catch (e) {
             alert('Failed to send');
+            console.error(e);
         }
     };
 
@@ -131,45 +163,92 @@ export const EmailClientPage: React.FC = () => {
         }
     };
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setComposeData(prev => ({
+                ...prev,
+                attachments: [...prev.attachments, ...Array.from(e.target.files!)]
+            }));
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setComposeData(prev => ({
+            ...prev,
+            attachments: prev.attachments.filter((_, i) => i !== index)
+        }));
+    };
+
     // --- Helpers ---
 
     function useProcessedBody(html?: string) {
         if (!html) return { mainBody: '', quotedBody: '' };
-        
-        // Simple heuristic for splitting quoted text
-        // 1. Look for <div class="gmail_quote">
         const gmailQuoteIdx = html.indexOf('class="gmail_quote"');
         if (gmailQuoteIdx !== -1) {
-            // Find the opening <div before it
             const splitPoint = html.lastIndexOf('<div', gmailQuoteIdx);
             if (splitPoint !== -1) {
-                return {
-                    mainBody: html.substring(0, splitPoint),
-                    quotedBody: html.substring(splitPoint)
-                };
+                return { mainBody: html.substring(0, splitPoint), quotedBody: html.substring(splitPoint) };
             }
         }
-
-        // 2. Look for "On ... wrote:" pattern specific to many clients if gmail_quote not found
-        // This is harder in raw HTML without DOM parsing. 
-        // We often see <blockquote> tags.
         const blockquoteIdx = html.indexOf('<blockquote');
         if (blockquoteIdx !== -1) {
-             return {
-                mainBody: html.substring(0, blockquoteIdx),
-                quotedBody: html.substring(blockquoteIdx)
-            };
+             return { mainBody: html.substring(0, blockquoteIdx), quotedBody: html.substring(blockquoteIdx) };
         }
-
         return { mainBody: html, quotedBody: '' };
     }
 
+    // --- Editor Component (Simple) ---
+    const EditorToolbar = () => {
+        const cmd = (c: string, v?: string) => {
+            document.execCommand(c, false, v);
+            // Focus callback handled by browser usually
+        };
+        return (
+            <div style={{ display: 'flex', gap: '4px', padding: '8px', background: '#f0f2f5', borderBottom: '1px solid #ddd' }}>
+                <ToolbarBtn onClick={() => cmd('bold')} icon={<Bold size={16}/>} />
+                <ToolbarBtn onClick={() => cmd('italic')} icon={<Italic size={16}/>} />
+                <ToolbarBtn onClick={() => cmd('underline')} icon={<Underline size={16}/>} />
+                <div style={{ width: 1, background: '#ccc', margin: '0 4px' }} />
+                <ToolbarBtn onClick={() => cmd('insertUnorderedList')} icon={<List size={16}/>} />
+                {/* <ToolbarBtn onClick={() => {
+                    const url = prompt('URL:');
+                    if(url) cmd('createLink', url);
+                }} icon={<LinkIcon size={16}/>} /> */}
+            </div>
+        );
+    };
+
+    const ToolbarBtn = ({ onClick, icon }: any) => (
+        <button onMouseDown={(e) => { e.preventDefault(); onClick(); }} style={{ background: 'none', border: 'none', padding: '6px', cursor: 'pointer', borderRadius: '4px', color: '#444' }} className='hover-bg'>
+            {icon}
+        </button>
+    );
+
     // --- Renders ---
 
-    const renderFolder = () => (
-        <div style={{ display: 'flex', height: 'calc(100vh - 100px)', backgroundColor: '#fff' }}>
-            {/* List - Light/Grey theme for list */}
-            <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, overflowY: 'auto', backgroundColor: '#f8f9fa' }}>
+    return (
+        <div style={{ display: 'flex', height: 'calc(100vh - 100px)', backgroundColor: '#fff', position: 'relative' }}>
+            
+            {/* Sidebar / List */}
+            <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }}>
+                {/* Compose Button Area */}
+                <div style={{ padding: '16px' }}>
+                    <button 
+                        onClick={startCompose}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: '12px', 
+                            background: '#c2e7ff', color: '#001d35', 
+                            border: 'none', padding: '16px 24px', 
+                            borderRadius: '16px', fontSize: '16px', fontWeight: 600, 
+                            cursor: 'pointer', width: 'fit-content',
+                            transition: 'box-shadow .2s'
+                        }}
+                    >
+                        <Plus size={24} /> Compose
+                    </button>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
                 {emails.map(email => {
                     const isSelected = selectedEmail?.threadId === email.threadId;
                     return (
@@ -179,10 +258,9 @@ export const EmailClientPage: React.FC = () => {
                         style={{
                             padding: '12px 16px',
                             borderBottom: `1px solid #e5e7eb`,
-                            background: isSelected ? '#e8f0fe' : (email.read ? '#fff' : '#f0f4f8'),
+                            background: isSelected ? '#e8f0fe' : (email.read ? 'transparent' : '#fff'),
                             cursor: 'pointer',
                             borderLeft: isSelected ? `4px solid ${colors.primary}` : (!email.read ? `4px solid ${colors.primary}` : '4px solid transparent'),
-                            transition: 'background 0.2s',
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
@@ -201,36 +279,27 @@ export const EmailClientPage: React.FC = () => {
                         </div>
                     </div>
                 )})}
-                {emails.length === 0 && (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#5f6368', fontSize: '14px' }}>
-                        No emails in {view}
-                    </div>
-                )}
+                </div>
             </div>
             
-            {/* Detail - Light Mode Reader */}
+            {/* Detail View */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff', overflow: 'hidden' }}>
                 {selectedEmail ? (
                     <>
-                        {/* Email Header */}
+                        {/* Header */}
                         <div style={{ padding: '20px 24px', borderBottom: `1px solid #e5e7eb` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                 <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: '#202124', lineHeight: '1.2' }}>
                                     {selectedEmail.subject}
                                 </h2>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button 
-                                        onClick={() => handleDelete(selectedEmail)} 
-                                        title="Delete"
-                                        style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: '#5f6368', borderRadius: '50%' }}
-                                    >
+                                    <button onClick={() => handleDelete(selectedEmail)} title="Delete" style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: '#5f6368' }}>
                                         <Trash2 size={20} />
                                     </button>
                                 </div>
                             </div>
                             
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                {/* Avatar placeholder */}
                                 <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600 }}>
                                     {selectedEmail.from.charAt(0).toUpperCase()}
                                 </div>
@@ -246,110 +315,153 @@ export const EmailClientPage: React.FC = () => {
                             </div>
                         </div>
                         
-                        {/* Email Body */}
-                        <div className="email-body-scroll" style={{ flex: 1, padding: '24px', overflowY: 'auto', color: '#222', fontSize: '14px', lineHeight: '1.5' }}>
-                             {/* Attachments */}
+                        {/* Body - Added Padding Bottom */}
+                        <div className="email-body-scroll" style={{ flex: 1, padding: '24px', paddingBottom: '100px', overflowY: 'auto', color: '#222', fontSize: '14px', lineHeight: '1.5' }}>
                              {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                                  <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
                                      {selectedEmail.attachments.map((att, i) => (
                                          <div key={i} style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f5f5', fontSize: '13px' }}>
                                              <Paperclip size={14} />
                                              <span style={{ fontWeight: 500 }}>{att.filename}</span>
-                                             {/* Download link logic would go here */}
                                          </div>
                                      ))}
                                  </div>
                              )}
 
-                             {/* Main Content */}
-                             <div 
-                                className="email-content-reset"
-                                dangerouslySetInnerHTML={{ __html: mainBody }} 
-                                style={{ paddingBottom: '16px' }}
-                             />
+                             <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: mainBody }} />
                              
-                             {/* Quoted Content */}
                              {quotedBody && (
                                  <div style={{ marginTop: '16px' }}>
                                      <button 
                                         onClick={() => setShowQuoted(!showQuoted)}
                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: '1px solid #dadce0', borderRadius: '4px', background: '#f1f3f4', cursor: 'pointer', color: '#5f6368' }}
-                                        title={showQuoted ? "Hide trimmed content" : "Show trimmed content"}
                                      >
                                          <MoreHorizontal size={14} />
                                      </button>
                                      {showQuoted && (
-                                         <div 
-                                            className="email-content-reset gmail_quote_container"
-                                            style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }}
-                                            dangerouslySetInnerHTML={{ __html: quotedBody }} 
-                                         />
+                                         <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
                                      )}
                                  </div>
                              )}
 
-                             {/* CSS Reset Injection for Email Content */}
                              <style>{`
                                 .email-content-reset a { color: #1a73e8; text-decoration: none; }
-                                .email-content-reset a:hover { text-decoration: underline; }
                                 .email-content-reset img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
                                 .email-content-reset p { margin: 0 0 12px 0; }
                                 .email-content-reset blockquote { margin-left: 0; padding-left: 12px; border-left: 1px solid #ccc; color: #666; }
                                 .email-body-scroll::-webkit-scrollbar { width: 8px; }
-                                .email-body-scroll::-webkit-scrollbar-track { background: transparent; }
                                 .email-body-scroll::-webkit-scrollbar-thumb { background-color: #dadce0; borderRadius: 4px; }
+                                .hover-bg:hover { background: #e0e0e0 !important; }
                              `}</style>
                         </div>
-
-                        {/* Reply Box */}
-                        <div style={{ padding: '16px 24px 24px', borderTop: `1px solid #e5e7eb`, background: '#fff' }}>
-                            {replyMode ? (
-                                <div style={{ border: '1px solid #dadce0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                                    <div style={{ padding: '8px 12px', background: '#f1f3f4', borderBottom: '1px solid #dadce0', display: 'flex', gap: '4px', fontSize: '13px', color: '#5f6368' }}>
-                                        <ArrowLeft size={14} /> <span>Replying to <strong>{selectedEmail.from}</strong></span>
-                                    </div>
-                                    <textarea 
-                                        style={{ width: '100%', height: '150px', background: 'white', color: '#202124', padding: '12px', border: 'none', resize: 'none', outline: 'none', fontFamily: 'Arial, sans-serif' }}
-                                        autoFocus
-                                        value={replyBody}
-                                        onChange={e => setReplyBody(e.target.value)}
-                                    />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', alignItems: 'center', background: '#fff' }}>
-                                         <button onClick={() => setReplyMode(false)} style={{ background: 'transparent', color: '#5f6368', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>Cancel</button>
-                                         <button onClick={handleSend} style={{ background: '#1a73e8', color: 'white', padding: '8px 24px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500, display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                             Send <Send size={14} /> 
-                                         </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <button 
-                                    onClick={() => setReplyMode(true)} 
-                                    style={{ 
-                                        border: '1px solid #dadce0', 
-                                        borderRadius: '24px', 
-                                        background: '#fff', 
-                                        color: '#5f6368', 
-                                        padding: '10px 24px', 
-                                        cursor: 'pointer', 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: 500
-                                    }}
-                                >
-                                    <RefreshCw size={16} /> Reply
-                                </button>
-                            )}
+                        
+                        {/* Quick Reply Button (if not composing) */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid #eee' }}>
+                            <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: '1px solid #dadce0', background: '#fff', color: '#5f6368', cursor: 'pointer', fontWeight: 500 }}>
+                                <RefreshCw size={16} /> Reply
+                            </button>
                         </div>
                     </>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#5f6368' }}>
                         <Mail size={48} color="#dadce0" />
-                        <p style={{ marginTop: '16px', fontSize: '16px' }}>Select an email to read</p>
+                        <p style={{ marginTop: '16px' }}>Select an email to read</p>
                     </div>
                 )}
             </div>
+
+            {/* Compose Modal */}
+            {composing && (
+                <div style={{ 
+                    position: 'absolute', bottom: 0, right: '24px', 
+                    width: '600px', height: '600px', 
+                    background: '#fff', borderRadius: '8px 8px 0 0', 
+                    boxShadow: '0 0 16px rgba(0,0,0,0.15)', 
+                    display: 'flex', flexDirection: 'column',
+                    zIndex: 100, border: '1px solid #d3d3d3'
+                }}>
+                    {/* Header */}
+                    <div style={{ background: '#404040', color: '#fff', padding: '10px 16px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={16} /></button>
+                        </div>
+                    </div>
+                    
+                    {/* Fields */}
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                        <input 
+                            placeholder="To" 
+                            value={composeData.to}
+                            onChange={e => setComposeData({...composeData, to: e.target.value})}
+                            style={{ padding: '8px 16px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                        />
+                        <input 
+                            placeholder="Subject" 
+                            value={composeData.subject}
+                            onChange={e => setComposeData({...composeData, subject: e.target.value})}
+                            style={{ padding: '8px 16px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                        />
+                        
+                        {/* Attachments List */}
+                        {composeData.attachments.length > 0 && (
+                            <div style={{ padding: '8px 16px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: '#f8f9fa' }}>
+                                {composeData.attachments.map((f, i) => (
+                                    <div key={i} style={{ background: '#fff', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}><X size={12}/></button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Toolbar + Editor */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <EditorToolbar />
+                            <div 
+                                contentEditable
+                                onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
+                                style={{ flex: 1, padding: '16px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif' }}
+                                data-placeholder="Message body..."
+                            />
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                                onClick={handleSend}
+                                style={{ 
+                                    background: '#0b57d0', color: '#fff', 
+                                    border: 'none', padding: '8px 24px', 
+                                    borderRadius: '18px', fontWeight: 600, 
+                                    cursor: 'pointer', fontSize: '14px' 
+                                }}
+                            >
+                                Send
+                            </button>
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', padding: '8px' }}
+                                title="Attach files"
+                                className='hover-bg'
+                            >
+                                <Paperclip size={20} />
+                            </button>
+                            <input 
+                                type="file" 
+                                multiple 
+                                ref={fileInputRef} 
+                                style={{ display: 'none' }} 
+                                onChange={handleFileSelect}
+                            />
+                        </div>
+                        <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5f6368' }}>
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
