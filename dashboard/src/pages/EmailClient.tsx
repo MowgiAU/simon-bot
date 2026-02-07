@@ -345,7 +345,7 @@ export const EmailClientPage: React.FC = () => {
             {/* Sidebar / List */}
             <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }}>
                 {/* Compose Button Area */}
-                <div style={{ padding: '16px' }}>
+                <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <button 
                         onClick={startCompose}
                         style={{ 
@@ -358,6 +358,19 @@ export const EmailClientPage: React.FC = () => {
                         }}
                     >
                         <Plus size={24} /> Compose
+                    </button>
+                    
+                    <button 
+                        onClick={() => view === 'settings' ? fetchSettings() : fetchEmails(view)}
+                        style={{ 
+                            background: 'transparent', border: '1px solid #e5e7eb',
+                            borderRadius: '50%', width: '40px', height: '40px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color: '#5f6368'
+                        }}
+                        title="Refresh"
+                    >
+                        <RefreshCw size={20} />
                     </button>
                 </div>
 
