@@ -71,10 +71,15 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
         setLoadingMessages(true);
         try {
             const res = await axios.get(`/api/tickets/${ticketId}/messages`, { withCredentials: true });
-            setMessages(res.data);
-            scrollToBottom();
+            if (Array.isArray(res.data)) {
+                setMessages(res.data);
+                scrollToBottom();
+            } else {
+                setMessages([]);
+            }
         } catch (e) {
             console.error('Failed to fetch messages', e);
+            setMessages([]);
         } finally {
             setLoadingMessages(false);
         }
