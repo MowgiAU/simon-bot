@@ -89,6 +89,20 @@ export class TicketPlugin implements IPlugin {
                 sub.setName('remove')
                 .setDescription('Remove a user from the ticket')
                 .addUserOption(opt => opt.setName('user').setDescription('User to remove').setRequired(true))
+            )
+            .addSubcommand(sub => 
+                sub.setName('priority')
+                .setDescription('Set the priority of the ticket')
+                .addStringOption(opt => 
+                    opt.setName('level')
+                    .setDescription('Priority level')
+                    .setRequired(true)
+                    .addChoices(
+                        { name: 'Low', value: 'low' },
+                        { name: 'Medium', value: 'medium' },
+                        { name: 'High', value: 'high' }
+                    )
+                )
             );
 
         return [ticketCommand];
@@ -116,6 +130,8 @@ export class TicketPlugin implements IPlugin {
                 await this.handleAddUser(interaction);
             } else if (subcommand === 'remove') {
                 await this.handleRemoveUser(interaction);
+            } else if (subcommand === 'priority') {
+                await this.handlePriority(interaction);
             }
         } 
         else if (interaction.isButton()) {
@@ -401,6 +417,57 @@ export class TicketPlugin implements IPlugin {
 
         await channel.permissionOverwrites.delete(user);
         await interaction.reply(`Removed ${user} from the ticket.`);
+    }
+
+    private async handlePriority(interaction: ChatInputCommandInteraction) {
+        const ticket = await this.db.ticket.findUnique({
+            where: { channelId: interaction.channelId }
+        });
+
+        if (!ticket || ticket.status !== 'open') {
+            await interaction.reply({ content: 'This is not an open ticket channel.', ephemeral: true });
+            return;
+        }
+
+        const level = interaction.options.getString('level', true);
+        
+        // Map level to emoji
+        const emojis: Record<string, string> = {
+            'low': '🟢',
+            'medium': '🟡',
+            'high': '🔴'
+        };
+
+        const emoji = emojis[level] || '🟢';
+
+        // Update DB
+        await this.db.ticket.update({
+            where: { id: ticket.id },
+            data: { priority: level }
+        });
+
+        // Rename channel
+        // 1. Remove existing emoji prefix if any
+        const channel = interaction.channel as TextChannel;
+        let newName = channel.name;
+        
+        // Regex to remove existing circle emojis at start
+        newName = newName.replace(/^[🟢🟡🔴]-?/, '');
+
+        // 2. Prepend new emoji
+        newName = `${emoji}-${newName}`;
+
+        try {
+            await channel.setName(newName);
+            await interaction.reply({ 
+                content: `Priority set to **${level.toUpperCase()}** ${emoji}` 
+            });
+        } catch (error) {
+            await interaction.reply({ 
+                content: `Priority updated to **${level.toUpperCase()}** ${emoji}, but failed to rename channel (rate limit?).`,
+                ephemeral: true 
+            });
+        }
     }
 
     async shutdown(): Promise<void> {

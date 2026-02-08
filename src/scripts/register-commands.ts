@@ -85,6 +85,20 @@ const commands = [
             .setDescription('Remove a user from the ticket')
             .addUserOption(opt => opt.setName('user').setDescription('User to remove').setRequired(true))
         )
+        .addSubcommand(sub => 
+            sub.setName('priority')
+            .setDescription('Set the priority of the ticket')
+            .addStringOption(opt => 
+                opt.setName('level')
+                .setDescription('Priority level')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Low', value: 'low' },
+                    { name: 'Medium', value: 'medium' },
+                    { name: 'High', value: 'high' }
+                )
+            )
+        )
         .toJSON()
   ];
 
