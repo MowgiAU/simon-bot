@@ -1947,15 +1947,48 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
     }
 
     // If closing, we logic to close the ticket in the dashboard as well
-    if (status === 'closed' && ticket.channelId) {
-        try {
-            await axios.delete(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-            });
-        } catch (e: any) {
-            // Ignore if already deleted
-            if (e.response?.status !== 404) {
-                logger.error(`Failed to delete channel for ticket ${ticketId}`, e);
+    if (status === 'closed' && ticket.status !== 'closed') {
+        // 1. Archive Messages from Discord First
+        if (ticket.channelId) {
+            try {
+                // Fetch messages from Discord (Limit 100 for now, basic archival)
+                const messagesRes = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=100`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+
+                const discordMessages = messagesRes.data.reverse(); // Chronological
+
+                // Save to DB
+                const messageData = discordMessages.map((m: any) => ({
+                    ticketId: ticket.id,
+                    authorId: m.author.id,
+                    authorName: m.author.username,
+                    content: m.content || '',
+                    attachments: m.attachments.length > 0 ? JSON.stringify(m.attachments.map((a: any) => a.url)) : null,
+                    createdAt: new Date(m.timestamp)
+                }));
+
+                if (messageData.length > 0) {
+                     await db.ticketMessage.createMany({
+                         data: messageData
+                     });
+                }
+            } catch (e: any) {
+                if (e.response?.status !== 404 && e.response?.status !== 403) {
+                     logger.error(`Failed to archive messages for ticket ${ticketId}`, e);
+                }
+            }
+
+            // 2. Delete Channel
+            try {
+                await axios.delete(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+            } catch (e: any) {
+                // Ignore if already deleted
+                if (e.response?.status !== 404) {
+                    logger.error(`Failed to delete channel for ticket ${ticketId}`, e);
+                }
             }
         }
     }
