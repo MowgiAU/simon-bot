@@ -5,6 +5,7 @@ import {
     Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, 
     MoreHorizontal, X, Plus, Bold, Italic, Underline, List, Link as LinkIcon 
 } from 'lucide-react';
+import { useMobile } from '../hooks/useMobile';
 
 interface Email {
     threadId: string;
@@ -31,6 +32,7 @@ interface EmailSettings {
 }
 
 export const EmailClientPage: React.FC = () => {
+    const isMobile = useMobile();
     const [view, setView] = useState<'inbox' | 'sent' | 'trash' | 'settings'>('inbox');
     const [emails, setEmails] = useState<Email[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
@@ -377,7 +379,13 @@ export const EmailClientPage: React.FC = () => {
         <div style={{ display: 'flex', height: '100%', backgroundColor: colors.surface, position: 'relative' }}>
             
             {/* Sidebar / List */}
-            <div style={{ width: '350px', borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', backgroundColor: colors.surface }}>
+            <div style={{ 
+                width: isMobile ? '100%' : '350px', 
+                borderRight: `1px solid ${colors.border}`, 
+                display: isMobile && selectedEmail ? 'none' : 'flex', 
+                flexDirection: 'column', 
+                backgroundColor: colors.surface 
+            }}>
                 {/* Compose Button Area */}
                 <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     
@@ -435,16 +443,32 @@ export const EmailClientPage: React.FC = () => {
             </div>
             
             {/* Detail View (Thread) */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: colors.surface, overflow: 'hidden' }}>
+            <div style={{ 
+                flex: 1, 
+                display: isMobile && !selectedEmail ? 'none' : 'flex', 
+                flexDirection: 'column', 
+                backgroundColor: colors.surface, 
+                overflow: 'hidden' 
+            }}>
                 {selectedEmail ? (
                     <>
                         {/* Header */}
-                        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: colors.textPrimary, lineHeight: '1.2' }}>
-                                    {selectedEmail.subject}
-                                </h2>
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ padding: isMobile ? '12px' : '20px 24px', borderBottom: `1px solid ${colors.border}` }}>
+                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-start', marginBottom: '8px', gap: isMobile ? '12px' : '0' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
+                                    {isMobile && (
+                                        <button 
+                                            onClick={() => setSelectedEmail(null)}
+                                            style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', color: colors.textPrimary }}
+                                        >
+                                            <ArrowLeft size={24} />
+                                        </button>
+                                    )}
+                                    <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: 400, color: colors.textPrimary, lineHeight: '1.2', wordBreak: 'break-word', flex: 1 }}>
+                                        {selectedEmail.subject}
+                                    </h2>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', alignSelf: isMobile ? 'flex-end' : 'auto' }}>
                                     <button onClick={() => handleDelete(selectedEmail)} title="Delete" style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: colors.textSecondary }}>
                                         <Trash2 size={20} />
                                     </button>
@@ -619,7 +643,7 @@ export const EmailClientPage: React.FC = () => {
                 />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Default From Name</label>
                     <input 
@@ -638,7 +662,7 @@ export const EmailClientPage: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Discord Channel ID (Alerts)</label>
                     <input 
@@ -667,7 +691,7 @@ export const EmailClientPage: React.FC = () => {
     return (
         <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
              {/* Header */}
-            <div style={{ display: 'flex', marginBottom: '24px', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', marginBottom: '24px', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <Mail size={32} color={colors.primary} />
                     <div>
@@ -675,11 +699,11 @@ export const EmailClientPage: React.FC = () => {
                         <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage emails directly from the dashboard.</p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px', alignItems: isMobile ? 'stretch' : 'center', width: isMobile ? '100%' : 'auto' }}>
                      <button 
                         onClick={() => setComposing(true)}
                         style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                             padding: '8px 20px', borderRadius: '8px', border: 'none',
                             background: colors.primary, color: '#fff',
                             cursor: 'pointer', fontWeight: 600, fontSize: '14px',
@@ -688,7 +712,7 @@ export const EmailClientPage: React.FC = () => {
                     >
                         <Plus size={18} /> New Email
                     </button>
-                    <div style={{ display: 'flex', gap: '4px', background: colors.surface, padding: '4px', borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+                    <div style={{ display: 'flex', gap: '4px', background: colors.surface, padding: '4px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflowX: isMobile ? 'auto' : 'visible' }}>
                         {(['inbox', 'sent', 'trash', 'settings'] as const).map(v => (
                             <button
                                 key={v}
@@ -702,7 +726,10 @@ export const EmailClientPage: React.FC = () => {
                                     cursor: 'pointer',
                                     textTransform: 'capitalize',
                                     display: 'flex', alignItems: 'center', gap: '6px',
-                                    transition: 'all 0.2s'
+                                    transition: 'all 0.2s',
+                                    whiteSpace: 'nowrap',
+                                    flex: isMobile ? 1 : 'none',
+                                    justifyContent: 'center'
                                 }}
                             >
                                 {v === 'inbox' && <Mail size={14} />}

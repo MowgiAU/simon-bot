@@ -3,8 +3,9 @@ import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { 
     Ticket, MessageSquare, Send, CheckCircle, XCircle, AlertTriangle, 
-    MoreHorizontal, RefreshCw, Filter, User
+    MoreHorizontal, RefreshCw, Filter, User, ArrowLeft 
 } from 'lucide-react';
+import { useMobile } from '../hooks/useMobile';
 
 interface TicketData {
     id: string;
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
+    const isMobile = useMobile();
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
     const [messages, setMessages] = useState<DiscordMessage[]>([]);
@@ -189,7 +191,14 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
                 overflow: 'hidden'
             }}>
                 {/* Sidebar List */}
-                <div style={{ width: '320px', background: colors.background, borderRight: `1px solid ${colors.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ 
+                    width: isMobile ? '100%' : '320px', 
+                    background: colors.background, 
+                    borderRight: isMobile ? 'none' : `1px solid ${colors.border}`, 
+                    overflowY: 'auto', 
+                    display: isMobile && selectedTicket ? 'none' : 'flex', 
+                    flexDirection: 'column' 
+                }}>
                         {filteredTickets.length === 0 && (
                             <div style={{ padding: '32px', textAlign: 'center', color: colors.textSecondary }}>
                                 <MessageSquare size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
@@ -238,11 +247,32 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
                     {selectedTicket ? (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: colors.surface }}>
                             {/* Ticket Toolbar */}
-                            <div style={{ padding: '16px 32px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: colors.surface }}>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: colors.textPrimary }}>Ticket #{selectedTicket.id}</h3>
-                                    <div style={{ fontSize: '13px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                        <User size={14} /> Owner: {selectedTicket.ownerId}
+                            <div style={{ 
+                                padding: isMobile ? '12px' : '16px 32px', 
+                                borderBottom: `1px solid ${colors.border}`, 
+                                display: 'flex', 
+                                flexDirection: isMobile ? 'column' : 'row',
+                                gap: isMobile ? '12px' : '0', 
+                                justifyContent: 'space-between', 
+                                alignItems: isMobile ? 'stretch' : 'center', 
+                                background: colors.surface 
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    {isMobile && (
+                                        <button 
+                                            onClick={() => setSelectedTicket(null)} 
+                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: colors.textPrimary }}
+                                        >
+                                            <ArrowLeft size={24} />
+                                        </button>
+                                    )}
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: colors.textPrimary }}>
+                                            Ticket #{isMobile ? selectedTicket.id.slice(0, 8) + '...' : selectedTicket.id}
+                                        </h3>
+                                        <div style={{ fontSize: '13px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                            <User size={14} /> Owner: {isMobile && selectedTicket.ownerId.length > 10 ? selectedTicket.ownerId.slice(0, 10) + '...' : selectedTicket.ownerId}
+                                        </div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -363,7 +393,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
                             )}
                         </div>
                     ) : (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: colors.textSecondary, background: colors.background }}>
+                        <div style={{ flex: 1, display: isMobile ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: colors.textSecondary, background: colors.background }}>
                             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: colors.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
                                 <MessageSquare size={40} style={{ opacity: 0.4 }} />
                             </div>
