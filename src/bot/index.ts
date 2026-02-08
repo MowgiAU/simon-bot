@@ -590,6 +590,27 @@ export class SimonBot {
 
     commands.push(setupWelcomeCommand.toJSON());
 
+    // 5. Load commands from plugins
+    const plugins = this.pluginManager.getEnabled();
+    for (const plugin of plugins) {
+        // Check if plugin has registerCommands method
+        const p = plugin as any;
+        if (typeof p.registerCommands === 'function') {
+            try {
+                this.logger.info(`Loading commands from plugin: ${plugin.id}`);
+                const pluginCommands = await p.registerCommands();
+                for (const cmd of pluginCommands) {
+                    // Start of Selection
+                    const cmdJson = typeof cmd.toJSON === 'function' ? cmd.toJSON() : cmd;
+                    commands.push(cmdJson);
+                    // End of Selection
+                }
+            } catch (error) {
+                this.logger.error(`Failed to load commands from plugin ${plugin.id}`, error);
+            }
+        }
+    }
+
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
     const guildId = targetGuildId || process.env.GUILD_ID;
 

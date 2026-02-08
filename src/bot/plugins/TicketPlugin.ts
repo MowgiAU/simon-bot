@@ -57,9 +57,19 @@ export class TicketPlugin implements IPlugin {
             .setDescription('Manage the ticket system')
             .addSubcommand(sub => 
                 sub.setName('setup')
-                .setDescription('Configure ticket system')
+                .setDescription('Configure ticket system category')
                 .addChannelOption(opt => opt.setName('category').setDescription('Category to create tickets in').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
-                .addRoleOption(opt => opt.setName('role').setDescription('Staff role to manage tickets').setRequired(true))
+                .addRoleOption(opt => opt.setName('initial_role').setDescription('Initial staff role (optional)').setRequired(false))
+            )
+            .addSubcommand(sub =>
+                sub.setName('staff-add')
+                .setDescription('Add a staff role to tickets')
+                .addRoleOption(opt => opt.setName('role').setDescription('Role to add').setRequired(true))
+            )
+            .addSubcommand(sub =>
+                sub.setName('staff-remove')
+                .setDescription('Remove a staff role from tickets')
+                .addRoleOption(opt => opt.setName('role').setDescription('Role to remove').setRequired(true))
             )
             .addSubcommand(sub =>
                 sub.setName('panel')
@@ -94,6 +104,10 @@ export class TicketPlugin implements IPlugin {
             
             if (subcommand === 'setup') {
                 await this.handleSetup(interaction);
+            } else if (subcommand === 'staff-add') {
+                await this.handleStaffAdd(interaction);
+            } else if (subcommand === 'staff-remove') {
+                await this.handleStaffRemove(interaction);
             } else if (subcommand === 'panel') {
                 await this.handlePanel(interaction);
             } else if (subcommand === 'close') {
@@ -121,23 +135,73 @@ export class TicketPlugin implements IPlugin {
         }
 
         const category = interaction.options.getChannel('category', true);
-        const role = interaction.options.getRole('role', true);
+        const initialRole = interaction.options.getRole('initial_role');
         const guildId = interaction.guildId!;
+
+        const initialRoleIds = initialRole ? [initialRole.id] : [];
 
         await this.db.ticketSettings.upsert({
             where: { guildId },
             create: {
                 guildId,
                 ticketCategoryId: category.id,
-                staffRoleId: role.id
+                staffRoleIds: initialRoleIds
             },
             update: {
                 ticketCategoryId: category.id,
-                staffRoleId: role.id
+                ...(initialRole ? { staffRoleIds: initialRoleIds } : {})
             }
         });
 
-        await interaction.reply({ content: `Ticket system configured!\nCategory: ${category.name}\nStaff Role: ${role.name}`, ephemeral: true });
+        await interaction.reply({ content: `Ticket system configured!\nCategory: ${category.name}${initialRole ? `\nStaff Role: ${initialRole.name}` : ''}`, ephemeral: true });
+    }
+
+    private async handleStaffAdd(interaction: ChatInputCommandInteraction) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+        }
+        if (!interaction.guildId) return;
+        const role = interaction.options.getRole('role', true);
+
+        const settings = await this.db.ticketSettings.findUnique({ where: { guildId: interaction.guildId } });
+        if (!settings) {
+            return interaction.reply({ content: 'Please run /ticket setup first.', ephemeral: true });
+        }
+
+        const currentRoles = settings.staffRoleIds || [];
+        if (currentRoles.includes(role.id)) {
+            return interaction.reply({ content: 'That role is already a staff role.', ephemeral: true });
+        }
+
+        await this.db.ticketSettings.update({
+            where: { guildId: interaction.guildId },
+            data: { staffRoleIds: { push: role.id } }
+        });
+
+        await interaction.reply({ content: `Added ${role.name} to ticket staff roles.`, ephemeral: true });
+    }
+
+    private async handleStaffRemove(interaction: ChatInputCommandInteraction) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+        }
+        if (!interaction.guildId) return;
+        const role = interaction.options.getRole('role', true);
+
+        const settings = await this.db.ticketSettings.findUnique({ where: { guildId: interaction.guildId } });
+        if (!settings) {
+            return interaction.reply({ content: 'Please run /ticket setup first.', ephemeral: true });
+        }
+
+        const currentRoles = settings.staffRoleIds || [];
+        const newRoles = currentRoles.filter(id => id !== role.id);
+
+        await this.db.ticketSettings.update({
+            where: { guildId: interaction.guildId },
+            data: { staffRoleIds: newRoles }
+        });
+
+        await interaction.reply({ content: `Removed ${role.name} from ticket staff roles.`, ephemeral: true });
     }
 
     private async handlePanel(interaction: ChatInputCommandInteraction) {
@@ -200,28 +264,43 @@ export class TicketPlugin implements IPlugin {
         }
 
         // Create Channel using modern V14 syntax
+        const overwrites: any[] = [
+            {
+                id: guild.id,
+                deny: [PermissionFlagsBits.ViewChannel],
+            },
+            {
+                id: userId,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles],
+            },
+            {
+                id: this.client.user!.id,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels]
+            }
+        ];
+
+        // Add permissions for all staff roles
+        if (settings.staffRoleIds && settings.staffRoleIds.length > 0) {
+            settings.staffRoleIds.forEach(roleId => {
+                overwrites.push({
+                    id: roleId,
+                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+                });
+            });
+        } 
+        // Fallback or legacy support if needed, though we prioritize roleIds
+        else if ((settings as any).staffRoleId) {
+             overwrites.push({
+                id: (settings as any).staffRoleId,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
+            });
+        }
+
         const channel = await guild.channels.create({
             name: `ticket-${interaction.user.username}`,
             type: ChannelType.GuildText,
             parent: category.id,
-            permissionOverwrites: [
-                {
-                    id: guild.id,
-                    deny: [PermissionFlagsBits.ViewChannel],
-                },
-                {
-                    id: userId,
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles],
-                },
-                {
-                    id: settings.staffRoleId || userId, // Fallback if no staff role
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
-                },
-                {
-                    id: this.client.user!.id,
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels]
-                }
-            ],
+            permissionOverwrites: overwrites,
         });
 
         // Save to DB
@@ -240,8 +319,12 @@ export class TicketPlugin implements IPlugin {
             .setDescription('Support will be with you shortly. To close this ticket, use `/ticket close`.')
             .setColor(Colors.Green);
 
+        const rolePings = settings.staffRoleIds && settings.staffRoleIds.length > 0 
+            ? settings.staffRoleIds.map(id => `<@&${id}>`).join(' ') 
+            : ((settings as any).staffRoleId ? `<@&${(settings as any).staffRoleId}>` : undefined);
+
         await channel.send({ 
-            content: settings.staffRoleId ? `<@&${settings.staffRoleId}>` : undefined,
+            content: rolePings,
             embeds: [embed] 
         });
 

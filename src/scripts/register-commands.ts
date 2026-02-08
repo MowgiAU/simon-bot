@@ -52,9 +52,19 @@ const commands = [
         .setDescription('Manage the ticket system')
         .addSubcommand(sub => 
             sub.setName('setup')
-            .setDescription('Configure ticket system')
+            .setDescription('Configure ticket system category')
             .addChannelOption(opt => opt.setName('category').setDescription('Category to create tickets in').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
-            .addRoleOption(opt => opt.setName('role').setDescription('Staff role to manage tickets').setRequired(true))
+            .addRoleOption(opt => opt.setName('initial_role').setDescription('Initial staff role (optional)').setRequired(false))
+        )
+        .addSubcommand(sub =>
+            sub.setName('staff-add')
+            .setDescription('Add a staff role to tickets')
+            .addRoleOption(opt => opt.setName('role').setDescription('Role to add').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('staff-remove')
+            .setDescription('Remove a staff role from tickets')
+            .addRoleOption(opt => opt.setName('role').setDescription('Role to remove').setRequired(true))
         )
         .addSubcommand(sub =>
             sub.setName('panel')

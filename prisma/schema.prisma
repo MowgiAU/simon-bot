@@ -501,7 +501,7 @@ model TicketSettings {
   id             String @id @default(cuid())
   guildId        String @unique
   ticketCategoryId String?
-  staffRoleId    String?
+  staffRoleIds   String[]
   transcriptChannelId String?
   ticketMessage  String? @default("Click the button below to open a ticket")
   
