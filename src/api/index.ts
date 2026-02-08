@@ -1789,7 +1789,7 @@ app.post('/api/email/send', upload.array('attachments'), async (req, res) => {
             to: [to],
             subject,
             html: body,
-            reply_to: replyTo,
+            replyTo: replyTo,
             headers,
             attachments
         });

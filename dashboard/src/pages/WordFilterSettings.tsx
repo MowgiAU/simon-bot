@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import { MessageSquare } from 'lucide-react';
 import './WordFilterSettings.css';
 
@@ -389,9 +390,16 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
 
             <div className="setting-item">
               <label className="setting-label">Excluded Roles</label>
-              <div className="role-list">
-                <p className="placeholder">No excluded roles</p>
+              <div style={{ marginTop: 8 }}>
+                 <RoleSelect
+                    guildId={guildId}
+                    value={settings.excludedRoles}
+                    onChange={(val) => handleSettingChange('excludedRoles', val)}
+                    multiple
+                    placeholder="Select roles to exclude..."
+                 />
               </div>
+              <p className="setting-description">Users with these roles will not be filtered.</p>
             </div>
           </div>
 
