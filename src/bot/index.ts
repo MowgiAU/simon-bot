@@ -21,6 +21,7 @@ import { EconomyPlugin } from './plugins/EconomyPlugin';
 import { ProductionFeedbackPlugin } from './plugins/ProductionFeedbackPlugin';
 import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
 import { EmailPlugin } from './plugins/EmailPlugin';
+import { TicketPlugin } from './plugins/TicketPlugin';
 
 dotenv.config();
 
@@ -90,6 +91,7 @@ export class SimonBot {
       this.pluginManager.register(new ProductionFeedbackPlugin());
       this.pluginManager.register(new WelcomeGatePlugin());
       this.pluginManager.register(new EmailPlugin());
+      this.pluginManager.register(new TicketPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

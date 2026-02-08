@@ -43,6 +43,10 @@ model Guild {
   feedbackPosts      FeedbackPost[]
   feedbackSettings   FeedbackSettings?
 
+  // Ticket System
+  ticketSettings     TicketSettings?
+  tickets            Ticket[]
+
   @@map("guilds")
 }
 
@@ -486,7 +490,34 @@ model WelcomeGateSettings {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+
   guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("welcome_gate_settings")
+}
+
+// Ticket System
+model TicketSettings {
+  id             String @id @default(cuid())
+  guildId        String @unique
+  ticketCategoryId String?
+  staffRoleId    String?
+  transcriptChannelId String?
+  ticketMessage  String? @default("Click the button below to open a ticket")
+  
+  guild          Guild   @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  @@map("ticket_settings")
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  channelId String   @unique
+  guildId   String
+  ownerId   String
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  closedAt  DateTime?
+
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  @@map("tickets")
 }

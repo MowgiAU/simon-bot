@@ -1,4 +1,4 @@
-import { REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { REST, Routes, SlashCommandBuilder, ChannelType } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Logger } from '../bot/utils/logger';
@@ -44,6 +44,37 @@ const commands = [
         .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to (default: current)'))
         .addStringOption(opt => opt.setName('title').setDescription('Embed Title'))
         .addStringOption(opt => opt.setName('description').setDescription('Embed Description'))
+        .toJSON(),
+
+    // 5. Tickets
+    new SlashCommandBuilder()
+        .setName('ticket')
+        .setDescription('Manage the ticket system')
+        .addSubcommand(sub => 
+            sub.setName('setup')
+            .setDescription('Configure ticket system')
+            .addChannelOption(opt => opt.setName('category').setDescription('Category to create tickets in').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+            .addRoleOption(opt => opt.setName('role').setDescription('Staff role to manage tickets').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('panel')
+            .setDescription('Send the ticket creation panel')
+            .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to'))
+        )
+        .addSubcommand(sub =>
+            sub.setName('close')
+            .setDescription('Close the current ticket')
+        )
+        .addSubcommand(sub => 
+            sub.setName('add')
+            .setDescription('Add a user to the ticket')
+            .addUserOption(opt => opt.setName('user').setDescription('User to add').setRequired(true))
+        )
+        .addSubcommand(sub => 
+            sub.setName('remove')
+            .setDescription('Remove a user from the ticket')
+            .addUserOption(opt => opt.setName('user').setDescription('User to remove').setRequired(true))
+        )
         .toJSON()
   ];
 
