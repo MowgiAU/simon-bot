@@ -77,6 +77,11 @@ export class TicketPlugin implements IPlugin {
                 .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to'))
             )
             .addSubcommand(sub =>
+                sub.setName('transcript-channel')
+                .setDescription('Set the channel for ticket transcripts/logs')
+                .addChannelOption(opt => opt.setName('channel').setDescription('Channel for transcripts').setRequired(true))
+            )
+            .addSubcommand(sub =>
                 sub.setName('close')
                 .setDescription('Close the current ticket')
             )
@@ -124,6 +129,8 @@ export class TicketPlugin implements IPlugin {
                 await this.handleStaffRemove(interaction);
             } else if (subcommand === 'panel') {
                 await this.handlePanel(interaction);
+            } else if (subcommand === 'transcript-channel') {
+                await this.handleTranscriptChannel(interaction);
             } else if (subcommand === 'close') {
                 await this.handleClose(interaction);
             } else if (subcommand === 'add') {
@@ -218,6 +225,26 @@ export class TicketPlugin implements IPlugin {
         });
 
         await interaction.reply({ content: `Removed ${role.name} from ticket staff roles.`, ephemeral: true });
+    }
+
+    private async handleTranscriptChannel(interaction: ChatInputCommandInteraction) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+        }
+        if (!interaction.guildId) return;
+
+        const channel = interaction.options.getChannel('channel', true);
+
+        await this.db.ticketSettings.upsert({
+            where: { guildId: interaction.guildId },
+            update: { transcriptChannelId: channel.id },
+            create: {
+                guildId: interaction.guildId,
+                transcriptChannelId: channel.id
+            }
+        });
+
+        await interaction.reply({ content: `Transcript logs will be sent to ${channel}.`, ephemeral: true });
     }
 
     private async handlePanel(interaction: ChatInputCommandInteraction) {
@@ -357,7 +384,48 @@ export class TicketPlugin implements IPlugin {
             return;
         }
 
-        await interaction.reply('Closing ticket in 5 seconds...');
+        await interaction.reply('Closing ticket in 5 seconds... Generating transcript...');
+
+        // Transcript Logic
+        const channel = interaction.channel as TextChannel;
+        let transcriptUrl: string | undefined;
+
+        try {
+            // Fetch all messages (limit to last 100 for now, or loop for more)
+            // A simple transcript: Text file with timestamp, author, content
+            const messages = await channel.messages.fetch({ limit: 100 });
+            const transcript = messages.reverse().map(m => {
+                const time = m.createdAt.toISOString();
+                const author = m.author.tag;
+                const content = m.content;
+                const attachments = m.attachments.map(a => `[Attachment: ${a.url}]`).join(' ');
+                return `[${time}] ${author}: ${content} ${attachments}`;
+            }).join('\n');
+
+            // Send to Transcript Channel if configured
+            const settings = await this.db.ticketSettings.findUnique({ where: { guildId: interaction.guildId! } });
+            
+            if (settings?.transcriptChannelId) {
+                const transcriptChannel = await interaction.guild?.channels.fetch(settings.transcriptChannelId) as TextChannel;
+                if (transcriptChannel) {
+                   const file = {
+                        attachment: Buffer.from(transcript, 'utf-8'),
+                        name: `transcript-${ticket.channelId}.txt`
+                    };
+
+                    const sentMsg = await transcriptChannel.send({
+                        content: `Transcript for Ticket #${ticket.id} (Owner: <@${ticket.ownerId}>, Closed by: ${interaction.user})`,
+                        files: [file]
+                    });
+                    
+                    // If we can get a url to this attachment, we could save it.
+                    // Discord attachment URLs are transient? No, they are persistent if the message stays.
+                    transcriptUrl = sentMsg.attachments.first()?.url;
+                }
+            }
+        } catch (e) {
+            this.logger.error(`Failed to generate/send transcript for ticket ${ticket.id}`, e);
+        }
 
         // Update DB
         await this.db.ticket.update({
@@ -369,7 +437,6 @@ export class TicketPlugin implements IPlugin {
         });
 
         setTimeout(async () => {
-            const channel = interaction.channel;
             if (channel) {
                 await channel.delete();
             }

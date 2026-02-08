@@ -72,6 +72,11 @@ const commands = [
             .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to'))
         )
         .addSubcommand(sub =>
+            sub.setName('transcript-channel')
+            .setDescription('Set the channel for ticket transcripts/logs')
+            .addChannelOption(opt => opt.setName('channel').setDescription('Channel for transcripts').setRequired(true))
+        )
+        .addSubcommand(sub =>
             sub.setName('close')
             .setDescription('Close the current ticket')
         )

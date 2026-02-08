@@ -1898,6 +1898,40 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
         data: updates
     });
 
+    // If priority changed, rename channel
+    if (priority && ticket.channelId) {
+        try {
+            // Fetch channel current name
+            const channelRes = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            });
+
+            const currentName = channelRes.data.name;
+            const emojis: Record<string, string> = {
+                'low': '🟢',
+                'medium': '🟡',
+                'high': '🔴'
+            };
+            const emoji = emojis[priority] || '🟢';
+            
+            // Rename logic similar to bot
+            let newName = currentName.replace(/^[🟢🟡🔴]-?/, '');
+            newName = `${emoji}-${newName}`;
+
+            await axios.patch(`https://discord.com/api/v10/channels/${ticket.channelId}`, 
+                { name: newName },
+                { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+            );
+        } catch (e) {
+            logger.error(`Failed to rename channel for ticket ${ticketId}`, e);
+        }
+    }
+
+    // If closing, we could trigger valid closing logic here too (like sending transcript)
+    // But usually simpler to let the bot command handle complex closing logic.
+    // However, if the user closes via dashboard, we might want to trigger the same "cleanup" flow.
+    // For now, assume priority sync is the main requirement.
+
     res.json(ticket);
 });
 
