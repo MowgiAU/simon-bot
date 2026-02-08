@@ -13,10 +13,11 @@ import { FeedbackPluginPage } from './pages/FeedbackPlugin';
 import { WelcomeGatePluginPage } from './pages/WelcomeGate';
 import { BotIdentityPage } from './pages/BotIdentity';
 import { EmailClientPage } from './pages/EmailClient';
+import { TicketSystemPage } from './pages/TicketSystem';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -132,6 +133,8 @@ const AppContent: React.FC = () => {
         return <BotIdentityPage />;
       case 'email-client':
         return <EmailClientPage />;
+      case 'tickets':
+         return <TicketSystemPage guildId={selectedGuild.id} />;
       case 'dashboard':
         return <Dashboard guildId={selectedGuild.id} />;
       case 'logs':

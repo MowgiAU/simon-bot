@@ -14,7 +14,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   MessageSquare,
-  Mail, // New
+  Mail,
+  Ticket,
 } from 'lucide-react';
 import logoUrl from '../assets/logo.svg'; 
 
@@ -107,6 +108,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><Mail size={20} /></span>
                 <span className="nav-label">Email Client</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('tickets') && (
+            <button
+                className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`}
+                onClick={() => onNavigate('tickets')}
+                title={collapsed ? "Ticket System" : ""}
+            >
+                <span className="nav-icon"><Ticket size={20} /></span>
+                <span className="nav-label">Ticket System</span>
             </button>
           )}
           

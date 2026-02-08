@@ -1866,6 +1866,94 @@ app.post('/api/email/settings', async (req, res) => {
     res.json({ success: true });
 });
 
+// --- Ticket System Endpoints ---
+
+// List Tickets
+app.get('/api/tickets/list/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    
+    const tickets = await prisma.ticket.findMany({
+        where: { guildId },
+        orderBy: { createdAt: 'desc' }
+    });
+    res.json(tickets);
+});
+
+// Update Ticket (Close / Priority)
+app.patch('/api/tickets/:ticketId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { ticketId } = req.params;
+    const { status, priority } = req.body;
+
+    const updates: any = {};
+    if (status) {
+        updates.status = status;
+        if (status === 'closed') updates.closedAt = new Date();
+    }
+    if (priority) updates.priority = priority;
+
+    const ticket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: updates
+    });
+
+    res.json(ticket);
+});
+
+// Get Messages (Proxy through Discord API, simple version)
+// For a production system, you'd want to store messages in DB or fetch them smartly.
+// Here we will use the bot client if available or Discord API directly.
+// Since this is the API process, we might not have the Bot Client instance if they are separate.
+// But usually in this setup they share if mono-repo, but `src/api` and `src/bot` are likely separate processes.
+// So we use Axios + Bot Token.
+app.get('/api/tickets/:ticketId/messages', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { ticketId } = req.params;
+
+    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    try {
+        const response = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=50`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+        res.json(response.data.reverse()); // Oldest first
+    } catch (e) {
+        // console.error(e);
+        res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+});
+
+// Send Reply
+app.post('/api/tickets/:ticketId/reply', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { ticketId } = req.params;
+    const { content } = req.body;
+
+    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    try {
+        // Post as Bot
+        // Ideally we want to show WHO replied. We can append it to the content or use a webhook.
+        // For simplicity:
+        const user = req.session.user; // { id, username, discriminator, ... }
+        const msgContent = `**${user.username} (Dashboard):**\n${content}`;
+
+        await axios.post(`https://discord.com/api/v10/channels/${ticket.channelId}/messages`, {
+            content: msgContent
+        }, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+        });
+
+        res.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to send reply' });
+    }
+});
+
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
