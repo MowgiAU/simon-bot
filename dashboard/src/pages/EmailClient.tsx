@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import { colors } from '../theme/theme';
+import { colors, borderRadius, spacing } from '../theme/theme';
 import { 
     Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, 
     MoreHorizontal, X, Plus, Bold, Italic, Underline, List, Link as LinkIcon 
