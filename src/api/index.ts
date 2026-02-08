@@ -1947,48 +1947,58 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
     }
 
     // If closing, we logic to close the ticket in the dashboard as well
-    if (status === 'closed' && ticket.status !== 'closed') {
+    // Note: ticket is the updated object, so ticket.status IS 'closed' now.
+    // We check if we *just* performed a closure (status input was 'closed').
+    if (status === 'closed' && ticket.channelId) {
         // 1. Archive Messages from Discord First
-        if (ticket.channelId) {
-            try {
-                // Fetch messages from Discord (Limit 100 for now, basic archival)
-                const messagesRes = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=100`, {
-                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-                });
+        try {
+            // Fetch messages from Discord (Limit 100 for now, basic archival)
+            const messagesRes = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=100`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            });
 
-                const discordMessages = messagesRes.data.reverse(); // Chronological
+            const discordMessages = messagesRes.data.reverse(); // Chronological
 
-                // Save to DB
-                const messageData = discordMessages.map((m: any) => ({
-                    ticketId: ticket.id,
-                    authorId: m.author.id,
-                    authorName: m.author.username,
-                    content: m.content || '',
-                    attachments: m.attachments.length > 0 ? JSON.stringify(m.attachments.map((a: any) => a.url)) : null,
-                    createdAt: new Date(m.timestamp)
-                }));
+            // Save to DB
+            const messageData = discordMessages.map((m: any) => ({
+                ticketId: ticket.id,
+                authorId: m.author.id,
+                authorName: m.author.username,
+                content: m.content || '',
+                attachments: m.attachments.length > 0 ? JSON.stringify(m.attachments.map((a: any) => a.url)) : null,
+                createdAt: new Date(m.timestamp)
+            }));
 
-                if (messageData.length > 0) {
-                     await db.ticketMessage.createMany({
-                         data: messageData
-                     });
-                }
-            } catch (e: any) {
-                if (e.response?.status !== 404 && e.response?.status !== 403) {
-                     logger.error(`Failed to archive messages for ticket ${ticketId}`, e);
-                }
+            if (messageData.length > 0) {
+                 // Prevent duplicates if we already archived? 
+                 // Simple check: Delete existing for this ticket to avoid duplication before re-inserting, 
+                 // OR just insert and assume user doesn't spam close.
+                 // Safer: Delete existing first.
+                 await db.ticketMessage.deleteMany({ where: { ticketId: ticket.id } });
+
+                 await db.ticketMessage.createMany({
+                     data: messageData
+                 });
             }
+        } catch (e: any) {
+            if (e.response?.status !== 404 && e.response?.status !== 403) {
+                 logger.error(`Failed to archive messages for ticket ${ticketId}`, e);
+            }
+        }
 
-            // 2. Delete Channel
-            try {
-                await axios.delete(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
-                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-                });
-            } catch (e: any) {
-                // Ignore if already deleted
-                if (e.response?.status !== 404) {
-                    logger.error(`Failed to delete channel for ticket ${ticketId}`, e);
-                }
+        // 2. Delete Channel
+        try {
+            await axios.delete(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            });
+            
+            // Channel ID is now invalid, maybe we should clear it in DB?
+            // But we keep it for reference or "channelId" might be used for lookups?
+            // Usually fine to keep it.
+        } catch (e: any) {
+            // Ignore if already deleted
+            if (e.response?.status !== 404) {
+                logger.error(`Failed to delete channel for ticket ${ticketId}`, e);
             }
         }
     }
