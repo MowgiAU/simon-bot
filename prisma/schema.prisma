@@ -520,5 +520,19 @@ model Ticket {
   closedAt  DateTime?
 
   guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  messages  TicketMessage[]
   @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  authorName String
+  content   String
+  attachments String? // Stored as JSON string or comma-separated
+  createdAt DateTime @default(now())
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  @@map("ticket_messages")
 }

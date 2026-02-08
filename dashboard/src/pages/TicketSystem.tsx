@@ -138,186 +138,251 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
     const formatDate = (d: string) => new Date(d).toLocaleString();
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F3F4F6' }}>
-            {/* Header */}
-            <div style={{ padding: '0 24px', height: '60px', display: 'flex', alignItems: 'center', background: '#fff', borderBottom: '1px solid #e5e7eb', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Ticket size={20} color={colors.primary} />
-                    <h2 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>Ticket System</h2>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <select 
-                        value={statusFilter} 
-                        onChange={e => setStatusFilter(e.target.value as any)}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
-                    >
-                        <option value="open">Open</option>
-                        <option value="closed">Closed</option>
-                        <option value="all">All</option>
-                    </select>
-                    <button onClick={fetchTickets} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><RefreshCw size={18}/></button>
-                </div>
-            </div>
-
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* Sidebar List */}
-                <div style={{ width: '300px', background: '#fff', borderRight: '1px solid #e5e7eb', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                    {filteredTickets.length === 0 && (
-                        <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af' }}>No tickets found</div>
-                    )}
-                    {filteredTickets.map(ticket => (
-                        <div 
-                            key={ticket.id}
-                            onClick={() => setSelectedTicket(ticket)}
-                            style={{ 
-                                padding: '16px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer',
-                                background: selectedTicket?.id === ticket.id ? '#eff6ff' : '#fff',
-                                borderLeft: selectedTicket?.id === ticket.id ? `4px solid ${colors.primary}` : '4px solid transparent'
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontWeight: 600, fontSize: '14px', color: '#374151' }}>
-                                    Ticket #{ticket.channelId.slice(-4)}
-                                </span>
-                                <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                                    {new Date(ticket.createdAt).toLocaleDateString()}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', fontSize: '12px', alignItems: 'center' }}>
-                                <span style={{ 
-                                    padding: '2px 6px', borderRadius: '4px', 
-                                    background: ticket.status === 'open' ? '#dcfce7' : '#f3f4f6',
-                                    color: ticket.status === 'open' ? '#166534' : '#6b7280'
-                                }}>
-                                    {ticket.status.toUpperCase()}
-                                </span>
-                                <span style={{ 
-                                    padding: '2px 6px', borderRadius: '4px',
-                                    backgroundColor: getPriorityColor(ticket.priority) + '20',
-                                    color: getPriorityColor(ticket.priority)
-                                }}>
-                                    {ticket.priority.toUpperCase()}
-                                </span>
-                            </div>
+        <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                height: '100%', 
+                background: '#fff', 
+                borderRadius: '12px', 
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden'
+            }}>
+                {/* Plugin Header */}
+                <div style={{ padding: '24px 32px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h1 style={{ 
+                                margin: 0, 
+                                fontSize: '24px', 
+                                fontWeight: '700', 
+                                color: '#111827',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px'
+                            }}>
+                                <Ticket size={28} color={colors.primary} />
+                                Ticket System
+                            </h1>
+                            <p style={{ margin: '8px 0 0 0', color: '#6b7280', fontSize: '14px', maxWidth: '600px' }}>
+                                Manage support tickets, track issues, and view conversation history for both active and archived tickets.
+                            </p>
                         </div>
-                    ))}
+                        <div style={{ display: 'flex', gap: '8px', background: '#fff', padding: '4px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                            <button 
+                                onClick={() => setStatusFilter('open')}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                    background: statusFilter === 'open' ? colors.primary : 'transparent',
+                                    color: statusFilter === 'open' ? '#fff' : '#6b7280',
+                                    cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
+                                }}
+                            >
+                                Active Tickets
+                            </button>
+                            <button 
+                                onClick={() => setStatusFilter('closed')}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                    background: statusFilter === 'closed' ? colors.primary : 'transparent',
+                                    color: statusFilter === 'closed' ? '#fff' : '#6b7280',
+                                    cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
+                                }}
+                            >
+                                Audit Logs
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Main Content */}
-                {selectedTicket ? (
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-                        {/* Ticket Toolbar */}
-                        <div style={{ padding: '12px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '16px' }}>Conversation</h3>
-                                <div style={{ fontSize: '12px', color: '#6b7280' }}>Channel ID: {selectedTicket.channelId}</div>
+                <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                    {/* Sidebar List */}
+                    <div style={{ width: '320px', background: '#fcfcfc', borderRight: '1px solid #e5e7eb', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                        {filteredTickets.length === 0 && (
+                            <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+                                <MessageSquare size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                                <p>No {statusFilter} tickets found</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <select 
-                                    value={selectedTicket.priority}
-                                    onChange={(e) => handleUpdatePriority(e.target.value as any)}
-                                    style={{ padding: '6px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '12px' }}
-                                >
-                                    <option value="low">Low Priority</option>
-                                    <option value="medium">Medium Priority</option>
-                                    <option value="high">High Priority</option>
-                                </select>
-
-                                {selectedTicket.status === 'open' ? (
-                                    <button 
-                                        onClick={() => handleUpdateStatus('closed')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
-                                    >
-                                        <XCircle size={14}/> Close Ticket
-                                    </button>
-                                ) : (
-                                    <button 
-                                        onClick={() => handleUpdateStatus('open')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
-                                    >
-                                        <CheckCircle size={14}/> Re-open Ticket
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Messages Area */}
-                        <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {loadingMessages ? (
-                                <div style={{ textAlign: 'center', padding: '20px' }}>Loading messages...</div>
-                            ) : (
-                                messages.map(msg => (
-                                    <div key={msg.id} style={{ 
-                                        display: 'flex', gap: '12px', 
-                                        alignSelf: msg.author.bot ? 'flex-start' : 'flex-start', // Messages usually aligned left in tickets
-                                        maxWidth: '80%'
+                        )}
+                        {filteredTickets.map(ticket => (
+                            <div 
+                                key={ticket.id}
+                                onClick={() => setSelectedTicket(ticket)}
+                                style={{ 
+                                    padding: '16px 24px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer',
+                                    background: selectedTicket?.id === ticket.id ? '#eff6ff' : '#fff',
+                                    borderLeft: selectedTicket?.id === ticket.id ? `4px solid ${colors.primary}` : '4px solid transparent',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '15px', color: '#374151', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        Ticket #{ticket.id.slice(-4)}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        {formatDate(ticket.createdAt).split(',')[0]}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', fontSize: '12px', alignItems: 'center' }}>
+                                    <span style={{ 
+                                        padding: '2px 8px', borderRadius: '12px',
+                                        backgroundColor: getPriorityColor(ticket.priority) + '20',
+                                        color: getPriorityColor(ticket.priority),
+                                        fontWeight: 600, textTransform: 'uppercase', fontSize: '11px'
                                     }}>
-                                        <img 
-                                            src={msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png'} 
-                                            alt="avatar"
-                                            style={{ width: 32, height: 32, borderRadius: '50%' }}
-                                        />
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-                                                <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>{msg.author.username}</span>
-                                                <span style={{ fontSize: '11px', color: '#6b7280' }}>{new Date(msg.timestamp).toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ 
-                                                background: '#fff', padding: '10px 14px', borderRadius: '0 8px 8px 8px', 
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)', whiteSpace: 'pre-wrap', fontSize: '14px', color: '#374151',
-                                                border: '1px solid #e5e7eb'
-                                            }}>
-                                                {msg.content}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
+                                        {ticket.priority}
+                                    </span>
+                                    {ticket.status === 'closed' && (
+                                        <span style={{ padding: '2px 8px', borderRadius: '12px', background: '#e5e7eb', color: '#6b7280', fontSize: '11px', fontWeight: 600 }}>
+                                            ARCHIVED
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
-                        {/* Reply Box */}
-                        <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid #e5e7eb' }}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <textarea
-                                    value={replyContent}
-                                    onChange={e => setReplyContent(e.target.value)}
-                                    placeholder="Type your reply here..."
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleReply();
-                                        }
-                                    }}
-                                    style={{ 
-                                        flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', 
-                                        resize: 'none', height: '80px', outline: 'none', fontFamily: 'inherit'
-                                    }}
-                                />
-                                <button 
-                                    onClick={handleReply}
-                                    disabled={!replyContent.trim()}
-                                    style={{ 
-                                        width: '80px', height: '80px', borderRadius: '8px', border: 'none',
-                                        background: colors.primary, color: '#fff', cursor: 'pointer',
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px'
-                                    }}
-                                >
-                                    <Send size={20} />
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Send</span>
-                                </button>
+                    {/* Main Content */}
+                    {selectedTicket ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+                            {/* Ticket Toolbar */}
+                            <div style={{ padding: '16px 32px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>Ticket #{selectedTicket.id}</h3>
+                                    <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                        <User size={14} /> Owner: {selectedTicket.ownerId}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <select 
+                                        value={selectedTicket.priority}
+                                        onChange={(e) => handleUpdatePriority(e.target.value as any)}
+                                        disabled={selectedTicket.status === 'closed'}
+                                        style={{ 
+                                            padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px',
+                                            cursor: selectedTicket.status === 'closed' ? 'not-allowed' : 'pointer',
+                                            background: '#fff'
+                                        }}
+                                    >
+                                        <option value="low">Low Priority 🟢</option>
+                                        <option value="medium">Medium Priority 🟡</option>
+                                        <option value="high">High Priority 🔴</option>
+                                    </select>
+
+                                    {selectedTicket.status === 'open' ? (
+                                        <button 
+                                            onClick={() => handleUpdateStatus('closed')}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                        >
+                                            <XCircle size={16}/> Close Ticket
+                                        </button>
+                                    ) : (
+                                        <div style={{ padding: '8px 16px', background: '#f3f4f6', borderRadius: '6px', color: '#6b7280', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <CheckCircle size={16} /> Closed {new Date(selectedTicket.closedAt || '').toLocaleDateString()}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                Press Enter to send. Shift+Enter for new line.
+
+                            {/* Messages Area */}
+                            <div style={{ flex: 1, padding: '32px', overflowY: 'auto', background: '#f9fafb', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {loadingMessages ? (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                        <RefreshCw className="animate-spin" size={24} style={{ marginBottom: '8px' }} />
+                                        <p>Loading conversation history...</p>
+                                    </div>
+                                ) : (
+                                    messages.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>No messages found</div>
+                                    ) : (
+                                        messages.map(msg => (
+                                            <div key={msg.id} style={{ 
+                                                display: 'flex', gap: '16px', 
+                                                alignSelf: 'flex-start',
+                                                maxWidth: '85%'
+                                            }}>
+                                                <img 
+                                                    src={msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png'} 
+                                                    alt="avatar"
+                                                    style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #fff', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                                />
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
+                                                        <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>{msg.author.username}</span>
+                                                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                            {new Date(msg.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ 
+                                                        background: '#fff', padding: '12px 16px', borderRadius: '0 12px 12px 12px', 
+                                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)', whiteSpace: 'pre-wrap', fontSize: '14px', color: '#374151',
+                                                        border: '1px solid #e5e7eb', lineHeight: '1.5'
+                                                    }}>
+                                                        {msg.content}
+                                                    </div>
+                                                    {/* Attachments (basic support) */}
+                                                    {/* The backend currently might not return nicely formatted attachments for closed tickets yet, 
+                                                        but assuming they come in as array of objects in future iteration */}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )
+                                )}
+                                <div ref={messagesEndRef} />
                             </div>
+
+                            {/* Reply Box (Only for Open Tickets) */}
+                            {selectedTicket.status === 'open' && (
+                                <div style={{ padding: '24px 32px', background: '#fff', borderTop: '1px solid #e5e7eb' }}>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <textarea
+                                            value={replyContent}
+                                            onChange={e => setReplyContent(e.target.value)}
+                                            placeholder="Type your reply here..."
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleReply();
+                                                }
+                                            }}
+                                            style={{ 
+                                                flex: 1, padding: '16px', borderRadius: '12px', border: '1px solid #d1d5db', 
+                                                resize: 'none', height: '100px', outline: 'none', fontFamily: 'inherit',
+                                                fontSize: '14px', lineHeight: '1.5',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={handleReply}
+                                            disabled={!replyContent.trim()}
+                                            style={{ 
+                                                width: '100px', height: '100px', borderRadius: '12px', border: 'none',
+                                                background: colors.primary, color: '#fff', cursor: 'pointer',
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                transition: 'transform 0.1s'
+                                            }}
+                                        >
+                                            <Send size={24} />
+                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Send</span>
+                                        </button>
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Press Enter to send, Shift+Enter for new line</span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><AlertTriangle size={12}/> Replies are sent as the bot</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                ) : (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#9ca3af' }}>
-                        <MessageSquare size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                        <p>Select a ticket to view conversation</p>
-                    </div>
-                )}
+                    ) : (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#9ca3af', background: '#f9fafb' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                                <MessageSquare size={40} style={{ opacity: 0.4 }} />
+                            </div>
+                            <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Ticket Selected</h3>
+                            <p style={{ margin: 0, fontSize: '14px' }}>Select a ticket from the sidebar to view details</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

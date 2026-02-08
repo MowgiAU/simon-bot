@@ -1872,9 +1872,19 @@ app.post('/api/email/settings', async (req, res) => {
 app.get('/api/tickets/list/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
+    const { status } = req.query; // 'open' or 'closed'
+
+    const where: any = { guildId };
+    if (status) {
+        where.status = status;
+    }
+    
+    // Default to open tickets if not specified for backward compatibility, 
+    // or just return all and let frontend filter
+    // Let's return all and let frontend decide, OR filter.
     
     const tickets = await db.ticket.findMany({
-        where: { guildId },
+        where,
         orderBy: { createdAt: 'desc' }
     });
     res.json(tickets);
@@ -1918,12 +1928,21 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
             let newName = currentName.replace(/^[🟢🟡🔴]-?/, '');
             newName = `${emoji}-${newName}`;
 
+            // Only update if name changed effectively (Discord rate limit protection)
+            // But if we just swap emojis, name DOES change. 
+            // We'll proceed.
+
             await axios.patch(`https://discord.com/api/v10/channels/${ticket.channelId}`, 
                 { name: newName },
                 { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
             );
-        } catch (e) {
-            logger.error(`Failed to rename channel for ticket ${ticketId}`, e);
+        } catch (e: any) {
+             // 429 is Rate Limit; 404 is Channel Deleted
+            if (e.response?.status !== 429 && e.response?.status !== 404) {
+                logger.error(`Failed to rename channel for ticket ${ticketId}`, e);
+            } else {
+                 logger.warn(`Skipped renaming ticket ${ticketId} (error ${e.response?.status})`);
+            }
         }
     }
 
@@ -1935,12 +1954,7 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
     res.json(ticket);
 });
 
-// Get Messages (Proxy through Discord API, simple version)
-// For a production system, you'd want to store messages in DB or fetch them smartly.
-// Here we will use the bot client if available or Discord API directly.
-// Since this is the API process, we might not have the Bot Client instance if they are separate.
-// But usually in this setup they share if mono-repo, but `src/api` and `src/bot` are likely separate processes.
-// So we use Axios + Bot Token.
+// Get Messages
 app.get('/api/tickets/:ticketId/messages', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { ticketId } = req.params;
@@ -1948,14 +1962,45 @@ app.get('/api/tickets/:ticketId/messages', async (req, res) => {
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
+    // If ticket is closed, fetch from DB
+    if (ticket.status === 'closed') {
+        const messages = await db.ticketMessage.findMany({
+            where: { ticketId },
+            orderBy: { createdAt: 'asc' }
+        });
+        return res.json(messages.map(m => ({
+            id: m.id,
+            author: { id: m.authorId, username: m.authorName, discriminator: '0', avatar: null },
+            content: m.content,
+            timestamp: m.createdAt,
+            attachments: m.attachments ? JSON.parse(m.attachments as string).map((url: string) => ({ url })) : []
+        })));
+    }
+
+    // If ticket is open, fetch from Discord
     try {
         const response = await axios.get(`https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=50`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
         res.json(response.data.reverse()); // Oldest first
-    } catch (e) {
-        // console.error(e);
-        res.status(500).json({ error: 'Failed to fetch messages' });
+    } catch (e: any) {
+        // If 404/403 (channel deleted), fallback to DB just in case we have logs
+        const messages = await db.ticketMessage.findMany({
+            where: { ticketId },
+            orderBy: { createdAt: 'asc' }
+        });
+        
+        if (messages.length > 0) {
+             return res.json(messages.map(m => ({
+                id: m.id,
+                author: { id: m.authorId, username: m.authorName, discriminator: '0', avatar: null },
+                content: m.content,
+                timestamp: m.createdAt,
+                attachments: m.attachments ? JSON.parse(m.attachments as string).map((url: string) => ({ url })) : []
+            })));
+        }
+
+        res.status(500).json({ error: 'Failed to fetch messages (Channel likely deleted and no archive found)' });
     }
 });
 

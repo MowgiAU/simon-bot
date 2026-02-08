@@ -374,7 +374,7 @@ export const EmailClientPage: React.FC = () => {
 
     const renderFolder = () => {
     return (
-        <div style={{ display: 'flex', height: 'calc(100vh - 100px)', backgroundColor: '#fff', position: 'relative' }}>
+        <div style={{ display: 'flex', height: '100%', backgroundColor: '#fff', position: 'relative' }}>
             
             {/* Sidebar / List */}
             <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }}>
@@ -602,8 +602,9 @@ export const EmailClientPage: React.FC = () => {
     };
 
     const renderSettings = () => (
-        <div style={{ maxWidth: '600px', margin: '24px' }}>
-            <h2>Settings</h2>
+        <div style={{ maxWidth: '100%', height: '100%', overflowY: 'auto', padding: '24px', boxSizing: 'border-box' }}>
+            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{ marginTop: 0 }}>Settings</h2>
             
             <div style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', marginBottom: '8px' }}>Webhook Secret (x-auth-token)</label>
@@ -671,25 +672,74 @@ export const EmailClientPage: React.FC = () => {
             <button onClick={saveSettings} style={{ background: colors.primary, color: 'white', padding: '10px 20px', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer' }}>
                 Save Settings
             </button>
+            </div>
         </div>
     );
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header */}
-            <div style={{ padding: '0 24px', height: '60px', display: 'flex', alignItems: 'center', borderBottom: `1px solid ${colors.border}`, gap: '24px' }}>
-                <h2 style={{ margin: 0 }}>Email Client</h2>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => setView('inbox')} style={{ opacity: view === 'inbox' ? 1 : 0.6, background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', gap: '6px' }}><Mail size={18}/> Inbox</button>
-                    <button onClick={() => setView('sent')} style={{ opacity: view === 'sent' ? 1 : 0.6, background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', gap: '6px' }}><Send size={18}/> Sent</button>
-                    <button onClick={() => setView('trash')} style={{ opacity: view === 'trash' ? 1 : 0.6, background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', gap: '6px' }}><Trash2 size={18}/> Trash</button>
-                    <button onClick={() => setView('settings')} style={{ opacity: view === 'settings' ? 1 : 0.6, background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', gap: '6px' }}><Settings size={18}/> Settings</button>
+        <div style={{ height: '100%', padding: '24px', boxSizing: 'border-box' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                height: '100%', 
+                background: '#fff', 
+                borderRadius: '12px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden'
+            }}>
+                {/* Plugin Header */}
+                <div style={{ 
+                    padding: '24px 32px', 
+                    borderBottom: '1px solid #e5e7eb',
+                    background: '#f9fafb'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h1 style={{ 
+                                margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827',
+                                display: 'flex', alignItems: 'center', gap: '12px'
+                            }}>
+                                <Mail size={28} color={colors.primary} />
+                                Email Client
+                            </h1>
+                            <p style={{ margin: '8px 0 0 0', color: '#6b7280', fontSize: '14px', maxWidth: '600px' }}>
+                                Manage your emails directly from the dashboard.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '4px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                {(['inbox', 'sent', 'trash', 'settings'] as const).map(v => (
+                                    <button
+                                        key={v}
+                                        onClick={() => { setView(v); setSelectedEmail(null); }}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                            background: view === v ? colors.primary : 'transparent',
+                                            color: view === v ? '#fff' : '#6b7280',
+                                            fontWeight: 600,
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            textTransform: 'capitalize',
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {v === 'inbox' && <Mail size={14} />}
+                                        {v === 'sent' && <Send size={14} />}
+                                        {v === 'trash' && <Trash2 size={14} />}
+                                        {v === 'settings' && <Settings size={14} />}
+                                        {v}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            {/* Content */}
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-                {view === 'settings' ? renderSettings() : renderFolder()}
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                    {view === 'settings' ? renderSettings() : renderFolder()}
+                </div>
             </div>
         </div>
     );

@@ -384,21 +384,54 @@ export class TicketPlugin implements IPlugin {
             return;
         }
 
-        await interaction.reply('Closing ticket in 5 seconds... Generating transcript...');
+        await interaction.reply('Closing ticket in 5 seconds... Saving logs...');
 
         // Transcript Logic
         const channel = interaction.channel as TextChannel;
-        let transcriptUrl: string | undefined;
-
+        
         try {
-            // Fetch all messages (limit to last 100 for now, or loop for more)
-            // A simple transcript: Text file with timestamp, author, content
-            const messages = await channel.messages.fetch({ limit: 100 });
-            const transcript = messages.reverse().map(m => {
+            // Fetch messages for DB Archive
+            let allMessages: any[] = [];
+            let lastId: string | undefined;
+
+            // Simple loop to get at least some history (e.g. last 500 messages)
+            // For production, might want a full loop until no more messages
+            for (let i = 0; i < 5; i++) {
+                const options: any = { limit: 100 };
+                if (lastId) options.before = lastId;
+                
+                const messages = await channel.messages.fetch(options);
+                if (messages.size === 0) break;
+                
+                allMessages.push(...messages.values());
+                lastId = messages.last()?.id;
+            }
+
+            // Reverse to be chronological
+            allMessages.reverse();
+
+            // Save to DB
+            const messageData = allMessages.map(m => ({
+                ticketId: ticket.id,
+                authorId: m.author.id,
+                authorName: m.author.username,
+                content: m.content || '',
+                attachments: m.attachments.size > 0 ? JSON.stringify(m.attachments.map((a: any) => a.url)) : null,
+                createdAt: m.createdAt
+            }));
+
+            if (messageData.length > 0) {
+                 await this.db.ticketMessage.createMany({
+                     data: messageData
+                 });
+            }
+
+            // Also do the text file transcript for the channel
+            const transcript = allMessages.map(m => {
                 const time = m.createdAt.toISOString();
                 const author = m.author.tag;
                 const content = m.content;
-                const attachments = m.attachments.map(a => `[Attachment: ${a.url}]`).join(' ');
+                const attachments = m.attachments.map((a: any) => `[Attachment: ${a.url}]`).join(' ');
                 return `[${time}] ${author}: ${content} ${attachments}`;
             }).join('\n');
 
@@ -413,14 +446,10 @@ export class TicketPlugin implements IPlugin {
                         name: `transcript-${ticket.channelId}.txt`
                     };
 
-                    const sentMsg = await transcriptChannel.send({
-                        content: `Transcript for Ticket #${ticket.id} (Owner: <@${ticket.ownerId}>, Closed by: ${interaction.user})`,
+                    await transcriptChannel.send({
+                        content: `Transcript for Ticket #${ticket.id} (${ticket.priority.toUpperCase()})\nOwner: <@${ticket.ownerId}>\nClosed by: ${interaction.user}`,
                         files: [file]
                     });
-                    
-                    // If we can get a url to this attachment, we could save it.
-                    // Discord attachment URLs are transient? No, they are persistent if the message stays.
-                    transcriptUrl = sentMsg.attachments.first()?.url;
                 }
             }
         } catch (e) {
