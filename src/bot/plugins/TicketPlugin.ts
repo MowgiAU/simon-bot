@@ -12,7 +12,9 @@ import {
     ChannelType,
     ButtonInteraction,
     CategoryChannel,
-    Colors
+    Colors,
+    Collection,
+    Message
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -400,7 +402,7 @@ export class TicketPlugin implements IPlugin {
                 const options: any = { limit: 100 };
                 if (lastId) options.before = lastId;
                 
-                const messages = await channel.messages.fetch(options);
+                const messages = await channel.messages.fetch(options) as Collection<string, Message>;
                 if (messages.size === 0) break;
                 
                 allMessages.push(...messages.values());
