@@ -1873,7 +1873,7 @@ app.get('/api/tickets/list/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
     
-    const tickets = await prisma.ticket.findMany({
+    const tickets = await db.ticket.findMany({
         where: { guildId },
         orderBy: { createdAt: 'desc' }
     });
@@ -1893,7 +1893,7 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
     }
     if (priority) updates.priority = priority;
 
-    const ticket = await prisma.ticket.update({
+    const ticket = await db.ticket.update({
         where: { id: ticketId },
         data: updates
     });
@@ -1911,7 +1911,7 @@ app.get('/api/tickets/:ticketId/messages', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { ticketId } = req.params;
 
-    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+    const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
     try {
@@ -1931,7 +1931,7 @@ app.post('/api/tickets/:ticketId/reply', async (req, res) => {
     const { ticketId } = req.params;
     const { content } = req.body;
 
-    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+    const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
     try {
