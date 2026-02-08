@@ -256,11 +256,11 @@ export const EmailClientPage: React.FC = () => {
             // Focus callback handled by browser usually
         };
         return (
-            <div style={{ display: 'flex', gap: '4px', padding: '8px', background: '#f0f2f5', borderBottom: '1px solid #ddd' }}>
+            <div style={{ display: 'flex', gap: '4px', padding: '8px', background: colors.background, borderBottom: `1px solid ${colors.border}` }}>
                 <ToolbarBtn onClick={() => cmd('bold')} icon={<Bold size={16}/>} />
                 <ToolbarBtn onClick={() => cmd('italic')} icon={<Italic size={16}/>} />
                 <ToolbarBtn onClick={() => cmd('underline')} icon={<Underline size={16}/>} />
-                <div style={{ width: 1, background: '#ccc', margin: '0 4px' }} />
+                <div style={{ width: 1, background: colors.border, margin: '0 4px' }} />
                 <ToolbarBtn onClick={() => cmd('insertUnorderedList')} icon={<List size={16}/>} />
                 {/* <ToolbarBtn onClick={() => {
                     const url = prompt('URL:');
@@ -271,7 +271,7 @@ export const EmailClientPage: React.FC = () => {
     };
 
     const ToolbarBtn = ({ onClick, icon }: any) => (
-        <button onMouseDown={(e) => { e.preventDefault(); onClick(); }} style={{ background: 'none', border: 'none', padding: '6px', cursor: 'pointer', borderRadius: '4px', color: '#444' }} className='hover-bg'>
+        <button onMouseDown={(e) => { e.preventDefault(); onClick(); }} style={{ background: 'none', border: 'none', padding: '6px', cursor: 'pointer', borderRadius: '4px', color: colors.textPrimary }} className='hover-bg'>
             {icon}
         </button>
     );
@@ -288,13 +288,13 @@ export const EmailClientPage: React.FC = () => {
         const toggleCollapse = () => setCollapsed(!collapsed);
 
         return (
-            <div style={{ borderBottom: isLast ? 'none' : '1px solid #e5e7eb', background: '#fff' }}>
+            <div style={{ borderBottom: isLast ? 'none' : `1px solid ${colors.border}`, background: colors.surface }}>
                 {/* Header (Clickable for collapse) */}
                 <div 
                     onClick={toggleCollapse}
                     style={{ 
                         padding: '16px 24px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px',
-                        background: collapsed ? '#f4f6f8' : '#fff'
+                        background: collapsed ? colors.background : colors.surface
                     }}
                 >
                      <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: colors.primary, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 600 }}>
@@ -302,12 +302,12 @@ export const EmailClientPage: React.FC = () => {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                             <span style={{ fontWeight: 700, fontSize: '14px', color: '#202124' }}>{msg.from}</span>
-                             <span style={{ fontSize: '12px', color: '#5f6368' }}>{new Date(msg.date).toLocaleString()}</span>
+                             <span style={{ fontWeight: 700, fontSize: '14px', color: colors.textPrimary }}>{msg.from}</span>
+                             <span style={{ fontSize: '12px', color: colors.textSecondary }}>{new Date(msg.date).toLocaleString()}</span>
                          </div>
-                         <div style={{ fontSize: '12px', color: '#5f6368' }}>to {msg.toEmail || 'me'}</div>
+                         <div style={{ fontSize: '12px', color: colors.textSecondary }}>to {msg.toEmail || 'me'}</div>
                          {collapsed && (
-                             <div style={{ marginTop: '4px', color: '#5f6368', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                             <div style={{ marginTop: '4px', color: colors.textSecondary, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                  {mainBody.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}...
                              </div>
                          )}
@@ -316,7 +316,7 @@ export const EmailClientPage: React.FC = () => {
 
                 {/* Expanded Body */}
                 {!collapsed && (
-                    <div className="email-body-scroll" style={{ padding: '0 24px 24px', paddingLeft: '76px', fontSize: '14px', lineHeight: '1.5', color: '#222' }}>
+                    <div className="email-body-scroll" style={{ padding: '0 24px 24px', paddingLeft: '76px', fontSize: '14px', lineHeight: '1.5', color: colors.textPrimary }}>
                         {/* Attachments */}
                         {msg.attachments && msg.attachments.length > 0 && (
                             <div style={{ marginBottom: '16px' }}>
@@ -328,20 +328,20 @@ export const EmailClientPage: React.FC = () => {
                                 if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
                                     return (
                                         <div key={i} style={{ marginBottom: '16px' }}>
-                                            <img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #eee' }} />
+                                            <img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: `1px solid ${colors.border}` }} />
                                         </div>
                                     );
                                 }
                                 if (['mp3', 'wav', 'ogg'].includes(ext)) {
                                     return (
-                                        <div key={i} style={{ marginBottom: '16px', background: '#f8f9fa', padding: '12px', borderRadius: '8px', border: '1px solid #eee' }}>
-                                            <div style={{fontSize: '12px', color: '#5f6368', marginBottom: '8px', fontWeight: 500 }}>{att.filename}</div>
+                                        <div key={i} style={{ marginBottom: '16px', background: colors.background, padding: '12px', borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+                                            <div style={{fontSize: '12px', color: colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>{att.filename}</div>
                                             <audio controls src={url} style={{ width: '100%' }} />
                                         </div>
                                     );
                                 }
                                 return (
-                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '4px', textDecoration: 'none', color: '#333', marginRight: '8px', marginBottom: '8px', fontSize: '13px', border: '1px solid #ddd' }}>
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: colors.background, borderRadius: '4px', textDecoration: 'none', color: colors.textPrimary, marginRight: '8px', marginBottom: '8px', fontSize: '13px', border: `1px solid ${colors.border}` }}>
                                         <Paperclip size={14} /> {att.filename}
                                     </a>
                                 );
@@ -355,12 +355,12 @@ export const EmailClientPage: React.FC = () => {
                                 <div style={{ marginTop: '16px' }}>
                                     <button 
                                     onClick={() => setShowQuoted(!showQuoted)}
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: '1px solid #dadce0', borderRadius: '4px', background: '#f1f3f4', cursor: 'pointer', color: '#5f6368' }}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', border: `1px solid ${colors.border}`, borderRadius: '4px', background: colors.background, cursor: 'pointer', color: colors.textSecondary }}
                                     >
                                         <MoreHorizontal size={14} />
                                     </button>
                                     {showQuoted && (
-                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: '1px solid #ccc', paddingLeft: '8px', color: '#666' }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
+                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: `1px solid ${colors.border}`, paddingLeft: '8px', color: colors.textSecondary }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
                                     )}
                                 </div>
                         )}
@@ -374,33 +374,20 @@ export const EmailClientPage: React.FC = () => {
 
     const renderFolder = () => {
     return (
-        <div style={{ display: 'flex', height: '100%', backgroundColor: '#fff', position: 'relative' }}>
+        <div style={{ display: 'flex', height: '100%', backgroundColor: colors.surface, position: 'relative' }}>
             
             {/* Sidebar / List */}
-            <div style={{ width: '350px', borderRight: `1px solid #e5e7eb`, display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }}>
+            <div style={{ width: '350px', borderRight: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', backgroundColor: colors.surface }}>
                 {/* Compose Button Area */}
                 <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button 
-                        onClick={startCompose}
-                        style={{ 
-                            display: 'flex', alignItems: 'center', gap: '12px', 
-                            background: '#c2e7ff', color: '#001d35', 
-                            border: 'none', padding: '16px 24px', 
-                            borderRadius: '16px', fontSize: '16px', fontWeight: 600, 
-                            cursor: 'pointer', width: 'fit-content',
-                            transition: 'box-shadow .2s'
-                        }}
-                    >
-                        <Plus size={24} /> Compose
-                    </button>
                     
                     <button 
                         onClick={() => view === 'settings' ? fetchSettings() : fetchEmails(view)}
                         style={{ 
-                            background: 'transparent', border: '1px solid #e5e7eb',
+                            background: 'transparent', border: `1px solid ${colors.border}`,
                             borderRadius: '50%', width: '40px', height: '40px',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', color: '#5f6368',
+                            cursor: 'pointer', color: colors.textSecondary,
                             transition: 'color .2s'
                         }}
                         title="Refresh"
@@ -410,6 +397,7 @@ export const EmailClientPage: React.FC = () => {
                             @keyframes spin { 100% { transform: rotate(360deg); } }
                         `}</style>
                     </button>
+                    <div style={{ fontSize: '12px', color: colors.textSecondary }}>{emails.length} items</div>
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -421,24 +409,24 @@ export const EmailClientPage: React.FC = () => {
                         onClick={() => handleSelectEmail(email)}
                         style={{
                             padding: '12px 16px',
-                            borderBottom: `1px solid #e5e7eb`,
-                            background: isSelected ? '#e8f0fe' : (email.read ? 'transparent' : '#fff'),
+                            borderBottom: `1px solid ${colors.border}`,
+                            background: isSelected ? colors.background : 'transparent',
                             cursor: 'pointer',
-                            borderLeft: isSelected ? `4px solid ${colors.primary}` : (!email.read ? `4px solid ${colors.primary}` : '4px solid transparent'),
+                            borderLeft: isSelected ? `4px solid ${colors.primary}` : '4px solid transparent',
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
-                            <span style={{ fontWeight: !email.read ? 700 : 500, color: '#202124', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                            <span style={{ fontWeight: !email.read ? 700 : 500, color: colors.textPrimary, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
                                 {view === 'sent' ? `To: ${email.toEmail || email.from}` : email.from}
                             </span>
-                            <span style={{ fontSize: '11px', color: '#5f6368', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap' }}>
                                 {new Date(email.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                             </span>
                         </div>
-                        <div style={{ fontWeight: !email.read ? 700 : 400, marginBottom: '2px', fontSize: '13px', color: '#202124' }}>
+                        <div style={{ fontWeight: !email.read ? 700 : 400, marginBottom: '2px', fontSize: '13px', color: colors.textPrimary }}>
                             {email.subject || '(No Subject)'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#5f6368', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', height: '20px' }}>
+                        <div style={{ fontSize: '12px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', height: '20px' }}>
                              {email.body.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}
                         </div>
                     </div>
@@ -447,17 +435,17 @@ export const EmailClientPage: React.FC = () => {
             </div>
             
             {/* Detail View (Thread) */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff', overflow: 'hidden' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: colors.surface, overflow: 'hidden' }}>
                 {selectedEmail ? (
                     <>
                         {/* Header */}
-                        <div style={{ padding: '20px 24px', borderBottom: `1px solid #e5e7eb` }}>
+                        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: '#202124', lineHeight: '1.2' }}>
+                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 400, color: colors.textPrimary, lineHeight: '1.2' }}>
                                     {selectedEmail.subject}
                                 </h2>
                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={() => handleDelete(selectedEmail)} title="Delete" style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: '#5f6368' }}>
+                                    <button onClick={() => handleDelete(selectedEmail)} title="Delete" style={{ background: 'none', border: 'none', padding: '8px', cursor: 'pointer', color: colors.textSecondary }}>
                                         <Trash2 size={20} />
                                     </button>
                                 </div>
@@ -477,26 +465,26 @@ export const EmailClientPage: React.FC = () => {
                              ))}
 
                              <style>{`
-                                .email-content-reset a { color: #1a73e8; text-decoration: none; }
+                                .email-content-reset a { color: ${colors.primary}; text-decoration: none; }
                                 .email-content-reset img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
                                 .email-content-reset p { margin: 0 0 12px 0; }
-                                .email-content-reset blockquote { margin-left: 0; padding-left: 12px; border-left: 1px solid #ccc; color: #666; }
+                                .email-content-reset blockquote { margin-left: 0; padding-left: 12px; border-left: 1px solid ${colors.border}; color: ${colors.textSecondary}; }
                                 .email-body-scroll::-webkit-scrollbar { width: 8px; }
-                                .email-body-scroll::-webkit-scrollbar-thumb { background-color: #dadce0; borderRadius: 4px; }
-                                .hover-bg:hover { background: #e0e0e0 !important; }
+                                .email-body-scroll::-webkit-scrollbar-thumb { background-color: ${colors.border}; borderRadius: 4px; }
+                                .hover-bg:hover { background: ${colors.background} !important; }
                              `}</style>
                         </div>
                         
                         {/* Quick Reply Button (Always visible at bottom of thread) */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid #eee', marginBottom: '40px' }}>
-                            <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: '1px solid #dadce0', background: '#fff', color: '#5f6368', cursor: 'pointer', fontWeight: 500 }}>
+                        <div style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, marginBottom: '40px' }}>
+                            <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.textSecondary, cursor: 'pointer', fontWeight: 500 }}>
                                 <RefreshCw size={16} /> Reply
                             </button>
                         </div>
                     </>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#5f6368' }}>
-                        <Mail size={48} color="#dadce0" />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: colors.textSecondary }}>
+                        <Mail size={48} color={colors.textSecondary} />
                         <p style={{ marginTop: '16px' }}>Select an email to read</p>
                     </div>
                 )}
@@ -507,17 +495,17 @@ export const EmailClientPage: React.FC = () => {
                 <div style={{ 
                     position: 'absolute', bottom: 0, right: '24px', 
                     width: '600px', height: '600px', 
-                    background: '#fff', borderRadius: '8px 8px 0 0', 
+                    background: colors.surface, borderRadius: '8px 8px 0 0', 
                     boxShadow: '0 0 16px rgba(0,0,0,0.15)', 
                     display: 'flex', flexDirection: 'column',
-                    zIndex: 100, border: '1px solid #d3d3d3',
+                    zIndex: 100, border: `1px solid ${colors.border}`,
                     paddingBottom: '16px' // Added padding for the footer area
                 }}>
                     {/* Header */}
-                    <div style={{ background: '#404040', color: '#fff', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ background: colors.primary, color: 'white', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={16} /></button>
+                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={16} /></button>
                         </div>
                     </div>
                     
@@ -527,21 +515,21 @@ export const EmailClientPage: React.FC = () => {
                             placeholder="To" 
                             value={composeData.to}
                             onChange={e => setComposeData({...composeData, to: e.target.value})}
-                            style={{ padding: '12px 20px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                            style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
                         />
                         <input 
                             placeholder="Subject" 
                             value={composeData.subject}
                             onChange={e => setComposeData({...composeData, subject: e.target.value})}
-                            style={{ padding: '12px 20px', border: 'none', borderBottom: '1px solid #eee', outline: 'none', fontSize: '14px' }}
+                            style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
                         />
                         
                         {/* Attachments List */}
                         {composeData.attachments.length > 0 && (
-                            <div style={{ padding: '4px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: '#f8f9fa' }}>
+                            <div style={{ padding: '4px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: colors.background }}>
                                 {composeData.attachments.map((f, i) => (
-                                    <div key={i} style={{ background: '#fff', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}><X size={12}/></button>
+                                    <div key={i} style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textPrimary }}>
+                                        {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary }}><X size={12}/></button>
                                     </div>
                                 ))}
                             </div>
@@ -555,19 +543,19 @@ export const EmailClientPage: React.FC = () => {
                             <div 
                                 contentEditable
                                 onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
-                                style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif' }}
+                                style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif', color: colors.textPrimary }}
                                 data-placeholder="Message body..."
                             />
                         </div>
                     </div>
 
                     {/* Footer */}
-                    <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee' }}>
+                    <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.border}` }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
                                 onClick={handleSend}
                                 style={{ 
-                                    background: '#0b57d0', color: '#fff', 
+                                    background: colors.primary, color: 'white', 
                                     border: 'none', padding: '8px 24px', 
                                     borderRadius: '18px', fontWeight: 600, 
                                     cursor: 'pointer', fontSize: '14px' 
@@ -577,7 +565,7 @@ export const EmailClientPage: React.FC = () => {
                             </button>
                             <button 
                                 onClick={() => fileInputRef.current?.click()}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#444', padding: '8px' }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '8px' }}
                                 title="Attach files"
                                 className='hover-bg'
                             >
@@ -591,7 +579,7 @@ export const EmailClientPage: React.FC = () => {
                                 onChange={handleFileSelect}
                             />
                         </div>
-                        <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5f6368' }}>
+                        <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
                             <Trash2 size={16} />
                         </button>
                     </div>
@@ -610,11 +598,11 @@ export const EmailClientPage: React.FC = () => {
                 <label style={{ display: 'block', marginBottom: '8px' }}>Webhook Secret (x-auth-token)</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <input 
-                        style={{ flex: 1, padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                        style={{ flex: 1, padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                         value={settings.webhookSecret || ''}
                         onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
                     />
-                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.secondary, color: 'white', border: 'none', padding: '8px' }}>Gen</button>
+                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.primary, color: 'white', border: 'none', padding: '8px' }}>Gen</button>
                 </div>
                 <p style={{ fontSize: '12px', color: colors.textSecondary }}>
                     Webhook URL: {window.location.origin.replace('3000', '3001')}/api/email/webhook
@@ -622,9 +610,9 @@ export const EmailClientPage: React.FC = () => {
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px' }}>Resend API Key</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Resend API Key</label>
                 <input 
-                    style={{ width: '100%', padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                    style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                     value={settings.resendApiKey || ''}
                     onChange={e => setSettings({...settings, resendApiKey: e.target.value})}
                     placeholder="re_1234..."
@@ -633,17 +621,17 @@ export const EmailClientPage: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '8px' }}>Default From Name</label>
+                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Default From Name</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                         value={settings.fromName || ''}
                         onChange={e => setSettings({...settings, fromName: e.target.value})}
                     />
                 </div>
                 <div>
-                     <label style={{ display: 'block', marginBottom: '8px' }}>Default From Email</label>
+                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Default From Email</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                         value={settings.fromEmail || ''}
                         onChange={e => setSettings({...settings, fromEmail: e.target.value})}
                     />
@@ -652,17 +640,17 @@ export const EmailClientPage: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '8px' }}>Discord Channel ID (Alerts)</label>
+                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Discord Channel ID (Alerts)</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                         value={settings.channelId || ''}
                         onChange={e => setSettings({...settings, channelId: e.target.value})}
                     />
                 </div>
                 <div>
-                     <label style={{ display: 'block', marginBottom: '8px' }}>Notify Role ID</label>
+                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Notify Role ID</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: 'white', border: `1px solid ${colors.border}` }}
+                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
                         value={settings.roleId || ''}
                         onChange={e => setSettings({...settings, roleId: e.target.value})}
                     />
@@ -677,65 +665,66 @@ export const EmailClientPage: React.FC = () => {
     );
 
     return (
-        <div style={{ height: '100%', padding: '24px', boxSizing: 'border-box' }}>
+        <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+             {/* Header */}
+            <div style={{ display: 'flex', marginBottom: '24px', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <Mail size={32} color={colors.primary} />
+                    <div>
+                        <h1 style={{ margin: 0, color: '#fff' }}>Email Client</h1>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage emails directly from the dashboard.</p>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                     <button 
+                        onClick={() => setComposing(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            padding: '8px 20px', borderRadius: '8px', border: 'none',
+                            background: colors.primary, color: '#fff',
+                            cursor: 'pointer', fontWeight: 600, fontSize: '14px',
+                            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+                        }}
+                    >
+                        <Plus size={18} /> New Email
+                    </button>
+                    <div style={{ display: 'flex', gap: '4px', background: colors.surface, padding: '4px', borderRadius: '8px', border: `1px solid ${colors.border}` }}>
+                        {(['inbox', 'sent', 'trash', 'settings'] as const).map(v => (
+                            <button
+                                key={v}
+                                onClick={() => { setView(v); setSelectedEmail(null); }}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                    background: view === v ? colors.primary : 'transparent',
+                                    color: view === v ? '#fff' : colors.textSecondary,
+                                    fontWeight: 600,
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    textTransform: 'capitalize',
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {v === 'inbox' && <Mail size={14} />}
+                                {v === 'sent' && <Send size={14} />}
+                                {v === 'trash' && <Trash2 size={14} />}
+                                {v === 'settings' && <Settings size={14} />}
+                                {v}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                height: '100%', 
-                background: '#fff', 
+                flex: 1, 
+                background: colors.surface, 
                 borderRadius: '12px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                border: `1px solid ${colors.border}`,
                 overflow: 'hidden'
             }}>
-                {/* Plugin Header */}
-                <div style={{ 
-                    padding: '24px 32px', 
-                    borderBottom: '1px solid #e5e7eb',
-                    background: '#f9fafb'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                            <h1 style={{ 
-                                margin: 0, fontSize: '24px', fontWeight: '700', color: '#111827',
-                                display: 'flex', alignItems: 'center', gap: '12px'
-                            }}>
-                                <Mail size={28} color={colors.primary} />
-                                Email Client
-                            </h1>
-                            <p style={{ margin: '8px 0 0 0', color: '#6b7280', fontSize: '14px', maxWidth: '600px' }}>
-                                Manage your emails directly from the dashboard.
-                            </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '4px', background: '#fff', padding: '4px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                                {(['inbox', 'sent', 'trash', 'settings'] as const).map(v => (
-                                    <button
-                                        key={v}
-                                        onClick={() => { setView(v); setSelectedEmail(null); }}
-                                        style={{
-                                            padding: '8px 16px', borderRadius: '6px', border: 'none',
-                                            background: view === v ? colors.primary : 'transparent',
-                                            color: view === v ? '#fff' : '#6b7280',
-                                            fontWeight: 600,
-                                            fontSize: '13px',
-                                            cursor: 'pointer',
-                                            textTransform: 'capitalize',
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {v === 'inbox' && <Mail size={14} />}
-                                        {v === 'sent' && <Send size={14} />}
-                                        {v === 'trash' && <Trash2 size={14} />}
-                                        {v === 'settings' && <Settings size={14} />}
-                                        {v}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                     {view === 'settings' ? renderSettings() : renderFolder()}
