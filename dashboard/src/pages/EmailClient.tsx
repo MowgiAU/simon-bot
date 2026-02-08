@@ -26,6 +26,8 @@ interface EmailSettings {
     resendApiKey?: string;
     fromName?: string;
     fromEmail?: string;
+    channelId?: string;
+    roleId?: string;
 }
 
 export const EmailClientPage: React.FC = () => {
@@ -113,6 +115,16 @@ export const EmailClientPage: React.FC = () => {
             console.error(e);
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const saveSettings = async () => {
+        try {
+            await axios.post('/api/email/settings', settings, { withCredentials: true });
+            alert('Settings saved!');
+        } catch (e) {
+            console.error(e);
+            alert('Failed to save settings');
         }
     };
 
