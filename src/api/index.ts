@@ -1946,10 +1946,19 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
         }
     }
 
-    // If closing, we could trigger valid closing logic here too (like sending transcript)
-    // But usually simpler to let the bot command handle complex closing logic.
-    // However, if the user closes via dashboard, we might want to trigger the same "cleanup" flow.
-    // For now, assume priority sync is the main requirement.
+    // If closing, we logic to close the ticket in the dashboard as well
+    if (status === 'closed' && ticket.channelId) {
+        try {
+            await axios.delete(`https://discord.com/api/v10/channels/${ticket.channelId}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            });
+        } catch (e: any) {
+            // Ignore if already deleted
+            if (e.response?.status !== 404) {
+                logger.error(`Failed to delete channel for ticket ${ticketId}`, e);
+            }
+        }
+    }
 
     res.json(ticket);
 });
