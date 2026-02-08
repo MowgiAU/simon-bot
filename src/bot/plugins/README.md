@@ -31,6 +31,7 @@ export class MyNewPlugin implements IPlugin {
 *   **Discovery**: The dashboard asks `/api/plugins/list`, which scans this folder.
 *   **Settings**: Each plugin can have a `configSchema` (Zod) on the backend.
 *   **Frontend**: To add a custom settings page in the dashboard, you currently need to add a new route in `dashboard/src/App.tsx` and a corresponding page component, matching the `id`.
+*   **Access Control**: You MUST manually add your plugin ID to the `accessiblePlugins` array in `src/api/index.ts` (look for the `/api/user/me` endpoint). This grants admins access to the plugin in the sidebar.
 
 ## Production Feedback Plugin
 
