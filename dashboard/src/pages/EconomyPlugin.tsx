@@ -17,25 +17,28 @@ export const EconomyPluginPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     // Fetching
-    const refreshData = async () => {
+    const refreshData = async (signal?: AbortSignal) => {
         if (!selectedGuild) return;
         setLoading(true);
         try {
             const [setRes, itemRes] = await Promise.all([
-                axios.get(`/api/economy/settings/${selectedGuild.id}`, { withCredentials: true }),
-                axios.get(`/api/economy/items/${selectedGuild.id}`, { withCredentials: true })
+                axios.get(`/api/economy/settings/${selectedGuild.id}`, { withCredentials: true, signal }),
+                axios.get(`/api/economy/items/${selectedGuild.id}`, { withCredentials: true, signal })
             ]);
             setSettings(setRes.data);
             setItems(itemRes.data);
-        } catch (e) {
+        } catch (e: any) {
+            if (axios.isCancel(e) || e.name === 'AbortError') return;
             console.error(e);
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
     };
 
     useEffect(() => {
-        refreshData();
+        const controller = new AbortController();
+        refreshData(controller.signal);
+        return () => controller.abort();
     }, [selectedGuild]);
 
     // Save Settings

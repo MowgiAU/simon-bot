@@ -15,24 +15,27 @@ export const WelcomeGatePluginPage: React.FC = () => {
 
     useEffect(() => {
         if (!selectedGuild) return;
-        fetchData();
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
     }, [selectedGuild]);
 
-    const fetchData = async () => {
+    const fetchData = async (signal?: AbortSignal) => {
         setLoading(true);
         try {
             const [setRes, roleRes, chanRes] = await Promise.all([
-                axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { withCredentials: true }),
-                axios.get(`/api/guilds/${selectedGuild?.id}/roles`, { withCredentials: true }),
-                axios.get(`/api/guilds/${selectedGuild?.id}/channels`, { withCredentials: true })
+                axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { withCredentials: true, signal }),
+                axios.get(`/api/guilds/${selectedGuild?.id}/roles`, { withCredentials: true, signal }),
+                axios.get(`/api/guilds/${selectedGuild?.id}/channels`, { withCredentials: true, signal })
             ]);
             setSettings(setRes.data);
             setRoles(roleRes.data);
             setChannels(chanRes.data);
-        } catch (e) {
+        } catch (e: any) {
+            if (axios.isCancel(e) || e.name === 'AbortError') return;
             console.error(e);
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) setLoading(false);
         }
     };
 

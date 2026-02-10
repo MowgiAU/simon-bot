@@ -53,17 +53,19 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   // Load settings from API on mount or when guildId changes
   useEffect(() => {
     if (!guildId) return;
-    loadSettings(guildId);
+    const controller = new AbortController();
+    loadSettings(guildId, controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line
   }, [guildId]);
 
-  const loadSettings = async (gid: string) => {
+  const loadSettings = async (gid: string, signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
       const startTime = performance.now();
       const response = await fetch(`${API_BASE}/settings/${gid}`, {
-        signal: AbortSignal.timeout(10000),
+        signal: signal || AbortSignal.timeout(10000),
         credentials: 'include',
       });
       const endTime = performance.now();
@@ -82,7 +84,8 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         excludedRoles: data.excludedRoles || [],
       });
       setWordGroups(data.wordGroups || []);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to load settings from API', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setError(`Failed to load settings from server: ${msg}. Using cached data.`);
@@ -96,7 +99,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         try { setSettings(JSON.parse(savedSettings)); } catch (e) { console.error('Failed to parse saved settings', e); }
       }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 

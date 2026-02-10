@@ -51,22 +51,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => 
   const [activeChartTab, setActiveChartTab] = useState<'messages' | 'voice' | 'channels'>('messages');
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/guilds/${guildId}/stats`, { credentials: 'include' });
+        const response = await fetch(`/api/guilds/${guildId}/stats`, { 
+            credentials: 'include',
+            signal: controller.signal 
+        });
         if (response.ok) {
           const data = await response.json();
           setStats(data);
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
         console.error('Failed to load dashboard stats', error);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+            setLoading(false);
+        }
       }
     };
 
     fetchStats();
+    
+    return () => {
+        controller.abort();
+    };
   }, [guildId]);
 
   const formatNumber = (num: number) => {
