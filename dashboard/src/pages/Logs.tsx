@@ -570,7 +570,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                         padding: spacing.md,
                         borderBottom: `1px solid ${colors.border}`,
                         display: 'grid',
-                        gridTemplateColumns: '140px 100px 1fr 180px 40px',
+                        gridTemplateColumns: '140px 160px 1fr 180px 40px',
                         fontWeight: 600,
                         color: colors.textSecondary,
                         fontSize: '13px'
@@ -655,7 +655,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                         cursor: 'pointer',
                                         background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent',
                                         ...(isMobile ? { display: 'flex', flexDirection: 'column', gap: 8 } : {
-                                            display: 'grid', gridTemplateColumns: '140px 100px 1fr 180px 40px', gap: spacing.md, alignItems: 'start'
+                                            display: 'grid', gridTemplateColumns: '140px 160px 1fr 180px 40px', gap: spacing.md, alignItems: 'start'
                                         }),
                                         position: 'relative'
                                     }}
