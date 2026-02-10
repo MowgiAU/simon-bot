@@ -80,7 +80,8 @@ export const ModerationSettingsPage: React.FC = () => {
                 } catch (err: any) {
                     if (axios.isCancel(err) || err.name === 'AbortError') return;
                     console.error(err);
-                    setMsg({ type: 'error', text: 'Failed to load settings' });
+                    const errorText = err.response?.data?.error || err.message || 'Unknown error';
+                    setMsg({ type: 'error', text: `Failed to load settings: ${errorText}` });
                 } finally {
                     if (!controller.signal.aborted) setLoading(false);
                 }

@@ -43,7 +43,9 @@ export const WelcomeGatePluginPage: React.FC = () => {
         } catch (e: any) {
             if (axios.isCancel(e) || e.name === 'AbortError') return;
             console.error(e);
-            setErrorMessage('Failed to load settings');
+            
+            const errorText = e.response?.data?.error || e.message || 'Unknown error';
+            setErrorMessage(`Failed to load settings: ${errorText}`);
         } finally {
             if (!signal?.aborted) setLoading(false);
         }
