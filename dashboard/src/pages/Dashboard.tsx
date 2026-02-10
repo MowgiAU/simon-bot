@@ -74,7 +74,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
   };
 
   // Format dates for charts
-  const historyData = stats?.history.map(h => ({
+  const historyData = stats?.history?.map(h => ({
     ...h,
     date: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     voiceHours: Math.round((h.voiceMinutes / 60) * 10) / 10
@@ -450,10 +450,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                 <h2>Top Channels List</h2>
               </div>
               <div className="card-body">
-                {stats?.topChannels.length === 0 ? (
+                {(stats?.topChannels || []).length === 0 ? (
                     <p style={{ color: colors.textSecondary }}>No activity recorded yet.</p>
                 ) : (
-                    stats?.topChannels.slice(0, 5).map((channel, i) => (
+                    (stats?.topChannels || []).slice(0, 5).map((channel, i) => (
                         <div key={i} className="activity-item">
                           <div className="activity-dot" style={{ backgroundColor: i < 3 ? colors.accent : colors.textTertiary }}></div>
                           <div className="activity-content">
