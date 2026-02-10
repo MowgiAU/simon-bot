@@ -33,6 +33,21 @@ const db = globalForPrisma.prisma || new PrismaClient({
 });
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
+// DEBUG: Log Database Connection Info
+(async () => {
+    try {
+        const url = process.env.DATABASE_URL || '';
+        const maskedUrl = url.replace(/:([^:@]+)@/, ':****@');
+        logger.info(`[Database] Connecting to: ${maskedUrl}`);
+        
+        // Test query
+        const count = await db.guild.count();
+        logger.info(`[Database] Connection successful. Guild count: ${count}`);
+    } catch (e: any) {
+        logger.error('[Database] Connection check failed on startup', e);
+    }
+})();
+
 // Simple in-memory cache for user details: userId -> { username, avatar, timestamp }
 const userCache = new Map<string, { username: string; avatar: string | null; timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
