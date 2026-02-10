@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
@@ -11,6 +10,7 @@ import './Dashboard.css';
 
 interface DashboardProps {
   guildId: string;
+  onNavigate: (section: string) => void;
 }
 
 interface DashboardStats {
@@ -45,7 +45,7 @@ interface DashboardStats {
   };
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeChartTab, setActiveChartTab] = useState<'messages' | 'voice' | 'channels'>('messages');
@@ -356,9 +356,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Unread emails</div>
                   </div>
-                  <Link to="/email" style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, textDecoration: 'none', fontWeight: 500, fontSize: '14px' }}>
+                  <div onClick={() => onNavigate('email-client')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       Open Inbox <ArrowRight size={16} />
-                  </Link>
+                  </div>
                 </div>
 
                 {/* Ticket System */}
@@ -377,9 +377,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Open tickets</div>
                   </div>
-                  <Link to="/tickets" style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, textDecoration: 'none', fontWeight: 500, fontSize: '14px' }}>
+                  <div onClick={() => onNavigate('tickets')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       Manage Tickets <ArrowRight size={16} />
-                  </Link>
+                  </div>
                 </div>
 
                 {/* Economy System */}
@@ -398,9 +398,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Total currency in circulation</div>
                   </div>
-                  <Link to="/economy" style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, textDecoration: 'none', fontWeight: 500, fontSize: '14px' }}>
+                  <div onClick={() => onNavigate('economy')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       View Economy <ArrowRight size={16} />
-                  </Link>
+                  </div>
                 </div>
                 
                 {/* Security (Word Filter + Welcome Gate) */}
@@ -436,9 +436,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                        </div>
                   </div>
                   <div style={{ padding: '12px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '12px' }}>
-                        <Link to="/word-filter" style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '12px', fontWeight: 500, flex: 1, textAlign: 'center' }}>Word Filter</Link>
+                        <div onClick={() => onNavigate('word-filter-settings')} style={{ color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', fontWeight: 500, flex: 1, textAlign: 'center' }}>Word Filter</div>
                         <div style={{ width: 1, background: colors.border }}></div>
-                        <Link to="/welcome" style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '12px', fontWeight: 500, flex: 1, textAlign: 'center' }}>Welcome Gate</Link>
+                        <div onClick={() => onNavigate('welcome-gate')} style={{ color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', fontWeight: 500, flex: 1, textAlign: 'center' }}>Welcome Gate</div>
                   </div>
                 </div>
 

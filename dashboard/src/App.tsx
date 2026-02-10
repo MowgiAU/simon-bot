@@ -136,7 +136,7 @@ const AppContent: React.FC = () => {
       case 'tickets':
          return <TicketSystemPage guildId={selectedGuild.id} />;
       case 'dashboard':
-        return <Dashboard guildId={selectedGuild.id} />;
+        return <Dashboard guildId={selectedGuild.id} onNavigate={handleNavigate} />;
       case 'logs':
         return <Logs guildId={selectedGuild.id} />;
       case 'staging-test':
