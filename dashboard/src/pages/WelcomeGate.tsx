@@ -63,6 +63,27 @@ export const WelcomeGatePluginPage: React.FC = () => {
 
     if (loading) return <div style={{ color: colors.textSecondary, padding: '20px' }}>Loading...</div>;
 
+    if (!settings) return (
+        <div style={{ color: colors.textSecondary, padding: '20px', textAlign: 'center' }}>
+            <h2>Failed to load settings</h2>
+            <p>There was an error loading the configuration. Please try refreshing the page.</p>
+            <button 
+                onClick={fetchData}
+                style={{
+                    marginTop: '16px',
+                    padding: '8px 16px',
+                    background: colors.primary,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: borderRadius.md,
+                    cursor: 'pointer'
+                }}
+            >
+                Retry
+            </button>
+        </div>
+    );
+
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
             <div style={{ display: 'flex', marginBottom: '24px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center' }}>
