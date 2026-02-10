@@ -552,8 +552,25 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
 
     const whereClause: any = { guildId };
 
+    // Map frontend categories to database action strings
+    const CATEGORY_ACTIONS: Record<string, string[]> = {
+        'MOD': ['kick', 'ban', 'unban', 'timeout', 'untimeout', 'warn', 'purge', 'member_kick', 'member_ban', 'member_timeout'],
+        'AUTOMOD': ['automod_block', 'spam_detected'],
+        'ROLE': ['role_create', 'role_delete', 'role_update', 'member_role_update'],
+        'PROFANITY': ['message_filtered', 'profanity_detected'],
+        'CURRENCY': ['item_bought', 'transaction'],
+        'LINK': ['link_deleted', 'link_filtered'],
+        'PIRACY': ['piracy_detected'],
+        'ERROR': ['error', 'command_error']
+    };
+
     if (action && action !== 'all') {
-        whereClause.action = action;
+        const mappedActions = CATEGORY_ACTIONS[action];
+        if (mappedActions) {
+            whereClause.action = { in: mappedActions };
+        } else {
+            whereClause.action = action;
+        }
     }
 
     // Filter by specific user (Actor OR Target)
