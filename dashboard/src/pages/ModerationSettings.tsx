@@ -57,36 +57,41 @@ export const ModerationSettingsPage: React.FC = () => {
         if (!selectedGuild) return;
         
         const controller = new AbortController();
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                // Parallel fetch
-                const [settingsRes, rolesRes, channelsRes] = await Promise.all([
-                    axios.get(`/api/guilds/${selectedGuild.id}/moderation`, { withCredentials: true, signal: controller.signal }),
-                    axios.get(`/api/guilds/${selectedGuild.id}/roles`, { withCredentials: true, signal: controller.signal }),
-                    axios.get(`/api/guilds/${selectedGuild.id}/channels`, { withCredentials: true, signal: controller.signal })
-                ]);
+        
+        // Debounce fetch to prevent spamming server during rapid navigation
+        const timeoutId = setTimeout(() => {
+            const fetchData = async () => {
+                setLoading(true);
+                try {
+                    // Parallel fetch
+                    const [settingsRes, rolesRes, channelsRes] = await Promise.all([
+                        axios.get(`/api/guilds/${selectedGuild.id}/moderation`, { withCredentials: true, signal: controller.signal }),
+                        axios.get(`/api/guilds/${selectedGuild.id}/roles`, { withCredentials: true, signal: controller.signal }),
+                        axios.get(`/api/guilds/${selectedGuild.id}/channels`, { withCredentials: true, signal: controller.signal })
+                    ]);
 
-                setSettings(settingsRes.data);
-                
-                // Filter roles (exclude @everyone usually, but maybe keep it for basic perms?)
-                // Discord API returns roles sorted by position usually.
-                const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
-                setRoles(sortedRoles);
-                if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
+                    setSettings(settingsRes.data);
+                    
+                    const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
+                    setRoles(sortedRoles);
+                    if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
 
-                setChannels(channelsRes.data);
-            } catch (err: any) {
-                if (axios.isCancel(err) || err.name === 'AbortError') return;
-                console.error(err);
-                setMsg({ type: 'error', text: 'Failed to load settings' });
-            } finally {
-                if (!controller.signal.aborted) setLoading(false);
-            }
+                    setChannels(channelsRes.data);
+                } catch (err: any) {
+                    if (axios.isCancel(err) || err.name === 'AbortError') return;
+                    console.error(err);
+                    setMsg({ type: 'error', text: 'Failed to load settings' });
+                } finally {
+                    if (!controller.signal.aborted) setLoading(false);
+                }
+            };
+            fetchData();
+        }, 300); // Wait 300ms before fetching
+
+        return () => {
+            clearTimeout(timeoutId);
+            controller.abort();
         };
-
-        fetchData();
-        return () => controller.abort();
     }, [selectedGuild]);
 
     const saveGeneral = async () => {

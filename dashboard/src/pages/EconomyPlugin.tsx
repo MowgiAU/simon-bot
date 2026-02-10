@@ -37,8 +37,15 @@ export const EconomyPluginPage: React.FC = () => {
 
     useEffect(() => {
         const controller = new AbortController();
-        refreshData(controller.signal);
-        return () => controller.abort();
+        
+        const timeoutId = setTimeout(() => {
+             refreshData(controller.signal);
+        }, 300);
+
+        return () => {
+            clearTimeout(timeoutId);
+            controller.abort();
+        };
     }, [selectedGuild]);
 
     // Save Settings

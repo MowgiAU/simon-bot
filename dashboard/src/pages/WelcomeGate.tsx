@@ -17,8 +17,15 @@ export const WelcomeGatePluginPage: React.FC = () => {
     useEffect(() => {
         if (!selectedGuild) return;
         const controller = new AbortController();
-        fetchData(controller.signal);
-        return () => controller.abort();
+        
+        const timeoutId = setTimeout(() => {
+            fetchData(controller.signal);
+        }, 300);
+
+        return () => {
+            clearTimeout(timeoutId);
+            controller.abort();
+        };
     }, [selectedGuild]);
 
     const fetchData = async (signal?: AbortSignal) => {

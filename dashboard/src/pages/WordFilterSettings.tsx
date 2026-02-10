@@ -54,8 +54,15 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   useEffect(() => {
     if (!guildId) return;
     const controller = new AbortController();
-    loadSettings(guildId, controller.signal);
-    return () => controller.abort();
+    
+    const timeoutId = setTimeout(() => {
+        loadSettings(guildId, controller.signal);
+    }, 300);
+
+    return () => {
+        clearTimeout(timeoutId);
+        controller.abort();
+    };
     // eslint-disable-next-line
   }, [guildId]);
 

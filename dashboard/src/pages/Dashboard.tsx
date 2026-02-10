@@ -52,30 +52,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => 
 
   useEffect(() => {
     const controller = new AbortController();
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/guilds/${guildId}/stats`, { 
-            credentials: 'include',
-            signal: controller.signal 
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        }
-      } catch (error: any) {
-        if (error.name === 'AbortError') return;
-        console.error('Failed to load dashboard stats', error);
-      } finally {
-        if (!controller.signal.aborted) {
-            setLoading(false);
-        }
-      }
-    };
+    
+    // Debounce to allow rapid navigation without hitting API
+    const timeoutId = setTimeout(() => {
+        const fetchStats = async () => {
+          try {
+            setLoading(true);
+            const response = await fetch(`/api/guilds/${guildId}/stats`, { 
+                credentials: 'include',
+                signal: controller.signal 
+            });
+            if (response.ok) {
+              const data = await response.json();
+              setStats(data);
+            }
+          } catch (error: any) {
+            if (error.name === 'AbortError') return;
+            console.error('Failed to load dashboard stats', error);
+          } finally {
+            if (!controller.signal.aborted) {
+                setLoading(false);
+            }
+          }
+        };
 
-    fetchStats();
+        fetchStats();
+    }, 300);
     
     return () => {
+        clearTimeout(timeoutId);
         controller.abort();
     };
   }, [guildId]);
