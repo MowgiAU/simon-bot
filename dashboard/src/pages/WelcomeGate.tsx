@@ -12,6 +12,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [roles, setRoles] = useState<any[]>([]);
     const [channels, setChannels] = useState<any[]>([]);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -22,6 +23,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
 
     const fetchData = async (signal?: AbortSignal) => {
         setLoading(true);
+        setErrorMessage(null);
         try {
             const [setRes, roleRes, chanRes] = await Promise.all([
                 axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { withCredentials: true, signal }),
@@ -34,6 +36,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
         } catch (e: any) {
             if (axios.isCancel(e) || e.name === 'AbortError') return;
             console.error(e);
+            setErrorMessage('Failed to load settings');
         } finally {
             if (!signal?.aborted) setLoading(false);
         }
@@ -64,28 +67,32 @@ export const WelcomeGatePluginPage: React.FC = () => {
         setSettings({ ...settings, questions: newQ });
     };
 
-    if (loading) return <div style={{ color: colors.textSecondary, padding: '20px' }}>Loading...</div>;
-
-    if (!settings) return (
-        <div style={{ color: colors.textSecondary, padding: '20px', textAlign: 'center' }}>
-            <h2>Failed to load settings</h2>
-            <p>There was an error loading the configuration. Please try refreshing the page.</p>
-            <button 
-                onClick={fetchData}
-                style={{
-                    marginTop: '16px',
-                    padding: '8px 16px',
-                    background: colors.primary,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: borderRadius.md,
-                    cursor: 'pointer'
-                }}
-            >
-                Retry
-            </button>
+    // UI for errors (matching ModerationSettings standard)
+    if (errorMessage && !settings) return (
+        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{
+                padding: '12px',
+                borderRadius: borderRadius.md,
+                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                color: '#f44336',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+            }}>
+                <Shield size={18} />
+                Failed to load settings
+                <button 
+                    onClick={() => { setErrorMessage(null); fetchData(); }} 
+                    style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 600 }}
+                >
+                    Retry
+                </button>
+            </div>
         </div>
     );
+
+    if (loading) return <div style={{ color: colors.textSecondary, padding: '20px' }}>Loading...</div>;
+    if (!settings) return null; // Should be handled by error view above
 
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
