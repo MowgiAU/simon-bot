@@ -619,6 +619,19 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                             } 
 
                             // 3. Feedback Logs
+                            if (log.action === 'FEEDBACK_THREAD_CREATED') {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colors.primaryLight }}>Feedback Thread Created</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2, color: colors.textSecondary }}>
+                                            <span>Thread: <span style={{ color: colors.textPrimary }}>{log.details.threadName}</span></span>
+                                            <span style={{ fontSize: '12px' }}>Cost: {log.details.cost} Credits</span>
+                                            <span style={{ fontSize: '11px', opacity: 0.7 }}>ID: {log.details.threadId}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             if (log.details?.postId) {
                                 return (
                                     <div style={{ fontSize: '13px' }}>
@@ -633,7 +646,36 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                 );
                             }
                             
-                            // 4. Fallback
+                            // 4. Economy Logs
+                            if (log.action === 'item_bought') {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colors.highlight }}>Item Purchased</div>
+                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary }}>
+                                            <span>Item: <span style={{ color: colors.textPrimary, fontWeight: 500 }}>{log.details.item}</span></span>
+                                            <span>Price: {log.details.price} 🪙</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 5. Moderation Logs
+                            if (['ban', 'kick', 'timeout', 'unban', 'warn', 'softban'].includes(log.action)) {
+                                const colorMap: any = { ban: colors.error, kick: colors.highlight, timeout: colors.highlightLight, unban: colors.success };
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colorMap[log.action] || colors.primary, textTransform: 'capitalize' }}>
+                                            {log.action}
+                                        </div>
+                                        <div style={{ marginTop: 4, color: colors.textSecondary }}>
+                                            {log.details.reason && <span>Reason: <span style={{ color: colors.textPrimary }}>{log.details.reason}</span></span>}
+                                            {log.details.duration && <span style={{ marginLeft: 8, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: '12px' }}>{log.details.duration}</span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 6. Fallback
                             return (
                                 <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
                                     {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
