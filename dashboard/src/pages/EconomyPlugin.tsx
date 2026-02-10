@@ -323,6 +323,20 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
     const [results, setResults] = useState<any[]>([]);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
     const [amount, setAmount] = useState(0);
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
+    useEffect(() => {
+        // Load leaderboard on mount
+        const loadLeaderboard = async () => {
+             try {
+                 const res = await axios.get(`/api/economy/leaderboard/${guildId}`, { withCredentials: true });
+                 setLeaderboard(res.data);
+             } catch (e) {
+                 console.error(e);
+             }
+        };
+        loadLeaderboard();
+    }, [guildId]);
 
     const handleSearch = async () => {
         const res = await axios.get(`/api/economy/search-users/${guildId}?q=${query}`, { withCredentials: true });
@@ -343,41 +357,78 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
 
     return (
         <div>
-            <h3>Vault Manager</h3>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
-                <input 
-                    placeholder="Search user by name..." 
-                    value={query} 
-                    onChange={e => setQuery(e.target.value)} 
-                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                    style={{ ...inputStyle, flex: 1 }} 
-                />
-                <button onClick={handleSearch} style={{ ...btnStyle(colors.primary), width: isMobile ? '100%' : 'auto' }}>Search</button>
-            </div>
+            <h3>Vault Manager & Leaderboard</h3>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px' }}>
+                {/* Search Section */}
+                <div style={{ flex: 1 }}>
+                    <h4>Search User</h4>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
+                        <input 
+                            placeholder="Search user by name..." 
+                            value={query} 
+                            onChange={e => setQuery(e.target.value)} 
+                            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                            style={{ ...inputStyle, flex: 1 }} 
+                        />
+                        <button onClick={handleSearch} style={{ ...btnStyle(colors.primary), width: isMobile ? '100%' : 'auto' }}>Search</button>
+                    </div>
 
-            {selectedUser ? (
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', textAlign: 'center' }}>
-                    <h4>Managing: {selectedUser.user?.username || selectedUser.username}</h4>
-                    <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} style={{ ...inputStyle, width: isMobile ? '100%' : '150px', margin: '0 auto 10px auto', display: 'block' }} />
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                        <button onClick={() => handleUpdate('add')} style={{ ...btnStyle(colors.success), width: isMobile ? '100%' : 'auto' }}>Add {renderCurrency(currency)}</button>
-                        <button onClick={() => handleUpdate('set')} style={{ ...btnStyle(colors.warning), width: isMobile ? '100%' : 'auto' }}>Set Balance</button>
-                        <button onClick={() => setSelectedUser(null)} style={{ ...btnStyle('grey'), width: isMobile ? '100%' : 'auto' }}>Cancel</button>
+                    {selectedUser ? (
+                        <div style={{ padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', textAlign: 'center' }}>
+                            <h4>Managing: {selectedUser.user?.username || selectedUser.username}</h4>
+                            <p style={{ color: colors.success, fontSize: '18px', fontWeight: 'bold' }}>
+                                Balance: {renderCurrency(currency)}{selectedUser.balance ?? '0'}
+                            </p>
+                            <input type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} style={{ ...inputStyle, width: isMobile ? '100%' : '150px', margin: '0 auto 10px auto', display: 'block' }} />
+                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                <button onClick={() => handleUpdate('add')} style={{ ...btnStyle(colors.success), width: isMobile ? '100%' : 'auto' }}>Add {renderCurrency(currency)}</button>
+                                <button onClick={() => handleUpdate('set')} style={{ ...btnStyle(colors.warning), width: isMobile ? '100%' : 'auto' }}>Set Balance</button>
+                                <button onClick={() => setSelectedUser(null)} style={{ ...btnStyle('grey'), width: isMobile ? '100%' : 'auto' }}>Cancel</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {results.map(r => (
+                                <div 
+                                    key={r.user?.id || r.id} 
+                                    onClick={() => setSelectedUser(r)}
+                                    style={{ padding: '10px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
+                                >
+                                    <span>{r.user?.username || r.username} ({r.user?.id || r.id})</span>
+                                    <span style={{ color: colors.success }}>{renderCurrency(currency)}{r.balance}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Leaderboard Section */}
+                <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '20px' : '0' }}>
+                    <h4>Top Currency Holders</h4>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                        {leaderboard.length === 0 ? (
+                            <div style={{ padding: '16px', color: colors.textSecondary, textAlign: 'center' }}>No data</div>
+                        ) : (
+                            leaderboard.map((user, i) => (
+                                <div key={user.userId} style={{ display: 'flex', alignItems: 'center', padding: '12px', borderBottom: `1px solid ${colors.border}` }}>
+                                    <div style={{ width: '24px', fontWeight: 'bold', color: i < 3 ? colors.accent : colors.textSecondary }}>#{i+1}</div>
+                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {user.avatar ? (
+                                            <img src={`https://cdn.discordapp.com/avatars/${user.userId}/${user.avatar}.png`} style={{ width: 24, height: 24, borderRadius: 12 }} alt="" />
+                                        ) : (
+                                            <div style={{ width: 24, height: 24, borderRadius: 12, background: colors.textSecondary }} />
+                                        )}
+                                        <span>{user.username}</span>
+                                    </div>
+                                    <div style={{ fontWeight: 'bold', color: colors.success }}>
+                                         {renderCurrency(currency)}{user.balance}
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
-            ) : (
-                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    {results.map(r => (
-                        <div 
-                            key={r.user?.id || r.id} 
-                            onClick={() => setSelectedUser(r)}
-                            style={{ padding: '10px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer' }}
-                        >
-                            {r.user?.username || r.username} ({r.user?.id || r.id})
-                        </div>
-                    ))}
-                </div>
-            )}
+            </div>
         </div>
     );
 };

@@ -1327,10 +1327,63 @@ app.get('/api/economy/search-users/:guildId', async (req, res) => {
              headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
 
-        res.json(searchRes.data);
+        // Enrich with balances
+        const results = await Promise.all(searchRes.data.map(async (member: any) => {
+            const account = await db.economyAccount.findUnique({
+                where: { guildId_userId: { guildId, userId: member.user.id } }
+            });
+            return {
+                ...member,
+                balance: account?.balance || 0
+            };
+        }));
+
+        res.json(results);
     } catch (e) {
         logger.error('Search failed', e);
         res.json([]);
+    }
+});
+
+// Economy Leaderboard
+app.get('/api/economy/leaderboard/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+
+        const topAccounts = await db.economyAccount.findMany({
+            where: { guildId },
+            orderBy: { balance: 'desc' },
+            take: 10
+        });
+
+        // Fetch user details for each account
+        const enriched = await Promise.all(topAccounts.map(async (acc) => {
+            try {
+                // Fetch from Discord
+                const userRes = await axios.get(`https://discord.com/api/v10/users/${acc.userId}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                return {
+                    userId: acc.userId,
+                    username: userRes.data.username,
+                    avatar: userRes.data.avatar,
+                    balance: acc.balance
+                };
+            } catch (err) {
+                return {
+                    userId: acc.userId,
+                    username: 'Unknown User',
+                    balance: acc.balance
+                };
+            }
+        }));
+
+        res.json(enriched);
+
+    } catch (e) {
+        logger.error('Leaderboard fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
