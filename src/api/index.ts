@@ -796,6 +796,22 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
     const latestStat = history[history.length - 1];
     const totalMembers = latestStat?.memberCount || 0;
 
+    // 7. Plugins Data
+    const openTickets = await db.ticket.count({ where: { guildId, status: 'open' } });
+    
+    // Emails (Global)
+    const allEmails = await emailService.getEmails('inbox');
+    const unreadEmails = allEmails.filter(e => !e.read).length;
+
+    // Economy
+    const economyAgg = await db.economyAccount.aggregate({
+        where: { guildId },
+        _sum: { balance: true }
+    });
+
+    const welcomeSettings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
+    const filterSettings = await db.filterSettings.findUnique({ where: { guildId } });
+
     res.json({
       history,
       topChannels,
@@ -806,7 +822,14 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
         bans: totalsAgg._sum.newBans || 0,
       },
       today: todayStats,
-      totalMembers
+      totalMembers,
+      pluginsData: {
+        tickets: { open: openTickets },
+        email: { unread: unreadEmails },
+        economy: { totalBalance: economyAgg._sum.balance || 0 },
+        welcome: { enabled: welcomeSettings?.enabled || false },
+        filter: { enabled: filterSettings?.enabled || false }
+      }
     });
 
   } catch (error) {
