@@ -869,9 +869,13 @@ app.get('/api/guilds/:guildId/moderation', async (req, res) => {
             });
         }
         res.json(settings);
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Failed to get mod settings', e);
-        res.status(500).json({ error: 'Failed' });
+        // Check for "Table not found" or "Column not found"
+        if (e.code === 'P2021' || e.code === 'P2022') {
+            return res.status(500).json({ error: 'Database schema mismatch. Please run "prisma db push".' });
+        }
+        res.status(500).json({ error: 'Failed', details: e.message });
     }
 });
 
@@ -1615,14 +1619,32 @@ app.get('/api/guilds/:guildId/welcome', async (req, res) => {
         });
         
         if (!settings) {
+            // Ensure Guild Exists before creating settings to prevent FK errors
+            const guildExists = await db.guild.findUnique({ where: { id: guildId } });
+            if (!guildExists) {
+                const sessionGuild = req.session.guilds?.find((g: any) => g.id === guildId);
+                if (sessionGuild) {
+                    await db.guild.create({
+                        data: {
+                            id: guildId,
+                            name: sessionGuild.name,
+                            icon: sessionGuild.icon || null
+                        }
+                    });
+                }
+            }
+
             settings = await db.welcomeGateSettings.create({
                 data: { guildId }
             });
         }
         res.json(settings);
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Failed to fetch welcome settings', e);
-        res.status(500).json({ error: 'Internal Server Error' });
+        if (e.code === 'P2021') {
+             return res.status(500).json({ error: 'Database schema mismatch. Please run "prisma db push".' });
+        }
+        res.status(500).json({ error: 'Internal Server Error', details: e.message });
     }
 });
 
