@@ -402,7 +402,7 @@ export class TicketPlugin implements IPlugin {
                 const options: any = { limit: 100 };
                 if (lastId) options.before = lastId;
                 
-                const messages = await channel.messages.fetch(options) as Collection<string, Message>;
+                const messages = (await channel.messages.fetch(options)) as unknown as Collection<string, Message>;
                 if (messages.size === 0) break;
                 
                 allMessages.push(...messages.values());
