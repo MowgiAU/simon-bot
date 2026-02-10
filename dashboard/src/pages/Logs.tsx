@@ -108,6 +108,15 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   // Responsive state
   const isMobile = useMobile();
   const [showFilters, setShowFilters] = useState(false);
+  const [isCompact, setIsCompact] = useState(window.innerWidth < 1200 && window.innerWidth >= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 1200 && window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchLogs = async (pageNum: number) => {
     try {
@@ -349,13 +358,14 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
       {/* Filters Sidebar - Only show in Logs tab */}
       {activeTab === 'logs' && (
       <div style={{ 
-        width: isMobile ? '100%' : '240px', 
+        width: isMobile ? '100%' : (isCompact ? '60px' : '240px'), 
         flexShrink: 0, 
         background: colors.surface, 
         borderRadius: 8,
         border: `1px solid ${colors.border}`,
-        padding: spacing.md,
+        padding: isCompact && !isMobile ? spacing.sm : spacing.md,
         display: (isMobile && !showFilters) ? 'none' : 'block',
+        transition: 'width 0.2s ease-in-out',
         ...(isMobile ? {
             position: 'absolute',
             zIndex: 10,
@@ -368,10 +378,12 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
             margin: spacing.md
         } : {})
       }}>
-        <h3 style={{ color: colors.textPrimary, marginTop: 0, marginBottom: spacing.md, fontSize: '14px', textTransform: 'uppercase' }}>
-            Categories
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {!isCompact && (
+            <h3 style={{ color: colors.textPrimary, marginTop: 0, marginBottom: spacing.md, fontSize: '14px', textTransform: 'uppercase' }}>
+                Categories
+            </h3>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: isCompact && !isMobile ? 'center' : 'stretch' }}>
             {CATEGORIES.map(cat => (
                 <button
                     key={cat.id}
@@ -379,8 +391,10 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                         setActiveCategory(cat.id);
                         if (isMobile) setShowFilters(false);
                     }}
+                    title={cat.label}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 12, padding: '10px',
+                        justifyContent: isCompact && !isMobile ? 'center' : 'flex-start',
                         background: activeCategory === cat.id ? colors.highlight : 'transparent',
                         color: activeCategory === cat.id ? '#FFF' : colors.textSecondary,
                         border: 'none', borderRadius: 4, cursor: 'pointer', textAlign: 'left',
@@ -388,7 +402,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                     }}
                 >
                     {cat.icon}
-                    {cat.label}
+                    {(!isCompact || isMobile) && cat.label}
                 </button>
             ))}
         </div>
