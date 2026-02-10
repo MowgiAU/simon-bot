@@ -617,8 +617,23 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                     </div>
                                 );
                             } 
+
+                            // 3. Feedback Logs
+                            if (log.details?.postId) {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colors.primaryLight }}>
+                                            {log.action === 'FEEDBACK_APPROVED' ? 'Feedback Approved' : 'Feedback Updated'}
+                                        </div>
+                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary }}>
+                                            <span>Pos ID: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.postId}</code></span>
+                                            <span>Audio: {log.details.hasAudio ? '✅' : '❌'}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
                             
-                            // 3. Fallback
+                            // 4. Fallback
                             return (
                                 <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
                                     {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
