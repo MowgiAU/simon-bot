@@ -131,7 +131,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                 <p className="stat-label">Messages Today</p>
                 <h3 className="stat-value">{stats?.today?.messageCount || 0}</h3>
                 <p className="stat-change text-neutral">
-                    Lifetime: {stats ? formatNumber(stats.totals.messages) : '-'}
+                    Lifetime: {stats?.totals?.messages ? formatNumber(stats.totals.messages) : '-'}
                 </p>
               </div>
             </div>
@@ -146,7 +146,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                   {Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h
                 </h3>
                 <p className="stat-change text-neutral">
-                    Lifetime: {stats ? Math.round(stats.totals.voiceMinutes / 60) : '-'}h
+                    Lifetime: {stats?.totals?.voiceMinutes ? Math.round(stats.totals.voiceMinutes / 60) : '-'}h
                 </p>
               </div>
             </div>
@@ -346,7 +346,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                     </div>
                     {stats?.pluginsData?.email?.unread ? (
                         <div style={{ padding: '4px 8px', borderRadius: '12px', background: colors.primary, color: 'white', fontSize: '12px', fontWeight: 600 }}>
-                            {stats.pluginsData.email.unread} New
+                            {stats?.pluginsData?.email?.unread} New
                         </div>
                     ) : null }
                   </div>
