@@ -31,7 +31,7 @@ export const colors = {
   
   // Neutrals - Vuexy dark theme
   background: '#1A1E2E',
-  surface: '#252C3C',
+  surface: '#242C3D',
   surfaceLight: '#2F3647',
   border: '#3E4556',
   

@@ -193,7 +193,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
                 {/* Sidebar List */}
                 <div style={{ 
                     width: isMobile ? '100%' : '320px', 
-                    background: colors.background, 
+                    background: colors.surface, 
                     borderRight: isMobile ? 'none' : `1px solid ${colors.border}`, 
                     overflowY: 'auto', 
                     display: isMobile && selectedTicket ? 'none' : 'flex', 
