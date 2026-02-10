@@ -344,7 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                         </div>
                         <h3 style={{ margin: 0, fontSize: '16px' }}>Email Client</h3>
                     </div>
-                    {stats?.pluginsData?.email.unread ? (
+                    {stats?.pluginsData?.email?.unread ? (
                         <div style={{ padding: '4px 8px', borderRadius: '12px', background: colors.primary, color: 'white', fontSize: '12px', fontWeight: 600 }}>
                             {stats.pluginsData.email.unread} New
                         </div>
@@ -352,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
                         <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
-                            {stats?.pluginsData?.email.unread || 0}
+                            {stats?.pluginsData?.email?.unread || 0}
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Unread emails</div>
                   </div>
@@ -373,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
                         <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
-                            {stats?.pluginsData?.tickets.open || 0}
+                            {stats?.pluginsData?.tickets?.open || 0}
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Open tickets</div>
                   </div>
@@ -394,7 +394,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
                         <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
-                           💎 {formatNumber(stats?.pluginsData?.economy.totalBalance || 0)}
+                           💎 {formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}
                         </div>
                         <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Total currency in circulation</div>
                   </div>
@@ -417,21 +417,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId }) => {
                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                            <span style={{ color: colors.textSecondary }}>Word Filter</span>
                            <span style={{ 
-                               color: stats?.pluginsData?.filter.enabled ? '#10b981' : '#ef4444', 
-                               background: stats?.pluginsData?.filter.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                               color: stats?.pluginsData?.filter?.enabled ? '#10b981' : '#ef4444', 
+                               background: stats?.pluginsData?.filter?.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600
                             }}>
-                               {stats?.pluginsData?.filter.enabled ? 'ACTIVE' : 'OFF'}
+                               {stats?.pluginsData?.filter?.enabled ? 'ACTIVE' : 'OFF'}
                            </span>
                        </div>
                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                            <span style={{ color: colors.textSecondary }}>Welcome Gate</span>
                            <span style={{ 
-                               color: stats?.pluginsData?.welcome.enabled ? '#10b981' : '#ef4444', 
-                               background: stats?.pluginsData?.welcome.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                               color: stats?.pluginsData?.welcome?.enabled ? '#10b981' : '#ef4444', 
+                               background: stats?.pluginsData?.welcome?.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600
                             }}>
-                               {stats?.pluginsData?.welcome.enabled ? 'ACTIVE' : 'OFF'}
+                               {stats?.pluginsData?.welcome?.enabled ? 'ACTIVE' : 'OFF'}
                            </span>
                        </div>
                   </div>
