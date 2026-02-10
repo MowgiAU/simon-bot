@@ -600,12 +600,23 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         const executor = log.executorId ? await resolveUser(log.executorId) : null;
         const target = log.targetId ? await resolveUser(log.targetId) : null;
         
+        // Resolve comment authors
+        const enrichedComments = await Promise.all(log.comments.map(async (c: any) => {
+            const author = await resolveUser(c.userId);
+            return {
+                ...c,
+                username: author?.username || c.userId, // Fallback to ID if not found
+                avatar: author?.avatar
+            };
+        }));
+
         return {
             ...log,
             executorName: executor?.username,
             targetName: target?.username,
             executorAvatar: executor?.avatar,
-            targetAvatar: target?.avatar
+            targetAvatar: target?.avatar,
+            comments: enrichedComments
         };
     }));
     
@@ -651,7 +662,12 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
       }
     });
 
-    res.json(comment);
+    // Return enriched comment so UI updates immediately
+    res.json({
+        ...comment,
+        username: req.session.user.username,
+        avatar: req.session.user.avatar
+    });
   } catch (error) {
     logger.error('Failed to add comment', error);
     res.status(500).json({ error: 'Failed to add comment' });

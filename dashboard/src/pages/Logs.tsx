@@ -27,6 +27,7 @@ import {
 interface LogComment {
   id: string;
   userId: string;
+  username?: string;
   content: string;
   createdAt: string;
 }
@@ -769,7 +770,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
                                                 }}>
                                                     <div style={{ fontSize: '13px', color: colors.textPrimary }}>{comment.content}</div>
                                                     <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: 4 }}>
-                                                        User: {comment.userId} • {new Date(comment.createdAt).toLocaleString()}
+                                                        User: {comment.username || comment.userId} • {new Date(comment.createdAt).toLocaleString()}
                                                     </div>
                                                 </div>
                                             ))}
