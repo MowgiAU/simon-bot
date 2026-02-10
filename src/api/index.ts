@@ -25,7 +25,13 @@ const emailService = new EmailService();
 
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
-const db = new PrismaClient();
+
+// Singleton pattern for Prisma to prevent connection exhaustion in dev
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const db = globalForPrisma.prisma || new PrismaClient({
+    log: ['error', 'warn'],
+});
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
 // Simple in-memory cache for user details: userId -> { username, avatar, timestamp }
 const userCache = new Map<string, { username: string; avatar: string | null; timestamp: number }>();
@@ -2165,7 +2171,11 @@ app.post('/api/tickets/:ticketId/reply', async (req, res) => {
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);
-  res.status(err.status || 500).json({ error: err.message });
+  console.error('Full API Error:', err); // Ensure visibility in console
+  res.status(err.status || 500).json({ 
+    error: err.message,
+    details: process.env.NODE_ENV !== 'production' ? err.stack : undefined 
+  });
 });
 
 const PORT = process.env.API_PORT || 3001;
