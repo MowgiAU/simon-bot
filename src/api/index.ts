@@ -2372,14 +2372,42 @@ app.get('/api/guilds/:guildId/pending-reviews', async (req, res) => {
     try {
          const { guildId } = req.params;
          
-         // Basic Auth helper check (assuming implementation)
-         // if (!await checkAuth(req, guildId)) return res.status(403).json({ error: 'Access denied' });
-
          const reviews = await db.pendingReview.findMany({
              where: { guildId },
              orderBy: { createdAt: 'desc' }
          });
-         res.json(reviews);
+
+         // Refresh Attachment URLs (Discord Move Logic 2.0)
+         const token = process.env.DISCORD_TOKEN;
+         if (token) {
+            const refreshedReviews = await Promise.all(reviews.map(async (review) => {
+                // Only attempt refresh if we have the tracking IDs and it's a Discord CDN link
+                // (Optimization: only refresh if link is > 12h old? For now, always refresh to be safe)
+                if (review.approvalChannelId && review.approvalMessageId) {
+                    try {
+                        const { data: msg } = await axios.get(
+                            `https://discord.com/api/v10/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`,
+                            { headers: { Authorization: `Bot ${token}` } }
+                        );
+                        if (msg.attachments && msg.attachments.length > 0) {
+                            // Update the URLs with fresh signed ones
+                            return { 
+                                ...review, 
+                                attachmentUrls: msg.attachments.map((a: any) => a.url) 
+                            };
+                        }
+                    } catch (e) {
+                         // Message might be deleted or inaccessible
+                         // console.error(`Failed to refresh attachments for review ${review.id}`);
+                    }
+                }
+                return review;
+            }));
+            res.json(refreshedReviews);
+         } else {
+            res.json(reviews);
+         }
+
     } catch (e: any) {
          logger.error('Failed to fetch pending reviews', e);
          res.status(500).json({ error: e.message });
