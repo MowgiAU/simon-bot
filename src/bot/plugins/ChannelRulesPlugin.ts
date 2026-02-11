@@ -271,11 +271,20 @@ export class ChannelRulesPlugin implements IPlugin {
         const data = this.pendingMessages.get(key);
 
         if (!data) {
-            return interaction.reply({ content: '❌ Data for this message expired or was lost.', ephemeral: true });
+            return interaction.reply({ content: '❌ Data for this message expired, was lost, or is already processing.', ephemeral: true });
         }
+        
+        // Remove immediately to prevent race conditions (double clicks)
+        this.pendingMessages.delete(key);
 
         const targetChannel = interaction.guild?.channels.cache.get(data.channelId) as TextChannel;
-        if (!targetChannel) return interaction.reply({ content: 'Target channel not found.', ephemeral: true });
+        if (!targetChannel) {
+             // Try to restore data if channel missing? Unlikely to happen.
+             return interaction.reply({ content: 'Target channel not found.', ephemeral: true });
+        }
+        
+        // Defer reply since webhook might take a moment
+        await interaction.deferUpdate();
 
         // Spoofing Logic
         try {
@@ -299,16 +308,14 @@ export class ChannelRulesPlugin implements IPlugin {
                 content: data.content,
                 username: data.username,
                 avatarURL: data.avatarURL,
-                files: data.attachmentUrls // Note: URLs might be dead. Real implementation needs buffer download.
+                files: data.attachmentUrls.map((url: string) => ({ attachment: url })) 
             });
 
-            await interaction.update({ 
+            await interaction.editReply({ 
                 content: `✅ **Approved** by ${interaction.user}`, 
                 components: [], 
                 embeds: [] 
             });
-            
-            this.pendingMessages.delete(key);
             
             // Log
             await this.context?.logAction({
@@ -321,7 +328,9 @@ export class ChannelRulesPlugin implements IPlugin {
 
         } catch (e) {
             this.logger.error('Approval execution failed', e);
-            interaction.followUp({ content: 'Failed to repost message.', ephemeral: true });
+            // Restore data on failure so they can try again?
+            this.pendingMessages.set(key, data);
+            await interaction.editReply({ content: 'Failed to repost message. Please try again.' });
         }
     }
 
