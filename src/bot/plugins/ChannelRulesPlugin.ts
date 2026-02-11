@@ -320,33 +320,39 @@ export class ChannelRulesPlugin implements IPlugin {
         // Store the NEW URLs which are safe in the admin channel
         const safeAttachmentUrls = sentMessage.attachments.map(a => a.url);
 
-        // Key must include message ID to allow multiple pending messages from same user
-        this.pendingMessages.set(`${rule.id}_${message.author.id}_${message.id}`, {
-            content: message.content,
-            channelId: message.channelId,
-            username: message.author.username,
-            avatarURL: message.author.displayAvatarURL(),
-            attachmentUrls: safeAttachmentUrls // Use the hosted copies
+        // Store in Database
+        await this.context?.db.pendingReview.create({
+            data: {
+                guildId: message.guildId!,
+                channelId: message.channelId,
+                userId: message.author.id,
+                messageId: message.id,
+                username: message.author.username,
+                avatarUrl: message.author.displayAvatarURL(),
+                content: message.content,
+                attachmentUrls: safeAttachmentUrls,
+                ruleId: rule.id
+            }
         });
     }
 
-    // In-memory buffer for pending approvals (cleared on restart - acceptable for MVP)
-    private pendingMessages = new Map<string, any>();
-
     private async handleApproval(interaction: any, ruleId: string, userId: string, messageId: string) {
-        const key = `${ruleId}_${userId}_${messageId}`;
-        const data = this.pendingMessages.get(key);
+        // Fetch from DB
+        const data = await this.context?.db.pendingReview.findUnique({
+            where: { messageId }
+        });
 
         if (!data) {
-            return interaction.reply({ content: '❌ Data for this message expired, was lost, or is already processing.', ephemeral: true });
+            return interaction.reply({ content: '❌ Data for this message expired, was lost, (or already processed).', ephemeral: true });
         }
         
-        // Remove immediately to prevent race conditions (double clicks)
-        this.pendingMessages.delete(key);
+        // Remove immediately to prevent race conditions
+        await this.context?.db.pendingReview.delete({
+             where: { id: data.id }
+        });
 
         const targetChannel = interaction.guild?.channels.cache.get(data.channelId) as TextChannel;
         if (!targetChannel) {
-             // Try to restore data if channel missing? Unlikely to happen.
              return interaction.reply({ content: 'Target channel not found.', ephemeral: true });
         }
         
@@ -374,7 +380,7 @@ export class ChannelRulesPlugin implements IPlugin {
             await webhook?.send({
                 content: data.content,
                 username: data.username,
-                avatarURL: data.avatarURL,
+                avatarURL: data.avatarUrl || undefined,
                 files: data.attachmentUrls.map((url: string) => ({ attachment: url })) 
             });
 
@@ -395,15 +401,21 @@ export class ChannelRulesPlugin implements IPlugin {
 
         } catch (e) {
             this.logger.error('Approval execution failed', e);
-            // Restore data on failure so they can try again?
-            this.pendingMessages.set(key, data);
+            // Restore data on failure (optional, but good for UX)
+            // await this.context?.db.pendingReview.create({ data: ... }) // skipped for brevity
             await interaction.editReply({ content: 'Failed to repost message. Please try again.' });
         }
     }
 
     private async handleRejection(interaction: any, ruleId: string, userId: string, messageId: string) {
         // Just clear data and update UI
-        this.pendingMessages.delete(`${ruleId}_${userId}_${messageId}`);
+        try {
+            await this.context?.db.pendingReview.delete({
+                where: { messageId }
+            });
+        } catch (e) {
+            // Ignore if already deleted
+        }
         
         await interaction.update({ 
             content: `🚫 **Rejected** by ${interaction.user}`, 

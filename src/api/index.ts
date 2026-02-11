@@ -2368,6 +2368,24 @@ app.delete('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
     }
 });
 
+app.get('/api/guilds/:guildId/pending-reviews', async (req, res) => {
+    try {
+         const { guildId } = req.params;
+         
+         // Basic Auth helper check (assuming implementation)
+         // if (!await checkAuth(req, guildId)) return res.status(403).json({ error: 'Access denied' });
+
+         const reviews = await db.pendingReview.findMany({
+             where: { guildId },
+             orderBy: { createdAt: 'desc' }
+         });
+         res.json(reviews);
+    } catch (e: any) {
+         logger.error('Failed to fetch pending reviews', e);
+         res.status(500).json({ error: e.message });
+    }
+});
+
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

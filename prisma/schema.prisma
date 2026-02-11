@@ -580,3 +580,26 @@ model ChannelRule {
   @@index([guildId, targetChannelId])
   @@map("channel_rules")
 }
+
+model PendingReview {
+  id             String   @id @default(cuid())
+  guildId        String
+  channelId      String   // Original channel to repost to
+  userId         String   // Original author
+  messageId      String   @unique // Original message ID
+  
+  username       String
+  avatarUrl      String?
+  content        String
+  attachmentUrls String[] // Store valid Discord CDN urls from the admin embed
+  
+  ruleId         String   // Which rule triggered this
+  status         String   @default("PENDING") // PENDING
+  
+  createdAt      DateTime @default(now())
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@map("pending_reviews")
+}
+
