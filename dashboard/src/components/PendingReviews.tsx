@@ -108,30 +108,58 @@ export const PendingReviews: React.FC<{ guildId: string }> = ({ guildId }) => {
                         </div>
 
                         {review.attachmentUrls.length > 0 && (
-                            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md, flexWrap: 'wrap' }}>
-                                {review.attachmentUrls.map((url, i) => (
-                                    <a 
-                                        key={i} 
-                                        href={url} 
-                                        target="_blank" 
-                                        rel="noreferrer"
-                                        style={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: 6,
-                                            background: 'rgba(0,0,0,0.3)', 
-                                            padding: '8px 12px', 
-                                            borderRadius: 4,
-                                            color: colors.textPrimary,
-                                            textDecoration: 'none',
-                                            fontSize: '13px',
-                                            border: `1px solid ${colors.border}`
-                                        }}
-                                    >
-                                        {isImage(url) ? <ImageIcon size={14} /> : <File size={14} />}
-                                        Attachment {i + 1}
-                                    </a>
-                                ))}
+                            <div style={{ display: 'grid', gap: spacing.md, marginBottom: spacing.md, gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
+                                {review.attachmentUrls.map((url, i) => {
+                                    if (isImage(url)) {
+                                        return (
+                                            <a key={i} href={url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 4, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
+                                                <img src={url} alt={`Attachment ${i}`} style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '300px', objectFit: 'contain', background: '#000' }} />
+                                            </a>
+                                        );
+                                    }
+                                    if (isVideo(url)) {
+                                        return (
+                                            <div key={i} style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${colors.border}`, background: '#000' }}>
+                                                <video src={url} controls style={{ width: '100%', maxHeight: '300px', display: 'block' }} />
+                                            </div>
+                                        );
+                                    }
+                                    if (isAudio(url)) {
+                                         return (
+                                            <div key={i} style={{ borderRadius: 4, overflow: 'hidden', border: `1px solid ${colors.border}`, background: 'rgba(0,0,0,0.2)', padding: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: colors.textSecondary, fontSize: '12px' }}>
+                                                    <File size={14} /> Audio Attachment
+                                                </div>
+                                                <audio src={url} controls style={{ width: '100%', height: '40px' }} />
+                                            </div>
+                                        );
+                                    }
+                                    // Default fallback
+                                    return (
+                                        <a 
+                                            key={i} 
+                                            href={url} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: 6,
+                                                background: 'rgba(0,0,0,0.3)', 
+                                                padding: '12px', 
+                                                borderRadius: 4,
+                                                color: colors.textPrimary,
+                                                textDecoration: 'none',
+                                                fontSize: '13px',
+                                                border: `1px solid ${colors.border}`,
+                                                height: 'fit-content'
+                                            }}
+                                        >
+                                            <File size={16} />
+                                            <span>Download Attachment {i + 1}</span>
+                                        </a>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -174,4 +202,6 @@ export const PendingReviews: React.FC<{ guildId: string }> = ({ guildId }) => {
     );
 };
 
-const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0]);
+const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|bmp|tiff)$/i.test(url.split('?')[0]);
+const isAudio = (url: string) => /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(url.split('?')[0]);
+const isVideo = (url: string) => /\.(mp4|webm|mov|mkv|avi)$/i.test(url.split('?')[0]);
