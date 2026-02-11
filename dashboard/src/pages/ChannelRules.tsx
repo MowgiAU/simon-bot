@@ -10,7 +10,8 @@ import {
     CheckCircle,
     XCircle,
     Copy,
-    Settings
+    Settings,
+    RefreshCw
 } from 'lucide-react';
 import { colors, spacing, typography } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
@@ -206,40 +207,39 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
 
     return (
         <div style={{ padding: spacing.lg, maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
-                <div>
-                    <h1 style={{ ...typography.h2, color: colors.textPrimary, margin: 0 }}>Channel Gatekeeper</h1>
-                    <p style={{ color: colors.textSecondary, marginTop: spacing.sm }}>Configure automated moderation rules per channel.</p>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <FileText size={32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <h1 style={{ margin: 0, fontSize: '32px', color: colors.textPrimary }}>Channel Gatekeeper</h1>
+                </div>
+                <div style={{ marginLeft: '16px' }}>
+                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure automated moderation rules per channel.</p>
                 </div>
             </div>
 
             {/* Tab Navigation */}
-            <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg, borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.sm }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
                 <button 
                     onClick={() => setActiveTab('rules')}
                     style={{ 
-                        background: 'none', border: 'none', 
-                        color: activeTab === 'rules' ? colors.primary : colors.textSecondary,
-                        fontWeight: activeTab === 'rules' ? 600 : 400,
-                        padding: '8px 16px',
-                        borderBottom: activeTab === 'rules' ? `2px solid ${colors.primary}` : 'none',
-                        cursor: 'pointer'
+                        padding: '10px 20px', 
+                        background: activeTab === 'rules' ? colors.primary : colors.surface, 
+                        color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
-                    Rules Configuration
+                    <Settings size={18} /> Rules Configuration
                 </button>
                 <button 
                     onClick={() => setActiveTab('queue')}
                     style={{ 
-                        background: 'none', border: 'none', 
-                        color: activeTab === 'queue' ? colors.primary : colors.textSecondary,
-                        fontWeight: activeTab === 'queue' ? 600 : 400,
-                        padding: '8px 16px',
-                        borderBottom: activeTab === 'queue' ? `2px solid ${colors.primary}` : 'none',
-                        cursor: 'pointer'
+                        padding: '10px 20px', 
+                        background: activeTab === 'queue' ? colors.primary : colors.surface, 
+                        color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
-                    Pending Approvals
+                    <RefreshCw size={18} /> Pending Approvals
                 </button>
             </div>
 

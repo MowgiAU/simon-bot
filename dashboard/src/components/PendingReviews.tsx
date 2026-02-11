@@ -59,118 +59,113 @@ export const PendingReviews: React.FC<{ guildId: string }> = ({ guildId }) => {
 
     if (reviews.length === 0) {
         return (
-            <div style={{ 
-                padding: spacing.xl, 
-                textAlign: 'center', 
-                color: colors.textSecondary,
-                background: colors.surface,
-                borderRadius: borderRadius.md
-            }}>
-                <div style={{ marginBottom: spacing.md, opacity: 0.5 }}>
-                   <Check size={48} />
-                </div>
-                <h3>All Clear!</h3>
-                <p>No messages are pending review.</p>
+            <div style={{ padding: '40px', textAlign: 'center', background: colors.surface, borderRadius: borderRadius.md }}>
+                <Check size={48} color={colors.success} style={{ marginBottom: '16px' }} />
+                <h3>All Caught Up!</h3>
+                <p style={{ color: colors.textSecondary }}>No pending messages.</p>
             </div>
         );
     }
 
     return (
-        <div style={{ display: 'grid', gap: spacing.md }}>
+        <div style={{ display: 'grid', gap: '16px' }}>
             {reviews.map(review => (
-                <div key={review.id} style={{ 
-                    background: colors.surface, 
-                    padding: spacing.md, 
-                    borderRadius: borderRadius.md,
-                    border: `1px solid ${colors.border}`,
-                    animation: 'fadeIn 0.3s ease'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md }}>
-                        <div style={{ display: 'flex', gap: spacing.md, alignItems: 'center' }}>
+                <div key={review.id} style={{ background: colors.surface, borderRadius: borderRadius.md, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
+                    <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <img 
                                 src={review.avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png'} 
                                 alt={review.username}
-                                style={{ width: 40, height: 40, borderRadius: '50%' }}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%' }}
                             />
                             <div>
-                                <div style={{ fontWeight: 600, color: colors.textPrimary }}>{review.username}</div>
+                                <div style={{ fontWeight: 'bold', color: colors.textPrimary }}>{review.username}</div>
                                 <div style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <Clock size={12} /> {new Date(review.createdAt).toLocaleString()}
                                 </div>
                             </div>
                         </div>
                         <div style={{ 
-                            background: colors.background, 
-                            padding: '4px 8px', 
-                            borderRadius: 4, 
-                            fontSize: '12px', 
-                            color: colors.primary 
+                            padding: '4px 12px', 
+                            borderRadius: '12px', 
+                            background: '#FFA50033',
+                            color: '#FFA500',
+                            border: '1px solid #FFA500',
+                            fontSize: '12px', fontWeight: 'bold'
                         }}>
-                             Triggered Rule: {review.ruleId}
+                             Rule: {review.ruleId}
                         </div>
                     </div>
 
-                    <div style={{ 
-                        background: colors.background, 
-                        padding: spacing.md, 
-                        borderRadius: 4, 
-                        color: colors.textPrimary,
-                        marginBottom: spacing.md,
-                        whiteSpace: 'pre-wrap',
-                        fontFamily: 'monospace'
-                    }}>
-                        {review.content || <span style={{ opacity: 0.5, fontStyle: 'italic' }}>[No text content]</span>}
+                    <div style={{ padding: '20px' }}>
+                        <div style={{ 
+                            whiteSpace: 'pre-wrap', 
+                            color: colors.textPrimary,
+                            marginBottom: '16px',
+                            lineHeight: '1.5'
+                        }}>
+                            {review.content || <span style={{ opacity: 0.5, fontStyle: 'italic' }}>[No text content]</span>}
+                        </div>
+
+                        {review.attachmentUrls.length > 0 && (
+                            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md, flexWrap: 'wrap' }}>
+                                {review.attachmentUrls.map((url, i) => (
+                                    <a 
+                                        key={i} 
+                                        href={url} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: 6,
+                                            background: 'rgba(0,0,0,0.3)', 
+                                            padding: '8px 12px', 
+                                            borderRadius: 4,
+                                            color: colors.textPrimary,
+                                            textDecoration: 'none',
+                                            fontSize: '13px',
+                                            border: `1px solid ${colors.border}`
+                                        }}
+                                    >
+                                        {isImage(url) ? <ImageIcon size={14} /> : <File size={14} />}
+                                        Attachment {i + 1}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {review.attachmentUrls.length > 0 && (
-                        <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md, flexWrap: 'wrap' }}>
-                            {review.attachmentUrls.map((url, i) => (
-                                <a 
-                                    key={i} 
-                                    href={url} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: 6,
-                                        background: '#2f3136', 
-                                        padding: '8px 12px', 
-                                        borderRadius: 4,
-                                        color: colors.textPrimary,
-                                        textDecoration: 'none',
-                                        fontSize: '13px'
-                                    }}
-                                >
-                                    {isImage(url) ? <ImageIcon size={14} /> : <File size={14} />}
-                                    Attachment {i + 1}
-                                </a>
-                            ))}
-                        </div>
-                    )}
-
-                    <div style={{ display: 'flex', gap: spacing.md }}>
-                        <button 
-                            onClick={() => handleAction(review.id, 'approve')}
-                            disabled={!!processing}
-                            style={{ 
-                                ...btnStyle, 
-                                background: '#3ba55c',
-                                opacity: processing ? 0.5 : 1
-                            }}
-                        >
-                            <Check size={16} /> Approve
-                        </button>
+                    <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                         <button 
                             onClick={() => handleAction(review.id, 'reject')}
                             disabled={!!processing}
                             style={{ 
-                                ...btnStyle, 
-                                background: '#ed4245',
-                                opacity: processing ? 0.5 : 1 
+                                padding: '8px 16px', 
+                                background: 'transparent', 
+                                border: `1px solid ${colors.error}`, 
+                                color: colors.error, 
+                                borderRadius: '4px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                opacity: processing ? 0.5 : 1
                             }}
                         >
                             <X size={16} /> Reject
+                        </button>
+                        <button 
+                            onClick={() => handleAction(review.id, 'approve')}
+                            disabled={!!processing}
+                            style={{ 
+                                padding: '8px 16px', 
+                                background: colors.success, 
+                                border: 'none', 
+                                color: 'white', 
+                                borderRadius: '4px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                opacity: processing ? 0.5 : 1
+                            }}
+                        >
+                            <Check size={16} /> Approve
                         </button>
                     </div>
                 </div>
@@ -180,18 +175,3 @@ export const PendingReviews: React.FC<{ guildId: string }> = ({ guildId }) => {
 };
 
 const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url.split('?')[0]);
-
-const btnStyle: React.CSSProperties = {
-    flex: 1,
-    border: 'none',
-    padding: '10px',
-    borderRadius: 4,
-    color: 'white',
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    transition: 'opacity 0.2s'
-};
