@@ -259,6 +259,33 @@ export class ChannelRulesPlugin implements IPlugin {
         const channel = message.guild?.channels.cache.get(approvalChannelId) as TextChannel;
         if (!channel) return;
 
+        // DB Lock Integration (Prevents double-posting from multiple processes)
+        // We use ActionLog as a semaphore. If an action log for 'review_request' exists for this messageId, we abort.
+        const existingLog = await this.context?.db.actionLog.findFirst({
+            where: {
+                targetId: message.id,      // The original message ID
+                action: 'review_request',  // Unique action tag
+                pluginId: this.id
+            }
+        });
+
+        if (existingLog) {
+            this.logger.warn(`[Double-Check] Duplicate processing blocked by DB lock for message ${message.id}`);
+            return;
+        }
+
+        // Create the lock immediately
+        await this.context?.db.actionLog.create({
+            data: {
+                guildId: message.guildId!,
+                pluginId: this.id,
+                action: 'review_request',
+                executorId: message.author.id,
+                targetId: message.id,
+                details: { ruleId: rule.id }
+            }
+        });
+
         const embed = new EmbedBuilder()
             .setTitle('🛡️ Review Request')
             .setColor('#FFA500') // Orange
