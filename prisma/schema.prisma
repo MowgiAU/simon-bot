@@ -451,6 +451,8 @@ model FeedbackPost {
   
   postType    String   @default("COMMENT") // COMMENT, FEEDBACK
   
+  moderationMessageId String? // ID of the message in the clean/mod-log channel
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -467,6 +469,7 @@ model FeedbackSettings {
   enabled         Boolean  @default(false)
   forumChannelId  String?
   reviewChannelId String?
+  modLogChannelId String?
   
   currencyReward  Int      @default(1)
   threadCost      Int      @default(5)
