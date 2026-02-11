@@ -14,9 +14,9 @@ export const FeedbackPluginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const isMobile = useMobile();
 
-    const fetchData = async () => {
+    const fetchData = async (silent = false) => {
         if (!selectedGuild) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             if (activeTab === 'queue') {
                 const res = await axios.get(`/api/feedback/queue/${selectedGuild.id}`, { withCredentials: true });
@@ -28,12 +28,17 @@ export const FeedbackPluginPage: React.FC = () => {
         } catch (e) {
             console.error(e);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchData();
+
+        if (activeTab === 'queue') {
+            const timer = setInterval(() => fetchData(true), 5000); // Poll every 5 seconds
+            return () => clearInterval(timer);
+        }
     }, [selectedGuild, activeTab]);
 
     const handleAction = async (postId: string, action: 'APPROVE' | 'DENY') => {
