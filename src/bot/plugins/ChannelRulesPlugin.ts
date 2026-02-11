@@ -244,9 +244,6 @@ export class ChannelRulesPlugin implements IPlugin {
                  
                  await this.logAction(message, rule, 'Auto-Deleted');
                  
-                 // ... reply ...
-            }
-                 
                  const reply = await message.channel.send({ 
                      content: `❌ **Message Blocked**\nYour message violated the rule: **${rule.name}**`
                  });
