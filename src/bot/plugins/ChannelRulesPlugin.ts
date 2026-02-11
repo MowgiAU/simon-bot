@@ -49,22 +49,41 @@ export class ChannelRulesPlugin implements IPlugin {
 
     async onInteractionCreate(interaction: any): Promise<void> {
         if (!interaction.isButton()) return;
-        const [prefix, action, ruleId, userId] = interaction.customId.split('_');
+        const parts = interaction.customId.split('_');
+        // Format: CR_ACTION_RuleID_UserID_MessageID
+        // prefix=CR, action=APPROVE/REJECT
         
-        if (prefix !== 'CR') return; // Channel Rules prefix
+        if (parts[0] !== 'CR') return; 
+
+        const action = parts[1];
+        // We need to rejoin if IDs contain underscores, but Snowflake IDs don't.
+        // However, Rule IDs might be UUIDs. 
+        // Let's assume standard format: CR_APPROVE_ruleId_userId_messageId
+        
+        // Safest parsing if we know IDs don't have underscores. 
+        // If RuleID is UUID, it uses hyphens, so safe.
+        const ruleId = parts[2];
+        const userId = parts[3];
+        const messageId = parts[4]; 
 
         if (action === 'APPROVE') {
-            await this.handleApproval(interaction);
+            await this.handleApproval(interaction, ruleId, userId, messageId);
         } else if (action === 'REJECT') {
-            await this.handleRejection(interaction);
+            await this.handleRejection(interaction, ruleId, userId, messageId);
         }
     }
 
     async onMessageCreate(message: Message): Promise<void> {
         if (!this.context || message.author.bot || !message.guild) return;
 
+        // Debug Log for duplicate detection
+        this.logger.info(`[PID:${process.pid}] onMessageCreate for ${message.id} by ${message.author.tag}`);
+
         // Idempotency check
-        if (this.processedMessageIds.has(message.id)) return;
+        if (this.processedMessageIds.has(message.id)) {
+            this.logger.info(`[PID:${process.pid}] Ignored duplicate message ${message.id}`);
+            return;
+        }
         this.processedMessageIds.add(message.id);
         setTimeout(() => this.processedMessageIds.delete(message.id), 10000);
         
@@ -188,7 +207,9 @@ export class ChannelRulesPlugin implements IPlugin {
                 if (!approvalChannelId) {
                     this.logger.warn(`Rule ${rule.id} triggered Intercept but no approval channel configured.`);
                     // Fallback to block if no approval channel
-                    if (message.deletable) await message.delete();
+                    if (message.deletable) {
+                         try { await message.delete(); } catch (e) {}
+                    }
                     return;
                 }
                 
@@ -196,19 +217,35 @@ export class ChannelRulesPlugin implements IPlugin {
                 await this.sendToApprovalQueue(rule, message, approvalChannelId);
                 
                 if (message.deletable) {
-                    await message.delete();
+                    try {
+                        await message.delete();
+                    } catch (e: any) {
+                        // Ignore "Unknown Message" error (already deleted by duplicate process?)
+                        if (e.code !== 10008) { 
+                            this.logger.warn(`Failed to delete message ${message.id}: ${e.message}`);
+                        }
+                    }
                 }
 
                 // Notify user potentially?
-                await message.channel.send({ 
-                    content: `🔒 Your message in ${message.channel} has been intercepted for review.` 
-                }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+                try {
+                    await message.channel.send({ 
+                        content: `🔒 Your message in ${message.channel} has been intercepted for review.` 
+                    }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+                } catch (e) {
+                    // Ignore send errors
+                }
 
             } else {
                 // Just BLOCK
-                 if (message.deletable) await message.delete();
+                 if (message.deletable) {
+                     try { await message.delete(); } catch(e) {}
+                 }
                  
                  await this.logAction(message, rule, 'Auto-Deleted');
+                 
+                 // ... reply ...
+            }
                  
                  const reply = await message.channel.send({ 
                      content: `❌ **Message Blocked**\nYour message violated the rule: **${rule.name}**`
@@ -244,11 +281,11 @@ export class ChannelRulesPlugin implements IPlugin {
         const row = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`CR_APPROVE_${rule.id}_${message.author.id}`)
+                    .setCustomId(`CR_APPROVE_${rule.id}_${message.author.id}_${message.id}`)
                     .setLabel('Approve')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`CR_REJECT_${rule.id}_${message.author.id}`)
+                    .setCustomId(`CR_REJECT_${rule.id}_${message.author.id}_${message.id}`)
                     .setLabel('Reject')
                     .setStyle(ButtonStyle.Danger)
             );
@@ -259,7 +296,8 @@ export class ChannelRulesPlugin implements IPlugin {
         // Store the NEW URLs which are safe in the admin channel
         const safeAttachmentUrls = sentMessage.attachments.map(a => a.url);
 
-        this.pendingMessages.set(`${rule.id}_${message.author.id}`, {
+        // Key must include message ID to allow multiple pending messages from same user
+        this.pendingMessages.set(`${rule.id}_${message.author.id}_${message.id}`, {
             content: message.content,
             channelId: message.channelId,
             username: message.author.username,
@@ -271,9 +309,8 @@ export class ChannelRulesPlugin implements IPlugin {
     // In-memory buffer for pending approvals (cleared on restart - acceptable for MVP)
     private pendingMessages = new Map<string, any>();
 
-    private async handleApproval(interaction: any) {
-        const [_, __, ruleId, userId] = interaction.customId.split('_');
-        const key = `${ruleId}_${userId}`;
+    private async handleApproval(interaction: any, ruleId: string, userId: string, messageId: string) {
+        const key = `${ruleId}_${userId}_${messageId}`;
         const data = this.pendingMessages.get(key);
 
         if (!data) {
@@ -340,10 +377,9 @@ export class ChannelRulesPlugin implements IPlugin {
         }
     }
 
-    private async handleRejection(interaction: any) {
-        const [_, __, ruleId, userId] = interaction.customId.split('_');
+    private async handleRejection(interaction: any, ruleId: string, userId: string, messageId: string) {
         // Just clear data and update UI
-        this.pendingMessages.delete(`${ruleId}_${userId}`);
+        this.pendingMessages.delete(`${ruleId}_${userId}_${messageId}`);
         
         await interaction.update({ 
             content: `🚫 **Rejected** by ${interaction.user}`, 

@@ -5,9 +5,9 @@
   "main": "dist/bot/index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/bot/index.ts",
+    "dev": "tsx watch src/bot/start.ts",
     "build": "npx prisma generate && tsc",
-    "start": "tsx src/bot/index.ts",
+    "start": "tsx src/bot/start.ts",
     "dashboard:dev": "cd dashboard && npm run dev",
     "dashboard:build": "cd dashboard && npm run build",
     "api:dev": "tsx watch src/api/index.ts",
