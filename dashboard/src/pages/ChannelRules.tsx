@@ -90,6 +90,15 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
     };
 
     const saveRule = async (rule: Partial<Rule>) => {
+        if (!rule.name?.trim()) {
+            alert('Rule name is required');
+            return;
+        }
+        if (!rule.targetChannelId) {
+            alert('Target channel is required');
+            return;
+        }
+
         setIsSaving(true);
         const isNew = !rule.id;
         const endpoint = isNew 
@@ -97,16 +106,21 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             : `/api/guilds/${guildId}/channel-rules/${rule.id}`;
         
         try {
-            await fetch(endpoint, {
+            const res = await fetch(endpoint, {
                 method: isNew ? 'POST' : 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(rule),
                 credentials: 'include'
             });
+
+            if (!res.ok) {
+                throw new Error((await res.json()).error || 'Failed to save');
+            }
+
             await fetchSettings();
             setEditingRule(null);
-        } catch (e) {
-            alert('Failed to save rule');
+        } catch (e: any) {
+            alert('Error: ' + e.message);
         } finally {
             setIsSaving(false);
         }
@@ -338,8 +352,8 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                                 <label style={styles.label}>Exempt Roles (Bypass)</label>
                                 <RoleSelect 
                                     guildId={guildId}
-                                    values={editingRule.exemptRoles || []}
-                                    onChange={roles => setEditingRule(prev => ({ ...prev!, exemptRoles: roles }))}
+                                    value={editingRule.exemptRoles || []}
+                                    onChange={roles => setEditingRule(prev => ({ ...prev!, exemptRoles: roles as string[] }))}
                                     multiple
                                 />
                             </div>
@@ -348,8 +362,8 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                                 <label style={styles.label}>Required Roles (Only apply to)</label>
                                 <RoleSelect 
                                     guildId={guildId}
-                                    values={editingRule.requiredRoles || []}
-                                    onChange={roles => setEditingRule(prev => ({ ...prev!, requiredRoles: roles }))}
+                                    value={editingRule.requiredRoles || []}
+                                    onChange={roles => setEditingRule(prev => ({ ...prev!, requiredRoles: roles as string[] }))}
                                     multiple
                                 />
                             </div>
