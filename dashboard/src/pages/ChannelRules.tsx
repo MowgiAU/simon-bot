@@ -15,6 +15,7 @@ import {
 import { colors, spacing, typography } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
+import { PendingReviews } from '../components/PendingReviews';
 
 interface Rule {
     id: string;
@@ -50,6 +51,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
     const [loading, setLoading] = useState(true);
     const [editingRule, setEditingRule] = useState<Partial<Rule> | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<'rules' | 'queue'>('rules');
 
     useEffect(() => {
         fetchSettings();
@@ -211,76 +213,112 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                 </div>
             </div>
 
-            {/* Global Settings */}
-            <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: 8, marginBottom: spacing.lg, border: `1px solid ${colors.border}` }}>
-                <h3 style={{ ...typography.h3, color: colors.textPrimary, marginTop: 0 }}>Global Configuration</h3>
-                <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end', marginTop: spacing.md }}>
-                    <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', color: colors.textSecondary, marginBottom: spacing.xs }}>
-                            Approval Queue Channel (Review Intercepted Messages)
-                        </label>
-                        <ChannelSelect 
-                            guildId={guildId}
-                            value={settings?.approvalChannelId || ''}
-                            onChange={(id) => setSettings(prev => prev ? ({ ...prev, approvalChannelId: id }) : null)}
-                            placeholder="Select a Staff Channel"
-                        />
-                    </div>
-                    <button onClick={saveSettings} style={styles.primaryBtn}>
-                        {isSaving ? 'Saving...' : <><Save size={16} /> Save Config</>}
-                    </button>
-                </div>
-            </div>
-
-            {/* Rules List */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                <h3 style={{ ...typography.h3, color: colors.textPrimary }}>Active Rules</h3>
-                <button onClick={() => setEditingRule({ enabled: true, action: 'BLOCK', type: 'BLOCK_FILE_TYPES' })} style={styles.primaryBtn}>
-                    <Plus size={16} /> Add Rule
+            {/* Tab Navigation */}
+            <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg, borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.sm }}>
+                <button 
+                    onClick={() => setActiveTab('rules')}
+                    style={{ 
+                        background: 'none', border: 'none', 
+                        color: activeTab === 'rules' ? colors.primary : colors.textSecondary,
+                        fontWeight: activeTab === 'rules' ? 600 : 400,
+                        padding: '8px 16px',
+                        borderBottom: activeTab === 'rules' ? `2px solid ${colors.primary}` : 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Rules Configuration
+                </button>
+                <button 
+                    onClick={() => setActiveTab('queue')}
+                    style={{ 
+                        background: 'none', border: 'none', 
+                        color: activeTab === 'queue' ? colors.primary : colors.textSecondary,
+                        fontWeight: activeTab === 'queue' ? 600 : 400,
+                        padding: '8px 16px',
+                        borderBottom: activeTab === 'queue' ? `2px solid ${colors.primary}` : 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Pending Approvals
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gap: spacing.md }}>
-                {settings?.rules.map(rule => (
-                    <div key={rule.id} style={{ 
-                        background: colors.surface, 
-                        padding: spacing.md, 
-                        borderRadius: 8, 
-                        border: `1px solid ${colors.border}`,
-                        display: 'flex', alignItems: 'center', gap: spacing.md
-                    }}>
-                        <div style={{ 
-                            width: 3, height: 40, borderRadius: 4, 
-                            background: rule.enabled ? colors.success : colors.textTertiary 
-                        }} />
-                        
+            {activeTab === 'queue' ? (
+                <PendingReviews guildId={guildId} />
+            ) : (
+                <>
+                {/* Global Settings */}
+                <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: 8, marginBottom: spacing.lg, border: `1px solid ${colors.border}` }}>
+                    <h3 style={{ ...typography.h3, color: colors.textPrimary, marginTop: 0 }}>Global Configuration</h3>
+                    <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end', marginTop: spacing.md }}>
                         <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                                <span style={{ fontWeight: 600, color: colors.textPrimary }}>{rule.name}</span>
-                                <span style={{ 
-                                    fontSize: '10px', padding: '2px 6px', borderRadius: 4,
-                                    background: rule.action === 'REQUIRE_APPROVAL' ? colors.warning : colors.error,
-                                    color: '#000', fontWeight: 'bold'
-                                }}>
-                                    {rule.action === 'REQUIRE_APPROVAL' ? 'INTERCEPT' : 'BLOCK'}
-                                </span>
-                            </div>
-                            <div style={{ color: colors.textSecondary, fontSize: '13px', marginTop: 4 }}>
-                                {RULE_TYPES.find(t => t.value === rule.type)?.label} • Target: <ChannelSelect guildId={guildId} value={rule.targetChannelId} onChange={()=>{}} />
-                            </div>
+                            <label style={{ display: 'block', color: colors.textSecondary, marginBottom: spacing.xs }}>
+                                Approval Queue Channel (Review Intercepted Messages)
+                            </label>
+                            <ChannelSelect 
+                                guildId={guildId}
+                                value={settings?.approvalChannelId || ''}
+                                onChange={(id) => setSettings(prev => prev ? ({ ...prev, approvalChannelId: id }) : null)}
+                                placeholder="Select a Staff Channel"
+                            />
                         </div>
-
-                        <div style={{ display: 'flex', gap: spacing.sm }}>
-                            <button onClick={() => setEditingRule(rule)} style={styles.iconBtn}>
-                                <Edit size={18} />
-                            </button>
-                            <button onClick={() => deleteRule(rule.id)} style={{ ...styles.iconBtn, color: colors.error }}>
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
+                        <button onClick={saveSettings} style={styles.primaryBtn}>
+                            {isSaving ? 'Saving...' : <><Save size={16} /> Save Config</>}
+                        </button>
                     </div>
-                ))}
-            </div>
+                </div>
+
+                {/* Rules List */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+                    <h3 style={{ ...typography.h3, color: colors.textPrimary }}>Active Rules</h3>
+                    <button onClick={() => setEditingRule({ enabled: true, action: 'BLOCK', type: 'BLOCK_FILE_TYPES' })} style={styles.primaryBtn}>
+                        <Plus size={16} /> Add Rule
+                    </button>
+                </div>
+
+                <div style={{ display: 'grid', gap: spacing.md }}>
+                    {settings?.rules.map(rule => (
+                        <div key={rule.id} style={{ 
+                            background: colors.surface, 
+                            padding: spacing.md, 
+                            borderRadius: 8, 
+                            border: `1px solid ${colors.border}`,
+                            display: 'flex', alignItems: 'center', gap: spacing.md
+                        }}>
+                            <div style={{ 
+                                width: 3, height: 40, borderRadius: 4, 
+                                background: rule.enabled ? colors.success : colors.textTertiary 
+                            }} />
+                            
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                                    <span style={{ fontWeight: 600, color: colors.textPrimary }}>{rule.name}</span>
+                                    <span style={{ 
+                                        fontSize: '10px', padding: '2px 6px', borderRadius: 4,
+                                        background: rule.action === 'REQUIRE_APPROVAL' ? colors.warning : colors.error,
+                                        color: '#000', fontWeight: 'bold'
+                                    }}>
+                                        {rule.action === 'REQUIRE_APPROVAL' ? 'INTERCEPT' : 'BLOCK'}
+                                    </span>
+                                </div>
+                                <div style={{ color: colors.textSecondary, fontSize: '13px', marginTop: 4 }}>
+                                    {RULE_TYPES.find(t => t.value === rule.type)?.label} • Target: <ChannelSelect guildId={guildId} value={rule.targetChannelId} onChange={()=>{}} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: spacing.sm }}>
+                                <button onClick={() => setEditingRule(rule)} style={styles.iconBtn}>
+                                    <Edit size={18} />
+                                </button>
+                                <button onClick={() => deleteRule(rule.id)} style={{ ...styles.iconBtn, color: colors.error }}>
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                </>
+            )}
 
             {/* Edit Modal */}
             {editingRule && (
