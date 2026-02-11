@@ -229,9 +229,9 @@ export class ChannelRulesPlugin implements IPlugin {
 
                 // Notify user potentially?
                 try {
-                    await message.channel.send({ 
+                    await (message.channel as any).send({ 
                         content: `🔒 Your message in ${message.channel} has been intercepted for review.` 
-                    }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+                    }).then((m: any) => setTimeout(() => m.delete().catch(() => {}), 5000));
                 } catch (e) {
                     // Ignore send errors
                 }
@@ -244,7 +244,7 @@ export class ChannelRulesPlugin implements IPlugin {
                  
                  await this.logAction(message, rule, 'Auto-Deleted');
                  
-                 const reply = await message.channel.send({ 
+                 const reply = await (message.channel as any).send({ 
                      content: `❌ **Message Blocked**\nYour message violated the rule: **${rule.name}**`
                  });
                  setTimeout(() => reply.delete().catch(() => {}), 5000);
