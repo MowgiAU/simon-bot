@@ -38,6 +38,7 @@ export class ChannelRulesPlugin implements IPlugin {
 
     private context: IPluginContext | null = null;
     private logger = new Logger('ChannelRulesPlugin');
+    private processedMessageIds = new Set<string>();
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
@@ -61,6 +62,11 @@ export class ChannelRulesPlugin implements IPlugin {
 
     async onMessageCreate(message: Message): Promise<void> {
         if (!this.context || message.author.bot || !message.guild) return;
+
+        // Idempotency check
+        if (this.processedMessageIds.has(message.id)) return;
+        this.processedMessageIds.add(message.id);
+        setTimeout(() => this.processedMessageIds.delete(message.id), 10000);
         
         // Optimization: Quick check if this channel has rules before fetching everything
         // We can cache this efficiently later, for now we rely on DB + Prisma caching
