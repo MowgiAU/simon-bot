@@ -58,10 +58,15 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
     const fetchSettings = async () => {
         try {
             const res = await fetch(`/api/guilds/${guildId}/channel-rules`, { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed');
             const data = await res.json();
+            // Ensure rules array exists even if backend returns partial object
+            if (data && !data.rules) data.rules = [];
             setSettings(data);
         } catch (e) {
             console.error(e);
+            // Set empty default to verify UI doesn't crash
+            setSettings({ guildId, approvalChannelId: null, rules: [] });
         } finally {
             setLoading(false);
         }
@@ -247,7 +252,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                                 </span>
                             </div>
                             <div style={{ color: colors.textSecondary, fontSize: '13px', marginTop: 4 }}>
-                                {RULE_TYPES.find(t => t.value === rule.type)?.label} • Target: <ChannelSelect guildId={guildId} value={rule.targetChannelId} onChange={()=>{}} readonly />
+                                {RULE_TYPES.find(t => t.value === rule.type)?.label} • Target: <ChannelSelect guildId={guildId} value={rule.targetChannelId} onChange={()=>{}} />
                             </div>
                         </div>
 
