@@ -32,6 +32,7 @@ model Guild {
   // Channel Rules
   channelRuleSettings ChannelRuleSettings?
   channelRules        ChannelRule[]
+  pendingReviews      PendingReview[]
 
   moderationSettings ModerationSettings?
   welcomeGateSettings WelcomeGateSettings?
