@@ -29,6 +29,10 @@ model Guild {
   actionLogs         ActionLog[]
   userNotes          UserNote[]
 
+  // Channel Rules
+  channelRuleSettings ChannelRuleSettings?
+  channelRules        ChannelRule[]
+
   moderationSettings ModerationSettings?
   welcomeGateSettings WelcomeGateSettings?
 
@@ -535,4 +539,44 @@ model TicketMessage {
 
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   @@map("ticket_messages")
+}
+
+// Channel Rules & Moderation (Gatekeeper)
+model ChannelRuleSettings {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+  
+  approvalChannelId String? // Channel where staff reviews intercepted messages
+  
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  rules            ChannelRule[]
+
+  @@map("channel_rule_settings")
+}
+
+model ChannelRule {
+  id             String   @id @default(cuid())
+  guildId        String
+  settingsId     String
+  
+  name           String   // Friendly name (e.g. "No EXE files")
+  targetChannelId String  // The channel this rule applies to
+  
+  type           String   // BLOCK_FILE_TYPES, MAX_LENGTH, REGEX_MATCH, etc.
+  config         Json     // Stores specifics: { extensions: ['.exe'], length: 50, pattern: 'badword' }
+  
+  action         String   // BLOCK, REQUIRE_APPROVAL
+  enabled        Boolean  @default(true)
+  
+  exemptRoles    String[] @default([]) // Roles that bypass this rule
+  requiredRoles  String[] @default([]) // If set, rule ONLY applies to these roles
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  guild          Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  settings       ChannelRuleSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, targetChannelId])
+  @@map("channel_rules")
 }

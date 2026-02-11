@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Mail,
   Ticket,
+  FileText,
 } from 'lucide-react';
 import logoUrl from '../assets/logo.svg'; 
 
@@ -142,6 +143,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><ShieldAlert size={20} /></span>
             <span className="nav-label">Moderation</span>
           </button>
+          )}
+
+          {(permissions.accessiblePlugins.includes('channel-rules') || permissions.accessiblePlugins.includes('moderation')) && (
+            <button
+                className={`nav-item ${activeSection === 'channel-rules' ? 'active' : ''}`}
+                onClick={() => onNavigate('channel-rules')}
+                title={collapsed ? "Channel Gatekeeper" : ""}
+            >
+                <span className="nav-icon"><FileText size={20} /></span>
+                <span className="nav-label">Channel Rules</span>
+            </button>
           )}
 
           {permissions.accessiblePlugins.includes('welcome-gate') && (

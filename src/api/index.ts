@@ -1186,7 +1186,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules'] 
             });
         }
 
@@ -2234,6 +2234,137 @@ app.post('/api/tickets/:ticketId/reply', async (req, res) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Failed to send reply' });
+    }
+});
+
+// --- Channel Rules & Gatekeeper Routes ---
+
+app.get('/api/guilds/:guildId/channel-rules', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        // Auth Check
+        if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const settings = await db.channelRuleSettings.findUnique({
+            where: { guildId },
+            include: { rules: { orderBy: { createdAt: 'desc' } } }
+        });
+
+        if (!settings) {
+            return res.json({ 
+                guildId, 
+                approvalChannelId: null,
+                rules: []
+            });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to fetch channel rules', e);
+        res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+});
+
+app.put('/api/guilds/:guildId/channel-rules/settings', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { approvalChannelId } = req.body;
+        
+        if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const settings = await db.channelRuleSettings.upsert({
+            where: { guildId },
+            update: { approvalChannelId },
+            create: { guildId, approvalChannelId }
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update channel rule settings', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/guilds/:guildId/channel-rules', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { name, targetChannelId, type, config, action, exemptRoles, requiredRoles, enabled } = req.body;
+        
+        if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        // Ensure settings exist
+        let settings = await db.channelRuleSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.channelRuleSettings.create({ data: { guildId } });
+        }
+
+        const rule = await db.channelRule.create({
+            data: {
+                guildId,
+                settingsId: settings.id,
+                name,
+                targetChannelId,
+                type,
+                config: config || {},
+                action,
+                exemptRoles: exemptRoles || [],
+                requiredRoles: requiredRoles || [],
+                enabled: enabled ?? true
+            }
+        });
+        res.json(rule);
+    } catch (e) {
+        logger.error('Failed to create rule', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.put('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
+    try {
+        const { guildId, ruleId } = req.params;
+        const data = req.body; // Partial update?
+        
+        if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const rule = await db.channelRule.update({
+            where: { id: ruleId },
+            data: {
+                name: data.name,
+                targetChannelId: data.targetChannelId,
+                type: data.type, // Usually type doesn't change, but ok
+                config: data.config,
+                action: data.action,
+                exemptRoles: data.exemptRoles,
+                requiredRoles: data.requiredRoles,
+                enabled: data.enabled
+            }
+        });
+        res.json(rule);
+    } catch (e) {
+        logger.error('Failed to update rule', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.delete('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
+    try {
+        const { guildId, ruleId } = req.params; // guildId for double check?
+        
+        if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        await db.channelRule.delete({ where: { id: ruleId } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Failed to delete rule', e);
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
