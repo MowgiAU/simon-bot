@@ -2317,9 +2317,9 @@ app.post('/api/guilds/:guildId/channel-rules', async (req, res) => {
             }
         });
         res.json(rule);
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Failed to create rule', e);
-        res.status(500).json({ error: 'Failed' });
+        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
     }
 });
 
@@ -2346,9 +2346,9 @@ app.put('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
             }
         });
         res.json(rule);
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Failed to update rule', e);
-        res.status(500).json({ error: 'Failed' });
+        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
     }
 });
 
@@ -2362,9 +2362,9 @@ app.delete('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
 
         await db.channelRule.delete({ where: { id: ruleId } });
         res.json({ success: true });
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Failed to delete rule', e);
-        res.status(500).json({ error: 'Failed' });
+        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
     }
 });
 
