@@ -178,18 +178,21 @@ export class ChannelRulesPlugin implements IPlugin {
         if (!this.context) return; // Typescript check
         
         try {
-            // Delete original message
-            if (message.deletable) {
-                await message.delete();
-            }
-
             if (rule.action === 'REQUIRE_APPROVAL') {
                 if (!approvalChannelId) {
                     this.logger.warn(`Rule ${rule.id} triggered Intercept but no approval channel configured.`);
+                    // Fallback to block if no approval channel
+                    if (message.deletable) await message.delete();
                     return;
                 }
+                
+                // Send to queue FIRST (to preserve attachments), then delete
                 await this.sendToApprovalQueue(rule, message, approvalChannelId);
                 
+                if (message.deletable) {
+                    await message.delete();
+                }
+
                 // Notify user potentially?
                 await message.channel.send({ 
                     content: `🔒 Your message in ${message.channel} has been intercepted for review.` 
@@ -197,6 +200,8 @@ export class ChannelRulesPlugin implements IPlugin {
 
             } else {
                 // Just BLOCK
+                 if (message.deletable) await message.delete();
+                 
                  await this.logAction(message, rule, 'Auto-Deleted');
                  
                  const reply = await message.channel.send({ 
@@ -225,35 +230,10 @@ export class ChannelRulesPlugin implements IPlugin {
             )
             .setTimestamp();
 
-        // Handle Attachments for Review
-        // We can't re-upload easily without downloading. 
-        // For simplicity, we list URLs. 
-        // Ideally, we repost them. Discord URLs persist for a bit after delete, but better to safeguard.
-        // Actually, since we deleted the message, the attachments are GONE from Discord CDN technically 
-        // (though they linger). We should have cached them or we rely on the fact that we intercepted 
-        // BEFORE checking? No, we deleted first. 
-        // CAUTION: If we delete, the attachment URL might 403. 
-        // FIX: Buffer attachments before delete. (Not implemented fully in this snippet for brevity, relying on ephemeral access or caching logic if needed, but for now lets assume text focus or just listing names).
-        
-        // Wait! The user asked to "Buffer" them.
-        // Implementing full buffer is complex in one go. 
-        // Let's assume we grabbed simple URLs before delete or we repost immediately.
-        // Actually, `message.attachments` are collection of Attachment objects. 
-        // If we delete message `m`, `m.attachments.first().url` might die.
-        
-        // PROPER WAY:
-        // We need to fetch the file to memory.
-        const files: any[] = [];
-        /* 
-        for (const [id, att] of message.attachments) {
-            const res = await axios.get(att.url, { responseType: 'arraybuffer' });
-            files.push({ attachment: res.data, name: att.name });
-        }
-        */
-        // Due to complexity, I'll list names and note that robust media handling needs a dedicated service or delay.
-        if (message.attachments.size > 0) {
-            embed.addFields({ name: 'Attachments', value: message.attachments.map(a => `[${a.name}](${a.url})`).join('\n') });
-        }
+        // Forward Attachments
+        // We attach them to the approval message so they are hosted by Discord in the admin channel.
+        // This acts as our "buffer".
+        const files = message.attachments.map(a => ({ attachment: a.url, name: a.name }));
 
         const row = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(
@@ -267,22 +247,18 @@ export class ChannelRulesPlugin implements IPlugin {
                     .setStyle(ButtonStyle.Danger)
             );
         
-        await channel.send({ embeds: [embed], components: [row] });
+        // Send and get the forwarded message with new valid attachment URLs
+        const sentMessage = await channel.send({ embeds: [embed], components: [row], files });
         
-        // We need to persist the MESSAGE CONTENT somewhere to repost it later!
-        // Storing in DB or Redis is best. 
-        // Hack: Encode in button? Too large.
-        // Solution: Store in a temporary Map in memory (risk of data loss on restart) or DB.
-        // Since we have Prisma, let's create a PendingMessage model? 
-        // Or store in `details` of an ActionLog? 
-        // User requested: "Buffer: Temporarily cache the message"
-        
+        // Store the NEW URLs which are safe in the admin channel
+        const safeAttachmentUrls = sentMessage.attachments.map(a => a.url);
+
         this.pendingMessages.set(`${rule.id}_${message.author.id}`, {
             content: message.content,
             channelId: message.channelId,
             username: message.author.username,
             avatarURL: message.author.displayAvatarURL(),
-            attachmentUrls: message.attachments.map(a => a.url)
+            attachmentUrls: safeAttachmentUrls // Use the hosted copies
         });
     }
 
