@@ -1523,16 +1523,72 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 
         if (action === 'DENY') {
             await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'REJECTED' } });
+            
+            // Delete the bot's "Intercepted / Pending Review" message if it exists
+            const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+            if (settings?.modLogChannelId && post.moderationMessageId) {
+                // Also update the MOD LOG to show it was rejected
+                try {
+                     const token = process.env.DISCORD_TOKEN;
+                     if (token) {
+                        const { data: msg } = await axios.get(
+                            `https://discord.com/api/v10/channels/${settings.modLogChannelId}/messages/${post.moderationMessageId}`,
+                            { headers: { Authorization: `Bot ${token}` } }
+                        );
+                        if (msg) {
+                             const embed = msg.embeds[0];
+                             if (embed) {
+                                 embed.color = 0xED4245; // Red
+                                 embed.title = '❌ Rejected (Dashboard)';
+                                 embed.footer = { text: 'Processed via Web Dashboard' };
+                             }
+                             await axios.patch(
+                                `https://discord.com/api/v10/channels/${settings.modLogChannelId}/messages/${post.moderationMessageId}`,
+                                { embeds: [embed], components: [] },
+                                { headers: { Authorization: `Bot ${token}` } }
+                             );
+                        }
+                     }
+                } catch (e) { /* Ignore */ }
+            }
+
             return res.json({ success: true });
         }
 
         if (action === 'APPROVE') {
-            // 1. Update DB
-            await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
+             // 1. Update DB
+             await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
+             
+             const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+
+             // Update Mod Log to GREEN
+             if (settings?.modLogChannelId && post.moderationMessageId) {
+                try {
+                     const token = process.env.DISCORD_TOKEN;
+                     if (token) {
+                        const { data: msg } = await axios.get(
+                            `https://discord.com/api/v10/channels/${settings.modLogChannelId}/messages/${post.moderationMessageId}`,
+                            { headers: { Authorization: `Bot ${token}` } }
+                        );
+                        if (msg) {
+                             const embed = msg.embeds[0];
+                             if (embed) {
+                                 embed.color = 0x57F287; // Green
+                                 embed.title = '✅ Approved (Dashboard)';
+                                 embed.footer = { text: 'Processed via Web Dashboard' };
+                             }
+                             await axios.patch(
+                                `https://discord.com/api/v10/channels/${settings.modLogChannelId}/messages/${post.moderationMessageId}`,
+                                { embeds: [embed], components: [] },
+                                { headers: { Authorization: `Bot ${token}` } }
+                             );
+                        }
+                     }
+                } catch (e) { /* Ignore */ }
+            }
 
             // 1b. Reward User
             try {
-                const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
                 if (settings && settings.currencyReward > 0) {
                      await db.economyAccount.upsert({
                         where: { guildId_userId: { guildId, userId: post.userId } },
