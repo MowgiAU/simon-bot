@@ -2444,12 +2444,28 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
             content: review.content,
             username: review.username,
             avatar_url: review.avatarUrl,
-            // embeds: [], we don't support custom embeds yet in reposts
-             // Attachments are tricky with JSON payload, usually need FormData
-             // For now, let's just repost the links as text if they exist?
-             // Or construct a proper multipart request.
-             // Simplest MVP: Append URLs to content
         });
+
+        // Update Discord Approval Message (if exists)
+        if (review.approvalChannelId && review.approvalMessageId) {
+            try {
+                // Fetch original message first to get embed
+                const msg = (await discordReq('GET', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`)).data;
+                const embed = msg.embeds[0];
+                if (embed) {
+                    embed.color = 0x57F287; // Green
+                    embed.title = '✅ Approved (Dashboard)';
+                    embed.footer = { text: 'Processed via Web Dashboard' };
+                }
+
+                await discordReq('PATCH', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`, {
+                    components: [], // Remove buttons
+                    embeds: embed ? [embed] : []
+                });
+            } catch (e) {
+                console.error('Failed to update approval message', e);
+            }
+        }
 
         // 2. Delete from DB
         await db.pendingReview.delete({ where: { id } });
@@ -2477,7 +2493,50 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
 app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => {
     try {
         const { guildId, id } = req.params;
+        const review = await db.pendingReview.findUnique({ where: { id } });
+
+        if (review && review.approvalChannelId && review.approvalMessageId) {
+             const token = process.env.DISCORD_TOKEN!;
+             // Helper (duplicate from approve, shame on me)
+             const discordReq = async (method: string, path: string, data?: any) => {
+                 return axios({
+                     method,
+                     url: `https://discord.com/api/v10${path}`,
+                     headers: { Authorization: `Bot ${token}` },
+                     data
+                 });
+            };
+            
+            try {
+                const msg = (await discordReq('GET', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`)).data;
+                const embed = msg.embeds[0];
+                if (embed) {
+                    embed.color = 0xED4245; // Red
+                    embed.title = '❌ Rejected (Dashboard)';
+                    embed.footer = { text: 'Processed via Web Dashboard' };
+                }
+                await discordReq('PATCH', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`, {
+                    components: [],
+                    embeds: embed ? [embed] : []
+                });
+            } catch (e) {
+                 console.error('Failed to update rejection message', e);
+            }
+        }
+
         await db.pendingReview.delete({ where: { id } });
+        
+        await db.actionLog.create({
+            data: {
+                guildId,
+                pluginId: 'channel-rules',
+                action: 'message_rejected_web',
+                executorId: 'WEB_USER',
+                targetId: review?.userId || 'UNKNOWN',
+                details: { reviewId: id }
+            }
+        });
+
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });

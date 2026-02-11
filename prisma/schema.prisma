@@ -597,6 +597,9 @@ model PendingReview {
   ruleId         String   // Which rule triggered this
   status         String   @default("PENDING") // PENDING
   
+  approvalMessageId String? // The ID of the message in the staff channel
+  approvalChannelId String? // The ID of the staff channel
+
   createdAt      DateTime @default(now())
   
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)

@@ -331,7 +331,9 @@ export class ChannelRulesPlugin implements IPlugin {
                 avatarUrl: message.author.displayAvatarURL(),
                 content: message.content,
                 attachmentUrls: safeAttachmentUrls,
-                ruleId: rule.id
+                ruleId: rule.id,
+                approvalMessageId: sentMessage.id,
+                approvalChannelId: channel.id
             }
         });
     }
