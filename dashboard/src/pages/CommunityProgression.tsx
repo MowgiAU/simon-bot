@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from '../components/AuthProvider';
 
 interface LevelReward {
