@@ -1,4 +1,4 @@
-import { 
+cd dashboardimport { 
     Client, 
     Message, 
     VoiceState, 
@@ -133,7 +133,7 @@ export class CommunityProgressionPlugin implements IPlugin {
         // Logic:
         // If Joined (ignoring AFK): Start Timer
         // If Left (or moved to AFK): Stop Timer & Award XP
-        
+
         if (!wasInChannel && isInChannel) {
             // Joined valid voice channel
             await this.db.userLevel.upsert({
@@ -169,22 +169,26 @@ export class CommunityProgressionPlugin implements IPlugin {
                 const joinTime = new Date(userLevel.lastVoiceJoin).getTime();
                 const now = Date.now();
                 const diffMs = now - joinTime;
-                
+
                 // 5 minutes = 300,000 ms
                 const periodMs = 5 * 60 * 1000;
-                
-                // If less than minimum requirements? 
-                // Let's just calculate chunks
+
                 if (diffMs > periodMs) {
-                    const periods = Math.floor(diffMs / periodMs);
-                    const xpToGive = periods * settings.xpRateVoice;
-                    
-                    if (xpToGive > 0) {
-                        // Check Anti-AFK (min users) - Optional check
-                        // Note: If we want to strictly check 'min users' during the session, it's hard with just begin/end timestamps.
-                        // We will assume simpler logic for now: if they spent time, they get XP.
-                        
-                        await this.addXp(guild.id, member.id, xpToGive, null, true);
+                    // Enforce min users for voice XP
+                    const prevChannel = oldState.channel;
+                    let eligible = true;
+                    if (settings.voiceMinUsers && prevChannel) {
+                        const nonBotCount = prevChannel.members.filter(m => !m.user.bot).size;
+                        if (nonBotCount < settings.voiceMinUsers) {
+                            eligible = false;
+                        }
+                    }
+                    if (eligible) {
+                        const periods = Math.floor(diffMs / periodMs);
+                        const xpToGive = periods * settings.xpRateVoice;
+                        if (xpToGive > 0) {
+                            await this.addXp(guild.id, member.id, xpToGive, null, true);
+                        }
                     }
                 }
 
@@ -405,16 +409,12 @@ export class CommunityProgressionPlugin implements IPlugin {
             const member = await guild.members.fetch(userId);
             
             for (const reward of rewards) {
-                await member.roles.add(reward.roleId).catch(e => console.error(e));
-                
+                await member.roles.add(reward.roleId).catch(e => this.logger.error('Failed to add level reward role', e));
                 if (!reward.stackPrevious) {
-                    // Remove previous level roles?
-                    // This logic is complex if we don't know which roles are "previous".
-                    // Usually implies "remove lower level reward roles".
-                    // We can find all lower level rewards and remove them.
+                    // Remove previous level roles
                     const lowerRewards = settings.rewards.filter((r: any) => r.level < newLevel);
                     for (const lower of lowerRewards) {
-                         await member.roles.remove(lower.roleId).catch(e => console.error(e));
+                        await member.roles.remove(lower.roleId).catch(e => this.logger.error('Failed to remove lower level reward role', e));
                     }
                 }
             }
