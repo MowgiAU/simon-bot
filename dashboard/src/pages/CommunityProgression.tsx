@@ -247,10 +247,10 @@ import { colors, spacing, borderRadius } from '../theme/theme';
                                     fullWidth
                                     label="XP per Message"
                                     type="number"
-                            <MenuItem value="" disabled style={{ color: colors.textSecondary }}>Select Role</MenuItem>
-                            {roles.map(role => (
-                                <MenuItem key={role.id} value={role.id} style={{ color: colors.textPrimary }}>{role.name}</MenuItem>
-                            ))}
+                                    value={levelSettings?.xpRateText || 0}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateText: parseInt(e.target.value)} : null)}
+                                    sx={{
+                                        '& .MuiInputBase-input': { color: colors.textPrimary },
                                         '& .MuiInputLabel-root': { color: colors.textSecondary },
                                         '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
                                         '& .MuiInputBase-root': { background: 'transparent' },
