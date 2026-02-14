@@ -457,7 +457,7 @@ const CommunityProgression: React.FC = () => {
                         <div style={{ color: colors.textPrimary, fontSize: '15px' }}>
                             Reaction roles must be configured via commands or editing specific messages for now.<br />
                             <span style={{ color: colors.textSecondary }}>Use </span>
-                            <span style={{ fontFamily: 'monospace', background: colors.background, color: colors.info, padding: '2px 8px', borderRadius: borderRadius.sm, fontSize: '14px' }}>/reaction-role add <span style={{ color: colors.textTertiary }}>[msgId]</span> <span style={{ color: colors.textTertiary }}>[emoji]</span> <span style={{ color: colors.textTertiary }}>[@role]</span></span>
+                            <span style={{ fontFamily: 'monospace', background: colors.surface, color: colors.textPrimary, padding: '2px 8px', borderRadius: borderRadius.sm, fontSize: '14px' }}>/reaction-role add <span style={{ color: colors.textSecondary }}>[msgId]</span> <span style={{ color: colors.textSecondary }}>[emoji]</span> <span style={{ color: colors.textSecondary }}>[@role]</span></span>
                         </div>
                     </div>
                 </Grid>
