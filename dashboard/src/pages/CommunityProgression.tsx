@@ -1,4 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
+
+interface LevelReward {
+    id: string;
+    level: number;
+    roleId: string;
+    stackPrevious: boolean;
+}
+
+interface LevellingSettings {
     enabled: boolean;
     xpRateText: number;
     xpRateVoice: number;
