@@ -1,31 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Box, 
-    Typography, 
-    Paper, 
-    Switch, 
-    FormControlLabel, 
-    TextField, 
-    Button, 
-    Grid, 
-    Divider,
+import {
+    Box,
+    Typography,
+    Paper,
+    Switch,
+    FormControlLabel,
+    TextField,
+    Button,
+    Grid,
     List,
     ListItem,
     ListItemText,
     ListItemSecondaryAction,
     IconButton,
     Alert,
-    CircularProgress,
-    Card,
-    CardContent
+    CircularProgress
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-
-// Temporary stub for theme mode
-const useTheme = () => ({ mode: 'dark' });
+import { colors, borderRadius, spacing } from '../theme/theme';
 
 interface LevelReward {
     id: string;
@@ -59,8 +54,7 @@ interface Role {
 
 const CommunityProgression: React.FC = () => {
     const { guildId } = useParams<{ guildId: string }>();
-    const { mode } = useTheme();
-    const isDark = mode === 'dark';
+    // Removed useTheme, use colors directly
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -172,9 +166,32 @@ const CommunityProgression: React.FC = () => {
 
     return (
         <Box sx={{ maxWidth: 1200, margin: '0 auto', p: 3 }}>
-            <Typography variant="h4" gutterBottom sx={{ color: isDark ? '#fff' : '#000' }}>
-                Community Progression
-            </Typography>
+            {/* Header/Explanation Block */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    mb: 3,
+                    gap: 2
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {/* You can replace this with an actual icon if available */}
+                    <Box sx={{ width: 40, height: 40, bgcolor: colors.primary, borderRadius: '50%', mr: 2 }} />
+                    <Typography variant="h4" sx={{ color: colors.primary, m: 0 }}>
+                        Community Progression
+                    </Typography>
+                </Box>
+                <Box>
+                    <Typography sx={{ color: colors.textSecondary, fontSize: 16, mb: 0.5 }}>
+                        Configure XP, leveling, onboarding, and automatic role rewards for your community.
+                    </Typography>
+                    <Typography sx={{ color: colors.warning, fontSize: 13 }}>
+                        Changes may take up to 30 seconds to update on the bot.
+                    </Typography>
+                </Box>
+            </Box>
 
             <Grid container spacing={3}>
                 {/* Leveling Section */}
@@ -186,7 +203,7 @@ const CommunityProgression: React.FC = () => {
                                 control={
                                     <Switch 
                                         checked={levelSettings?.enabled || false}
-                                        onChange={(e) => setLevelSettings(s => s ? {...s, enabled: e.target.checked} : null)}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, enabled: e.target.checked} : null)}
                                     />
                                 }
                                 label="Enabled"
@@ -200,7 +217,7 @@ const CommunityProgression: React.FC = () => {
                                     label="XP per Message"
                                     type="number"
                                     value={levelSettings?.xpRateText || 0}
-                                    onChange={(e) => setLevelSettings(s => s ? {...s, xpRateText: parseInt(e.target.value)} : null)}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateText: parseInt(e.target.value)} : null)}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -209,7 +226,7 @@ const CommunityProgression: React.FC = () => {
                                     label="XP per 5min Voice"
                                     type="number"
                                     value={levelSettings?.xpRateVoice || 0}
-                                    onChange={(e) => setLevelSettings(s => s ? {...s, xpRateVoice: parseInt(e.target.value)} : null)}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateVoice: parseInt(e.target.value)} : null)}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -218,7 +235,7 @@ const CommunityProgression: React.FC = () => {
                                     label="Cooldown (sec)"
                                     type="number"
                                     value={levelSettings?.cooldownText || 0}
-                                    onChange={(e) => setLevelSettings(s => s ? {...s, cooldownText: parseInt(e.target.value)} : null)}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, cooldownText: parseInt(e.target.value)} : null)}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -227,7 +244,7 @@ const CommunityProgression: React.FC = () => {
                                     label="Min. Voice Users"
                                     type="number"
                                     value={levelSettings?.voiceMinUsers || 0}
-                                    onChange={(e) => setLevelSettings(s => s ? {...s, voiceMinUsers: parseInt(e.target.value)} : null)}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, voiceMinUsers: parseInt(e.target.value)} : null)}
                                 />
                             </Grid>
                         </Grid>
@@ -237,7 +254,7 @@ const CommunityProgression: React.FC = () => {
                                 control={
                                     <Switch 
                                         checked={levelSettings?.announceLevelUp || false}
-                                        onChange={(e) => setLevelSettings(s => s ? {...s, announceLevelUp: e.target.checked} : null)}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, announceLevelUp: e.target.checked} : null)}
                                     />
                                 }
                                 label="Announce Level Ups"
@@ -257,7 +274,7 @@ const CommunityProgression: React.FC = () => {
                                 type="number"
                                 size="small"
                                 value={newRewardLevel}
-                                onChange={(e) => setNewRewardLevel(parseInt(e.target.value))}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardLevel(parseInt(e.target.value))}
                                 sx={{ width: 100 }}
                             />
                             <TextField
@@ -265,12 +282,14 @@ const CommunityProgression: React.FC = () => {
                                 label="Reward Role"
                                 size="small"
                                 fullWidth
-                                SelectProps={{ native: true }}
                                 value={newRewardRole}
-                                onChange={(e) => setNewRewardRole(e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardRole(e.target.value)}
+                                SelectProps={{ native: true }}
                             >
+                                {/* @ts-ignore: native select expects option children */}
                                 <option value="">Select Role</option>
                                 {roles.map(role => (
+                                    // @ts-ignore: native select expects option children
                                     <option key={role.id} value={role.id}>{role.name}</option>
                                 ))}
                             </TextField>
@@ -312,7 +331,7 @@ const CommunityProgression: React.FC = () => {
                                 control={
                                     <Switch 
                                         checked={onboardingSettings?.enabled || false}
-                                        onChange={(e) => setOnboardingSettings(s => s ? {...s, enabled: e.target.checked} : null)}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOnboardingSettings(s => s ? {...s, enabled: e.target.checked} : null)}
                                     />
                                 }
                                 label="Enabled"
@@ -324,7 +343,7 @@ const CommunityProgression: React.FC = () => {
                             label="Delay before applying roles (seconds)"
                             type="number"
                             value={onboardingSettings?.delaySeconds || 0}
-                            onChange={(e) => setOnboardingSettings(s => s ? {...s, delaySeconds: parseInt(e.target.value)} : null)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOnboardingSettings(s => s ? {...s, delaySeconds: parseInt(e.target.value)} : null)}
                             helperText="Useful for anti-raid / membership screening"
                             sx={{ mb: 2 }}
                         />
@@ -345,12 +364,11 @@ const CommunityProgression: React.FC = () => {
                                             px: 1,
                                             cursor: 'pointer',
                                             fontSize: '0.9rem',
+                                            color: role.color ? `#${role.color.toString(16)}` : 'inherit',
                                             '&:hover': { bgcolor: 'rgba(0,0,0,0.05)' }
                                         }}
                                     >
-                                        <span style={{ color: role.color ? `#${role.color.toString(16)}` : 'inherit' }}>
-                                            {role.name}
-                                        </span>
+                                        {role.name}
                                     </Box>
                                 )
                             })}
@@ -365,7 +383,7 @@ const CommunityProgression: React.FC = () => {
                         <Typography variant="h6" gutterBottom>Reaction Roles</Typography>
                         <Alert severity="info" sx={{ mb: 2 }}>
                             Reaction roles must be configured via commands or editing specific messages for now.
-                            <br/> Use <code>/reaction-role add [msgId] [emoji] [@role]</code>
+                            {' '}Use <span style={{ fontFamily: 'monospace', background: '#222', padding: '2px 6px', borderRadius: 4 }}>/reaction-role add [msgId] [emoji] [@role]</span>
                         </Alert>
                     </Paper>
                 </Grid>
