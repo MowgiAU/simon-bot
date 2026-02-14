@@ -374,7 +374,17 @@ const CommunityProgression: React.FC = () => {
                                 fullWidth
                                 value={newRewardRole}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardRole(e.target.value)}
-                                SelectProps={{ native: true }}
+                                SelectProps={{
+                                    native: true,
+                                    MenuProps: {
+                                        PaperProps: {
+                                            style: {
+                                                backgroundColor: colors.surface,
+                                                color: colors.textPrimary
+                                            }
+                                        }
+                                    }
+                                }}
                                 InputLabelProps={{ shrink: true, style: { color: colors.textSecondary } }}
                                 sx={{ background: colors.background, color: colors.textPrimary,
                                     '& .MuiInputBase-input': { color: colors.textPrimary },
