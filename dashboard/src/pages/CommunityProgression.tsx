@@ -1,8 +1,23 @@
 
+
 import React, { useState, useEffect } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
+import IconButton from '@mui/material/IconButton';
 import { useAuth } from '../components/AuthProvider';
 import { Trophy, Plus, Trash2 } from 'lucide-react';
+import axios from 'axios';
+import { colors, spacing, borderRadius } from '../theme/theme';
 
 interface LevelReward {
     id: string;
