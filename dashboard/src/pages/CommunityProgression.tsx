@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../components/AuthProvider';
 
 interface LevelReward {
     id: string;
