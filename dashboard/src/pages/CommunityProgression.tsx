@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from '../components/AuthProvider';
+import { Trophy, Plus, Trash2 } from 'lucide-react';
 
 interface LevelReward {
     id: string;
