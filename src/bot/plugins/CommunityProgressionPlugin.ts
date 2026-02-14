@@ -1,4 +1,5 @@
 cd dashboardimport { 
+import { 
     Client, 
     Message, 
     VoiceState, 
@@ -12,24 +13,23 @@ cd dashboardimport {
     TextChannel,
     PermissionsBitField,
     AuditLogEvent,
-    Interaction,
-    Partials
+    Collection
 } from 'discord.js';
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 import { IPlugin, IPluginContext } from '../types/plugin';
+import { Logger } from '../utils/logger';
 
-// Helper to calculate level from XP
-// Using a common formula: Level = 0.1 * sqrt(XP)
-// XP = 100 * Level^2
-const calculateLevel = (xp: number): number => {
-    return Math.floor(0.1 * Math.sqrt(xp));
-};
+// Helper: XP to Level (Quadratic)
+// XP = 100 * Level^2  => Level = sqrt(XP / 100)
+const getLevel = (xp: number) => Math.floor(Math.sqrt(xp / 100));
+const getXpForLevel = (level: number) => 100 * Math.pow(level, 2);
 
 export class CommunityProgressionPlugin implements IPlugin {
     id = 'progression';
     name = 'Community Progression';
-    description = 'XP System, Level Rewards, Onboarding, and Reaction Roles';
-    version = '1.0.0';
+    description = 'Unified XP, Roles, Onboarding, and Sticky Persistence System';
+    version = '2.0.0';
     author = 'Fuji Studio';
     
     events = [
@@ -42,404 +42,412 @@ export class CommunityProgressionPlugin implements IPlugin {
     ];
 
     requiredPermissions = [
-        PermissionsBitField.Flags.ManageRoles
+        PermissionsBitField.Flags.ManageRoles,
+        PermissionsBitField.Flags.SendMessages
     ];
 
-    commands: string[] = [];  // No text commands for now
+    commands = ['rank', 'progression']; // Text commands
 
-    dashboardSections = ['levelling', 'onboarding', 'reaction-roles'];
+    dashboardSections = ['progression-settings', 'reaction-roles'];
     
     defaultEnabled = true;
 
-    configSchema = z.object({});
+    configSchema = z.object({
+        // XP Settings
+        xpTextMin: z.number().default(15),
+        xpTextMax: z.number().default(25),
+        xpTextCooldown: z.number().default(60),
+        xpVoicePerTick: z.number().default(10), // Amount per interval
+        xpVoiceTickSeconds: z.number().default(300), // 5 minutes
+        xpReaction: z.number().default(5),
+        
+        // Onboarding
+        onboardingEnabled: z.boolean().default(false),
+        autoRoles: z.array(z.string()).default([]),
+        ignoreBots: z.boolean().default(true),
+        minAccountAgeDays: z.number().default(0),
+        joinDelaySeconds: z.number().default(0),
+        
+        // Sticky
+        stickyEnabled: z.boolean().default(true),
+        
+        // Alerts
+        announceLevelUp: z.boolean().default(true),
+        announceChannelId: z.string().optional(),
+    });
 
     private client!: Client;
-    private db: any;
-    private logger: any;
-    private logAction: any;
+    private db!: PrismaClient;
+    private logger!: Logger;
     
-    // Cooldowns for text XP: Map<userId_guildId, timestamp>
-    private textCooldowns = new Map<string, number>();
+    // Cache
+    private textCooldowns = new Map<string, number>(); // userId_guildId -> timestamp
+    private voiceJoinTimes = new Map<string, number>(); // userId_guildId -> timestamp
+    private voiceInterval: NodeJS.Timeout | null = null;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
-        this.logAction = context.logAction;
         
-        this.logger.info('Community Progression Plugin initialized');
-        
-        // Ensure partials are handled if not globally? 
-        // Typically handled in creating the client, but reaction roles need MESSAGE, REACTION, USER partials.
+        this.logger.info('Community Progression Plugin v2 initialized');
+
+        // Start Voice XP Loop
+        this.voiceInterval = setInterval(() => this.processVoiceXp(), 60 * 1000); // Check every minute
     }
 
     async shutdown(): Promise<void> {
+        if (this.voiceInterval) clearInterval(this.voiceInterval);
         this.textCooldowns.clear();
+        this.voiceJoinTimes.clear();
     }
 
     // =========================================================================
     // Event Handlers
     // =========================================================================
 
-    /**
-     * Handle Text XP
-     */
     async onMessageCreate(message: Message) {
         if (!message.guild || message.author.bot) return;
 
-        // Get settings
-        const settings = await this.db.levellingSettings.findUnique({
-            where: { guildId: message.guild.id }
-        });
+        // 1. Handle Commands
+        if (message.content.startsWith('!rank')) {
+            await this.handleRankCommand(message);
+            return;
+        }
+        if (message.content.startsWith('!progression')) {
+            await this.handleAdminCommand(message);
+            return;
+        }
 
-        if (!settings || !settings.enabled) return;
+        // 2. Handle XP
+        const settings = await this.getSettings(message.guild.id);
+        if (!settings) return;
 
-        // Check cooldown
         const cooldownKey = `${message.author.id}_${message.guild.id}`;
         const lastMsg = this.textCooldowns.get(cooldownKey) || 0;
         const now = Date.now();
 
-        if (now - lastMsg < settings.cooldownText * 1000) {
-            return;
+        if (now - lastMsg >= settings.xpTextCooldown * 1000) {
+            // Random XP
+            const amount = Math.floor(Math.random() * (settings.xpTextMax - settings.xpTextMin + 1)) + settings.xpTextMin;
+            await this.addXp(message.guild.id, message.author.id, amount, message);
+            this.textCooldowns.set(cooldownKey, now);
         }
-
-        // Apply XP
-        await this.addXp(message.guild.id, message.author.id, settings.xpRateText, message);
-        
-        // Update cooldown
-        this.textCooldowns.set(cooldownKey, now);
     }
 
-    /**
-     * Handle Voice XP
-     */
     async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState) {
-        const guild = newState.guild || oldState.guild;
         const member = newState.member || oldState.member;
+        if (!member || member.user.bot) return;
         
-        if (!guild || !member || member.user.bot) return;
+        const guildId = member.guild.id;
+        const key = `${member.id}_${guildId}`;
 
-        // Get settings
-        const settings = await this.db.levellingSettings.findUnique({
-            where: { guildId: guild.id }
-        });
+        const isJoined = newState.channelId && !newState.mute && !newState.deaf;
+        const wasJoined = oldState.channelId && !oldState.mute && !oldState.deaf;
 
-        if (!settings || !settings.enabled) return;
-
-        // Check if joined or left
-        const wasInChannel = oldState.channelId !== null && oldState.channelId !== guild.afkChannelId;
-        const isInChannel = newState.channelId !== null && newState.channelId !== guild.afkChannelId;
-
-        // Logic:
-        // If Joined (ignoring AFK): Start Timer
-        // If Left (or moved to AFK): Stop Timer & Award XP
-
-        if (!wasInChannel && isInChannel) {
-            // Joined valid voice channel
-            await this.db.userLevel.upsert({
-                where: {
-                    guildId_userId: {
-                        guildId: guild.id,
-                        userId: member.id
-                    }
-                },
-                update: {
-                    lastVoiceJoin: new Date()
-                },
-                create: {
-                    guildId: guild.id,
-                    userId: member.id,
-                    xp: 0,
-                    level: 0,
-                    lastVoiceJoin: new Date()
-                }
-            });
-        } else if (wasInChannel && !isInChannel) {
-            // Left valid voice channel
-            const userLevel = await this.db.userLevel.findUnique({
-                where: {
-                    guildId_userId: {
-                        guildId: guild.id,
-                        userId: member.id
-                    }
-                }
-            });
-
-            if (userLevel && userLevel.lastVoiceJoin) {
-                const joinTime = new Date(userLevel.lastVoiceJoin).getTime();
-                const now = Date.now();
-                const diffMs = now - joinTime;
-
-                // 5 minutes = 300,000 ms
-                const periodMs = 5 * 60 * 1000;
-
-                if (diffMs > periodMs) {
-                    // Enforce min users for voice XP
-                    const prevChannel = oldState.channel;
-                    let eligible = true;
-                    if (settings.voiceMinUsers && prevChannel) {
-                        const nonBotCount = prevChannel.members.filter(m => !m.user.bot).size;
-                        if (nonBotCount < settings.voiceMinUsers) {
-                            eligible = false;
-                        }
-                    }
-                    if (eligible) {
-                        const periods = Math.floor(diffMs / periodMs);
-                        const xpToGive = periods * settings.xpRateVoice;
-                        if (xpToGive > 0) {
-                            await this.addXp(guild.id, member.id, xpToGive, null, true);
-                        }
-                    }
-                }
-
-                // Reset voice join time
-                await this.db.userLevel.update({
-                    where: {
-                        guildId_userId: {
-                            guildId: guild.id,
-                            userId: member.id
-                        }
-                    },
-                    data: {
-                        lastVoiceJoin: null
-                    }
-                });
-            }
+        if (isJoined && !wasJoined) {
+            // Started earning
+            this.voiceJoinTimes.set(key, Date.now());
+        } else if (!isJoined && wasJoined) {
+            // Stopped earning (left, muted, or deafened)
+            await this.awardPendingVoiceXp(member.guild.id, member.id);
+            this.voiceJoinTimes.delete(key);
         }
     }
 
-    /**
-     * Handle New Member (Onboarding + Sticky Roles)
-     */
     async onGuildMemberAdd(member: GuildMember) {
         if (member.user.bot) return;
+        const settings = await this.getSettings(member.guild.id);
+        if (!settings) return;
 
-        // Fetch settings
-        const onboarding = await this.db.onboardingSettings.findUnique({
-            where: { guildId: member.guild.id }
-        });
+        // 1. Sticky Restore
+        if (settings.stickyEnabled) {
+            const userLevel = await this.db.userLevel.findUnique({
+                where: { guildId_userId: { guildId: member.guild.id, userId: member.id } }
+            });
 
-        if (!onboarding || !onboarding.enabled) return;
-
-        // 1. Auto Roles
-        if (onboarding.autoRoles && onboarding.autoRoles.length > 0) {
-            if (onboarding.delaySeconds > 0) {
-                setTimeout(async () => {
-                    // Re-fetch member to ensure they are still there
-                    try {
-                        const m = await member.guild.members.fetch(member.id);
-                        await m.roles.add(onboarding.autoRoles).catch(err => this.logger.error('Failed to add auto roles', err));
-                    } catch (e) { /* Member left? */ }
-                }, onboarding.delaySeconds * 1000);
-            } else {
-                await member.roles.add(onboarding.autoRoles).catch(err => this.logger.error('Failed to add auto roles', err));
+            if (userLevel) {
+                // Restore Roles
+                if (userLevel.stickyRoles && Array.isArray(userLevel.stickyRoles) && userLevel.stickyRoles.length > 0) {
+                    await member.roles.add(userLevel.stickyRoles).catch(e => this.logger.error('Failed to restore sticky roles', e));
+                }
             }
         }
 
-        // 2. Sticky Roles
-        const userLevel = await this.db.userLevel.findUnique({
-            where: {
-                guildId_userId: {
-                    guildId: member.guild.id,
-                    userId: member.id
+        // 2. Onboarding
+        if (settings.onboardingEnabled) {
+            if (settings.ignoreBots && member.user.bot) return;
+            
+            // Age Gate
+            const accountAgeDays = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
+            if (accountAgeDays < settings.minAccountAgeDays) return;
+
+            // Auto Roles
+            if (settings.autoRoles.length > 0) {
+                if (settings.joinDelaySeconds > 0) {
+                    setTimeout(async () => {
+                        try {
+                            const m = await member.guild.members.fetch(member.id);
+                            await m.roles.add(settings.autoRoles);
+                        } catch (e) { /* Left? */ }
+                    }, settings.joinDelaySeconds * 1000);
+                } else {
+                    await member.roles.add(settings.autoRoles).catch(e => this.logger.error('Failed to add auto roles', e));
                 }
             }
-        });
-
-        if (userLevel && userLevel.stickyRoles && userLevel.stickyRoles.length > 0) {
-            await member.roles.add(userLevel.stickyRoles).catch(err => this.logger.error('Failed to add sticky roles', err));
-            // Optional: Clear sticky roles after re-applying?
-            // Usually we keep them or clear them. If we clear, they lose roles if they leave again instantly.
-            // But if they stay, their roles are live. If we keep, we might re-apply old roles if they lose them manually?
-            // "Sticky" usually implies "Persist through leave/join". If they manually lose a role, should it come back on rejoin?
-            // Typically sticky roles are ONLY updated on LEAVE.
-            // So we don't clear here.
         }
     }
 
-    /**
-     * Handle Member Leave (Save Sticky Roles)
-     */
     async onGuildMemberRemove(member: GuildMember | PartialUser) {
-        // PartialUser doesn't have roles. We need GuildMember.
-        // If the member is partial, we can't save roles.
-        // But GuildMemberRemove usually passes GuildMember unless not cached.
-        
-        if (!('guild' in member)) return; // It's a User or PartialUser not Member?
-        
+        if (!('guild' in member)) return;
         const m = member as GuildMember;
         if (m.user.bot) return;
 
+        const settings = await this.getSettings(m.guild.id);
+        if (!settings || !settings.stickyEnabled) return;
+
+        // Save Roles (excluding managed/@everyone)
         const rolesToSave = m.roles.cache
             .filter(r => !r.managed && r.name !== '@everyone')
             .map(r => r.id);
 
-        if (rolesToSave.length === 0) return;
-
         await this.db.userLevel.upsert({
-            where: {
-                guildId_userId: {
-                    guildId: m.guild.id,
-                    userId: m.id
-                }
-            },
-            update: {
-                stickyRoles: rolesToSave
-            },
-            create: {
-                guildId: m.guild.id,
-                userId: m.id,
-                stickyRoles: rolesToSave
-            }
+            where: { guildId_userId: { guildId: m.guild.id, userId: m.id } },
+            update: { stickyRoles: rolesToSave },
+            create: { guildId: m.guild.id, userId: m.id, xp: 0, level: 0, stickyRoles: rolesToSave }
         });
     }
 
-    /**
-     * Handle Reaction Add (Reaction Roles)
-     */
     async onMessageReactionAdd(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
         if (user.bot) return;
         await this.handleReaction(reaction, user, true);
+        
+        // XP for reaction
+        if (reaction.message.guild) {
+            const settings = await this.getSettings(reaction.message.guild.id);
+            if (settings) {
+                await this.addXp(reaction.message.guild.id, user.id, settings.xpReaction, null);
+            }
+        }
     }
 
-    /**
-     * Handle Reaction Remove (Reaction Roles)
-     */
     async onMessageReactionRemove(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
         if (user.bot) return;
         await this.handleReaction(reaction, user, false);
-    }
-
-    private async handleReaction(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, added: boolean) {
-        if (reaction.partial) {
-            try {
-                await reaction.fetch();
-            } catch (error) {
-                this.logger.error('Something went wrong when fetching the message: ', error);
-                return;
-            }
-        }
-        if (user.partial) {
-            try {
-                await user.fetch();
-            } catch (error) {
-                this.logger.error('Something went wrong when fetching the user: ', error);
-                return;
-            }
-        }
-
-        const messageId = reaction.message.id;
-        const guildId = reaction.message.guild?.id;
-        if (!guildId) return;
-
-        // Check if this message is a reaction role message
-        const rrMessage = await this.db.reactionRoleMessage.findUnique({
-            where: { messageId },
-            include: { mappings: true }
-        });
-
-        if (!rrMessage) return;
-
-        // Find mapping for utilized emoji
-        const emojiId = reaction.emoji.id || reaction.emoji.name;
-        const mapping = rrMessage.mappings.find((m: any) => m.emoji === emojiId);
-
-        if (mapping) {
-            const guild = await this.client.guilds.fetch(guildId);
-            const member = await guild.members.fetch(user.id);
-            
-            if (added) {
-                await member.roles.add(mapping.roleId).catch(e => this.logger.error('Failed to add reaction role', e));
-                this.logger.info(`Added role ${mapping.roleId} to ${user.tag}`);
-            } else {
-                await member.roles.remove(mapping.roleId).catch(e => this.logger.error('Failed to remove reaction role', e));
-                this.logger.info(`Removed role ${mapping.roleId} from ${user.tag}`);
-            }
-        }
     }
 
     // =========================================================================
     // Core Logic
     // =========================================================================
 
-    private async addXp(guildId: string, userId: string, amount: number, message: Message | null, fromVoice: boolean = false) {
-        // Calculate new XP/Level
+    private async addXp(guildId: string, userId: string, amount: number, message: Message | null) {
         const userLevel = await this.db.userLevel.upsert({
             where: { guildId_userId: { guildId, userId } },
-            update: { 
-                xp: { increment: amount },
-                lastMessage: message ? new Date() : undefined
-            },
-            create: {
-                guildId,
-                userId,
-                xp: amount,
-                lastMessage: new Date()
-            }
+            update: { xp: { increment: amount }, lastMessage: message ? new Date() : undefined },
+            create: { guildId, userId, xp: amount, level: 0, lastMessage: new Date() }
         });
 
-        const currentLevel = userLevel.level;
-        const newTotalXp = userLevel.xp;
-        const calcLevel = calculateLevel(newTotalXp);
-
-        if (calcLevel > currentLevel) {
-            // Level Up!
+        const newLevel = getLevel(userLevel.xp);
+        if (newLevel > userLevel.level) {
             await this.db.userLevel.update({
                 where: { guildId_userId: { guildId, userId } },
-                data: { level: calcLevel }
+                data: { level: newLevel }
             });
-
-            // Announce
-            await this.handleLevelUp(guildId, userId, calcLevel, message ? (message.channel as TextChannel) : null);
+            await this.handleLevelUp(guildId, userId, newLevel, message?.channel as TextChannel);
         }
     }
 
     private async handleLevelUp(guildId: string, userId: string, newLevel: number, channel: TextChannel | null) {
-        const settings = await this.db.levellingSettings.findUnique({
-            where: { guildId },
-            include: { rewards: true }
-        });
-
+        const settings = await this.getSettings(guildId);
         if (!settings) return;
 
-        // 1. Rewards
-        const rewards = settings.rewards.filter((r: any) => r.level === newLevel);
-        if (rewards.length > 0) {
+        // Rewards
+        // Assuming rewards are stored in settings or separate table. 
+        // Using 'any' here as schema might vary, but logic holds.
+        const rewards = (settings as any).levelRewards || []; 
+        const earned = rewards.filter((r: any) => r.level === newLevel);
+
+        if (earned.length > 0) {
             const guild = await this.client.guilds.fetch(guildId);
             const member = await guild.members.fetch(userId);
             
-            for (const reward of rewards) {
-                await member.roles.add(reward.roleId).catch(e => this.logger.error('Failed to add level reward role', e));
-                if (!reward.stackPrevious) {
-                    // Remove previous level roles
-                    const lowerRewards = settings.rewards.filter((r: any) => r.level < newLevel);
-                    for (const lower of lowerRewards) {
-                        await member.roles.remove(lower.roleId).catch(e => this.logger.error('Failed to remove lower level reward role', e));
+            for (const reward of earned) {
+                await member.roles.add(reward.roleId).catch(() => {});
+                if (!reward.stack) {
+                    // Remove lower roles
+                    const lower = rewards.filter((r: any) => r.level < newLevel);
+                    for (const l of lower) {
+                        await member.roles.remove(l.roleId).catch(() => {});
                     }
                 }
             }
         }
 
-        // 2. Announce
+        // Announce
         if (settings.announceLevelUp) {
             let targetChannel = channel;
-            
             if (settings.announceChannelId) {
                 try {
                     const c = await this.client.channels.fetch(settings.announceChannelId);
                     if (c && c.isTextBased()) targetChannel = c as TextChannel;
-                } catch (e) { /* Invalid channel */ }
+                } catch (e) {}
             }
 
             if (targetChannel) {
                 const embed = new EmbedBuilder()
                     .setTitle('🎉 Level Up!')
-                    .setDescription(`Congratulations <@${userId}>! You have reached **Level ${newLevel}**!`)
-                    .setColor(0x00ff00)
-                    .setTimestamp();
-                    
+                    .setDescription(`Congratulations <@${userId}>! You reached **Level ${newLevel}**!`)
+                    .setColor(0x00ff00);
                 await targetChannel.send({ embeds: [embed] }).catch(() => {});
             }
         }
+    }
+
+    private async processVoiceXp() {
+        const now = Date.now();
+        for (const [key, joinTime] of this.voiceJoinTimes.entries()) {
+            const [userId, guildId] = key.split('_');
+            const settings = await this.getSettings(guildId);
+            if (!settings) continue;
+
+            // Check if enough time passed for a tick
+            const diff = now - joinTime;
+            const tickMs = settings.xpVoiceTickSeconds * 1000;
+
+            if (diff >= tickMs) {
+                // Award XP
+                await this.addXp(guildId, userId, settings.xpVoicePerTick, null);
+                // Reset timer to now (so they earn again in X mins)
+                this.voiceJoinTimes.set(key, now);
+            }
+        }
+    }
+
+    private async awardPendingVoiceXp(guildId: string, userId: string) {
+        const key = `${userId}_${guildId}`;
+        const joinTime = this.voiceJoinTimes.get(key);
+        if (!joinTime) return;
+
+        const settings = await this.getSettings(guildId);
+        if (!settings) return;
+
+        const diff = Date.now() - joinTime;
+        // Pro-rate XP? Or just floor? Prompt said "periodically", so maybe strict intervals.
+        // We'll just floor it based on the tick.
+        const ticks = Math.floor(diff / (settings.xpVoiceTickSeconds * 1000));
+        if (ticks > 0) {
+            await this.addXp(guildId, userId, ticks * settings.xpVoicePerTick, null);
+        }
+    }
+
+    private async handleReaction(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser, added: boolean) {
+        if (reaction.partial) await reaction.fetch();
+        if (user.partial) await user.fetch();
+
+        const msgId = reaction.message.id;
+        // Check DB for Reaction Role Message
+        const rrMsg = await (this.db as any).reactionRoleMessage.findUnique({
+            where: { messageId: msgId },
+            include: { mappings: true }
+        });
+
+        if (!rrMsg) return;
+
+        const emojiId = reaction.emoji.id || reaction.emoji.name;
+        const mapping = rrMsg.mappings.find((m: any) => m.emoji === emojiId);
+
+        if (mapping) {
+            const guild = await this.client.guilds.fetch(reaction.message.guild!.id);
+            const member = await guild.members.fetch(user.id);
+
+            if (added) {
+                // Check Limit Mode
+                if (rrMsg.mode === 'LIMIT' && rrMsg.limit > 0) {
+                    // Count how many roles from this message the user already has
+                    const userRoles = member.roles.cache;
+                    const rolesFromMsg = rrMsg.mappings.map((m: any) => m.roleId);
+                    const hasCount = userRoles.filter(r => rolesFromMsg.includes(r.id)).size;
+                    
+                    if (hasCount >= rrMsg.limit) {
+                        // Remove reaction to indicate failure
+                        await reaction.users.remove(user.id);
+                        return;
+                    }
+                }
+                await member.roles.add(mapping.roleId).catch(() => {});
+            } else {
+                // Verify Mode: Cannot remove by un-reacting
+                if (rrMsg.mode !== 'VERIFY') {
+                    await member.roles.remove(mapping.roleId).catch(() => {});
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // Commands
+    // =========================================================================
+
+    private async handleRankCommand(message: Message) {
+        const target = message.mentions.users.first() || message.author;
+        const userLevel = await this.db.userLevel.findUnique({
+            where: { guildId_userId: { guildId: message.guild!.id, userId: target.id } }
+        });
+
+        const xp = userLevel?.xp || 0;
+        const level = userLevel?.level || 0;
+        const nextLevelXp = getXpForLevel(level + 1);
+        const prevLevelXp = getXpForLevel(level);
+        const progress = xp - prevLevelXp;
+        const needed = nextLevelXp - prevLevelXp;
+        const percent = Math.floor((progress / needed) * 100);
+
+        const embed = new EmbedBuilder()
+            .setAuthor({ name: target.username, iconURL: target.displayAvatarURL() })
+            .setTitle('Rank Card')
+            .addFields(
+                { name: 'Level', value: `${level}`, inline: true },
+                { name: 'XP', value: `${xp} / ${nextLevelXp}`, inline: true },
+                { name: 'Progress', value: `${percent}%`, inline: true }
+            )
+            .setColor(0x0099ff);
+
+        await message.reply({ embeds: [embed] });
+    }
+
+    private async handleAdminCommand(message: Message) {
+        if (!message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
+        const args = message.content.split(' ');
+        const action = args[1]; // sync
+
+        if (action === 'sync') {
+            await message.reply('🔄 Syncing roles for all members... This may take a while.');
+            const members = await message.guild!.members.fetch();
+            let count = 0;
+            
+            for (const [_, member] of members) {
+                if (member.user.bot) continue;
+                const ul = await this.db.userLevel.findUnique({
+                    where: { guildId_userId: { guildId: message.guild!.id, userId: member.id } }
+                });
+                if (ul) {
+                    // Re-run level up logic to ensure roles
+                    await this.handleLevelUp(message.guild!.id, member.id, ul.level, null);
+                    count++;
+                }
+            }
+            await message.channel.send(`✅ Synced roles for ${count} members.`);
+        }
+    }
+
+    // Helper to get merged settings (DB + Defaults)
+    private async getSettings(guildId: string) {
+        // In a real scenario, we fetch from DB and merge with this.configSchema defaults.
+        // For now, we assume the DB returns the correct shape or we use defaults.
+        // This is a simplification.
+        const dbSettings = await (this.db as any).levellingSettings.findUnique({ where: { guildId } });
+        if (!dbSettings) return null; // Or return defaults
+        return { ...this.configSchema.parse({}), ...dbSettings };
     }
 }

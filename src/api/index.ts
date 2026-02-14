@@ -2644,13 +2644,17 @@ app.get('/api/guilds/:guildId/levelling', async (req, res) => {
         if (!settings) {
             return res.json({
                 enabled: true,
-                xpRateText: 20,
-                xpRateVoice: 10,
-                cooldownText: 60,
-                voiceMinUsers: 2,
+                xpTextMin: 15,
+                xpTextMax: 25,
+                xpTextCooldown: 60,
+                xpVoicePerTick: 10,
+                xpVoiceTickSeconds: 300,
+                xpReaction: 5,
                 announceLevelUp: true,
                 announceChannelId: null,
-                rewards: []
+                rewards: [],
+                onboardingEnabled: false,
+                stickyEnabled: true
             });
         }
         res.json(settings);
@@ -2665,26 +2669,34 @@ app.patch('/api/guilds/:guildId/levelling', async (req, res) => {
         const { guildId } = req.params;
         const data = req.body;
         
+        const updateData = {
+            enabled: data.enabled,
+            // XP
+            xpTextMin: parseInt(data.xpTextMin || 15),
+            xpTextMax: parseInt(data.xpTextMax || 25),
+            xpTextCooldown: parseInt(data.xpTextCooldown || 60),
+            xpVoicePerTick: parseInt(data.xpVoicePerTick || 10),
+            xpVoiceTickSeconds: parseInt(data.xpVoiceTickSeconds || 300),
+            xpReaction: parseInt(data.xpReaction || 5),
+            // Alerts
+            announceLevelUp: data.announceLevelUp,
+            announceChannelId: data.announceChannelId,
+            // Onboarding
+            onboardingEnabled: data.onboardingEnabled,
+            autoRoles: data.autoRoles || [],
+            ignoreBots: data.ignoreBots,
+            minAccountAgeDays: parseInt(data.minAccountAgeDays || 0),
+            joinDelaySeconds: parseInt(data.joinDelaySeconds || 0),
+            // Sticky
+            stickyEnabled: data.stickyEnabled
+        };
+
         const settings = await db.levellingSettings.upsert({
             where: { guildId },
-            update: {
-                enabled: data.enabled,
-                xpRateText: parseInt(data.xpRateText),
-                xpRateVoice: parseInt(data.xpRateVoice),
-                cooldownText: parseInt(data.cooldownText),
-                voiceMinUsers: parseInt(data.voiceMinUsers),
-                announceLevelUp: data.announceLevelUp,
-                announceChannelId: data.announceChannelId
-            },
+            update: updateData,
             create: {
                 guildId,
-                enabled: data.enabled,
-                xpRateText: parseInt(data.xpRateText),
-                xpRateVoice: parseInt(data.xpRateVoice),
-                cooldownText: parseInt(data.cooldownText),
-                voiceMinUsers: parseInt(data.voiceMinUsers),
-                announceLevelUp: data.announceLevelUp,
-                announceChannelId: data.announceChannelId
+                ...updateData
             }
         });
         
