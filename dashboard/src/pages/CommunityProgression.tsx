@@ -251,6 +251,15 @@ const CommunityProgression: React.FC = () => {
                                     type="number"
                                     value={levelSettings?.xpRateText || 0}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateText: parseInt(e.target.value)} : null)}
+                                    sx={{
+                                        '& .MuiInputBase-input': { color: colors.textPrimary },
+                                        '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                        '& .MuiInputBase-root': { background: 'transparent' },
+                                        '& .Mui-disabled': { color: colors.textSecondary }
+                                    }}
+                                    InputLabelProps={{ style: { color: colors.textSecondary } }}
+                                    inputProps={{ style: { color: colors.textPrimary } }}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -260,6 +269,15 @@ const CommunityProgression: React.FC = () => {
                                     type="number"
                                     value={levelSettings?.xpRateVoice || 0}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateVoice: parseInt(e.target.value)} : null)}
+                                    sx={{
+                                        '& .MuiInputBase-input': { color: colors.textPrimary },
+                                        '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                        '& .MuiInputBase-root': { background: 'transparent' },
+                                        '& .Mui-disabled': { color: colors.textSecondary }
+                                    }}
+                                    InputLabelProps={{ style: { color: colors.textSecondary } }}
+                                    inputProps={{ style: { color: colors.textPrimary } }}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -269,6 +287,15 @@ const CommunityProgression: React.FC = () => {
                                     type="number"
                                     value={levelSettings?.cooldownText || 0}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, cooldownText: parseInt(e.target.value)} : null)}
+                                    sx={{
+                                        '& .MuiInputBase-input': { color: colors.textPrimary },
+                                        '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                        '& .MuiInputBase-root': { background: 'transparent' },
+                                        '& .Mui-disabled': { color: colors.textSecondary }
+                                    }}
+                                    InputLabelProps={{ style: { color: colors.textSecondary } }}
+                                    inputProps={{ style: { color: colors.textPrimary } }}
                                 />
                             </Grid>
                             <Grid item xs={6}>
@@ -278,6 +305,15 @@ const CommunityProgression: React.FC = () => {
                                     type="number"
                                     value={levelSettings?.voiceMinUsers || 0}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, voiceMinUsers: parseInt(e.target.value)} : null)}
+                                    sx={{
+                                        '& .MuiInputBase-input': { color: colors.textPrimary },
+                                        '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                        '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                        '& .MuiInputBase-root': { background: 'transparent' },
+                                        '& .Mui-disabled': { color: colors.textSecondary }
+                                    }}
+                                    InputLabelProps={{ style: { color: colors.textSecondary } }}
+                                    inputProps={{ style: { color: colors.textPrimary } }}
                                 />
                             </Grid>
                         </Grid>
@@ -321,7 +357,15 @@ const CommunityProgression: React.FC = () => {
                                 size="small"
                                 value={newRewardLevel}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardLevel(parseInt(e.target.value))}
-                                sx={{ width: 100 }}
+                                sx={{ width: 100,
+                                    '& .MuiInputBase-input': { color: colors.textPrimary },
+                                    '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                    '& .MuiInputBase-root': { background: 'transparent' },
+                                    '& .Mui-disabled': { color: colors.textSecondary }
+                                }}
+                                InputLabelProps={{ style: { color: colors.textSecondary } }}
+                                inputProps={{ style: { color: colors.textPrimary } }}
                             />
                             <TextField
                                 select
@@ -331,12 +375,18 @@ const CommunityProgression: React.FC = () => {
                                 value={newRewardRole}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardRole(e.target.value)}
                                 SelectProps={{ native: true }}
-                                InputLabelProps={{ shrink: true }}
-                                sx={{ background: colors.background, color: colors.textPrimary }}
+                                InputLabelProps={{ shrink: true, style: { color: colors.textSecondary } }}
+                                sx={{ background: colors.background, color: colors.textPrimary,
+                                    '& .MuiInputBase-input': { color: colors.textPrimary },
+                                    '& .MuiInputLabel-root': { color: colors.textSecondary },
+                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
+                                    '& .MuiInputBase-root': { background: 'transparent' },
+                                    '& .Mui-disabled': { color: colors.textSecondary }
+                                }}
                             >
-                                <option value="">Select Role</option>
+                                <option value="" style={{ color: colors.textSecondary }}>Select Role</option>
                                 {roles.map(role => (
-                                    <option key={role.id} value={role.id}>{role.name}</option>
+                                    <option key={role.id} value={role.id} style={{ color: colors.textPrimary }}>{role.name}</option>
                                 ))}
                             </TextField>
                             <IconButton onClick={addReward} color="primary" disabled={!newRewardRole}>
