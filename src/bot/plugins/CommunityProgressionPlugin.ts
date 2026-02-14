@@ -1,4 +1,3 @@
-cd dashboardimport { 
 import { 
     Client, 
     Message, 
@@ -79,6 +78,7 @@ export class CommunityProgressionPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger!: Logger;
+    private logAction: any;
     
     // Cache
     private textCooldowns = new Map<string, number>(); // userId_guildId -> timestamp
@@ -89,6 +89,7 @@ export class CommunityProgressionPlugin implements IPlugin {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.logAction = context.logAction;
         
         this.logger.info('Community Progression Plugin v2 initialized');
 
@@ -169,7 +170,19 @@ export class CommunityProgressionPlugin implements IPlugin {
             if (userLevel) {
                 // Restore Roles
                 if (userLevel.stickyRoles && Array.isArray(userLevel.stickyRoles) && userLevel.stickyRoles.length > 0) {
-                    await member.roles.add(userLevel.stickyRoles).catch(e => this.logger.error('Failed to restore sticky roles', e));
+                    await member.roles.add(userLevel.stickyRoles)
+                        .then(() => {
+                            if (this.logAction) {
+                                this.logAction({
+                                    guildId: member.guild.id,
+                                    pluginId: this.id,
+                                    action: 'sticky_roles_restored',
+                                    targetId: member.id,
+                                    details: { roles: userLevel.stickyRoles }
+                                });
+                            }
+                        })
+                        .catch(e => this.logger.error('Failed to restore sticky roles', e));
                 }
             }
         }
@@ -188,13 +201,26 @@ export class CommunityProgressionPlugin implements IPlugin {
                     setTimeout(async () => {
                         try {
                             const m = await member.guild.members.fetch(member.id);
-                            await m.roles.add(settings.autoRoles);
+                            await this.assignAutoRoles(m, settings.autoRoles);
                         } catch (e) { /* Left? */ }
                     }, settings.joinDelaySeconds * 1000);
                 } else {
-                    await member.roles.add(settings.autoRoles).catch(e => this.logger.error('Failed to add auto roles', e));
+                    await this.assignAutoRoles(member, settings.autoRoles);
                 }
             }
+        }
+    }
+
+    private async assignAutoRoles(member: GuildMember, roles: string[]) {
+        await member.roles.add(roles).catch(e => this.logger.error('Failed to add auto roles', e));
+        if (this.logAction) {
+            this.logAction({
+                guildId: member.guild.id,
+                pluginId: this.id,
+                action: 'autorole_assigned',
+                targetId: member.id,
+                details: { roles }
+            });
         }
     }
 
@@ -272,7 +298,18 @@ export class CommunityProgressionPlugin implements IPlugin {
             const member = await guild.members.fetch(userId);
             
             for (const reward of earned) {
-                await member.roles.add(reward.roleId).catch(() => {});
+                await member.roles.add(reward.roleId).then(() => {
+                    if (this.logAction) {
+                        this.logAction({
+                            guildId,
+                            pluginId: this.id,
+                            action: 'level_reward_assigned',
+                            targetId: userId,
+                            details: { level: newLevel, roleId: reward.roleId }
+                        });
+                    }
+                }).catch(() => {});
+
                 if (!reward.stack) {
                     // Remove lower roles
                     const lower = rewards.filter((r: any) => r.level < newLevel);

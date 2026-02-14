@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthProvider';
+import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius, typography } from '../theme/theme';
-import { Save, Plus, Trash2, Shield, MessageSquare, Mic, Bell, UserPlus, Zap, Award } from 'lucide-react';
-import ChannelSelect from '../components/ChannelSelect'; // Assuming this exists based on instructions
+import { Save, Plus, Trash2, Shield, MessageSquare, Mic, Bell, UserPlus, Zap, Award, Trophy, Edit2, X } from 'lucide-react';
+import { ChannelSelect } from '../components/ChannelSelect';
 
 const CommunityProgression = () => {
     const { selectedGuild } = useAuth();
@@ -32,6 +32,9 @@ const CommunityProgression = () => {
 
     const [roles, setRoles] = useState<any[]>([]);
     const [newReward, setNewReward] = useState({ level: 5, roleId: '', stackPrevious: false });
+    
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+    const [editingUser, setEditingUser] = useState<any | null>(null);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -47,10 +50,20 @@ const CommunityProgression = () => {
             ]);
             setSettings(settingsRes.data);
             setRoles(rolesRes.data);
+            fetchLeaderboard();
         } catch (error) {
             console.error('Failed to fetch progression data', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchLeaderboard = async () => {
+        try {
+            const res = await axios.get(`/api/guilds/${selectedGuild?.id}/levelling/leaderboard`);
+            setLeaderboard(res.data);
+        } catch (e) {
+            console.error('Failed to fetch leaderboard', e);
         }
     };
 
@@ -97,6 +110,18 @@ const CommunityProgression = () => {
 
     const updateSetting = (key: string, value: any) => {
         setSettings(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleUpdateUser = async () => {
+        if (!selectedGuild || !editingUser) return;
+        try {
+            await axios.post(`/api/guilds/${selectedGuild.id}/levelling/users/${editingUser.userId}`, {
+                level: parseInt(editingUser.level),
+                xp: parseInt(editingUser.xp)
+            });
+            setEditingUser(null);
+            fetchLeaderboard();
+        } catch (e) { alert('Failed to update user'); }
     };
 
     if (loading) return <div style={{ padding: spacing.xl, color: colors.textPrimary }}>Loading...</div>;
@@ -147,7 +172,8 @@ const CommunityProgression = () => {
                 {[
                     { id: 'xp', label: 'XP & Levelling', icon: Zap },
                     { id: 'rewards', label: 'Role Rewards', icon: Award },
-                    { id: 'onboarding', label: 'Onboarding & Sticky', icon: UserPlus }
+                    { id: 'onboarding', label: 'Onboarding & Sticky', icon: UserPlus },
+                    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy }
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -411,6 +437,89 @@ const CommunityProgression = () => {
                                 If a user leaves and rejoins, the bot will attempt to restore their previous roles.
                             </p>
                         </div>
+                    </div>
+                )}
+
+                {/* LEADERBOARD TAB */}
+                {activeTab === 'leaderboard' && (
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                        <h3 style={{ color: colors.textPrimary, marginBottom: spacing.lg }}>Server Leaderboard</h3>
+                        
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', color: colors.textPrimary }}>
+                                <thead>
+                                    <tr style={{ borderBottom: `1px solid ${colors.border}`, textAlign: 'left' }}>
+                                        <th style={{ padding: spacing.sm }}>Rank</th>
+                                        <th style={{ padding: spacing.sm }}>User</th>
+                                        <th style={{ padding: spacing.sm }}>Level</th>
+                                        <th style={{ padding: spacing.sm }}>Total XP</th>
+                                        <th style={{ padding: spacing.sm }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {leaderboard.map((user) => (
+                                        <tr key={user.userId} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                            <td style={{ padding: spacing.sm }}>#{user.rank}</td>
+                                            <td style={{ padding: spacing.sm, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                                                <img 
+                                                    src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.userId}/${user.avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png'} 
+                                                    style={{ width: 24, height: 24, borderRadius: '50%' }} 
+                                                />
+                                                {user.username}
+                                            </td>
+                                            <td style={{ padding: spacing.sm }}>{user.level}</td>
+                                            <td style={{ padding: spacing.sm }}>{user.xp}</td>
+                                            <td style={{ padding: spacing.sm }}>
+                                                <button 
+                                                    onClick={() => setEditingUser(user)}
+                                                    style={{ background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer' }}
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Edit Modal */}
+                        {editingUser && (
+                            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+                                <div style={{ background: colors.surface, padding: spacing.xl, borderRadius: borderRadius.lg, width: '400px', border: `1px solid ${colors.border}` }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: spacing.lg }}>
+                                        <h3 style={{ margin: 0, color: colors.textPrimary }}>Edit {editingUser.username}</h3>
+                                        <button onClick={() => setEditingUser(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={20}/></button>
+                                    </div>
+                                    
+                                    <div style={{ marginBottom: spacing.md }}>
+                                        <label style={{ display: 'block', color: colors.textSecondary, marginBottom: spacing.xs }}>Level</label>
+                                        <input 
+                                            type="number" 
+                                            value={editingUser.level}
+                                            onChange={e => setEditingUser({...editingUser, level: e.target.value})}
+                                            style={{ width: '100%', padding: spacing.sm, background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: spacing.lg }}>
+                                        <label style={{ display: 'block', color: colors.textSecondary, marginBottom: spacing.xs }}>Total XP</label>
+                                        <input 
+                                            type="number" 
+                                            value={editingUser.xp}
+                                            onChange={e => setEditingUser({...editingUser, xp: e.target.value})}
+                                            style={{ width: '100%', padding: spacing.sm, background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                                        />
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={handleUpdateUser}
+                                        style={{ width: '100%', padding: spacing.md, background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer' }}
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

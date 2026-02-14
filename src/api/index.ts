@@ -2706,6 +2706,60 @@ app.patch('/api/guilds/:guildId/levelling', async (req, res) => {
     }
 });
 
+// Get Leaderboard
+app.get('/api/guilds/:guildId/levelling/leaderboard', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { page = 1, limit = 50 } = req.query;
+        
+        const levels = await db.userLevel.findMany({
+            where: { guildId },
+            orderBy: { xp: 'desc' },
+            take: Number(limit),
+            skip: (Number(page) - 1) * Number(limit)
+        });
+
+        const enriched = await Promise.all(levels.map(async (l, index) => {
+            const user = await resolveUser(l.userId);
+            return {
+                ...l,
+                rank: (Number(page) - 1) * Number(limit) + index + 1,
+                username: user?.username || 'Unknown',
+                avatar: user?.avatar
+            };
+        }));
+
+        res.json(enriched);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Manage User XP/Level
+app.post('/api/guilds/:guildId/levelling/users/:userId', async (req, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        const { xp, level } = req.body;
+        
+        let newXp = xp;
+        let newLevel = level;
+
+        // Auto-calculate if one is missing
+        if (level !== undefined && xp === undefined) newXp = 100 * Math.pow(level, 2);
+        if (xp !== undefined && level === undefined) newLevel = Math.floor(Math.sqrt(xp / 100));
+
+        const updated = await db.userLevel.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { xp: newXp, level: newLevel },
+            create: { guildId, userId, xp: newXp, level: newLevel }
+        });
+        
+        res.json(updated);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Create Level Reward
 app.post('/api/guilds/:guildId/levelling/rewards', async (req, res) => {
     try {
