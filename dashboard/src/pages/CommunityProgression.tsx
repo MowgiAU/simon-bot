@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { Trophy, Users } from 'lucide-react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
 
@@ -53,8 +53,8 @@ interface Role {
 }
 
 const CommunityProgression: React.FC = () => {
-    const { guildId } = useParams<{ guildId: string }>();
-    // Removed useTheme, use colors directly
+    const { selectedGuild } = useAuth();
+    const guildId = selectedGuild?.id;
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -71,18 +71,19 @@ const CommunityProgression: React.FC = () => {
     const [newAutoRole, setNewAutoRole] = useState('');
 
     useEffect(() => {
+        if (!guildId) return;
         fetchData();
     }, [guildId]);
 
     const fetchData = async () => {
+        if (!guildId) return;
         try {
             setLoading(true);
             const [levelRes, onboardingRes, rolesRes] = await Promise.all([
-                axios.get(`http://localhost:3001/api/guilds/${guildId}/levelling`),
-                axios.get(`http://localhost:3001/api/guilds/${guildId}/onboarding`),
-                axios.get(`http://localhost:3001/api/guilds/${guildId}/roles`)
+                axios.get(`/api/guilds/${guildId}/levelling`),
+                axios.get(`/api/guilds/${guildId}/onboarding`),
+                axios.get(`/api/guilds/${guildId}/roles`)
             ]);
-            
             setLevelSettings(levelRes.data);
             setOnboardingSettings(onboardingRes.data);
             setRoles(rolesRes.data.sort((a: Role, b: Role) => b.color - a.color));
@@ -173,6 +174,7 @@ const CommunityProgression: React.FC = () => {
         setOnboardingSettings({ ...onboardingSettings, autoRoles: newRoles });
     };
 
+    if (!guildId) return <Typography sx={{ color: colors.textSecondary, mt: 4 }}>Select a server to view progression settings.</Typography>;
     if (loading) return <CircularProgress />;
 
 
@@ -202,7 +204,7 @@ const CommunityProgression: React.FC = () => {
             </div>
             {/* Standardized Explanation Block */}
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '15px' }}>
+                <p style={{ margin: 0, color: colors.textSecondary, fontSize: '15px' }}>
                     Configure how members earn XP, level up, and receive roles automatically. Onboarding and reaction roles help automate community management. Changes may take up to 30 seconds to update on the bot.
                 </p>
             </div>
@@ -219,22 +221,22 @@ const CommunityProgression: React.FC = () => {
                             <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
                                 <input
                                     type="checkbox"
-                                    checked={levelSettings?.enabled || false}
-                                    onChange={e => {
+                                    checked={!!levelSettings?.enabled}
+                                    onChange={async e => {
                                         const checked = e.target.checked;
                                         setLevelSettings(s => s ? { ...s, enabled: checked } : null);
-                                        saveLevelSettings({ enabled: checked });
+                                        await saveLevelSettings({ enabled: checked });
                                     }}
                                     style={{ opacity: 0, width: 0, height: 0 }}
                                 />
                                 <span style={{
                                     position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                                    backgroundColor: levelSettings?.enabled ? colors.primary : '#ccc',
+                                    backgroundColor: levelSettings?.enabled ? colors.primary : colors.border,
                                     transition: '.4s', borderRadius: '34px'
                                 }}>
                                     <span style={{
                                         position: 'absolute', content: '', height: '16px', width: '16px', left: '4px', bottom: '4px',
-                                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                        backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                         transform: levelSettings?.enabled ? 'translateX(26px)' : 'translateX(0)'
                                     }} />
                                 </span>
@@ -284,15 +286,24 @@ const CommunityProgression: React.FC = () => {
                             <FormControlLabel
                                 control={
                                     <Switch
-                                        checked={levelSettings?.announceLevelUp || false}
-                                        onChange={e => {
+                                        checked={!!levelSettings?.announceLevelUp}
+                                        onChange={async e => {
                                             const checked = e.target.checked;
                                             setLevelSettings(s => s ? { ...s, announceLevelUp: checked } : null);
-                                            saveLevelSettings({ announceLevelUp: checked });
+                                            await saveLevelSettings({ announceLevelUp: checked });
+                                        }}
+                                        sx={{
+                                            '& .MuiSwitch-switchBase.Mui-checked': {
+                                                color: colors.primary,
+                                            },
+                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                                backgroundColor: colors.primary,
+                                            },
                                         }}
                                     />
                                 }
                                 label="Announce Level Ups"
+                                sx={{ color: colors.textSecondary }}
                             />
                         </Box>
                         
@@ -320,11 +331,11 @@ const CommunityProgression: React.FC = () => {
                                 value={newRewardRole}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardRole(e.target.value)}
                                 SelectProps={{ native: true }}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ background: colors.background, color: colors.textPrimary }}
                             >
-                                {/* @ts-ignore: native select expects option children */}
                                 <option value="">Select Role</option>
                                 {roles.map(role => (
-                                    // @ts-ignore: native select expects option children
                                     <option key={role.id} value={role.id}>{role.name}</option>
                                 ))}
                             </TextField>
@@ -365,22 +376,22 @@ const CommunityProgression: React.FC = () => {
                             <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
                                 <input
                                     type="checkbox"
-                                    checked={onboardingSettings?.enabled || false}
-                                    onChange={e => {
+                                    checked={!!onboardingSettings?.enabled}
+                                    onChange={async e => {
                                         const checked = e.target.checked;
                                         setOnboardingSettings(s => s ? { ...s, enabled: checked } : null);
-                                        saveOnboardingSettings({ enabled: checked });
+                                        await saveOnboardingSettings({ enabled: checked });
                                     }}
                                     style={{ opacity: 0, width: 0, height: 0 }}
                                 />
                                 <span style={{
                                     position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                                    backgroundColor: onboardingSettings?.enabled ? colors.primary : '#ccc',
+                                    backgroundColor: onboardingSettings?.enabled ? colors.primary : colors.border,
                                     transition: '.4s', borderRadius: '34px'
                                 }}>
                                     <span style={{
                                         position: 'absolute', content: '', height: '16px', width: '16px', left: '4px', bottom: '4px',
-                                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                        backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                         transform: onboardingSettings?.enabled ? 'translateX(26px)' : 'translateX(0)'
                                     }} />
                                 </span>
