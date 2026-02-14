@@ -220,14 +220,14 @@ const CommunityProgression: React.FC = () => {
                                     type="checkbox"
                                     checked={!!levelSettings?.enabled}
                                     onChange={async e => {
-                                        const checked = e.target.checked;
+                            select
                                         setLevelSettings(s => s ? { ...s, enabled: checked } : null);
                                         await saveLevelSettings({ enabled: checked });
                                     }}
                                     style={{ opacity: 0, width: 0, height: 0 }}
                                 />
                                 <span style={{
-                                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                native: false,
                                     backgroundColor: levelSettings?.enabled ? colors.primary : colors.border,
                                     transition: '.4s', borderRadius: '34px'
                                 }}>
@@ -246,10 +246,10 @@ const CommunityProgression: React.FC = () => {
                                     fullWidth
                                     label="XP per Message"
                                     type="number"
-                                    value={levelSettings?.xpRateText || 0}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, xpRateText: parseInt(e.target.value)} : null)}
-                                    sx={{
-                                        '& .MuiInputBase-input': { color: colors.textPrimary },
+                            <MenuItem value="" disabled style={{ color: colors.textSecondary }}>Select Role</MenuItem>
+                            {roles.map(role => (
+                                <MenuItem key={role.id} value={role.id} style={{ color: colors.textPrimary }}>{role.name}</MenuItem>
+                            ))}
                                         '& .MuiInputLabel-root': { color: colors.textSecondary },
                                         '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
                                         '& .MuiInputBase-root': { background: 'transparent' },
