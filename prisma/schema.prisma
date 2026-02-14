@@ -52,6 +52,12 @@ model Guild {
   ticketSettings     TicketSettings?
   tickets            Ticket[]
 
+  // Community Progression
+  levellingSettings  LevellingSettings?
+  userLevels         UserLevel[]
+  onboardingSettings OnboardingSettings?
+  reactionRoleMessages ReactionRoleMessage[]
+
   @@map("guilds")
 }
 
@@ -608,5 +614,102 @@ model PendingReview {
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   
   @@map("pending_reviews")
+}
+
+// Community Progression System
+
+// User Progression Data
+model UserLevel {
+  guildId        String
+  userId         String
+  xp             Int      @default(0)
+  level          Int      @default(0)
+  lastMessage    DateTime @default(now()) // For cooldowns
+  lastVoiceJoin  DateTime? // For voice tracking
+  stickyRoles    String[]  @default([]) // Roles to re-apply on join
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@map("user_levels")
+}
+
+// Configuration: Leveling Settings
+model LevellingSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  enabled        Boolean  @default(true)
+  
+  // Formulas & Rates
+  xpRateText     Int      @default(20) // Avg XP per msg
+  xpRateVoice    Int      @default(10) // XP per 5 mins
+  cooldownText   Int      @default(60) // Seconds
+  voiceMinUsers  Int      @default(2)  // Anti-AFK
+  
+  // Announcements
+  announceLevelUp Boolean @default(true)
+  announceChannelId String? // Null = Current Channel
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  rewards        LevelReward[]
+  
+  @@map("levelling_settings")
+}
+
+// Configuration: Level Rewards
+model LevelReward {
+  id             String   @id @default(cuid())
+  guildId        String
+  level          Int      // Milestone (e.g., 5, 10)
+  roleId         String   // Role to assign
+  stackPrevious  Boolean  @default(true) // If false, removes previous level roles
+  
+  settings       LevellingSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  
+  @@map("level_rewards")
+}
+
+// Configuration: Onboarding / Auto-Roles
+model OnboardingSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  enabled        Boolean  @default(false)
+  
+  autoRoles      String[] // IDs of roles to give on join
+  delaySeconds   Int      @default(0) // Anti-raid delay
+  minAccountAge  Int      @default(0) // Days
+  ignoreBots     Boolean  @default(true)
+  
+  stickyRoles    Boolean  @default(false) // Restore roles on rejoin?
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  @@map("onboarding_settings")
+}
+
+// Configuration: Reaction Roles
+model ReactionRoleMessage {
+  id             String   @id // Message ID
+  guildId        String
+  channelId      String
+  type           String   @default("STANDARD") // STANDARD, VERIFY, LIMIT
+  maxRoles       Int      @default(1) // For LIMIT type
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  mappings       ReactionRoleMapping[]
+  
+  @@unique([guildId, id])
+  @@map("reaction_role_messages")
+}
+
+model ReactionRoleMapping {
+  id             String   @id @default(cuid())
+  messageId      String
+  emoji          String   // Unicode or Custom ID
+  roleId         String
+  
+  message        ReactionRoleMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@map("reaction_role_mappings")
 }
 

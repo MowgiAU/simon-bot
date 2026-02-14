@@ -17,6 +17,7 @@ import {
   Mail,
   Ticket,
   FileText,
+  TrendingUp,
 } from 'lucide-react';
 import logoUrl from '../assets/logo.svg'; 
 
@@ -175,6 +176,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><Coins size={20} /></span>
             <span className="nav-label">Economy</span>
+          </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('progression') && (
+          <button
+            className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`}
+            onClick={() => onNavigate('progression')}
+            title={collapsed ? "Progression" : ""}
+          >
+            <span className="nav-icon"><TrendingUp size={20} /></span>
+            <span className="nav-label">Progression</span>
           </button>
           )}
 

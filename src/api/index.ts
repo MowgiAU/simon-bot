@@ -2627,6 +2627,153 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
     }
 });
 
+// ===========================================
+// Community Progression Routes
+// ===========================================
+
+// Get Levelling Settings
+app.get('/api/guilds/:guildId/levelling', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const settings = await db.levellingSettings.findUnique({
+            where: { guildId },
+            include: { rewards: true }
+        });
+        
+        // If not found, return defaults
+        if (!settings) {
+            return res.json({
+                enabled: true,
+                xpRateText: 20,
+                xpRateVoice: 10,
+                cooldownText: 60,
+                voiceMinUsers: 2,
+                announceLevelUp: true,
+                announceChannelId: null,
+                rewards: []
+            });
+        }
+        res.json(settings);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Levelling Settings
+app.patch('/api/guilds/:guildId/levelling', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const data = req.body;
+        
+        const settings = await db.levellingSettings.upsert({
+            where: { guildId },
+            update: {
+                enabled: data.enabled,
+                xpRateText: parseInt(data.xpRateText),
+                xpRateVoice: parseInt(data.xpRateVoice),
+                cooldownText: parseInt(data.cooldownText),
+                voiceMinUsers: parseInt(data.voiceMinUsers),
+                announceLevelUp: data.announceLevelUp,
+                announceChannelId: data.announceChannelId
+            },
+            create: {
+                guildId,
+                enabled: data.enabled,
+                xpRateText: parseInt(data.xpRateText),
+                xpRateVoice: parseInt(data.xpRateVoice),
+                cooldownText: parseInt(data.cooldownText),
+                voiceMinUsers: parseInt(data.voiceMinUsers),
+                announceLevelUp: data.announceLevelUp,
+                announceChannelId: data.announceChannelId
+            }
+        });
+        
+        res.json(settings);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Create Level Reward
+app.post('/api/guilds/:guildId/levelling/rewards', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { level, roleId, stackPrevious } = req.body;
+        
+        const reward = await db.levelReward.create({
+            data: {
+                guildId,
+                level: parseInt(level),
+                roleId,
+                stackPrevious
+            }
+        });
+        
+        res.json(reward);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete Level Reward
+app.delete('/api/guilds/:guildId/levelling/rewards/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.levelReward.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get Onboarding Settings
+app.get('/api/guilds/:guildId/onboarding', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const settings = await db.onboardingSettings.findUnique({
+            where: { guildId }
+        });
+        
+        if (!settings) {
+            return res.json({
+                enabled: false,
+                autoRoles: [],
+                delaySeconds: 0
+            });
+        }
+        res.json(settings);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update Onboarding Settings
+app.patch('/api/guilds/:guildId/onboarding', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { enabled, autoRoles, delaySeconds } = req.body;
+        
+        const settings = await db.onboardingSettings.upsert({
+            where: { guildId },
+            update: {
+                enabled,
+                autoRoles,
+                delaySeconds: parseInt(delaySeconds)
+            },
+            create: {
+                guildId,
+                enabled,
+                autoRoles,
+                delaySeconds: parseInt(delaySeconds)
+            }
+        });
+        
+        res.json(settings);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

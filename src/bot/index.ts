@@ -23,6 +23,7 @@ import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
 import { EmailPlugin } from './plugins/EmailPlugin';
 import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
+import { CommunityProgressionPlugin } from './plugins/CommunityProgressionPlugin';
 
 dotenv.config();
 
@@ -97,6 +98,7 @@ export class SimonBot {
       this.pluginManager.register(new EmailPlugin());
       this.pluginManager.register(new TicketPlugin());
       this.pluginManager.register(new ChannelRulesPlugin());
+      this.pluginManager.register(new CommunityProgressionPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -406,6 +408,68 @@ export class SimonBot {
       }
     });
 
+    this.client.on('guildMemberAdd', async (member) => {
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('guildMemberAdd')) {
+            const isEnabled = await this.isPluginEnabled(member.guild.id, plugin.id);
+            if (!isEnabled) continue;
+
+          const p = plugin as any;
+          if (typeof p.onGuildMemberAdd === 'function') {
+            try {
+              await p.onGuildMemberAdd(member);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} member add handler`, error);
+            }
+          }
+        }
+      }
+    });
+
+    this.client.on('guildMemberRemove', async (member) => {
+        const guild = ('guild' in member) ? member.guild : null;
+        if (!guild) return; 
+
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('guildMemberRemove')) {
+            const isEnabled = await this.isPluginEnabled(guild.id, plugin.id);
+            if (!isEnabled) continue;
+
+          const p = plugin as any;
+          if (typeof p.onGuildMemberRemove === 'function') {
+            try {
+              await p.onGuildMemberRemove(member);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} member remove handler`, error);
+            }
+          }
+        }
+      }
+    });
+
+    this.client.on('messageReactionRemove', async (reaction, user) => {
+        if (user.bot) return;
+        const plugins = this.pluginManager.getEnabled();
+        for (const plugin of plugins) {
+            if (plugin.events.includes('messageReactionRemove')) {
+                if (reaction.message.guildId) {
+                    const isEnabled = await this.isPluginEnabled(reaction.message.guildId, plugin.id);
+                    if (!isEnabled) continue;
+                }
+                const p = plugin as any;
+                if (typeof p.onMessageReactionRemove === 'function') {
+                    try {
+                        await p.onMessageReactionRemove(reaction, user);
+                    } catch (error) {
+                        this.logger.error(`Error in plugin ${plugin.id} reaction remove handler`, error);
+                    }
+                }
+            }
+        }
+    });
+
     this.client.on('guildBanAdd', async (ban) => {
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {
@@ -449,6 +513,20 @@ export class SimonBot {
             enabled: true,
             repostEnabled: true,
           },
+        });
+
+        // Create default levelling settings
+        await this.db.levellingSettings.upsert({
+            where: { guildId: guild.id },
+            update: {},
+            create: { guildId: guild.id }
+        });
+
+        // Create default onboarding settings
+        await this.db.onboardingSettings.upsert({
+            where: { guildId: guild.id },
+            update: {},
+            create: { guildId: guild.id }
         });
       } catch (error) {
         this.logger.error(`Failed to setup guild ${guild.id}`, error);
