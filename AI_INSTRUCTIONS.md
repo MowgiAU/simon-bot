@@ -26,6 +26,11 @@
     *   **API Exposure** When adding a new plugin, you **MUST** update `src/api/index.ts` to include the plugin ID in the `accessiblePlugins` list for administrators, otherwise it will not appear in the dashboard sidebar.
     *   **Default State**: When creating a new plugin, unless it is strictly opt-in, set `readonly defaultEnabled = true;`. If set to false, the bot will completely ignore commands and events for that plugin until manually enabled in the database, which often confuses users testing the feature.
 
+4.  **Dashboard & API Integration**:
+    *   **Sidebar Visibility**: When adding a new plugin with a Dashboard page, you **must** manually add the plugin ID to the `accessiblePlugins` list in `src/api/index.ts` (Endpoint: `/api/guilds/:guildId/my-permissions`).
+    *   If you don't do this, the Dashboard sidebar button will remain hidden even if the UI code is correct.
+    *   **Material UI**: If you use new MUI components, ensure they are in `dashboard/package.json`.
+
 ---
 
 ## 📂 File Structure
