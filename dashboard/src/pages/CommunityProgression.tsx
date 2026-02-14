@@ -198,7 +198,7 @@ const CommunityProgression: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '24px' }}>
                 <Trophy size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '32px' }}>Community Progression</h1>
+                    <h1 style={{ margin: 0, fontSize: '32px', color: colors.textPrimary }}>Community Progression</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>XP, leveling, onboarding, and automatic role rewards for your community.</p>
                 </div>
             </div>
@@ -216,7 +216,7 @@ const CommunityProgression: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Trophy size={20} color={colors.primary} />
-                                <span style={{ fontWeight: 600, fontSize: '18px' }}>XP & Leveling</span>
+                                <span style={{ fontWeight: 600, fontSize: '18px', color: colors.textPrimary }}>XP & Leveling</span>
                             </div>
                             <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
                                 <input
