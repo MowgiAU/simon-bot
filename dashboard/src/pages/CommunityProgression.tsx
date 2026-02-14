@@ -1,35 +1,4 @@
 import React, { useState, useEffect } from 'react';
-                            <TextField
-                                select
-                                label="Reward Role"
-                                size="small"
-                                fullWidth
-                                value={newRewardRole}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRewardRole(e.target.value)}
-                                InputLabelProps={{ shrink: true, style: { color: colors.textSecondary } }}
-                                sx={{ background: colors.background, color: colors.textPrimary,
-                                    '& .MuiInputBase-input': { color: colors.textPrimary },
-                                    '& .MuiInputLabel-root': { color: colors.textSecondary },
-                                    '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
-                                    '& .MuiInputBase-root': { background: 'transparent' },
-                                    '& .Mui-disabled': { color: colors.textSecondary }
-                                }}
-                                SelectProps={{
-                                    MenuProps: {
-                                        PaperProps: {
-                                            style: {
-                                                backgroundColor: colors.surface,
-                                                color: colors.textPrimary
-                                            }
-                                        }
-                                    }
-                                }}
-                            >
-                                <MenuItem value="" style={{ color: colors.textSecondary }}>Select Role</MenuItem>
-                                {roles.map(role => (
-                                    <MenuItem key={role.id} value={role.id} style={{ color: colors.textPrimary }}>{role.name}</MenuItem>
-                                ))}
-                            </TextField>
     enabled: boolean;
     xpRateText: number;
     xpRateVoice: number;
