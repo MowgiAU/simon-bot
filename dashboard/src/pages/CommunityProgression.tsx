@@ -23,7 +23,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { useTheme } from '../theme/ThemeContext';
+
+// Temporary stub for theme mode
+const useTheme = () => ({ mode: 'dark' });
 
 interface LevelReward {
     id: string;
