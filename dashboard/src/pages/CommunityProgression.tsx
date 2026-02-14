@@ -16,8 +16,8 @@ import {
     Alert,
     CircularProgress
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
+import { Trophy, Users } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
@@ -93,25 +93,36 @@ const CommunityProgression: React.FC = () => {
         }
     };
 
-    const saveLevelSettings = async () => {
+    // Status message for feedback
+    const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // Save all settings (used for non-toggle changes)
+    const saveLevelSettings = async (settingsOverride?: Partial<LevellingSettings>) => {
         if (!levelSettings) return;
         try {
             setSaving(true);
-            await axios.patch(`http://localhost:3001/api/guilds/${guildId}/levelling`, levelSettings);
+            const payload = { ...levelSettings, ...settingsOverride };
+            await axios.patch(`/api/guilds/${guildId}/levelling`, payload);
+            setLevelSettings(payload);
+            setMsg({ type: 'success', text: 'Leveling settings updated.' });
         } catch (error) {
-            console.error('Failed to save levelling settings', error);
+            setMsg({ type: 'error', text: 'Failed to update leveling settings.' });
         } finally {
             setSaving(false);
         }
     };
 
-    const saveOnboardingSettings = async () => {
+    // Save onboarding settings (used for non-toggle changes)
+    const saveOnboardingSettings = async (settingsOverride?: Partial<OnboardingSettings>) => {
         if (!onboardingSettings) return;
         try {
             setSaving(true);
-            await axios.patch(`http://localhost:3001/api/guilds/${guildId}/onboarding`, onboardingSettings);
+            const payload = { ...onboardingSettings, ...settingsOverride };
+            await axios.patch(`/api/guilds/${guildId}/onboarding`, payload);
+            setOnboardingSettings(payload);
+            setMsg({ type: 'success', text: 'Onboarding settings updated.' });
         } catch (error) {
-            console.error('Failed to save onboarding settings', error);
+            setMsg({ type: 'error', text: 'Failed to update onboarding settings.' });
         } finally {
             setSaving(false);
         }
@@ -164,51 +175,71 @@ const CommunityProgression: React.FC = () => {
 
     if (loading) return <CircularProgress />;
 
+
     return (
         <Box sx={{ maxWidth: 1200, margin: '0 auto', p: 3 }}>
-            {/* Header/Explanation Block */}
-            <Box
-                sx={{
+            {msg && (
+                <div style={{
+                    padding: '12px',
+                    marginBottom: '20px',
+                    borderRadius: borderRadius.md,
+                    backgroundColor: msg.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                    color: msg.type === 'success' ? colors.success : colors.error,
                     display: 'flex',
-                    flexDirection: { xs: 'column', md: 'row' },
-                    alignItems: { xs: 'flex-start', md: 'center' },
-                    mb: 3,
-                    gap: 2
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {/* You can replace this with an actual icon if available */}
-                    <Box sx={{ width: 40, height: 40, bgcolor: colors.primary, borderRadius: '50%', mr: 2 }} />
-                    <Typography variant="h4" sx={{ color: colors.primary, m: 0 }}>
-                        Community Progression
-                    </Typography>
-                </Box>
-                <Box>
-                    <Typography sx={{ color: colors.textSecondary, fontSize: 16, mb: 0.5 }}>
-                        Configure XP, leveling, onboarding, and automatic role rewards for your community.
-                    </Typography>
-                    <Typography sx={{ color: colors.warning, fontSize: 13 }}>
-                        Changes may take up to 30 seconds to update on the bot.
-                    </Typography>
-                </Box>
-            </Box>
+                    alignItems: 'center'
+                }}>
+                    {msg.text}
+                    <button onClick={() => setMsg(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>×</button>
+                </div>
+            )}
+            {/* Standardized Plugin Header */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '24px' }}>
+                <Trophy size={32} color={colors.primary} style={{ marginRight: '16px' }} />
+                <div>
+                    <h1 style={{ margin: 0, fontSize: '32px' }}>Community Progression</h1>
+                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>XP, leveling, onboarding, and automatic role rewards for your community.</p>
+                </div>
+            </div>
+            {/* Standardized Explanation Block */}
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '15px' }}>
+                    Configure how members earn XP, level up, and receive roles automatically. Onboarding and reaction roles help automate community management. Changes may take up to 30 seconds to update on the bot.
+                </p>
+            </div>
 
             <Grid container spacing={3}>
                 {/* Leveling Section */}
                 <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 3 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6">XP & Leveling</Typography>
-                            <FormControlLabel
-                                control={
-                                    <Switch 
-                                        checked={levelSettings?.enabled || false}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, enabled: e.target.checked} : null)}
-                                    />
-                                }
-                                label="Enabled"
-                            />
-                        </Box>
+                    <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.lg }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Trophy size={20} color={colors.primary} />
+                                <span style={{ fontWeight: 600, fontSize: '18px' }}>XP & Leveling</span>
+                            </div>
+                            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={levelSettings?.enabled || false}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setLevelSettings(s => s ? { ...s, enabled: checked } : null);
+                                        saveLevelSettings({ enabled: checked });
+                                    }}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span style={{
+                                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                    backgroundColor: levelSettings?.enabled ? colors.primary : '#ccc',
+                                    transition: '.4s', borderRadius: '34px'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute', content: '', height: '16px', width: '16px', left: '4px', bottom: '4px',
+                                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                        transform: levelSettings?.enabled ? 'translateX(26px)' : 'translateX(0)'
+                                    }} />
+                                </span>
+                            </label>
+                        </div>
 
                         <Grid container spacing={2}>
                             <Grid item xs={6}>
@@ -252,9 +283,13 @@ const CommunityProgression: React.FC = () => {
                         <Box sx={{ mt: 2 }}>
                             <FormControlLabel
                                 control={
-                                    <Switch 
+                                    <Switch
                                         checked={levelSettings?.announceLevelUp || false}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLevelSettings(s => s ? {...s, announceLevelUp: e.target.checked} : null)}
+                                        onChange={e => {
+                                            const checked = e.target.checked;
+                                            setLevelSettings(s => s ? { ...s, announceLevelUp: checked } : null);
+                                            saveLevelSettings({ announceLevelUp: checked });
+                                        }}
                                     />
                                 }
                                 label="Announce Level Ups"
@@ -264,9 +299,9 @@ const CommunityProgression: React.FC = () => {
                         <Button variant="contained" onClick={saveLevelSettings} sx={{ mt: 2 }} disabled={saving}>
                            {saving ? 'Saving...' : 'Save Settings'}
                         </Button>
-                    </Paper>
+                    </div>
 
-                    <Paper sx={{ p: 3, mt: 3 }}>
+                    <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.lg }}>
                          <Typography variant="h6" gutterBottom>Level Rewards</Typography>
                          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                             <TextField
@@ -294,7 +329,7 @@ const CommunityProgression: React.FC = () => {
                                 ))}
                             </TextField>
                             <IconButton onClick={addReward} color="primary" disabled={!newRewardRole}>
-                                <AddIcon />
+                                <Plus size={20} />
                             </IconButton>
                          </Box>
 
@@ -309,7 +344,7 @@ const CommunityProgression: React.FC = () => {
                                          />
                                          <ListItemSecondaryAction>
                                              <IconButton edge="end" onClick={() => deleteReward(reward.id)}>
-                                                 <DeleteIcon />
+                                                 <Trash2 size={20} />
                                              </IconButton>
                                          </ListItemSecondaryAction>
                                      </ListItem>
@@ -319,23 +354,37 @@ const CommunityProgression: React.FC = () => {
                                  <Typography color="textSecondary" align="center">No rewards configured</Typography>
                              )}
                          </List>
-                    </Paper>
+                    </div>
                 </Grid>
 
                 {/* Onboarding Section */}
                 <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 3 }}>
+                    <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.lg }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h6">Onboarding & Auto-Roles</Typography>
-                            <FormControlLabel
-                                control={
-                                    <Switch 
-                                        checked={onboardingSettings?.enabled || false}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOnboardingSettings(s => s ? {...s, enabled: e.target.checked} : null)}
-                                    />
-                                }
-                                label="Enabled"
-                            />
+                            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={onboardingSettings?.enabled || false}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setOnboardingSettings(s => s ? { ...s, enabled: checked } : null);
+                                        saveOnboardingSettings({ enabled: checked });
+                                    }}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span style={{
+                                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                    backgroundColor: onboardingSettings?.enabled ? colors.primary : '#ccc',
+                                    transition: '.4s', borderRadius: '34px'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute', content: '', height: '16px', width: '16px', left: '4px', bottom: '4px',
+                                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                        transform: onboardingSettings?.enabled ? 'translateX(26px)' : 'translateX(0)'
+                                    }} />
+                                </span>
+                            </label>
                         </Box>
 
                         <TextField
@@ -377,7 +426,7 @@ const CommunityProgression: React.FC = () => {
                         <Button variant="contained" onClick={saveOnboardingSettings} disabled={saving}>
                            {saving ? 'Saving...' : 'Save Settings'}
                         </Button>
-                    </Paper>
+                    </div>
 
                     <Paper sx={{ p: 3, mt: 3 }}>
                         <Typography variant="h6" gutterBottom>Reaction Roles</Typography>
