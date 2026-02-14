@@ -23,7 +23,6 @@ import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
 import { EmailPlugin } from './plugins/EmailPlugin';
 import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
-import { CommunityProgressionPlugin } from './plugins/CommunityProgressionPlugin';
 
 dotenv.config();
 
@@ -98,7 +97,6 @@ export class SimonBot {
       this.pluginManager.register(new EmailPlugin());
       this.pluginManager.register(new TicketPlugin());
       this.pluginManager.register(new ChannelRulesPlugin());
-      this.pluginManager.register(new CommunityProgressionPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -514,20 +512,6 @@ export class SimonBot {
             repostEnabled: true,
           },
         });
-
-        // Create default levelling settings
-        await this.db.levellingSettings.upsert({
-            where: { guildId: guild.id },
-            update: {},
-            create: { guildId: guild.id }
-        });
-
-        // Create default onboarding settings
-        await this.db.onboardingSettings.upsert({
-            where: { guildId: guild.id },
-            update: {},
-            create: { guildId: guild.id }
-        });
       } catch (error) {
         this.logger.error(`Failed to setup guild ${guild.id}`, error);
       }
@@ -793,4 +777,3 @@ export class SimonBot {
     return this.pluginManager;
   }
 }
-
