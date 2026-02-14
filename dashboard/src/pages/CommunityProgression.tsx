@@ -439,13 +439,27 @@ const CommunityProgression: React.FC = () => {
                         </Button>
                     </div>
 
-                    <Paper sx={{ p: 3, mt: 3 }}>
-                        <Typography variant="h6" gutterBottom>Reaction Roles</Typography>
-                        <Alert severity="info" sx={{ mb: 2 }}>
-                            Reaction roles must be configured via commands or editing specific messages for now.
-                            {' '}Use <span style={{ fontFamily: 'monospace', background: '#222', padding: '2px 6px', borderRadius: 4 }}>/reaction-role add [msgId] [emoji] [@role]</span>
-                        </Alert>
-                    </Paper>
+                    <div
+                        style={{
+                            background: colors.surfaceLight,
+                            borderLeft: `4px solid ${colors.info}`,
+                            padding: spacing.xl,
+                            borderRadius: borderRadius.lg,
+                            marginTop: spacing.lg,
+                            marginBottom: spacing.lg,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.md }}>
+                            <svg width="24" height="24" style={{ marginRight: spacing.md }} fill="none" stroke={colors.info} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                            <Typography variant="h6" style={{ color: colors.info, margin: 0 }}>Reaction Roles</Typography>
+                        </div>
+                        <div style={{ color: colors.textPrimary, fontSize: '15px' }}>
+                            Reaction roles must be configured via commands or editing specific messages for now.<br />
+                            <span style={{ color: colors.textSecondary }}>Use </span>
+                            <span style={{ fontFamily: 'monospace', background: colors.background, color: colors.info, padding: '2px 8px', borderRadius: borderRadius.sm, fontSize: '14px' }}>/reaction-role add <span style={{ color: colors.textTertiary }}>[msgId]</span> <span style={{ color: colors.textTertiary }}>[emoji]</span> <span style={{ color: colors.textTertiary }}>[@role]</span></span>
+                        </div>
+                    </div>
                 </Grid>
             </Grid>
         </Box>
