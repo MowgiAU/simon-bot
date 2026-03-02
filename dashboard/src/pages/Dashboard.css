@@ -58,8 +58,8 @@
 }
 
 .stat-card {
-  background-color: rgb(34,43,61);
-  border: 1px solid #1F293A;
+  background: linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9));
+  border: 1px solid #3E455633;
   border-radius: 12px;
   padding: 24px;
   display: flex;

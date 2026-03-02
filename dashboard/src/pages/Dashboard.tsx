@@ -158,7 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
              </div>
 
              {/* Recent Activity Card */}
-             <div style={{ background: 'rgb(34,43,61)', borderRadius: '12px', border: '1px solid #1F293A', padding: '24px' }}>
+             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                    <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Recent Activity</h3>
                    <Settings size={16} color="#8A92A0" />
