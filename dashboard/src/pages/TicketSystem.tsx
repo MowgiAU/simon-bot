@@ -238,7 +238,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             </div>
 
             {/* Explanation patterns */}
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, border: '1px solid #3E455633' }}>
                  <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.5' }}>
                     {view === 'tickets' 
                         ? 'View and manage active support tickets. Deep-link directly to a ticket by searching for its ID or owner.' 
@@ -426,7 +426,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             ) : (
                 /* Settings Layout */
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', flex: 1, overflowY: 'auto' }}>
-                    <div style={{ background: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.border}`, padding: '24px' }}>
+                    <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, border: '1px solid #3E455633', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                              <Shield size={20} color={colors.primary} />
                              <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Role Management</h2>
@@ -449,7 +449,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                         </div>
                     </div>
 
-                    <div style={{ background: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.border}`, padding: '24px' }}>
+                    <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, border: '1px solid #3E455633', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                              <History size={20} color={colors.primary} />
                              <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Automation & Logs</h2>

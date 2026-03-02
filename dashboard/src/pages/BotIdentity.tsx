@@ -53,10 +53,11 @@ export const BotIdentityPage: React.FC = () => {
     };
 
     const sectionStyle = {
-        backgroundColor: colors.surface,
+        background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
         padding: spacing.lg,
         borderRadius: borderRadius.md,
-        marginBottom: spacing.lg
+        marginBottom: spacing.lg,
+        border: '1px solid #3E455633'
     };
 
     return (

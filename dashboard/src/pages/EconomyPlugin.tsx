@@ -79,7 +79,7 @@ export const EconomyPluginPage: React.FC = () => {
             
             {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Manage currency, shop items, and user balances.</p>}
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`, border: '1px solid #3E455633' }}>
                  <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Create a virtual economy for your server. Configure currency symbols, passive earning rates per message, and manage a shop where users can buy roles or items with their earned coins.</p>
             </div>
 
@@ -92,9 +92,9 @@ export const EconomyPluginPage: React.FC = () => {
                         style={{
                             width: '100%',
                             padding: '12px',
-                            background: colors.surface,
+                            background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
                             color: colors.textPrimary,
-                            border: `1px solid ${colors.border}`,
+                            border: '1px solid #3E455633',
                             borderRadius: borderRadius.md,
                             fontSize: '16px',
                             outline: 'none'
@@ -125,9 +125,9 @@ export const EconomyPluginPage: React.FC = () => {
                             onClick={() => setActiveTab(tab.id as any)}
                             style={{
                                 padding: '10px 20px',
-                                background: activeTab === tab.id ? colors.primary : colors.surface,
+                                background: activeTab === tab.id ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
                                 color: 'white',
-                                border: 'none',
+                                border: '1px solid #3E455633',
                                 borderRadius: borderRadius.md,
                                 cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', gap: '8px',
@@ -140,7 +140,7 @@ export const EconomyPluginPage: React.FC = () => {
                 </div>
             )}
 
-            <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
                 {activeTab === 'settings' && settings && (
                     <SettingsTab settings={settings} onSave={saveSettings} guildId={selectedGuild?.id} isMobile={isMobile} />
                 )}

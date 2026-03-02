@@ -70,7 +70,7 @@ export const FeedbackPluginPage: React.FC = () => {
             
             {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>AI-assisted moderation queue for music production.</p>}
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`, border: '1px solid #3E455633' }}>
                  <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>AI-assisted moderation queue for music production feedback. This system automatically scans feedback for quality and queues audio uploads for manual review.</p>
             </div>
 
@@ -79,8 +79,8 @@ export const FeedbackPluginPage: React.FC = () => {
                     onClick={() => setActiveTab('queue')}
                     style={{ 
                         padding: '10px 20px', 
-                        background: activeTab === 'queue' ? colors.primary : colors.surface, 
-                        color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer',
+                        background: activeTab === 'queue' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
+                        color: 'white', border: '1px solid #3E455633', borderRadius: borderRadius.md, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -90,8 +90,8 @@ export const FeedbackPluginPage: React.FC = () => {
                     onClick={() => setActiveTab('settings')}
                     style={{ 
                         padding: '10px 20px', 
-                        background: activeTab === 'settings' ? colors.primary : colors.surface, 
-                        color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer',
+                        background: activeTab === 'settings' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
+                        color: 'white', border: '1px solid #3E455633', borderRadius: borderRadius.md, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -104,14 +104,14 @@ export const FeedbackPluginPage: React.FC = () => {
             {!loading && activeTab === 'queue' && (
                 <div style={{ display: 'grid', gap: '16px' }}>
                     {queue.length === 0 ? (
-                        <div style={{ padding: '40px', textAlign: 'center', background: colors.surface, borderRadius: borderRadius.lg }}>
+                        <div style={{ padding: '40px', textAlign: 'center', background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
                             <Check size={48} color={colors.success} style={{ marginBottom: '16px' }} />
                             <h3>All Caught Up!</h3>
                             <p style={{ color: colors.textSecondary }}>No pending feedback or audio to review.</p>
                         </div>
                     ) : (
                         queue.map(item => (
-                            <div key={item.id} style={{ background: colors.surface, borderRadius: borderRadius.lg, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
+                            <div key={item.id} style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, overflow: 'hidden', border: '1px solid #3E455633' }}>
                                 <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         {item.user?.avatar ? (
@@ -206,8 +206,8 @@ export const FeedbackPluginPage: React.FC = () => {
             )}
 
             {!loading && activeTab === 'settings' && settings && (
-                <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg }}>
-                    <h3>Configuration</h3>
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Configuration</h3>
                     <div style={{ display: 'grid', gap: '20px', maxWidth: '600px' }}>
                         
                         <div>
