@@ -32,9 +32,10 @@ interface DiscordMessage {
 
 interface Props {
     guildId: string;
+    searchParam?: string;
 }
 
-export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
+export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     const isMobile = useMobile();
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
@@ -51,6 +52,16 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId }) => {
         const interval = setInterval(fetchTickets, 30000);
         return () => clearInterval(interval);
     }, [guildId]);
+
+    useEffect(() => {
+        if (searchParam && tickets.length > 0) {
+            const ticket = tickets.find(t => t.id === searchParam);
+            if (ticket) {
+                setSelectedTicket(ticket);
+                setStatusFilter('all'); // Ensure we can see it regardless of status
+            }
+        }
+    }, [searchParam, tickets]);
 
     useEffect(() => {
         if (selectedTicket) {

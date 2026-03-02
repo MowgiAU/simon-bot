@@ -99,16 +99,51 @@ export const UniversalSearch: React.FC<UniversalSearchProps> = ({ guildId, onNav
           console.error('User search failed', e);
         }
 
-        // 3. Search Emails/Tickets (Placeholder Logic - would hit specific endpoints)
+        // 3. Search Emails/Tickets
         if (accessiblePlugins.includes('email-client')) {
-           // Push a generic "Search in Emails" result
-           localResults.push({
-             id: 'email-search',
-             type: 'email',
-             title: `Search emails for "${query}"`,
-             subtitle: 'Search email client content',
-             target: 'email-client'
-           });
+           try {
+             // We'll search local emails via a simple query (ideally backend handles this)
+             const emailRes = await axios.get(`/api/email/list/inbox`); // Or a dedicated search endpoint
+             const matchedEmails = emailRes.data.filter((e: any) => 
+               e.subject.toLowerCase().includes(query.toLowerCase()) || 
+               e.from.toLowerCase().includes(query.toLowerCase()) ||
+               e.body.toLowerCase().includes(query.toLowerCase())
+             ).slice(0, 3);
+
+             matchedEmails.forEach((e: any) => {
+                localResults.push({
+                  id: e.threadId,
+                  type: 'email',
+                  title: e.subject,
+                  subtitle: `From: ${e.from}`,
+                  target: 'email-client'
+                });
+             });
+           } catch (e) {
+             console.error('Email search failed', e);
+           }
+        }
+
+        if (accessiblePlugins.includes('tickets')) {
+          try {
+            const ticketRes = await axios.get(`/api/tickets/list/${guildId}`);
+            const matchedTickets = ticketRes.data.filter((t: any) => 
+               t.id.toLowerCase().includes(query.toLowerCase()) ||
+               t.ownerId.toLowerCase().includes(query.toLowerCase())
+            ).slice(0, 3);
+
+            matchedTickets.forEach((t: any) => {
+               localResults.push({
+                 id: t.id,
+                 type: 'ticket',
+                 title: `Ticket #${t.id.slice(-4)}`,
+                 subtitle: `Status: ${t.status}`,
+                 target: 'tickets'
+               });
+            });
+          } catch (e) {
+            console.error('Ticket search failed', e);
+          }
         }
 
         setResults(localResults);

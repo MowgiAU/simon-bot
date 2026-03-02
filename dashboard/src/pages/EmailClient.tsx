@@ -31,7 +31,11 @@ interface EmailSettings {
     roleId?: string;
 }
 
-export const EmailClientPage: React.FC = () => {
+interface EmailPageProps {
+  searchParam?: string;
+}
+
+export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const isMobile = useMobile();
     const [view, setView] = useState<'inbox' | 'sent' | 'trash' | 'settings'>('inbox');
     const [emails, setEmails] = useState<Email[]>([]);
@@ -68,6 +72,15 @@ export const EmailClientPage: React.FC = () => {
             return () => clearInterval(interval);
         }
     }, [view]);
+
+    useEffect(() => {
+        if (searchParam && emails.length > 0) {
+            const email = emails.find(e => e.threadId === searchParam);
+            if (email) {
+                setSelectedEmail(email);
+            }
+        }
+    }, [searchParam, emails]);
 
     // When an email is selected, fetch its full thread
     useEffect(() => {

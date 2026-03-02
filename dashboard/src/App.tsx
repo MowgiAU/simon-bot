@@ -136,9 +136,9 @@ const AppContent: React.FC = () => {
       case 'bot-identity':
         return <BotIdentityPage />;
       case 'email-client':
-        return <EmailClientPage />;
+        return <EmailClientPage searchParam={navigationParams?.searchParam} />;
       case 'tickets':
-         return <TicketSystemPage guildId={selectedGuild.id} />;
+         return <TicketSystemPage guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
       case 'dashboard':
