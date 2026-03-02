@@ -436,8 +436,8 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                              <ChannelSelect 
                                 guildId={guildId} 
                                 value={settings.ticketCategoryId || ''} 
-                                onChange={(val) => setSettings({ ...settings, ticketCategoryId: val })}
-                                type="category"
+                                onChange={(val) => setSettings({ ...settings, ticketCategoryId: val as string })}
+                                channelTypes={[4]}
                              />
                         </div>
                     </div>
@@ -451,7 +451,8 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                         <ChannelSelect 
                             guildId={guildId} 
                             value={settings.transcriptChannelId || ''} 
-                            onChange={(val) => setSettings({ ...settings, transcriptChannelId: val })}
+                            onChange={(val) => setSettings({ ...settings, transcriptChannelId: val as string })}
+                            channelTypes={[0, 5]}
                         />
                         <div style={{ marginTop: '24px' }}>
                              <button 
