@@ -18,7 +18,7 @@ import { TicketSystemPage } from './pages/TicketSystem';
 import { ChannelRules } from './pages/ChannelRules';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
-import { MessageSquare, ArrowRight } from 'lucide-react';
+import { MessageSquare, ArrowRight, Info } from 'lucide-react';
 
 type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets' | 'channel-rules';
 
@@ -237,25 +237,29 @@ const AppContent: React.FC = () => {
                 gap: '12px', 
                 padding: '12px 24px',
                 color: colors.textSecondary,
-                fontSize: '13px'
+                fontSize: '13px',
+                background: '#253040',
+                border: '1px solid #202A3C',
+                borderRadius: '8px',
+                margin: '16px'
             }}>
                 <div style={{ 
                     width: '32px', 
                     height: '32px', 
-                    borderRadius: '50%', 
-                    border: `1px solid ${colors.primary}44`,
+                    borderRadius: '8px', 
+                    background: `${colors.primary}15`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: colors.primary
                 }}>
-                    <span style={{ fontSize: '16px' }}>ⓘ</span>
+                    <Info size={18} />
                 </div>
                 <div>
                     <span style={{ fontWeight: 700, color: '#FFFFFF', marginRight: '8px' }}>
-                        {activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace(/-/g, ' ')} Overview:
+                        {activeSection === 'dashboard' ? 'Fuji Studio' : activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace(/-/g, ' ')} :
                     </span>
-                    Configure your studio bot identity, managed plugins, and moderation tools. Changes sync in real-time.
+                    Manage your community, configuration, and automation tools. Changes sync in real-time.
                 </div>
                 <div style={{ flex: 1 }} />
                 <a href="#" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>

@@ -206,11 +206,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
              {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Ticket size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <div>
-                        <h1 style={{ margin: 0, color: '#fff' }}>Ticket System</h1>
-                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage support requests and configure ticket automation.</p>
-                    </div>
+                    
                 </div>
                 
                 <div style={{ display: 'flex', gap: '8px', background: colors.surface, padding: '4px', borderRadius: '8px', border: `1px solid ${colors.border}` }}>
@@ -242,7 +238,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             </div>
 
             {/* Explanation patterns */}
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
                  <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.5' }}>
                     {view === 'tickets' 
                         ? 'View and manage active support tickets. Deep-link directly to a ticket by searching for its ID or owner.' 
