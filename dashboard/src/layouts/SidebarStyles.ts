@@ -22,7 +22,7 @@ export const SidebarStyles = `
 
   .sidebar-header {
     padding: ${spacing.xl} ${spacing.lg};
-    border-bottom: 1px solid ${colors.border}33;
+    border-bottom: 1px solid ${colors.border}20;
     position: relative;
     margin-bottom: ${spacing.lg};
   }
@@ -30,26 +30,23 @@ export const SidebarStyles = `
   .logo {
     display: flex;
     align-items: center;
-    gap: ${spacing.md};
+    gap: 12px;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: all 0.2s ease;
   }
 
   .logo img {
-    width: 38px !important;
-    height: 38px !important;
-    background: ${colors.primary}20;
-    padding: 6px;
-    border-radius: 10px;
+    margin: 0;
   }
 
   .logo h1 {
-    color: ${colors.textPrimary};
-    font-size: 18px;
-    font-weight: 700;
-    margin: 0;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
+    display: block;
+  }
+
+  .sidebar.collapsed .logo h1, 
+  .sidebar.collapsed .logo span,
+  .sidebar.collapsed .server-info {
+    display: none;
   }
 
   .nav-group-title {

@@ -51,8 +51,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
-          <img src={logoUrl} alt="Fuji Studio" style={{ width: 32, height: 32 }} />
-          <h1>Fuji Studio</h1>
+          <div style={{ 
+            width: 42, 
+            height: 42, 
+            background: '#2B8D70', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <img src={logoUrl} alt="Fuji Studio" style={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <h1 style={{ 
+                fontSize: '20px', 
+                fontWeight: 800, 
+                color: '#FFFFFF', 
+                margin: 0, 
+                lineHeight: 1,
+                letterSpacing: '0.5px'
+            }}>Fuji Studio</h1>
+            <span style={{ 
+                fontSize: '10px', 
+                fontWeight: 700, 
+                color: '#8A92A0', 
+                letterSpacing: '1px',
+                textTransform: 'uppercase'
+            }}>Discord Admin</span>
+          </div>
         </div>
         <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
           <div>Server:</div>
