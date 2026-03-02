@@ -522,6 +522,7 @@ model Ticket {
   channelId String   @unique
   guildId   String
   ownerId   String
+  ownerName String?   // Added to track the name of the person who opened the ticket
   status    String   @default("open")
   priority  String   @default("low") // low, medium, high
   createdAt DateTime @default(now())

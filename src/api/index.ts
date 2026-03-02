@@ -2076,6 +2076,44 @@ app.post('/api/email/settings', async (req, res) => {
 
 // --- Ticket System Endpoints ---
 
+// Get Ticket Settings
+app.get('/api/tickets/settings/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+
+    const settings = await db.ticketSettings.findUnique({
+        where: { guildId }
+    });
+
+    res.json(settings || { guildId, staffRoleIds: [], ticketCategoryId: null, transcriptChannelId: null });
+});
+
+// Update Ticket Settings
+app.post('/api/tickets/settings/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    const { staffRoleIds, ticketCategoryId, transcriptChannelId, ticketMessage } = req.body;
+
+    const settings = await db.ticketSettings.upsert({
+        where: { guildId },
+        update: {
+            staffRoleIds,
+            ticketCategoryId,
+            transcriptChannelId,
+            ticketMessage
+        },
+        create: {
+            guildId,
+            staffRoleIds: staffRoleIds || [],
+            ticketCategoryId,
+            transcriptChannelId,
+            ticketMessage
+        }
+    });
+
+    res.json(settings);
+});
+
 // List Tickets
 app.get('/api/tickets/list/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });

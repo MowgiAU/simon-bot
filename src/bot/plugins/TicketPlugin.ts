@@ -354,6 +354,7 @@ export class TicketPlugin implements IPlugin {
                 guildId,
                 channelId: channel.id,
                 ownerId: userId,
+                ownerName: interaction.user.username,
                 status: 'open'
             }
         });
@@ -364,12 +365,18 @@ export class TicketPlugin implements IPlugin {
             .setDescription('Support will be with you shortly. To close this ticket, use `/ticket close`.')
             .setColor(Colors.Green);
 
+        // Fetch settings again to be sure we have the latest
         const rolePings = settings.staffRoleIds && settings.staffRoleIds.length > 0 
             ? settings.staffRoleIds.map(id => `<@&${id}>`).join(' ') 
-            : ((settings as any).staffRoleId ? `<@&${(settings as any).staffRoleId}>` : undefined);
+            : null;
+
+        if (rolePings) {
+            await channel.send({ 
+                content: rolePings
+            });
+        }
 
         await channel.send({ 
-            content: rolePings,
             embeds: [embed] 
         });
 
