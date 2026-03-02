@@ -6,11 +6,13 @@ import {
   MessageSquare, Mail, Shield, ShieldAlert, DollarSign, UserPlus, FileText, ArrowRight, LayoutDashboard, Settings
 } from 'lucide-react';
 import { colors, spacing } from '../theme/theme';
+import { UniversalSearch } from '../components/UniversalSearch';
 import './Dashboard.css';
 
 interface DashboardProps {
   guildId: string;
   onNavigate: (section: string) => void;
+  accessiblePlugins: string[];
 }
 
 interface DashboardStats {
@@ -45,7 +47,7 @@ interface DashboardStats {
   };
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, accessiblePlugins }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeChartTab, setActiveChartTab] = useState<'messages' | 'voice' | 'channels'>('messages');
@@ -105,14 +107,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => 
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-           <div style={{ position: 'relative' }}>
-              <input 
-                type="text" 
-                placeholder="Search plugins..." 
-                style={{ background: '#252D3E', border: '1px solid #3E455633', borderRadius: '8px', padding: '8px 16px 8px 36px', color: '#FFFFFF', fontSize: '14px', width: '240px' }}
-              />
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}><LayoutDashboard size={14} /></span>
-           </div>
+           <UniversalSearch 
+              guildId={guildId} 
+              onNavigate={onNavigate} 
+              accessiblePlugins={accessiblePlugins} 
+           />
            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button style={{ background: 'transparent', border: 'none', color: '#B9C3CE', cursor: 'pointer' }}><MessageSquare size={20} /></button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#252D3E', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid #3E455633' }}>

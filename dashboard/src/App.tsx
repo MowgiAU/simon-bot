@@ -139,7 +139,11 @@ const AppContent: React.FC = () => {
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
       case 'dashboard':
-        return <Dashboard guildId={selectedGuild.id} onNavigate={handleNavigate} />;
+        return <Dashboard 
+          guildId={selectedGuild.id} 
+          onNavigate={handleNavigate} 
+          accessiblePlugins={permissions.accessiblePlugins} 
+        />;
       case 'logs':
         return <Logs guildId={selectedGuild.id} />;
       case 'staging-test':
