@@ -251,27 +251,27 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                 <div style={{ 
                     display: 'flex', 
                     flex: 1,
-                    background: colors.surface, 
+                    background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
                     borderRadius: '12px', 
-                    border: `1px solid ${colors.border}`,
+                    border: '1px solid #3E455633',
                     overflow: 'hidden'
                 }}>
                     {/* Sidebar List */}
                     <div style={{ 
                         width: isMobile ? '100%' : '320px', 
-                        background: colors.surface, 
-                        borderRight: isMobile ? 'none' : `1px solid ${colors.border}`, 
+                        background: 'rgba(0, 0, 0, 0.2)', 
+                        borderRight: isMobile ? 'none' : '1px solid #3E455633', 
                         overflowY: 'auto', 
                         display: isMobile && selectedTicket ? 'none' : 'flex', 
                         flexDirection: 'column' 
                     }}>
-                            <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', gap: '8px' }}>
+                            <div style={{ padding: '16px', borderBottom: '1px solid #3E455633', display: 'flex', gap: '8px' }}>
                                 <button 
                                     onClick={() => setStatusFilter('open')}
                                     style={{
                                         flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
-                                        background: statusFilter === 'open' ? colors.background : 'transparent',
-                                        color: statusFilter === 'open' ? colors.primary : colors.textSecondary,
+                                        background: statusFilter === 'open' ? colors.primary : 'transparent',
+                                        color: '#fff',
                                         cursor: 'pointer', fontWeight: 600, fontSize: '12px'
                                     }}
                                 >
@@ -281,8 +281,8 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     onClick={() => setStatusFilter('closed')}
                                     style={{
                                         flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
-                                        background: statusFilter === 'closed' ? colors.background : 'transparent',
-                                        color: statusFilter === 'closed' ? colors.primary : colors.textSecondary,
+                                        background: statusFilter === 'closed' ? colors.primary : 'transparent',
+                                        color: '#fff',
                                         cursor: 'pointer', fontWeight: 600, fontSize: '12px'
                                     }}
                                 >
@@ -296,19 +296,20 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     <p>No {statusFilter} tickets</p>
                                 </div>
                             )}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
                             {filteredTickets.map(ticket => (
                                 <div 
                                     key={ticket.id}
                                     onClick={() => setSelectedTicket(ticket)}
                                     style={{ 
-                                        padding: '16px 24px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer',
-                                        background: selectedTicket?.id === ticket.id ? colors.background : 'transparent',
+                                        padding: '16px 24px', borderBottom: '1px solid #3E455633', cursor: 'pointer',
+                                        background: selectedTicket?.id === ticket.id ? 'rgba(255,255,255,0.05)' : 'transparent',
                                         borderLeft: selectedTicket?.id === ticket.id ? `4px solid ${colors.primary}` : '4px solid transparent',
                                         transition: 'all 0.2s'
                                     }}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '15px', color: colors.textPrimary }}>
+                                        <span style={{ fontWeight: 600, fontSize: '15px', color: '#fff' }}>
                                             {ticket.ownerName || `Ticket #${ticket.id.slice(-4)}`}
                                         </span>
                                         <span style={{ fontSize: '11px', color: colors.textSecondary }}>
@@ -328,26 +329,27 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     </div>
                                 </div>
                             ))}
+                            </div>
                         </div>
 
                         {/* Ticket Detail Section */}
                         {selectedTicket ? (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: colors.background }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'transparent' }}>
                                 {/* Toolbar */}
                                 <div style={{ 
                                     padding: '16px 32px', 
-                                    borderBottom: `1px solid ${colors.border}`, 
+                                    borderBottom: '1px solid #3E455633', 
                                     display: 'flex', 
                                     justifyContent: 'space-between', 
                                     alignItems: 'center', 
-                                    background: colors.surface 
+                                    background: 'rgba(0, 0, 0, 0.2)' 
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         {isMobile && (
                                             <button onClick={() => setSelectedTicket(null)} style={{ background: 'none', border: 'none', color: colors.textPrimary }}><ArrowLeft size={24} /></button>
                                         )}
                                         <div>
-                                            <h3 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>{selectedTicket.ownerName || 'User'}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>{selectedTicket.ownerName || 'User'}</h3>
                                             <div style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <User size={12} /> ID: {selectedTicket.ownerId}
                                             </div>
@@ -357,7 +359,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                         <select 
                                             value={selectedTicket.priority}
                                             onChange={(e) => handleUpdatePriority(e.target.value as any)}
-                                            style={{ background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, padding: '8px', borderRadius: '6px' }}
+                                            style={{ background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid #3E455633', padding: '8px', borderRadius: '6px', outline: 'none' }}
                                         >
                                             <option value="low">Low</option>
                                             <option value="medium">Medium</option>
@@ -366,7 +368,9 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                         {selectedTicket.status === 'open' && (
                                             <button 
                                                 onClick={() => handleUpdateStatus('closed')}
-                                                style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+                                                style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                                                onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                                             >
                                                 Close
                                             </button>
@@ -377,7 +381,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                 {/* Messages */}
                                 <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     {loadingMessages ? (
-                                        <div style={{ textAlign: 'center', padding: '40px' }}><RefreshCw className="animate-spin" /></div>
+                                        <div style={{ textAlign: 'center', padding: '40px', color: colors.primary }}><RefreshCw className="animate-spin" /></div>
                                     ) : (
                                         messages
                                             .filter(msg => {
@@ -389,13 +393,22 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             })
                                             .map(msg => (
                                                 <div key={msg.id} style={{ display: 'flex', gap: '12px' }}>
-                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: colors.surface }} />
-                                                    <div>
-                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                            <span style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.author.username}</span>
+                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid #3E455633', flexShrink: 0 }} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                                                            <span style={{ fontWeight: 600, color: '#fff' }}>{msg.author.username}</span>
                                                             <span style={{ fontSize: '11px', color: colors.textSecondary }}>{new Date(msg.timestamp).toLocaleTimeString()}</span>
                                                         </div>
-                                                        <div style={{ background: colors.surface, padding: '10px 14px', borderRadius: '0 12px 12px 12px', marginTop: '4px', fontSize: '14px', color: colors.textPrimary }}>{msg.content}</div>
+                                                        <div style={{ 
+                                                            background: 'rgba(255,255,255,0.05)', 
+                                                            border: '1px solid #3E455633',
+                                                            padding: '12px 16px', 
+                                                            borderRadius: '0 12px 12px 12px', 
+                                                            fontSize: '14px', 
+                                                            color: colors.textPrimary,
+                                                            lineHeight: '1.5',
+                                                            maxWidth: '85%'
+                                                        }}>{msg.content}</div>
                                                     </div>
                                                 </div>
                                             ))
@@ -405,14 +418,26 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
                                 {/* Reply Box */}
                                 {selectedTicket.status === 'open' && (
-                                    <div style={{ padding: '24px', background: colors.surface, borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '12px' }}>
+                                    <div style={{ padding: '24px', background: 'rgba(0, 0, 0, 0.2)', borderTop: '1px solid #3E455633', display: 'flex', gap: '12px' }}>
                                         <textarea 
                                             value={replyContent}
                                             onChange={e => setReplyContent(e.target.value)}
                                             placeholder="Write a reply..."
-                                            style={{ flex: 1, height: '60px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '12px', resize: 'none' }}
+                                            style={{ 
+                                                flex: 1, height: '60px', background: 'rgba(0,0,0,0.3)', 
+                                                color: '#fff', border: '1px solid #3E455633', 
+                                                borderRadius: '8px', padding: '12px', resize: 'none',
+                                                outline: 'none'
+                                            }}
                                         />
-                                        <button onClick={handleReply} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: '8px', padding: '0 24px', cursor: 'pointer' }}><Send size={20}/></button>
+                                        <button 
+                                            onClick={handleReply} 
+                                            style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: '8px', padding: '0 24px', cursor: 'pointer', transition: 'transform 0.1s' }}
+                                            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+                                            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                        >
+                                            <Send size={20}/>
+                                        </button>
                                     </div>
                                 )}
                             </div>
