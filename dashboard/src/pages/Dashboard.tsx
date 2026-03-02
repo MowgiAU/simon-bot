@@ -100,31 +100,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ color: colors.textPrimary, margin: 0, fontSize: '24px', fontWeight: 700 }}>
-            Dashboard Overview
-          </h1>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-           <UniversalSearch 
-              guildId={guildId} 
-              onNavigate={onNavigate} 
-              accessiblePlugins={accessiblePlugins} 
-           />
-           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button style={{ background: 'transparent', border: 'none', color: '#B9C3CE', cursor: 'pointer' }}><MessageSquare size={20} /></button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#252D3E', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid #3E455633' }}>
-                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: colors.primary, display: 'flex', alignItems: 'center', justifyItems: 'center', overflow: 'hidden' }}>
-                    <img src={`https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: '100%', height: '100%' }} alt="User" />
-                 </div>
-                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>mowgi</span>
-                    <span style={{ fontSize: '9px', color: '#8A92A0' }}>Administrator</span>
-                 </div>
-              </div>
-           </div>
-        </div>
+      <div className="dashboard-header" style={{ marginBottom: '24px' }}>
+        <h1 style={{ color: colors.textPrimary, margin: 0, fontSize: '24px', fontWeight: 700 }}>
+          Dashboard Overview
+        </h1>
       </div>
 
       <div className="settings-overview-banner">

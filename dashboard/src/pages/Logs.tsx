@@ -74,9 +74,10 @@ const CATEGORIES = [
 
 interface LogsProps {
   guildId: string;
+  searchParam?: string;
 }
 
-export const Logs: React.FC<LogsProps> = ({ guildId }) => {
+export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
   const [activeTab, setActiveTab] = useState<'logs' | 'users'>('logs');
   const [logs, setLogs] = useState<ActionLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,12 +92,18 @@ export const Logs: React.FC<LogsProps> = ({ guildId }) => {
   // Filters
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeUser, setActiveUser] = useState<string | null>(null);
+  const [activeUser, setActiveUser] = useState<string | null>(searchParam || null);
   
   // Comments Interaction
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    if (searchParam) {
+      setActiveUser(searchParam);
+    }
+  }, [searchParam]);
   
   // User Notes Interaction
   const [userNotes, setUserNotes] = useState<UserNote[]>([]);
