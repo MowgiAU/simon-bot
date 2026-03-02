@@ -48,43 +48,83 @@ const AppContent: React.FC = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh', 
-        background: `linear-gradient(135deg, ${colors.background} 0%, #1a1e2e 100%)`
+        background: colors.background,
+        backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.05) 0%, transparent 50%)' // Subtle green glow
       }}>
         <div style={{ 
-          background: colors.surface, 
+          background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
           padding: '48px', 
-          borderRadius: '16px', 
+          borderRadius: '24px', 
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)', 
           textAlign: 'center',
-          maxWidth: '400px',
+          maxWidth: '440px',
           width: '90%',
-          border: `1px solid ${colors.border}`
+          border: '1px solid #3E455633',
+          backdropFilter: 'blur(10px)'
         }}>
-          <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: '80px', height: '80px', marginBottom: '16px' }} />
-          <h1 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Fuji Studio</h1>
-          <p style={{ color: colors.textSecondary, marginBottom: '32px' }}>
+          <div style={{ 
+            width: '100px', 
+            height: '100px', 
+            background: 'rgba(40, 123, 102, 0.1)', 
+            borderRadius: '24px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            margin: '0 auto 24px',
+            border: '1px solid rgba(40, 123, 102, 0.2)'
+          }}>
+            <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: '64px', height: '64px' }} />
+          </div>
+          
+          <h1 style={{ 
+            color: colors.textPrimary, 
+            marginBottom: '12px', 
+            fontSize: '32px', 
+            fontWeight: 800,
+            letterSpacing: '-0.5px'
+          }}>
+            Fuji Studio
+          </h1>
+          
+          <p style={{ 
+            color: colors.textSecondary, 
+            marginBottom: '40px',
+            fontSize: '16px',
+            lineHeight: 1.5,
+            padding: '0 20px'
+          }}>
             Advanced community management for FL Studio producers
           </p>
+
           <button 
             onClick={login} 
             style={{ 
-              background: '#5865F2', 
+              background: 'rgb(40, 123, 102)', 
               color: 'white', 
               border: 'none', 
-              padding: '12px 24px', 
+              padding: '16px 32px', 
               fontSize: '16px', 
-              fontWeight: 600, 
-              borderRadius: '4px', 
+              fontWeight: 700, 
+              borderRadius: '12px', 
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '10px',
+              gap: '12px',
               width: '100%',
-              transition: 'background 0.2s'
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 4px 15px rgba(40, 123, 102, 0.3)'
             }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#4752C4'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#5865F2'}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(40, 123, 102, 0.4)';
+              e.currentTarget.style.background = 'rgb(45, 138, 115)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(40, 123, 102, 0.3)';
+              e.currentTarget.style.background = 'rgb(40, 123, 102)';
+            }}
           >
             <span style={{ fontSize: '20px' }}>⚡</span> Login with Discord
           </button>
