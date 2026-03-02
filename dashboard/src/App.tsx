@@ -212,7 +212,7 @@ const AppContent: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                   <MessageSquare size={20} color={colors.textSecondary} style={{ cursor: 'pointer' }} />
-                  <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: colors.highlight, borderRadius: '50%', border: '2px solid rgb(34,43,61)' }} />
+                  <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: colors.highlight, borderRadius: '50%', border: '2px solid #222B3D' }} />
               </div>
               
               <div style={{ width: '1px', height: '24px', background: '#1F293A' }} />
