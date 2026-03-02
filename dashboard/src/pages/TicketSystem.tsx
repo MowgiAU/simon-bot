@@ -393,7 +393,23 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             })
                                             .map(msg => (
                                                 <div key={msg.id} style={{ display: 'flex', gap: '12px' }}>
-                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid #3E455633', flexShrink: 0 }} />
+                                                    {msg.author.avatar ? (
+                                                        <img 
+                                                            src={`https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png`} 
+                                                            alt={msg.author.username}
+                                                            style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #3E455633', flexShrink: 0 }} 
+                                                        />
+                                                    ) : (
+                                                        <div style={{ 
+                                                            width: 40, height: 40, borderRadius: '50%', 
+                                                            background: 'rgba(255,255,255,0.05)', 
+                                                            border: '1px solid #3E455633', 
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0 
+                                                        }}>
+                                                            <User size={20} color={colors.textSecondary} />
+                                                        </div>
+                                                    )}
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                                                             <span style={{ fontWeight: 600, color: '#fff' }}>{msg.author.username}</span>
