@@ -55,35 +55,36 @@ export const SidebarStyles = `
 
   .sidebar.collapsed .nav-item:hover::after {
     content: attr(title);
-    position: absolute;
-    left: calc(100% + 12px);
-    top: 50%;
+    position: fixed; /* Changed from absolute to fixed to escape all containers */
+    left: 92px; /* Fixed distance from left screen edge when collapsed (80px width + 12px gap) */
+    top: auto; /* Allow transform to handle centering relative to the item */
     transform: translateY(-50%);
     background: #1A1E2E;
     color: #fff;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
-    z-index: 9999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    border: 1px solid #3E455633;
+    z-index: 20000; /* Extremely high z-index */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    border: 1px solid #3E455644;
     pointer-events: none;
     visibility: visible;
+    opacity: 1;
   }
 
   /* Tooltip arrow */
   .sidebar.collapsed .nav-item:hover::before {
     content: '';
-    position: absolute;
-    left: calc(100% + 6px);
-    top: 50%;
+    position: fixed; /* Changed to fixed */
+    left: 86px;
+    top: auto;
     transform: translateY(-50%);
     border-top: 6px solid transparent;
     border-bottom: 6px solid transparent;
     border-right: 6px solid #1A1E2E;
-    z-index: 9999;
+    z-index: 20000;
     pointer-events: none;
     visibility: visible;
   }
