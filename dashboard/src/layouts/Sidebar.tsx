@@ -47,9 +47,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
-            {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-        </button>
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
           <div style={{ 
             width: 42, 
@@ -63,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           }}>
             <img src={logoUrl} alt="Fuji Studio" style={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div className="logo-text" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 style={{ 
                 fontSize: '20px', 
                 fontWeight: 800, 
@@ -79,15 +76,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 letterSpacing: '1px',
                 textTransform: 'uppercase'
             }}>Discord Admin</span>
-          </div>
-        </div>
-        <div className="server-info" style={{ marginTop: 12, fontSize: 14, color: colors.textSecondary }}>
-          <div>Server:</div>
-          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            {guild.icon && (
-              <img src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`} alt="icon" style={{ width: 20, height: 20, borderRadius: 10, marginRight: 6 }} />
-            )}
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{guild.name}</span>
           </div>
         </div>
       </div>
