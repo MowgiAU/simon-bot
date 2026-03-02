@@ -182,12 +182,15 @@ const AppContent: React.FC = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          padding: '16px 32px', 
-          background: colors.background, 
-          borderBottom: `1px solid ${colors.border}33`,
+          padding: '12px 24px', 
+          background: 'rgb(34,43,61)', 
+          borderBottom: '1px solid #1F293A',
           position: 'sticky',
           top: 0,
-          zIndex: 100
+          zIndex: 100,
+          margin: '16px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 24px 0 rgba(0,0,0,0.1)'
         }}>
            <button
             className="mobile-menu-toggle"
@@ -198,7 +201,7 @@ const AppContent: React.FC = () => {
             ☰
           </button>
           
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}>
              <UniversalSearch 
                 guildId={selectedGuild.id} 
                 onNavigate={handleNavigate} 
@@ -206,21 +209,60 @@ const AppContent: React.FC = () => {
              />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <button style={{ background: 'transparent', border: 'none', color: '#B9C3CE', cursor: 'pointer' }}><MessageSquare size={20} /></button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#252D3E', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid #3E455633' }}>
-                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: colors.primary, display: 'flex', alignItems: 'center', justifyItems: 'center', overflow: 'hidden' }}>
-                    <img src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: '100%', height: '100%' }} alt="User" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                  <MessageSquare size={20} color={colors.textSecondary} style={{ cursor: 'pointer' }} />
+                  <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: colors.highlight, borderRadius: '50%', border: '2px solid rgb(34,43,61)' }} />
+              </div>
+              
+              <div style={{ width: '1px', height: '24px', background: '#1F293A' }} />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{user.username}</span>
+                    <span style={{ fontSize: '11px', color: colors.textSecondary }}>{permissions.canManagePlugins ? 'Administrator' : 'Moderator'}</span>
                  </div>
-                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>{user.username}</span>
-                    <span style={{ fontSize: '9px', color: '#8A92A0' }}>{permissions.canManagePlugins ? 'Administrator' : 'Moderator'}</span>
+                 <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: colors.primary, display: 'flex', alignItems: 'center', justifyItems: 'center', overflow: 'hidden', border: '2px solid #1F293A' }}>
+                    <img src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: '100%', height: '100%' }} alt="User" />
                  </div>
               </div>
           </div>
         </div>
         
-        <div style={{ padding: '24px 0' }}>
+        <div style={{ padding: '0 16px 24px' }}>
+            {/* Context Info Bar */}
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                padding: '12px 24px',
+                color: colors.textSecondary,
+                fontSize: '13px'
+            }}>
+                <div style={{ 
+                    width: '32px', 
+                    height: '32px', 
+                    borderRadius: '50%', 
+                    border: `1px solid ${colors.primary}44`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: colors.primary
+                }}>
+                    <span style={{ fontSize: '16px' }}>ⓘ</span>
+                </div>
+                <div>
+                    <span style={{ fontWeight: 700, color: '#FFFFFF', marginRight: '8px' }}>
+                        {activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace(/-/g, ' ')} Overview:
+                    </span>
+                    Configure your studio bot identity, managed plugins, and moderation tools. Changes sync in real-time.
+                </div>
+                <div style={{ flex: 1 }} />
+                <a href="#" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    Documentation <ArrowRight size={14} />
+                </a>
+            </div>
+
           {renderContent()}
         </div>
       </main>

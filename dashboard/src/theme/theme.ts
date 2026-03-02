@@ -30,13 +30,13 @@ export const colors = {
   tertiaryDark: '#3F210D',
   
   // Neutrals - Vuexy dark theme
-  background: '#1A1E2E',
-  surface: '#242C3D',
+  background: '#252C3C',
+  surface: 'rgb(34,43,61)',
   surfaceLight: '#2F3647',
-  border: '#3E4556',
+  border: '#1F293A',
   
   // Custom for Mockup
-  cardBg: '#252D3E',
+  cardBg: 'rgb(34,43,61)',
   sidebarBg: '#1A1E2E',
   headerBg: '#1A1E2E',
   
