@@ -28,6 +28,14 @@ export const AppStyles = `
     margin-left: 260px;
     overflow-y: auto;
     background-color: ${colors.background};
+    transition: margin-left 0.3s ease;
+    z-index: 1; /* Keep content below sidebar popovers */
+    position: relative;
+  }
+
+  .sidebar.collapsed + .main-content,
+  .sidebar.collapsed ~ .main-content {
+    margin-left: 80px;
   }
 
   /* Global scrollbar */

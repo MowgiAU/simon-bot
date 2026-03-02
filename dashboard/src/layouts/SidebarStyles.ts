@@ -11,13 +11,21 @@ export const SidebarStyles = `
     position: fixed;
     left: 0;
     top: 0;
-    overflow: visible;
+    overflow: visible; /* CRITICAL: Allow tooltips to go outside the sidebar */
     z-index: 1000;
     transition: width 0.3s ease, transform 0.3s ease;
   }
 
   .sidebar.collapsed {
     width: 80px;
+    overflow: visible; /* Double-ensure for collapsed state */
+  }
+
+  .nav-items {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible; /* Allow horizontal overflow for tooltips */
+    padding: ${spacing.md} 0;
   }
 
   .sidebar.collapsed .sidebar-header {
@@ -58,10 +66,11 @@ export const SidebarStyles = `
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
-    z-index: 1001;
+    z-index: 9999;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     border: 1px solid #3E455633;
     pointer-events: none;
+    visibility: visible;
   }
 
   /* Tooltip arrow */
@@ -74,8 +83,9 @@ export const SidebarStyles = `
     border-top: 6px solid transparent;
     border-bottom: 6px solid transparent;
     border-right: 6px solid #1A1E2E;
-    z-index: 1001;
+    z-index: 9999;
     pointer-events: none;
+    visibility: visible;
   }
 
   .sidebar-header {
