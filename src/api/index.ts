@@ -3,7 +3,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -1016,6 +1016,13 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
             
         res.json(channels);
     } catch (e) { 
+        if (axios.isAxiosError(e)) {
+            const err = e as AxiosError;
+            logger.error(`Discord API Error (Channels): ${err.response?.status} ${JSON.stringify(err.response?.data)}`);
+            if (err.response?.status === 403 || err.response?.status === 401) {
+                return res.status(err.response.status).json({ error: 'Discord permission error' });
+            }
+        }
         logger.error('Failed to fetch channels', e);
         res.status(500).json([]); 
     }
@@ -1039,6 +1046,13 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
         res.json(response.data);
     } catch (e) {
         const { guildId } = req.params;
+        if (axios.isAxiosError(e)) {
+            const err = e as AxiosError;
+            logger.error(`Discord API Error (Roles): ${err.response?.status} ${JSON.stringify(err.response?.data)}`);
+            if (err.response?.status === 403 || err.response?.status === 401) {
+                return res.status(err.response.status).json({ error: 'Discord permission error' });
+            }
+        }
         logger.error(`Failed to fetch roles for ${guildId}`, e);
         res.status(500).json([]);
     }
