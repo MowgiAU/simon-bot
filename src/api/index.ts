@@ -1038,6 +1038,7 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
         });
         res.json(response.data);
     } catch (e) {
+        const { guildId } = req.params;
         logger.error(`Failed to fetch roles for ${guildId}`, e);
         res.status(500).json([]);
     }
