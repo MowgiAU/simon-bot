@@ -35,6 +35,11 @@ export const colors = {
   surfaceLight: '#2F3647',
   border: '#3E4556',
   
+  // Custom for Mockup
+  cardBg: '#252D3E',
+  sidebarBg: '#1A1E2E',
+  headerBg: '#1A1E2E',
+  
   // Text
   textPrimary: '#FFFFFF',
   textSecondary: '#B9C3CE',

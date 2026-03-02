@@ -4,8 +4,8 @@ export const SidebarStyles = `
   .sidebar {
     width: 260px;
     height: 100vh;
-    background-color: ${colors.surface};
-    border-right: 1px solid ${colors.border};
+    background-color: ${colors.sidebarBg || colors.surface};
+    border-right: 1px solid ${colors.border}33;
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -20,65 +20,11 @@ export const SidebarStyles = `
     width: 80px;
   }
 
-  .sidebar.collapsed .logo h1,
-  .sidebar.collapsed .server-info,
-  .sidebar.collapsed .nav-group-title,
-  .sidebar.collapsed .nav-label,
-  .sidebar.collapsed .user-info {
-    display: none;
-    opacity: 0;
-  }
-
-  .sidebar.collapsed .nav-item {
-    justify-content: center;
-    padding: ${spacing.md};
-  }
-  
-  .sidebar.collapsed .nav-icon {
-    margin: 0;
-    font-size: 20px;
-  }
-
-  .sidebar.collapsed .logo {
-    justify-content: center;
-    margin-top: 0;
-  }
-  
   .sidebar-header {
-    padding: ${spacing.lg} ${spacing.md};
-    border-bottom: 1px solid ${colors.border};
+    padding: ${spacing.xl} ${spacing.lg};
+    border-bottom: 1px solid ${colors.border}33;
     position: relative;
-  }
-
-  .collapse-btn {
-    position: absolute;
-    right: -12px;
-    top: 32px;
-    background: ${colors.surface};
-    border: 1px solid ${colors.border};
-    color: ${colors.textSecondary};
-    cursor: pointer;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1002;
-    padding: 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-
-  .sidebar.collapsed .collapse-btn {
-    right: -12px;
-    transform: none;
-    top: 32px;
-  }
-
-  .collapse-btn:hover {
-    background: ${colors.surfaceLight};
-    color: ${colors.textPrimary};
-    transform: scale(1.1);
+    margin-bottom: ${spacing.lg};
   }
 
   .logo {
@@ -89,79 +35,112 @@ export const SidebarStyles = `
     transition: opacity 0.2s;
   }
 
-  .logo:hover {
-    opacity: 0.8;
-  }
-
-  .logo-icon {
-    font-size: 24px;
-    color: ${colors.primary};
+  .logo img {
+    width: 38px !important;
+    height: 38px !important;
+    background: ${colors.primary}20;
+    padding: 6px;
+    border-radius: 10px;
   }
 
   .logo h1 {
     color: ${colors.textPrimary};
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 18px;
+    font-weight: 700;
     margin: 0;
-  }
-
-  .sidebar-nav {
-    flex: 1;
-    padding: ${spacing.lg} ${spacing.md};
-    overflow-y: auto;
-  }
-
-  .nav-group {
-    margin-bottom: ${spacing.xl};
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
 
   .nav-group-title {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: 700;
     color: ${colors.textTertiary};
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0 0 ${spacing.md} 0;
-    padding: 0;
+    letter-spacing: 1.2px;
+    margin: ${spacing.xl} 0 ${spacing.sm} 0;
+    padding-left: ${spacing.lg};
+    opacity: 0.6;
   }
 
   .nav-item {
-    width: 100%;
+    width: calc(100% - ${spacing.lg} * 2);
+    margin: 0 ${spacing.lg} ${spacing.xs} ${spacing.lg};
     display: flex;
     align-items: center;
     gap: ${spacing.md};
     padding: ${spacing.md} ${spacing.lg};
     background: transparent;
     border: none;
-    color: ${colors.textSecondary};
+    color: #B9C3CE;
     cursor: pointer;
-    border-radius: ${borderRadius.md};
-    transition: all 0.2s;
+    border-radius: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: ${typography.fontFamily};
     font-size: 14px;
     font-weight: 500;
-    margin-bottom: ${spacing.sm};
   }
 
   .nav-item:hover {
-    background-color: ${colors.surfaceLight};
+    background-color: ${colors.surfaceLight}40;
     color: ${colors.textPrimary};
+    transform: translateX(4px);
   }
 
   .nav-item.active {
-    background-color: ${colors.primary}20;
-    color: ${colors.primary};
-    border-left: 3px solid ${colors.primary};
-    padding-left: calc(${spacing.lg} - 3px);
+    background: linear-gradient(118deg, ${colors.primary}, ${colors.primary}CC);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px 0 ${colors.primary}4D;
+    padding-left: ${spacing.lg};
+  }
+
+  .nav-item.active .nav-icon {
+    color: #FFFFFF;
   }
 
   .nav-icon {
-    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    color: ${colors.textSecondary};
   }
 
   .nav-label {
     flex: 1;
     text-align: left;
+    white-space: nowrap;
+  }
+  
+  .sidebar-footer {
+    padding: ${spacing.lg};
+    background: ${colors.sidebarBg}CC;
+    border-top: 1px solid ${colors.border}33;
+    margin-top: auto;
+  }
+
+  .collapse-sidebar-btn {
+    width: 100%;
+    padding: 10px;
+    background: ${colors.surfaceLight}33;
+    border: none;
+    border-radius: 6px;
+    color: ${colors.textSecondary};
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .collapse-sidebar-btn:hover {
+    background: ${colors.surfaceLight}66;
+    color: ${colors.textPrimary};
   }
 
   .sidebar-footer {

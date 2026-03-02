@@ -3,7 +3,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
 import { 
-  MessageSquare, Mail, Shield, DollarSign, UserPlus, FileText, ArrowRight 
+  MessageSquare, Mail, Shield, ShieldAlert, DollarSign, UserPlus, FileText, ArrowRight, LayoutDashboard, Settings
 } from 'lucide-react';
 import { colors, spacing } from '../theme/theme';
 import './Dashboard.css';
@@ -98,72 +98,156 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate }) => 
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h1 style={{ color: colors.textPrimary, margin: 0, fontSize: '32px', fontWeight: 700 }}>
-          Dashboard
-        </h1>
-        <p style={{ color: colors.textSecondary, margin: '8px 0 0 0', fontSize: '15px' }}>
-          Welcome to Fuji Studio Control Panel
-        </p>
+      <div className="dashboard-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ color: colors.textPrimary, margin: 0, fontSize: '24px', fontWeight: 700 }}>
+            Dashboard Overview
+          </h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+           <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder="Search plugins..." 
+                style={{ background: '#252D3E', border: '1px solid #3E455633', borderRadius: '8px', padding: '8px 16px 8px 36px', color: '#FFFFFF', fontSize: '14px', width: '240px' }}
+              />
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}><LayoutDashboard size={14} /></span>
+           </div>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button style={{ background: 'transparent', border: 'none', color: '#B9C3CE', cursor: 'pointer' }}><MessageSquare size={20} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#252D3E', padding: '4px 12px 4px 4px', borderRadius: '20px', border: '1px solid #3E455633' }}>
+                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: colors.primary, display: 'flex', alignItems: 'center', justifyItems: 'center', overflow: 'hidden' }}>
+                    <img src={`https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: '100%', height: '100%' }} alt="User" />
+                 </div>
+                 <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>mowgi</span>
+                    <span style={{ fontSize: '9px', color: '#8A92A0' }}>Administrator</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+
+      <div className="settings-overview-banner">
+         <div className="banner-content">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+               <div style={{ background: 'rgba(43, 140, 113, 0.2)', padding: '10px', borderRadius: '10px' }}>
+                  <Shield size={24} color={colors.primary} />
+               </div>
+               <div>
+                  <h2 style={{ margin: 0, fontSize: '20px' }}>Settings Overview</h2>
+                  <p style={{ margin: 0, fontSize: '13px', opacity: 0.8 }}>Welcome back to Fuji Studio. Configure your studio bot identity, managed plugins, and moderation tools from this central hub. Changes are synchronized across all connected instances in real-time.</p>
+               </div>
+            </div>
+         </div>
+         <a href="#" style={{ color: colors.primary, fontSize: '14px', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>Documentation <ArrowRight size={16} /></a>
       </div>
 
       {loading ? (
         <div style={{ padding: 40, color: colors.textSecondary }}>Loading stats...</div>
       ) : (
         <>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+             {/* Main Chart Card */}
+             <div style={{ background: '#252D3E', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                   <div>
+                      <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Server Growth</h3>
+                      <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8A92A0' }}>Analytics for the last 30 days</p>
+                   </div>
+                   <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '24px', fontWeight: 700, color: '#FFFFFF' }}>{formatNumber(stats?.totalMembers || 0)}</div>
+                      <div style={{ fontSize: '12px', color: colors.success }}>+12.5%</div>
+                   </div>
+                </div>
+                <div style={{ height: '300px' }}>
+                   <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={historyData}>
+                        <defs>
+                          <linearGradient id="colorMessages" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={colors.primary} stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor={colors.primary} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3E455622" vertical={false} />
+                        <XAxis dataKey="date" stroke="#8A92A0" axisLine={false} tickLine={false} fontSize={10} dy={10} />
+                        <YAxis hide />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="messageCount" stroke={colors.primary} fillOpacity={1} fill="url(#colorMessages)" strokeWidth={3} />
+                      </AreaChart>
+                   </ResponsiveContainer>
+                </div>
+             </div>
+
+             {/* Recent Activity Card */}
+             <div style={{ background: '#252D3E', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                   <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Recent Activity</h3>
+                   <Settings size={16} color="#8A92A0" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                   {[
+                      { icon: <Shield size={16} />, title: 'Plugin Updated', desc: 'Moderation core updated to v2.4', time: '2 MINS AGO', color: colors.primary },
+                      { icon: <ShieldAlert size={16} />, title: 'System Alert', desc: 'High latency detected in Tokyo node', time: '1 HOUR AGO', color: colors.highlight },
+                      { icon: <UserPlus size={16} />, title: 'New Members', desc: '14 users joined the Discord', time: 'YESTERDAY', color: colors.info }
+                   ].map((item, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '12px' }}>
+                         <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${item.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
+                            {item.icon}
+                         </div>
+                         <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{item.title}</div>
+                            <div style={{ fontSize: '11px', color: '#8A92A0', marginBottom: '2px' }}>{item.desc}</div>
+                            <div style={{ fontSize: '10px', color: '#8A92A0', opacity: 0.6 }}>{item.time}</div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+                <button style={{ width: '100%', marginTop: '24px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '12px', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>View All Logs</button>
+             </div>
+          </div>
+
           {/* Stats Grid */}
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.12)' }}>
-                <span style={{ fontSize: '24px' }}>👥</span>
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.1)' }}>
+                <UserPlus size={20} color={colors.primary} />
               </div>
-              <div className="stat-content">
-                <p className="stat-label">Total Members</p>
-                <h3 className="stat-value">{stats ? formatNumber(stats.totalMembers) : '-'}</h3>
-                <p className="stat-change text-neutral">Current count</p>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(62, 89, 34, 0.12)' }}>
-                <span style={{ fontSize: '24px' }}>👤</span>
-              </div>
-              <div className="stat-content">
-                <p className="stat-label">Active Users (24h)</p>
+              <div>
+                <p className="stat-label">People Online</p>
                 <h3 className="stat-value">{stats ? formatNumber(stats.activeMembers) : '-'}</h3>
-                <p className="stat-change positive">
-                  {stats && stats.totalMembers > 0 
-                    ? `${Math.round((stats.activeMembers / stats.totalMembers) * 100)}% of members` 
-                    : '0%'}
-                </p>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(122, 140, 55, 0.12)' }}>
-                <span style={{ fontSize: '24px' }}>💬</span>
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.1)' }}>
+                <MessageSquare size={20} color={colors.highlight} />
               </div>
-              <div className="stat-content">
-                <p className="stat-label">Messages Today</p>
-                <h3 className="stat-value">{stats?.today?.messageCount || 0}</h3>
-                <p className="stat-change text-neutral">
-                    Lifetime: {stats?.totals?.messages ? formatNumber(stats.totals.messages) : '-'}
-                </p>
+              <div>
+                <p className="stat-label">Messages 24h</p>
+                <h3 className="stat-value">{formatNumber(stats?.today?.messageCount || 0)}</h3>
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.12)' }}>
-                <span style={{ fontSize: '24px' }}>🎤</span>
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(33, 150, 243, 0.1)' }}>
+                <UserPlus size={20} color={colors.info} />
               </div>
-              <div className="stat-content">
-                <p className="stat-label">Voice Today</p>
+              <div>
+                <p className="stat-label">Total Users</p>
+                <h3 className="stat-value">{stats ? formatNumber(stats.totalMembers) : '-'}</h3>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(0, 208, 132, 0.1)' }}>
+                <div style={{ width: 20, height: 20, border: `2px solid ${colors.success}`, borderRadius: '4px' }} />
+              </div>
+              <div>
+                <p className="stat-label">Voice 24h</p>
                 <h3 className="stat-value">
                   {Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h
                 </h3>
-                <p className="stat-change text-neutral">
-                    Lifetime: {stats?.totals?.voiceMinutes ? Math.round(stats.totals.voiceMinutes / 60) : '-'}h
-                </p>
               </div>
             </div>
           </div>

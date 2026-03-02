@@ -65,9 +65,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         </div>
       </div>
 
-      <nav className="sidebar-nav">
+      <div className="sidebar-nav">
         <div className="nav-group">
-          <h3 className="nav-group-title">Main</h3>
+          <h3 className="nav-group-title">General</h3>
           <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => onNavigate('dashboard')}
@@ -191,44 +191,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         </div>
 
         <div className="nav-group">
+          <h3 className="nav-group-title">Management</h3>
           {permissions.canManagePlugins && (
-          <>
-          <h3 className="nav-group-title">Admin</h3>
           <button
             className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`}
             onClick={() => onNavigate('plugins')}
-            title={collapsed ? "Plugins" : ""}
+            title={collapsed ? "Admin Panel" : ""}
           >
-            <span className="nav-icon"><Settings size={20} /></span>
-            <span className="nav-label">Plugins</span>
+            <span className="nav-icon"><Settings size={18} /></span>
+            <span className="nav-label">Admin Panel</span>
           </button>
-          </>
           )}
-           {/* Only show in Staging - checking localhost is easiest or env var */}
-           {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-            <button
-                className={`nav-item ${activeSection === 'staging-test' ? 'active' : ''}`}
-                onClick={() => onNavigate('staging-test')}
-                style={{ color: colors.warning }}
-                title={collapsed ? "Staging Test" : ""}
-            >
-                <span className="nav-icon"><Settings size={20} /></span>
-                <span className="nav-label">Staging Test</span>
-            </button>
-           )}        </div>
-      </nav>
+        </div>
+      </div>
 
       <div className="sidebar-footer">
-        <div className="user-profile">
-          <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} alt="User" />
-          <div className="user-info">
-            <p className="user-name">{user.username}</p>
-            <button className="logout-btn" onClick={logout}>
-              <LogOut size={16} style={{ marginRight: 6 }} />
-              Logout
-            </button>
-          </div>
-        </div>
+         <button className="collapse-sidebar-btn" onClick={() => setCollapsed(!collapsed)} style={{ width: '100%', padding: '10px', background: 'transparent', border: 'none', color: '#B9C3CE', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px' }}>
+            {collapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /> Collapse Sidebar</>}
+         </button>
       </div>
     </aside>
   );
