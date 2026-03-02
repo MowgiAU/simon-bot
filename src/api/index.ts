@@ -987,7 +987,13 @@ app.post('/api/guilds/:guildId/moderation/permissions', async (req, res) => {
 // Proxy to get channels/roles (Generic)
 app.get('/api/guilds/:guildId/channels', async (req, res) => {
     try {
+        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
+        
+        // Verify mutual guild membership/admin or at least existence in dashboard session
+        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId);
+        if (!isMutual) return res.status(403).json({ error: 'Forbidden' });
+
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
@@ -1013,7 +1019,13 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
 
 app.get('/api/guilds/:guildId/roles', async (req, res) => {
     try {
+        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
+
+        // Verify mutual guild membership/admin
+        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId);
+        if (!isMutual) return res.status(403).json({ error: 'Forbidden' });
+
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
