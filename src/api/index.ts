@@ -987,24 +987,32 @@ app.post('/api/guilds/:guildId/moderation/permissions', async (req, res) => {
 // Proxy to get channels/roles (Generic)
 app.get('/api/guilds/:guildId/channels', async (req, res) => {
     try {
-        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
         
-        // Verify mutual guild membership/admin or at least existence in dashboard session
-        // Use guild.id comparison because mutualAdminGuilds objects might have different properties
-        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => (g.id === guildId || g === guildId));
+        // Defensive check: handle null/undefined/non-array session data
+        const mutualGuilds = req.session.mutualAdminGuilds || [];
+        const isMutual = Array.isArray(mutualGuilds) && mutualGuilds.some((g: any) => {
+            if (!g) return false;
+            return (typeof g === 'string' && g === guildId) || (g.id === guildId);
+        });
+
         if (!isMutual) {
-            logger.warn(`User ${req.session.user.id} attempted to access channels for unauthorized guild ${guildId}`);
+            logger.warn(`User ${req.session.user.id} denied access to channels for ${guildId}`);
             return res.status(403).json({ error: 'Forbidden' });
         }
 
+        if (!process.env.DISCORD_TOKEN) {
+            logger.error('CRITICAL: DISCORD_TOKEN is missing from environment');
+            return res.status(500).json({ error: 'Server configuration error' });
+        }
+
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+            timeout: 5000 // Prevent hanging
         });
         
-        // Return ALL channels and let frontend filter. 
-        // We only map necessary fields to reduce payload size.
-        const channels = response.data
+        const channels = (response.data || [])
             .map((c: any) => ({
                 id: c.id,
                 name: c.name,
@@ -1012,48 +1020,50 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
                 parentId: c.parent_id,
                 position: c.position
             }))
-            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+            .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
             
         res.json(channels);
-    } catch (e) { 
+    } catch (e: any) { 
         if (axios.isAxiosError(e)) {
-            const err = e as AxiosError;
-            logger.error(`Discord API Error (Channels): ${err.response?.status} ${JSON.stringify(err.response?.data)}`);
-            if (err.response?.status === 403 || err.response?.status === 401) {
-                return res.status(err.response.status).json({ error: 'Discord permission error' });
-            }
+            logger.error(`Discord API Error (Channels): ${e.response?.status} ${JSON.stringify(e.response?.data)}`);
+            return res.status(e.response?.status || 500).json({ error: 'Discord communication failed' });
         }
-        logger.error('Failed to fetch channels', e);
+        logger.error('Internal error fetching channels', e);
         res.status(500).json([]); 
     }
 });
 
 app.get('/api/guilds/:guildId/roles', async (req, res) => {
     try {
-        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
 
-        // Verify mutual guild membership/admin or existence in session
-        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => (g.id === guildId || g === guildId));
+        const mutualGuilds = req.session.mutualAdminGuilds || [];
+        const isMutual = Array.isArray(mutualGuilds) && mutualGuilds.some((g: any) => {
+            if (!g) return false;
+            return (typeof g === 'string' && g === guildId) || (g.id === guildId);
+        });
+
         if (!isMutual) {
-            logger.warn(`User ${req.session.user.id} attempted to access roles for unauthorized guild ${guildId}`);
+            logger.warn(`User ${req.session.user.id} denied role access for ${guildId}`);
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-        });
-        res.json(response.data);
-    } catch (e) {
-        const { guildId } = req.params;
-        if (axios.isAxiosError(e)) {
-            const err = e as AxiosError;
-            logger.error(`Discord API Error (Roles): ${err.response?.status} ${JSON.stringify(err.response?.data)}`);
-            if (err.response?.status === 403 || err.response?.status === 401) {
-                return res.status(err.response.status).json({ error: 'Discord permission error' });
-            }
+        if (!process.env.DISCORD_TOKEN) {
+            return res.status(500).json({ error: 'Missing token' });
         }
-        logger.error(`Failed to fetch roles for ${guildId}`, e);
+
+        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+            timeout: 5000
+        });
+        res.json(response.data || []);
+    } catch (e: any) {
+        if (axios.isAxiosError(e)) {
+            logger.error(`Discord API Error (Roles): ${e.response?.status} ${JSON.stringify(e.response?.data)}`);
+            return res.status(e.response?.status || 500).json({ error: 'Discord failed' });
+        }
+        logger.error(`Internal role fetch error for ${req.params.guildId}`, e);
         res.status(500).json([]);
     }
 });
