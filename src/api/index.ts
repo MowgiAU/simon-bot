@@ -2093,6 +2093,11 @@ app.get('/api/tickets/settings/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
 
+    // Security check
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const settings = await db.ticketSettings.findUnique({
         where: { guildId }
     });
@@ -2104,6 +2109,12 @@ app.get('/api/tickets/settings/:guildId', async (req, res) => {
 app.post('/api/tickets/settings/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
+
+    // Security check
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const { staffRoleIds, ticketCategoryId, transcriptChannelId, ticketMessage } = req.body;
 
     const settings = await db.ticketSettings.upsert({
@@ -2130,6 +2141,12 @@ app.post('/api/tickets/settings/:guildId', async (req, res) => {
 app.get('/api/tickets/list/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
+
+    // Security check
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const { status } = req.query; // 'open' or 'closed'
 
     const where: any = { guildId };
