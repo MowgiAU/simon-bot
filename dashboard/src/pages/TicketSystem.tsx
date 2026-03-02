@@ -8,6 +8,7 @@ import {
 import { useMobile } from '../hooks/useMobile';
 import { RoleSelect } from '../components/RoleSelect';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { useAuth } from '../components/AuthProvider';
 
 interface TicketData {
     id: string;
@@ -48,6 +49,8 @@ interface Props {
 
 export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     const isMobile = useMobile();
+    const { selectedGuild } = useAuth();
+    const activeGuildId = selectedGuild?.id || guildId;
     const [view, setView] = useState<'tickets' | 'settings'>('tickets');
     
     // Ticket List State
@@ -60,7 +63,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
     // Settings State
     const [settings, setSettings] = useState<TicketSettings>({
-        guildId,
+        guildId: activeGuildId,
         ticketCategoryId: null,
         staffRoleIds: [],
         transcriptChannelId: null,
@@ -73,7 +76,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
         fetchSettings();
         const interval = setInterval(fetchTickets, 30000);
         return () => clearInterval(interval);
-    }, [guildId]);
+    }, [activeGuildId]);
 
     useEffect(() => {
         if (searchParam && tickets.length > 0) {
@@ -96,7 +99,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
     const fetchTickets = async () => {
         try {
-            const res = await axios.get(`/api/tickets/list/${guildId}`, { withCredentials: true });
+            const res = await axios.get(`/api/tickets/list/${activeGuildId}`, { withCredentials: true });
             setTickets(res.data);
         } catch (e) {
             console.error('Failed to fetch tickets', e);
@@ -105,7 +108,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
     const fetchSettings = async () => {
         try {
-            const res = await axios.get(`/api/tickets/settings/${guildId}`, { withCredentials: true });
+            const res = await axios.get(`/api/tickets/settings/${activeGuildId}`, { withCredentials: true });
             if (res.data) setSettings(res.data);
         } catch (e) {
             console.error('Failed to fetch ticket settings', e);
@@ -133,7 +136,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     const handleSaveSettings = async () => {
         setSavingSettings(true);
         try {
-            await axios.post(`/api/tickets/settings/${guildId}`, settings, { withCredentials: true });
+            await axios.post(`/api/tickets/settings/${activeGuildId}`, settings, { withCredentials: true });
             alert('Settings saved successfully!');
         } catch (e) {
             alert('Failed to save settings');
@@ -426,7 +429,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                         </div>
                         <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px', fontWeight: 700 }}>STAFF ROLES TO PING</label>
                         <RoleSelect 
-                            guildId={guildId} 
+                            guildId={activeGuildId} 
                             value={settings.staffRoleIds} 
                             onChange={(val) => setSettings({ ...settings, staffRoleIds: val as string[] })}
                             multiple={true}
@@ -434,7 +437,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                         <div style={{ marginTop: '20px' }}>
                              <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px', fontWeight: 700 }}>TICKET CATEGORY</label>
                              <ChannelSelect 
-                                guildId={guildId} 
+                                guildId={activeGuildId} 
                                 value={settings.ticketCategoryId || ''} 
                                 onChange={(val) => setSettings({ ...settings, ticketCategoryId: val as string })}
                                 channelTypes={[4]}
@@ -449,7 +452,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                         </div>
                         <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px', fontWeight: 700 }}>TRANSCRIPT LOG CHANNEL</label>
                         <ChannelSelect 
-                            guildId={guildId} 
+                            guildId={activeGuildId} 
                             value={settings.transcriptChannelId || ''} 
                             onChange={(val) => setSettings({ ...settings, transcriptChannelId: val as string })}
                             channelTypes={[0, 5]}
