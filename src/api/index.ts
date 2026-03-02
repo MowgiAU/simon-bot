@@ -991,8 +991,12 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
         const { guildId } = req.params;
         
         // Verify mutual guild membership/admin or at least existence in dashboard session
-        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId);
-        if (!isMutual) return res.status(403).json({ error: 'Forbidden' });
+        // Use guild.id comparison because mutualAdminGuilds objects might have different properties
+        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => (g.id === guildId || g === guildId));
+        if (!isMutual) {
+            logger.warn(`User ${req.session.user.id} attempted to access channels for unauthorized guild ${guildId}`);
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
@@ -1022,15 +1026,21 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
         if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
 
-        // Verify mutual guild membership/admin
-        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId);
-        if (!isMutual) return res.status(403).json({ error: 'Forbidden' });
+        // Verify mutual guild membership/admin or existence in session
+        const isMutual = req.session.mutualAdminGuilds?.some((g: any) => (g.id === guildId || g === guildId));
+        if (!isMutual) {
+            logger.warn(`User ${req.session.user.id} attempted to access roles for unauthorized guild ${guildId}`);
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
         });
         res.json(response.data);
-    } catch (e) { res.status(500).json([]); }
+    } catch (e) {
+        logger.error(`Failed to fetch roles for ${guildId}`, e);
+        res.status(500).json([]);
+    }
 });
 
 // --- Plugin Management Routes ---
