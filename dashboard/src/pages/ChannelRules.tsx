@@ -223,8 +223,8 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                     onClick={() => setActiveTab('rules')}
                     style={{ 
                         padding: '10px 20px', 
-                        background: activeTab === 'rules' ? colors.primary : colors.surface, 
-                        color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+                        background: activeTab === 'rules' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
+                        color: 'white', border: '1px solid #3E455633', borderRadius: 8, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -234,8 +234,8 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                     onClick={() => setActiveTab('queue')}
                     style={{ 
                         padding: '10px 20px', 
-                        background: activeTab === 'queue' ? colors.primary : colors.surface, 
-                        color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+                        background: activeTab === 'queue' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
+                        color: 'white', border: '1px solid #3E455633', borderRadius: 8, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -248,7 +248,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             ) : (
                 <>
                 {/* Global Settings */}
-                <div style={{ background: colors.surface, padding: spacing.lg, borderRadius: 8, marginBottom: spacing.lg, border: `1px solid ${colors.border}` }}>
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.lg, borderRadius: 8, marginBottom: spacing.lg, border: '1px solid #3E455633' }}>
                     <h3 style={{ ...typography.h3, color: colors.textPrimary, marginTop: 0 }}>Global Configuration</h3>
                     <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end', marginTop: spacing.md }}>
                         <div style={{ flex: 1 }}>
@@ -279,10 +279,10 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                 <div style={{ display: 'grid', gap: spacing.md }}>
                     {settings?.rules.map(rule => (
                         <div key={rule.id} style={{ 
-                            background: colors.surface, 
+                            background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
                             padding: spacing.md, 
                             borderRadius: 8, 
-                            border: `1px solid ${colors.border}`,
+                            border: '1px solid #3E455633',
                             display: 'flex', alignItems: 'center', gap: spacing.md
                         }}>
                             <div style={{ 

@@ -156,7 +156,7 @@ export const PluginManagementPage: React.FC = () => {
             </div>
 
             {/* Dashboard Access */}
-            <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '18px' : '22px' }}>
                     <Lock size={20} /> Dashboard Access
                 </h2>
@@ -199,7 +199,7 @@ export const PluginManagementPage: React.FC = () => {
                     const isExpanded = expandedPlugin === plugin.id;
 
                     return (
-                        <div key={plugin.id} style={{ background: colors.surface, borderRadius: borderRadius.lg, overflow: 'hidden' }}>
+                        <div key={plugin.id} style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', borderRadius: borderRadius.lg, overflow: 'hidden' }}>
                             <div style={{ padding: isMobile ? '16px' : '20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? '16px' : '0' }}>
                                 <div style={{ marginBottom: isMobile ? '4px' : '0', flex: 1 }}>
                                     <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>

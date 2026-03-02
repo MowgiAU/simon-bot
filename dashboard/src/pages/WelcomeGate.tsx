@@ -129,7 +129,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 </button>
             </div>
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                  <p style={{ margin: '0 0 10px', color: colors.textPrimary, fontWeight: 600, fontSize: isMobile ? '14px' : '15px' }}>How it works:</p>
                  <ol style={{ margin: 0, paddingLeft: '20px', color: colors.textSecondary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
                      <li><strong>Configure Roles:</strong> Select an "Unverified" role (assigned on join) and a "Verified" role (given after approval).</li>
@@ -139,7 +139,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                  </ol>
             </div>
 
-            <div style={{ background: colors.surface, padding: '24px', borderRadius: borderRadius.lg, display: 'grid', gap: '24px' }}>
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: '24px', borderRadius: borderRadius.lg, display: 'grid', gap: '24px' }}>
                 
                 {/* Enable Switch */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

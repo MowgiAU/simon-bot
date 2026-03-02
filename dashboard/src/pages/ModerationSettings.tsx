@@ -188,7 +188,7 @@ export const ModerationSettingsPage: React.FC = () => {
             
             {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Configure basic moderation commands and logging.</p>}
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                  <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Set up your moderation logs, custom messages for actions (kick, ban, timeout), and configure which roles are allowed to use specific moderation commands.</p>
             </div>
 
@@ -200,7 +200,8 @@ export const ModerationSettingsPage: React.FC = () => {
                     backgroundColor: msg.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
                     color: msg.type === 'success' ? '#4caf50' : '#f44336',
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    border: '1px solid #3E455633'
                 }}>
                     {msg.type === 'success' ? <Check size={18} style={{marginRight:8}}/> : <AlertTriangle size={18} style={{marginRight:8}}/>}
                     {msg.text}
@@ -209,7 +210,7 @@ export const ModerationSettingsPage: React.FC = () => {
             )}
 
             {/* General Settings */}
-            <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '20px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '12px' }}>General Configuration</h2>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
@@ -321,7 +322,7 @@ export const ModerationSettingsPage: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '250px 1fr', gap: '24px' }}>
                 
                 {/* Left: Role List */}
-                <div style={{ background: colors.surface, padding: '20px', borderRadius: borderRadius.lg }}>
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: '20px', borderRadius: borderRadius.lg }}>
                     <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <List size={20} /> Roles
                     </h3>
@@ -332,9 +333,9 @@ export const ModerationSettingsPage: React.FC = () => {
                             style={{
                                 width: '100%',
                                 padding: '12px',
-                                background: colors.background,
+                                background: 'rgba(0,0,0,0.2)',
                                 color: 'white',
-                                border: `1px solid ${colors.border}`,
+                                border: '1px solid #3E455633',
                                 borderRadius: borderRadius.md,
                                 fontSize: '16px',
                                 outline: 'none'
@@ -369,7 +370,7 @@ export const ModerationSettingsPage: React.FC = () => {
                 </div>
 
                 {/* Right: Permissions */}
-                <div style={{ background: colors.surface, padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg }}>
                     {selectedRole ? (
                         <>
                             <h2 style={{ marginTop: 0, borderBottom: `1px solid ${colors.border}`, paddingBottom: '16px', marginBottom: '24px', wordBreak: 'break-word' }}>

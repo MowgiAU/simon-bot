@@ -49,8 +49,8 @@
 }
 
 .settings-section {
-  background-color: #242C3D;
-  border: 1px solid #252D3E;
+  background: linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9));
+  border: 1px solid #3E455633;
   border-radius: 8px;
   padding: 28px;
   margin-bottom: 20px;
@@ -140,8 +140,8 @@
 }
 
 .word-group-card {
-  background-color: #0F1419;
-  border: 1px solid #252D3E;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid #3E455633;
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
