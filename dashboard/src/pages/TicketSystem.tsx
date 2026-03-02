@@ -383,18 +383,26 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     {loadingMessages ? (
                                         <div style={{ textAlign: 'center', padding: '40px' }}><RefreshCw className="animate-spin" /></div>
                                     ) : (
-                                        messages.map(msg => (
-                                            <div key={msg.id} style={{ display: 'flex', gap: '12px' }}>
-                                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: colors.surface }} />
-                                                <div>
-                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                        <span style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.author.username}</span>
-                                                        <span style={{ fontSize: '11px', color: colors.textSecondary }}>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                                        messages
+                                            .filter(msg => {
+                                                // Hide the initial role/user ping message and any blank/system messages
+                                                const content = msg.content?.trim() || '';
+                                                if (!content) return false;
+                                                const isPingOnly = /^((<@(!|&)?\d+>\s*)+)$/.test(content);
+                                                return !isPingOnly;
+                                            })
+                                            .map(msg => (
+                                                <div key={msg.id} style={{ display: 'flex', gap: '12px' }}>
+                                                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: colors.surface }} />
+                                                    <div>
+                                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                            <span style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.author.username}</span>
+                                                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                                                        </div>
+                                                        <div style={{ background: colors.surface, padding: '10px 14px', borderRadius: '0 12px 12px 12px', marginTop: '4px', fontSize: '14px', color: colors.textPrimary }}>{msg.content}</div>
                                                     </div>
-                                                    <div style={{ background: colors.surface, padding: '10px 14px', borderRadius: '0 12px 12px 12px', marginTop: '4px', fontSize: '14px', color: colors.textPrimary }}>{msg.content}</div>
                                                 </div>
-                                            </div>
-                                        ))
+                                            ))
                                     )}
                                     <div ref={messagesEndRef} />
                                 </div>

@@ -370,11 +370,12 @@ export class TicketPlugin implements IPlugin {
             ? settings.staffRoleIds.map(id => `<@&${id}>`).join(' ') 
             : null;
 
-        if (rolePings) {
-            await channel.send({ 
-                content: rolePings
-            });
-        }
+        const userPing = `<@${userId}>`;
+        const fullPing = rolePings ? `${userPing} ${rolePings}` : userPing;
+
+        await channel.send({ 
+            content: fullPing
+        });
 
         await channel.send({ 
             embeds: [embed] 
