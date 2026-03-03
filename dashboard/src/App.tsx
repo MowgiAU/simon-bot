@@ -17,6 +17,8 @@ import { EmailClientPage } from './pages/EmailClient';
 import { TicketSystemPage } from './pages/TicketSystem';
 import { ChannelRules } from './pages/ChannelRules';
 import { DocumentationPage } from './pages/Documentation';
+import { NotificationMenu } from './components/NotificationMenu';
+import { InternalChat } from './components/InternalChat';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 import { MessageSquare, ArrowRight, Info } from 'lucide-react';
@@ -256,10 +258,7 @@ const AppContent: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                  <MessageSquare size={20} color={colors.textSecondary} style={{ cursor: 'pointer' }} />
-                  <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: colors.highlight, borderRadius: '50%', border: '2px solid #222B3D' }} />
-              </div>
+              <NotificationMenu guildId={selectedGuild.id} />
               
               <div style={{ width: '1px', height: '24px', background: '#1F293A' }} />
 
@@ -329,6 +328,7 @@ const AppContent: React.FC = () => {
           {renderContent()}
         </div>
       </main>
+      <InternalChat guildId={selectedGuild.id} />
     </div>
   );
 };

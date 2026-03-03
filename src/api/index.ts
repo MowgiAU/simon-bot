@@ -88,6 +88,124 @@ app.use((req, res, next) => {
   }
   next();
 });
+// --- Internal Messaging & Notification Routes ---
+
+// Get all notifications for user
+app.get('/api/guilds/:guildId/notifications', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const userId = (req.user as any)?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const notifications = await db.notification.findMany({
+            where: { guildId, userId },
+            orderBy: { createdAt: 'desc' },
+            take: 20
+        });
+
+        res.json(notifications);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+// Mark notifications as read
+app.post('/api/guilds/:guildId/notifications/read', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const userId = (req.user as any)?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        await db.notification.updateMany({
+            where: { guildId, userId, isRead: false },
+            data: { isRead: true }
+        });
+
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to mark notifications' });
+    }
+});
+
+// Get recent chat messages
+app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        
+        const messages = await db.dashboardMessage.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+
+        const reversedMessages = messages.reverse();
+
+        // Resolve user names
+        const resolvedMessages = await Promise.all(reversedMessages.map(async msg => {
+            const user = await resolveUser(msg.senderId);
+            return {
+                ...msg,
+                senderName: user?.username || 'Unknown',
+                senderAvatar: user?.avatar || null
+            };
+        }));
+
+        res.json(resolvedMessages);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+});
+
+// Send a chat message
+app.post('/api/guilds/:guildId/chat-messages', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { content, recipientId } = req.body;
+        const userId = (req.user as any)?.id;
+        if (!userId || !content) return res.status(400).json({ error: 'Incomplete message data' });
+
+        const message = await db.dashboardMessage.create({
+            data: {
+                guildId,
+                senderId: userId,
+                content,
+                recipientId: recipientId || null
+            }
+        });
+
+        // If global message, we could notify others, but keep it quiet for now except mentions
+
+        res.json(message);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to send message' });
+    }
+});
+
+// Get Dashboard Admin Users (for mentions)
+app.get('/api/guilds/:guildId/staff', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const guild = await req.bot.guilds.fetch(guildId);
+        if (!guild) return res.status(404).json({ error: 'Guild not found' });
+
+        const members = await guild.members.fetch();
+        const staffRoles = await db.dashboardAccess.findUnique({ where: { guildId } });
+        
+        const staff = members.filter(m => 
+            m.permissions.has('Administrator') || 
+            (staffRoles?.allowedRoles || []).some(roleId => m.roles.cache.has(roleId))
+        ).map(m => ({
+            id: m.id,
+            username: m.user.username,
+            avatar: m.user.avatar
+        }));
+
+        res.json(staff);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to fetch staff list' });
+    }
+});
+
 app.get('/api/version', (req, res) => res.json({ version: '1.0.1', timestamp: new Date() }));
 
 
