@@ -31,6 +31,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const fetchData = async (signal?: AbortSignal) => {
         setLoading(true);
         setErrorMessage(null);
+        let currentIsMounted = true;
         try {
             const [setRes, roleRes, chanRes] = await Promise.all([
                 axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { withCredentials: true, signal }),
@@ -42,12 +43,20 @@ export const WelcomeGatePluginPage: React.FC = () => {
             setChannels(chanRes.data);
         } catch (e: any) {
             if (axios.isCancel(e) || e.name === 'AbortError') return;
-            console.error(e);
+            console.error('WelcomeGate Load Error:', e);
             
+            if (e.response?.status === 500 || e.response?.status === 504) {
+                setErrorMessage('Discord connection timed out. Retrying automatically...');
+                setTimeout(() => {
+                    fetchData(signal);
+                }, 2000);
+                return;
+            }
+
             const errorText = e.response?.data?.error || e.message || 'Unknown error';
             setErrorMessage(`Failed to load settings: ${errorText}`);
         } finally {
-            if (!signal?.aborted) setLoading(false);
+            setLoading(false);
         }
     };
 
