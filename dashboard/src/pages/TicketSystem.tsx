@@ -72,10 +72,33 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     const [savingSettings, setSavingSettings] = useState(false);
 
     useEffect(() => {
-        fetchTickets();
-        fetchSettings();
-        const interval = setInterval(fetchTickets, 30000);
-        return () => clearInterval(interval);
+        const controller = new AbortController();
+        let isMounted = true;
+
+        const fetchData = async () => {
+            try {
+                const [ticketsRes, settingsRes] = await Promise.all([
+                    axios.get(`/api/tickets/list/${activeGuildId}`, { withCredentials: true, signal: controller.signal }),
+                    axios.get(`/api/tickets/settings/${activeGuildId}`, { withCredentials: true, signal: controller.signal })
+                ]);
+                if (isMounted) {
+                    setTickets(ticketsRes.data);
+                    if (settingsRes.data) setSettings(settingsRes.data);
+                }
+            } catch (e) {
+                if (!axios.isCancel(e)) {
+                    console.error('Failed to fetch ticket data', e);
+                }
+            }
+        };
+
+        fetchData();
+        const interval = setInterval(fetchData, 30000);
+        return () => {
+            isMounted = false;
+            controller.abort();
+            clearInterval(interval);
+        };
     }, [activeGuildId]);
 
     useEffect(() => {
@@ -90,11 +113,40 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     }, [searchParam, tickets]);
 
     useEffect(() => {
+        const controller = new AbortController();
+        let isMounted = true;
+
         if (selectedTicket) {
+            const fetchMessages = async (ticketId: string) => {
+                setLoadingMessages(true);
+                try {
+                    const res = await axios.get(`/api/tickets/${ticketId}/messages`, { withCredentials: true, signal: controller.signal });
+                    if (isMounted) {
+                        if (Array.isArray(res.data)) {
+                            setMessages(res.data);
+                            scrollToBottom();
+                        } else {
+                            setMessages([]);
+                        }
+                    }
+                } catch (e) {
+                    if (!axios.isCancel(e)) {
+                        console.error('Failed to fetch messages', e);
+                        if (isMounted) setMessages([]);
+                    }
+                } finally {
+                    if (isMounted) setLoadingMessages(false);
+                }
+            };
             fetchMessages(selectedTicket.id);
         } else {
             setMessages([]);
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [selectedTicket]);
 
     const fetchTickets = async () => {

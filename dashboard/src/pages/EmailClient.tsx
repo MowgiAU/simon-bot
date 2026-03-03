@@ -64,13 +64,45 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     // const [showQuoted, setShowQuoted] = useState(false);
 
     useEffect(() => {
-        if (view === 'settings') {
-            fetchSettings();
-        } else {
-            fetchEmails(view);
-            const interval = setInterval(() => fetchEmails(view), 30000);
-            return () => clearInterval(interval);
-        }
+        const controller = new AbortController();
+        let isMounted = true;
+
+        const fetchData = async () => {
+            if (view === 'settings') {
+                setRefreshing(true);
+                try {
+                    const res = await axios.get('/api/email/settings', { withCredentials: true, signal: controller.signal });
+                    if (isMounted) setSettings(res.data);
+                } catch (e) {
+                    if (!axios.isCancel(e)) console.error(e);
+                } finally {
+                    if (isMounted) setRefreshing(false);
+                }
+            } else {
+                setLoading(true);
+                setRefreshing(true);
+                try {
+                    const res = await axios.get(`/api/email/list/${view}`, { withCredentials: true, signal: controller.signal });
+                    if (isMounted) setEmails(res.data);
+                } catch (e) {
+                    if (!axios.isCancel(e)) console.error(e);
+                } finally {
+                    if (isMounted) {
+                        setLoading(false);
+                        setRefreshing(false);
+                    }
+                }
+            }
+        };
+
+        fetchData();
+        const interval = (view !== 'settings') ? setInterval(fetchData, 30000) : null;
+        
+        return () => {
+            isMounted = false;
+            controller.abort();
+            if (interval) clearInterval(interval);
+        };
     }, [view]);
 
     useEffect(() => {
@@ -84,16 +116,41 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
 
     // When an email is selected, fetch its full thread
     useEffect(() => {
+        const controller = new AbortController();
+        let isMounted = true;
+
         if (selectedEmail) {
+            const fetchThread = async (subject: string) => {
+                try {
+                    const res = await axios.get(`/api/email/thread?subject=${encodeURIComponent(subject)}`, { withCredentials: true, signal: controller.signal });
+                    if (isMounted) setCurrentThread(res.data);
+                } catch(e) {
+                    if (!axios.isCancel(e)) {
+                        console.error('Failed to fetch thread', e);
+                        if (isMounted) setCurrentThread([selectedEmail]);
+                    }
+                }
+            };
             fetchThread(selectedEmail.subject);
+            
             // Mark read if needed
             if (!selectedEmail.read && selectedEmail.category === 'inbox') {
-                axios.patch(`/api/email/${selectedEmail.threadId}`, { updates: { read: true } }, { withCredentials: true })
-                    .then(() => setEmails(prev => prev.map(e => e.threadId === selectedEmail.threadId ? { ...e, read: true } : e)));
+                axios.patch(`/api/email/${selectedEmail.threadId}`, { updates: { read: true } }, { withCredentials: true, signal: controller.signal })
+                    .then(() => {
+                        if (isMounted) setEmails(prev => prev.map(e => e.threadId === selectedEmail.threadId ? { ...e, read: true } : e));
+                    })
+                    .catch(e => {
+                        if (!axios.isCancel(e)) console.error('Failed to mark as read', e);
+                    });
             }
         } else {
             setCurrentThread([]);
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [selectedEmail]);
 
     const fetchEmails = async (category: string) => {

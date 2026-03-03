@@ -54,61 +54,61 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
   useEffect(() => {
     if (!guildId) return;
     const controller = new AbortController();
+    let isMounted = true;
     
     const timeoutId = setTimeout(() => {
+        const loadSettings = async (gid: string, signal: AbortSignal) => {
+            try {
+              setLoading(true);
+              setError(null);
+              const response = await fetch(`${API_BASE}/settings/${gid}`, {
+                signal: signal,
+                credentials: 'include',
+              });
+              
+              if (!isMounted) return;
+
+              if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(`API Error ${response.status}: ${errText}`);
+              }
+        
+              const data = await response.json();
+              setSettings({
+                enabled: data.enabled,
+                repostEnabled: data.repostEnabled,
+                excludedChannels: data.excludedChannels || [],
+                excludedRoles: data.excludedRoles || [],
+              });
+              setWordGroups(data.wordGroups || []);
+            } catch (err: any) {
+              if (err.name === 'AbortError' || !isMounted) return;
+              console.error('Failed to load settings from API', err);
+              const msg = err instanceof Error ? err.message : 'Unknown error';
+              setError(`Failed to load settings from server: ${msg}. Using cached data.`);
+              // Fallback to localStorage
+              const savedGroups = localStorage.getItem('wordGroups');
+              const savedSettings = localStorage.getItem('filterSettings');
+              if (savedGroups) {
+                try { setWordGroups(JSON.parse(savedGroups)); } catch (e) { console.error('Failed to parse saved word groups', e); }
+              }
+              if (savedSettings) {
+                try { setSettings(JSON.parse(savedSettings)); } catch (e) { console.error('Failed to parse saved settings', e); }
+              }
+            } finally {
+              if (isMounted) setLoading(false);
+            }
+          };
         loadSettings(guildId, controller.signal);
     }, 300);
 
     return () => {
+        isMounted = false;
         clearTimeout(timeoutId);
         controller.abort();
     };
     // eslint-disable-next-line
   }, [guildId]);
-
-  const loadSettings = async (gid: string, signal?: AbortSignal) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const startTime = performance.now();
-      const response = await fetch(`${API_BASE}/settings/${gid}`, {
-        signal: signal || AbortSignal.timeout(10000),
-        credentials: 'include',
-      });
-      const endTime = performance.now();
-      console.log(`Word Filter API response time: ${(endTime - startTime).toFixed(0)}ms`);
-      
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        throw new Error(`API Error ${response.status}: ${errText}`);
-      }
-
-      const data = await response.json();
-      setSettings({
-        enabled: data.enabled,
-        repostEnabled: data.repostEnabled,
-        excludedChannels: data.excludedChannels || [],
-        excludedRoles: data.excludedRoles || [],
-      });
-      setWordGroups(data.wordGroups || []);
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      console.error('Failed to load settings from API', err);
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to load settings from server: ${msg}. Using cached data.`);
-      // Fallback to localStorage
-      const savedGroups = localStorage.getItem('wordGroups');
-      const savedSettings = localStorage.getItem('filterSettings');
-      if (savedGroups) {
-        try { setWordGroups(JSON.parse(savedGroups)); } catch (e) { console.error('Failed to parse saved word groups', e); }
-      }
-      if (savedSettings) {
-        try { setSettings(JSON.parse(savedSettings)); } catch (e) { console.error('Failed to parse saved settings', e); }
-      }
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  };
 
   const logger = {
     error: (msg: string, err: any) => console.error(msg, err),

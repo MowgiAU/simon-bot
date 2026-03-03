@@ -17,32 +17,35 @@ export const EconomyPluginPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     // Fetching
-    const refreshData = async (signal?: AbortSignal) => {
-        if (!selectedGuild) return;
-        setLoading(true);
-        try {
-            const [setRes, itemRes] = await Promise.all([
-                axios.get(`/api/economy/settings/${selectedGuild.id}`, { withCredentials: true, signal }),
-                axios.get(`/api/economy/items/${selectedGuild.id}`, { withCredentials: true, signal })
-            ]);
-            setSettings(setRes.data);
-            setItems(itemRes.data);
-        } catch (e: any) {
-            if (axios.isCancel(e) || e.name === 'AbortError') return;
-            console.error(e);
-        } finally {
-            if (!signal?.aborted) setLoading(false);
-        }
-    };
-
     useEffect(() => {
         const controller = new AbortController();
+        let isMounted = true;
         
         const timeoutId = setTimeout(() => {
-             refreshData(controller.signal);
+            const refreshData = async (signal: AbortSignal) => {
+                if (!selectedGuild) return;
+                setLoading(true);
+                try {
+                    const [setRes, itemRes] = await Promise.all([
+                        axios.get(`/api/economy/settings/${selectedGuild.id}`, { withCredentials: true, signal }),
+                        axios.get(`/api/economy/items/${selectedGuild.id}`, { withCredentials: true, signal })
+                    ]);
+                    if (isMounted) {
+                        setSettings(setRes.data);
+                        setItems(itemRes.data);
+                    }
+                } catch (e: any) {
+                    if (axios.isCancel(e) || e.name === 'AbortError' || !isMounted) return;
+                    console.error(e);
+                } finally {
+                    if (isMounted) setLoading(false);
+                }
+            };
+            refreshData(controller.signal);
         }, 300);
 
         return () => {
+            isMounted = false;
             clearTimeout(timeoutId);
             controller.abort();
         };
@@ -58,6 +61,24 @@ export const EconomyPluginPage: React.FC = () => {
         } catch (e) {
             console.error(e);
             alert('Failed to save settings.');
+        }
+    };
+
+    const refreshData = async (signal?: AbortSignal) => {
+        if (!selectedGuild) return;
+        setLoading(true);
+        try {
+            const [setRes, itemRes] = await Promise.all([
+                axios.get(`/api/economy/settings/${selectedGuild.id}`, { withCredentials: true, signal }),
+                axios.get(`/api/economy/items/${selectedGuild.id}`, { withCredentials: true, signal })
+            ]);
+            setSettings(setRes.data);
+            setItems(itemRes.data);
+        } catch (e: any) {
+            if (axios.isCancel(e) || e.name === 'AbortError') return;
+            console.error(e);
+        } finally {
+            if (!signal?.aborted) setLoading(false);
         }
     };
 

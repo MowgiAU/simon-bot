@@ -407,13 +407,18 @@ const checkPluginAccess = async (guildId: string, req: any, pluginId: string): P
         // If settings don't exist or no roles allowed, allow ONLY Admins (which returned above)
         if (!settings || settings.allowedRoles.length === 0) return false;
 
-        // Fetch User Roles from Discord
-        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-        });
-        const memberRoles = memberRes.data.roles || [];
-        
-        return memberRoles.some((r: string) => settings.allowedRoles.includes(r));
+        // Fetch User Roles from Discord (with 5s timeout)
+        try {
+            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                timeout: 5000
+            });
+            const memberRoles = memberRes.data.roles || [];
+            return memberRoles.some((r: string) => settings.allowedRoles.includes(r));
+        } catch (discordErr: any) {
+             logger.error(`Discord communication failed in checkPluginAccess: ${discordErr.message}`);
+             return false;
+        }
     } catch (e) {
         logger.error(`Access check failed for ${pluginId}`, e);
         return false;
@@ -812,7 +817,7 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
     // --- Notification Logic (Mentions) ---
     try {
         const mentionRegex = /@(\w+)|<@(\d+)>/g;
-        let match;
+        let match: RegExpExecArray | null;
         const mentionedIds = new Set<string>();
 
         while ((match = mentionRegex.exec(content)) !== null) {
@@ -821,7 +826,7 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
             } else if (match[1]) {
                 const staffResponse = await discordReq('GET', `/guilds/${log.guildId}/members?limit=1000`);
                 const members = staffResponse.data;
-                const found = members.find((m: any) => m.user.username.toLowerCase() === match[1].toLowerCase());
+                const found = members.find((m: any) => m.user.username.toLowerCase() === match![1].toLowerCase());
                 if (found) mentionedIds.add(found.user.id);
             }
         }

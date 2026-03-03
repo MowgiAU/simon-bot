@@ -14,26 +14,36 @@ export const FeedbackPluginPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const isMobile = useMobile();
 
-    const fetchData = async () => {
-        if (!selectedGuild) return;
-        setLoading(true);
-        try {
-            if (activeTab === 'queue') {
-                const res = await axios.get(`/api/feedback/queue/${selectedGuild.id}`, { withCredentials: true });
-                setQueue(res.data);
-            } else {
-                const res = await axios.get(`/api/feedback/settings/${selectedGuild.id}`, { withCredentials: true });
-                setSettings(res.data);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
+        const controller = new AbortController();
+        let isMounted = true;
+
+        const fetchData = async () => {
+            if (!selectedGuild) return;
+            setLoading(true);
+            try {
+                if (activeTab === 'queue') {
+                    const res = await axios.get(`/api/feedback/queue/${selectedGuild.id}`, { withCredentials: true, signal: controller.signal });
+                    if (isMounted) setQueue(res.data);
+                } else {
+                    const res = await axios.get(`/api/feedback/settings/${selectedGuild.id}`, { withCredentials: true, signal: controller.signal });
+                    if (isMounted) setSettings(res.data);
+                }
+            } catch (e) {
+                if (!axios.isCancel(e) && isMounted) {
+                    console.error(e);
+                }
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+
         fetchData();
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [selectedGuild, activeTab]);
 
     const handleAction = async (postId: string, action: 'APPROVE' | 'DENY') => {
@@ -53,6 +63,25 @@ export const FeedbackPluginPage: React.FC = () => {
             alert('Failed to save');
         }
     };
+
+    const fetchData = async () => {
+        if (!selectedGuild) return;
+        setLoading(true);
+        try {
+            if (activeTab === 'queue') {
+                const res = await axios.get(`/api/feedback/queue/${selectedGuild.id}`, { withCredentials: true });
+                setQueue(res.data);
+            } else {
+                const res = await axios.get(`/api/feedback/settings/${selectedGuild.id}`, { withCredentials: true });
+                setSettings(res.data);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isMobile ? '16px' : '20px' }}>

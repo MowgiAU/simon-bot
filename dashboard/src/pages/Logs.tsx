@@ -157,10 +157,46 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
 
   // Fetch logs when page or filters change (debounced)
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
     const timer = setTimeout(() => {
-      fetchLogs(page);
+        const fetchLogsInner = async (pageNum: number) => {
+            try {
+              setLoading(true);
+              const queryParams = new URLSearchParams({
+                page: pageNum.toString(),
+                limit: '20',
+                ...(activeCategory !== 'all' && { action: activeCategory }),
+                ...(searchQuery && { search: searchQuery }),
+                ...(activeUser && { userId: activeUser })
+              });
+              const res = await fetch(`/api/guilds/${guildId}/logs?${queryParams}`, {
+                signal: controller.signal,
+                credentials: 'include'
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (isMounted) {
+                    setLogs(data.items); 
+                    setTotalPages(data.pagination.pages);
+                }
+              }
+            } catch (err: any) {
+                if (err.name !== 'AbortError' && isMounted) {
+                    console.error("Failed to fetch logs:", err);
+                }
+            } finally {
+              if (isMounted) setLoading(false);
+            }
+          };
+      fetchLogsInner(page);
     }, 500);
-    return () => clearTimeout(timer);
+    return () => {
+        isMounted = false;
+        clearTimeout(timer);
+        controller.abort();
+    };
   }, [page, activeCategory, searchQuery, activeUser]);
 
   const fetchUserNotes = async (userId: string) => {
@@ -238,19 +274,63 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
   
   // When tab changes, fetch data if needed
   useEffect(() => {
-      if (activeTab === 'users') {
-          fetchTrackedUsers();
-      }
+    const controller = new AbortController();
+    let isMounted = true;
+
+    if (activeTab === 'users') {
+        const fetchTrackedUsersInner = async () => {
+            try {
+                setLoadingTracked(true);
+                const res = await fetch(`/api/guilds/${guildId}/tracked-users`, { credentials: 'include', signal: controller.signal });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted) setTrackedUsers(data);
+                }
+            } catch (err: any) {
+                if (err.name !== 'AbortError' && isMounted) console.error("Failed to fetch tracked users", err);
+            } finally {
+                if (isMounted) setLoadingTracked(false);
+            }
+          };
+        fetchTrackedUsersInner();
+    }
+
+    return () => {
+        isMounted = false;
+        controller.abort();
+    };
   }, [activeTab]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
     if (activeUser) {
         setShowNotes(true);
-        fetchUserNotes(activeUser);
+        const fetchUserNotesInner = async (userId: string) => {
+            try {
+                setLoadingNotes(true);
+                const res = await fetch(`/api/guilds/${guildId}/users/${userId}/notes`, { credentials: 'include', signal: controller.signal });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted) setUserNotes(data);
+                }
+            } catch (err: any) {
+                if (err.name !== 'AbortError' && isMounted) console.error("Failed to fetch notes", err);
+            } finally {
+                if (isMounted) setLoadingNotes(false);
+            }
+        };
+        fetchUserNotesInner(activeUser);
     } else {
         setShowNotes(false);
         setUserNotes([]);
     }
+
+    return () => {
+        isMounted = false;
+        controller.abort();
+    };
   }, [activeUser]);
 
   const handleAddUserNote = async () => {

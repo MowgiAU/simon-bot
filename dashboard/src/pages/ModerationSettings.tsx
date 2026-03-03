@@ -57,6 +57,7 @@ export const ModerationSettingsPage: React.FC = () => {
         if (!selectedGuild) return;
         
         const controller = new AbortController();
+        let isMounted = true;
         
         // Debounce fetch to prevent spamming server during rapid navigation
         const timeoutId = setTimeout(() => {
@@ -70,26 +71,29 @@ export const ModerationSettingsPage: React.FC = () => {
                         axios.get(`/api/guilds/${selectedGuild.id}/channels`, { withCredentials: true, signal: controller.signal })
                     ]);
 
-                    setSettings(settingsRes.data);
-                    
-                    const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
-                    setRoles(sortedRoles);
-                    if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
+                    if (isMounted) {
+                        setSettings(settingsRes.data);
+                        
+                        const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
+                        setRoles(sortedRoles);
+                        if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
 
-                    setChannels(channelsRes.data);
+                        setChannels(channelsRes.data);
+                    }
                 } catch (err: any) {
-                    if (axios.isCancel(err) || err.name === 'AbortError') return;
+                    if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
                     console.error(err);
                     const errorText = err.response?.data?.error || err.message || 'Unknown error';
                     setMsg({ type: 'error', text: `Failed to load settings: ${errorText}` });
                 } finally {
-                    if (!controller.signal.aborted) setLoading(false);
+                    if (isMounted) setLoading(false);
                 }
             };
             fetchData();
         }, 300); // Wait 300ms before fetching
 
         return () => {
+            isMounted = false;
             clearTimeout(timeoutId);
             controller.abort();
         };
