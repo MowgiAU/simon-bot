@@ -110,7 +110,10 @@ export const MusicianProfilePage: React.FC = () => {
         if (!user || !profile) return;
         setSaving(true);
         try {
-            const payload = { ...profile, genres: profile.genres.map(g => g.id) };
+            const payload = { 
+                ...profile, 
+                genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || []
+            };
             await axios.post(`/api/musician/profile/${user.id}`, payload, { withCredentials: true });
             setMessage({ type: 'success', text: 'Profile updated successfully!' });
         } catch (err: any) {
@@ -132,21 +135,23 @@ export const MusicianProfilePage: React.FC = () => {
 
     const addGear = (e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!profile) return;
-        setProfile({ ...profile, gearList: [...profile.gearList, ''] });
+        setProfile({ ...profile, gearList: [...(profile.gearList || []), ''] });
     };
 
     const updateGear = (index: number, value: string) => {
         if (!profile) return;
-        const newGear = [...profile.gearList];
+        const newGear = [...(profile.gearList || [])];
         newGear[index] = value;
         setProfile({ ...profile, gearList: newGear });
     };
 
     const removeGear = (index: number, e: React.MouseEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!profile) return;
-        setProfile({ ...profile, gearList: profile.gearList.filter((_, i) => i !== index) });
+        setProfile({ ...profile, gearList: (profile.gearList || []).filter((_, i) => i !== index) });
     };
 
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
