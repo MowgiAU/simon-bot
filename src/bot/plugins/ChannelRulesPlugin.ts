@@ -247,9 +247,8 @@ export class ChannelRulesPlugin implements IPlugin {
                  const reply = await (message.channel as any).send({ 
                      content: `❌ **Message Blocked**\nYour message violated the rule: **${rule.name}**`
                     });
-                    setTimeout(() => reply.delete().catch(() => {}), 5000);
-                }
-
+                    setTimeout(() => (reply as any).delete().catch(() => {}), 5000);
+            }
         } catch (e) {
             this.logger.error('Failed to execute rule action', e);
         }
