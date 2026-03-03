@@ -206,7 +206,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div style={{ padding: '48px', maxWidth: '1400px', margin: '0 auto' }}>
+                    <div style={{ padding: isMobile ? '24px' : '48px', maxWidth: '1400px', margin: '0 auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
                             <h3 style={{ fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Disc color={colors.primary} size={20} /> Top Rated Tracks
@@ -216,8 +216,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                            gap: '24px',
+                            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(200px, 1fr))', 
+                            gap: isMobile ? '16px' : '24px',
                             marginBottom: '64px'
                         }}>
                             {loading && topTracks.length === 0 ? (
