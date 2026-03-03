@@ -64,6 +64,7 @@ export const PluginManagementPage: React.FC = () => {
 
     if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading...</div>;
 
+    const togglePlugin = async (pluginId: string, currentState: boolean) => {
         if (!selectedGuild) return;
         // Optimistic
         const currentSetting = settings.find(s => s.pluginId === pluginId);
