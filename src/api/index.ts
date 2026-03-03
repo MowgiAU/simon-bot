@@ -14,6 +14,7 @@ import multer from 'multer';
 import { simpleParser } from 'mailparser';
 import { Resend } from 'resend';
 import { EmailService } from '../services/EmailService';
+import { ProfileService } from '../services/ProfileService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +23,7 @@ const app = express();
 // Configure multer for handling file uploads (in-memory)
 const upload = multer({ storage: multer.memoryStorage() });
 const emailService = new EmailService();
+const profileService = new ProfileService(new PrismaClient());
 
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
@@ -1501,7 +1503,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles'] 
             });
         }
 
@@ -2992,6 +2994,47 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
         });
 
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Musician Profile API ---
+
+// Public Profile Retrieval
+app.get('/api/musician/profile/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const profile = await profileService.getProfile(userId);
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+        res.json(profile);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update Profile (Auth should be handled by a middleware, but for now we follow context guild patterns)
+app.post('/api/musician/profile/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const data = req.body;
+        // Basic check for common structure
+        if (!data.genres) data.genres = [];
+        
+        const updated = await profileService.updateProfile(userId, data);
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Genre Library for Picker
+app.get('/api/musician/genres', async (req, res) => {
+    try {
+        const genres = await profileService.getAllGenres();
+        res.json(genres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

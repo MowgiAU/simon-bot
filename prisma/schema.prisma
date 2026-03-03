@@ -640,3 +640,62 @@ model PendingReview {
   
   @@map("pending_reviews")
 }
+
+// --- Musician Profile Plugin ---
+
+model MusicianProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique // Discord User ID
+  username        String
+  displayName     String?
+  avatar          String?
+  bio             String?  @db.Text
+  location        String?
+  contactEmail    String?
+  collabStatus    Boolean  @default(false)
+  
+  // Gear & Setup
+  primaryDAW      String?
+  dawVersion      String?
+  vsts            String[] @default([])
+  hardware        String[] @default([])
+
+  // Socials / Streaming (Stored as JSON for flexibility, validated via service)
+  socials         Json?    @default("[]")
+
+  // Genres (Many-to-Many via Join Table)
+  genres          ProfileGenre[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("musician_profiles")
+}
+
+model Genre {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?
+  
+  // Hierarchical structure (Category > Parent > Sub-genre)
+  parentId        String?
+  parent          Genre?   @relation("GenreHierarchy", fields: [parentId], references: [id])
+  children        Genre[]  @relation("GenreHierarchy")
+
+  // Relations
+  profiles        ProfileGenre[]
+
+  @@map("genres")
+}
+
+model ProfileGenre {
+  profileId       String
+  genreId         String
+  
+  profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  genre           Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, genreId])
+  @@map("profile_genres")
+}

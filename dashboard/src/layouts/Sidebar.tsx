@@ -17,6 +17,7 @@ import {
   Mail,
   Ticket,
   FileText,
+  Music,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -202,6 +203,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
                 <span className="nav-label">Feedback</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('musician-profiles') && (
+            <button
+                className={`nav-item ${activeSection === 'musician-profiles' ? 'active' : ''}`}
+                onClick={() => onNavigate('musician-profiles')}
+                title={collapsed ? "Musician Profiles" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
+                <span className="nav-label">Profiles</span>
             </button>
           )}
         </div>
