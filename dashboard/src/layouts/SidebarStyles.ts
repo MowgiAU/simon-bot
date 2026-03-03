@@ -55,9 +55,9 @@ export const SidebarStyles = `
 
   .sidebar.collapsed .nav-item:hover::after {
     content: attr(title);
-    position: fixed; /* Changed from absolute to fixed to escape all containers */
-    left: 92px; /* Fixed distance from left screen edge when collapsed (80px width + 12px gap) */
-    top: auto; /* Allow transform to handle centering relative to the item */
+    position: fixed;
+    left: 88px; /* Slightly closer for tighter look */
+    top: auto;
     transform: translateY(-50%);
     background: #1A1E2E;
     color: #fff;
@@ -66,9 +66,9 @@ export const SidebarStyles = `
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
-    z-index: 20000; /* Extremely high z-index */
+    z-index: 1000000; /* Overkill z-index to ensure it is above everything */
     box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    border: 1px solid #3E455644;
+    border: 1px solid #3E455666;
     pointer-events: none;
     visibility: visible;
     opacity: 1;
@@ -77,14 +77,14 @@ export const SidebarStyles = `
   /* Tooltip arrow */
   .sidebar.collapsed .nav-item:hover::before {
     content: '';
-    position: fixed; /* Changed to fixed */
-    left: 86px;
+    position: fixed;
+    left: 82px;
     top: auto;
     transform: translateY(-50%);
     border-top: 6px solid transparent;
     border-bottom: 6px solid transparent;
     border-right: 6px solid #1A1E2E;
-    z-index: 20000;
+    z-index: 1000000;
     pointer-events: none;
     visibility: visible;
   }
