@@ -26,28 +26,65 @@ const emailService = new EmailService();
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 
-// --- Discord API Helper with Rate Limit Handling ---
+// --- Discord API Helper with Cache and Rate Limit Handling ---
+
+// Memory cache for expensive Discord metadata calls
+// guildId -> { channels: { data: any, timestamp: number }, roles: { data: any, timestamp: number } }
+const discordCache = new Map<string, { 
+    channels?: { data: any, timestamp: number }, 
+    roles?: { data: any, timestamp: number } 
+}>();
+
+const CACHE_RESOURCES_TTL = 1000 * 60 * 5; // 5 minutes cache for channels/roles
 
 const discordReq = async (method: string, path: string, data?: any): Promise<any> => {
+    const isGet = method.toLowerCase() === 'get';
+    const isChannelList = path.match(/^\/guilds\/\d+\/channels$/);
+    const isRoleList = path.match(/^\/guilds\/\d+\/roles$/);
+    
+    // Check Cache for GET /guilds/:id/channels or roles
+    if (isGet && (isChannelList || isRoleList)) {
+        const guildId = path.split('/')[2];
+        const cacheType = isChannelList ? 'channels' : 'roles';
+        const guildCache = discordCache.get(guildId);
+        
+        if (guildCache?.[cacheType] && (Date.now() - guildCache[cacheType]!.timestamp < CACHE_RESOURCES_TTL)) {
+            // logger.info(`[Discord Cache] Hit: ${cacheType} for ${guildId}`);
+            return { data: guildCache[cacheType]!.data };
+        }
+    }
+
     const maxRetries = 3;
     let retryDelay = 2000;
 
     for (let i = 0; i < maxRetries; i++) {
         try {
-            return await axios({
+            const response = await axios({
                 method,
                 url: `https://discord.com/api/v10${path}`,
                 headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
                 data,
                 timeout: 10000 // 10s timeout
             });
+
+            // Update Cache on success for GET lists
+            if (isGet && (isChannelList || isRoleList)) {
+                const guildId = path.split('/')[2];
+                const cacheType = isChannelList ? 'channels' : 'roles';
+                const existing = discordCache.get(guildId) || {};
+                existing[cacheType] = { data: response.data, timestamp: Date.now() };
+                discordCache.set(guildId, existing);
+            }
+
+            return response;
         } catch (e: any) {
             const isRateLimit = e.response?.status === 429;
             const isTimeout = e.code === 'ECONNABORTED' || e.response?.status === 504 || e.response?.status === 502;
             
             if ((isRateLimit || isTimeout) && i < maxRetries - 1) {
                 const wait = isRateLimit ? (e.response.data.retry_after * 1000 + 500) : retryDelay;
-                logger.warn(`Discord API ${method} ${path} failed (${e.response?.status || e.code}). Retrying in ${Math.round(wait)}ms... (Attempt ${i + 1}/${maxRetries})`);
+                const statusInfo = e.response?.status ? `status ${e.response.status}` : `code ${e.code}`;
+                logger.warn(`Discord API ${method} ${path} failed (${statusInfo}). Retrying in ${Math.round(wait)}ms... (Attempt ${i + 1}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, wait));
                 retryDelay *= 2; // Exponential backoff for timeouts
                 continue;
