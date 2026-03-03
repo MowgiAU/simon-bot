@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import axios from 'axios';
 import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp } from 'lucide-react';
@@ -18,21 +19,13 @@ interface PluginSetting {
     allowedRoles: string[];
 }
 
-interface Role {
-    id: string;
-    name: string;
-    color: number;
-}
-
-
-
 export const PluginManagementPage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const { roles, loading: resourcesLoading } = useResources();
     const [plugins, setPlugins] = useState<PluginMetadata[]>([]);
     const [settings, setSettings] = useState<PluginSetting[]>([]);
     const [accessRoles, setAccessRoles] = useState<string[]>([]); // roles allowed to login
     
-    const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -45,18 +38,14 @@ export const PluginManagementPage: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [metaRes, settingsRes, rolesRes] = await Promise.all([
+                const [metaRes, settingsRes] = await Promise.all([
                     axios.get('/api/plugins/list', { withCredentials: true }),
-                    axios.get(`/api/guilds/${selectedGuild.id}/plugins-settings`, { withCredentials: true }),
-                    axios.get(`/api/guilds/${selectedGuild.id}/roles`, { withCredentials: true })
+                    axios.get(`/api/guilds/${selectedGuild.id}/plugins-settings`, { withCredentials: true })
                 ]);
                 
                 setPlugins(metaRes.data);
                 setSettings(settingsRes.data.plugins);
                 setAccessRoles(settingsRes.data.access.allowedRoles);
-                setRoles(rolesRes.data
-                    .filter((r: any) => r.name !== '@everyone')
-                    .sort((a: any, b: any) => b.position - a.position));
             } catch (error) {
                 console.error('Fetch error:', error);
             } finally {
@@ -66,7 +55,15 @@ export const PluginManagementPage: React.FC = () => {
         fetchData();
     }, [selectedGuild]);
 
-    const togglePlugin = async (pluginId: string, currentState: boolean) => {
+    // Format roles for display (exclude @everyone and sort)
+    const filteredRoles = React.useMemo(() => {
+        return roles
+            .filter(r => r.name !== '@everyone')
+            .sort((a, b) => b.position - a.position);
+    }, [roles]);
+
+    if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading...</div>;
+
         if (!selectedGuild) return;
         // Optimistic
         const currentSetting = settings.find(s => s.pluginId === pluginId);
@@ -166,7 +163,7 @@ export const PluginManagementPage: React.FC = () => {
                 </p>
                 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {roles.map(role => {
+                    {filteredRoles.map(role => {
                          const isSelected = accessRoles.includes(role.id);
                          return (
                             <div 
@@ -276,7 +273,7 @@ export const PluginManagementPage: React.FC = () => {
                                         Roles allowed to configure <strong>{plugin.name}</strong>:
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {roles.map(role => {
+                                        {filteredRoles.map(role => {
                                             const roleList = setting?.allowedRoles || [];
                                             const isSelected = roleList.includes(role.id);
                                             return (

@@ -1,13 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
-
-interface Role {
-    id: string;
-    name: string;
-    color: number;
-    position: number;
-    managed: boolean;
-}
+import { useResources } from './ResourceProvider';
 
 interface RoleSelectProps {
     guildId: string;
@@ -24,31 +17,12 @@ export const RoleSelect: React.FC<RoleSelectProps> = ({
     placeholder = "Select Role", 
     multiple = false
 }) => {
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { roles, loading } = useResources();
 
-    useEffect(() => {
-        if (!guildId) return;
-        setLoading(true);
-        fetch(`/api/guilds/${guildId}/roles`, { credentials: 'include' })
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch roles');
-                return res.json();
-            })
-            .then((data: Role[]) => {
-                if (!Array.isArray(data)) {
-                    console.error('Role API response is not an array:', data);
-                    setRoles([]);
-                    return;
-                }
-                // Sort by position (descending) so highest roles are at top, usually preferred
-                // Unless @everyone (position 0)
-                const sorted = data.sort((a,b) => b.position - a.position);
-                setRoles(sorted);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, [guildId]);
+    const filteredRoles = useMemo(() => {
+        // Sort by position (descending) so highest roles are at top
+        return [...roles].sort((a, b) => b.position - a.position);
+    }, [roles]);
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         if (multiple) {
@@ -76,12 +50,12 @@ export const RoleSelect: React.FC<RoleSelectProps> = ({
             }}
         >
             {!multiple && <option value="">{placeholder}</option>}
-            {roles.map(role => (
+            {filteredRoles.map(role => (
                 <option key={role.id} value={role.id}>
                     {role.name}
                 </option>
             ))}
-            {loading && <option disabled>Loading roles...</option>}
+            {loading && <option disabled>Loading resources...</option>}
         </select>
     );
 };

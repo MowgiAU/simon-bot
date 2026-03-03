@@ -1,12 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
-
-interface Channel {
-    id: string;
-    name: string;
-    type: number;
-    parentId?: string;
-}
+import { useResources } from './ResourceProvider';
 
 interface ChannelSelectProps {
     guildId: string;
@@ -25,35 +19,12 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
     multiple = false,
     channelTypes 
 }) => {
-    const [channels, setChannels] = useState<Channel[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { channels, loading } = useResources();
 
-    useEffect(() => {
-        if (!guildId) return;
-        setLoading(true);
-        fetch(`/api/guilds/${guildId}/channels`, { credentials: 'include' })
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch channels');
-                return res.json();
-            })
-            .then((data: Channel[]) => {
-                console.log('API Channels:', data); // Debug link
-                if (!Array.isArray(data)) {
-                    console.error('Channel API response is not an array:', data);
-                    setChannels([]);
-                    return;
-                }
-                let filtered = data;
-                if (channelTypes) {
-                    console.log(`Filtering for types: ${channelTypes}`);
-                    filtered = data.filter(c => channelTypes.includes(c.type));
-                }
-                console.log('Filtered Channels:', filtered);
-                setChannels(filtered);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, [guildId]);
+    const filteredChannels = useMemo(() => {
+        if (!channelTypes) return channels;
+        return channels.filter(c => channelTypes.includes(c.type));
+    }, [channels, channelTypes]);
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         if (multiple) {
@@ -94,12 +65,12 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
             }}
         >
             {!multiple && <option value="">{placeholder}</option>}
-            {channels.map(channel => (
+            {filteredChannels.map(channel => (
                 <option key={channel.id} value={channel.id}>
                     {getIcon(channel.type)} {channel.name}
                 </option>
             ))}
-            {loading && <option disabled>Loading channels...</option>}
+            {loading && <option disabled>Loading resources...</option>}
         </select>
     );
 };
