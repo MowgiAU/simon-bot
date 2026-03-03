@@ -38,7 +38,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
             if (search) params.search = search;
             if (selectedGenre) params.genre = selectedGenre;
             
-            const res = await axios.get('/api/musician/profiles', { params });
+            // Using absolute URL or ensuring the base is correct for the API call
+            const apiBase = window.location.origin.includes('localhost') ? '' : window.location.origin;
+            const res = await axios.get(`${apiBase}/api/musician/profiles`, { params });
             setArtists(res.data);
         } catch (err) {
             console.error('Failed to fetch artists', err);
