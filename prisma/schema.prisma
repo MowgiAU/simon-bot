@@ -308,6 +308,36 @@ model DashboardAccess {
   @@map("dashboard_access")
 }
 
+// Internal Messaging & Notifications
+model DashboardMessage {
+  id          String   @id @default(cuid())
+  guildId     String
+  senderId    String   // Discord User ID
+  recipientId String?  // Optional: Discord User ID (null means global/broadcast)
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([guildId, recipientId])
+  @@index([guildId, senderId])
+  @@map("dashboard_messages")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String   // Recipient Discord User ID
+  type        String   // 'mention', 'message', 'system'
+  title       String
+  message     String
+  link        String?  // Optional path to redirect to (e.g., '/logs?id=123')
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([guildId, userId, isRead])
+  @@map("dashboard_notifications")
+}
+
 // Economy System
 model EconomyAccount {
   id             String   @id @default(cuid())
