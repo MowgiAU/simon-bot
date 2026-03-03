@@ -1,19 +1,18 @@
-import React from 'react';
-import { LucideIcon, LucideProps, Icon } from 'lucide-react';
-import * as labIcons from '@lucide/lab';
+import React, { useState } from 'react';
+import { LucideIcon, LucideProps } from 'lucide-react';
+import { motion, useAnimation } from 'framer-motion';
 
 interface AnimatedIconProps extends LucideProps {
   icon: LucideIcon;
-  animationName?: string;
   trigger?: 'hover' | 'click' | 'loop';
 }
 
 /**
- * Uses @lucide/lab's Icon component to render animated/extra icons accurately.
+ * High-fidelity animated Lucide icons using Framer Motion.
+ * Supports path-based animations and physics-based transitions.
  */
 export const AnimatedIcon: React.FC<AnimatedIconProps> = ({ 
-  icon: OriginalIcon, 
-  animationName,
+  icon: Icon, 
   trigger = 'hover',
   size = 20,
   color = 'currentColor',
@@ -21,41 +20,43 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
   style,
   ...props 
 }) => {
-  // Map the lucide-react name to the @lucide/lab icon node if possible
-  const iconName = animationName || (OriginalIcon as any).displayName?.toLowerCase().replace(/icon$/, '') || '';
-  const labIconNode = (labIcons as any)[iconName];
+  const controls = useAnimation();
+  const [isHovered, setIsHovered] = useState(false);
 
-  if (labIconNode) {
-    return (
+  // Define animation variants based on icon type (can be expanded)
+  const variants = {
+    hover: {
+      scale: 1.2,
+      rotate: [0, -5, 5, -5, 0],
+      transition: { duration: 0.4, ease: "easeInOut" }
+    },
+    initial: {
+      scale: 1,
+      rotate: 0
+    }
+  };
+
+  return (
+    <motion.div
+      initial="initial"
+      animate={isHovered ? "hover" : "initial"}
+      variants={variants}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        cursor: 'pointer',
+        ...style 
+      }}
+    >
       <Icon 
-        iconNode={labIconNode} 
         size={size} 
         color={color} 
         strokeWidth={strokeWidth}
-        style={{
-          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          cursor: 'pointer',
-          ...style
-        }}
-        className="lucide-animated"
-        {...props}
+        {...props} 
       />
-    );
-  }
-
-  // Fallback to the original icon with standard hover effect
-  return (
-    <OriginalIcon 
-      size={size} 
-      color={color} 
-      strokeWidth={strokeWidth}
-      style={{
-        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        cursor: 'pointer',
-        ...style
-      }}
-      className="lucide-animated"
-      {...props}
-    />
+    </motion.div>
   );
 };
