@@ -125,7 +125,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                </div>
             </div>
          </div>
-         <a href="#" style={{ color: colors.primary, fontSize: '14px', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>Documentation <ArrowRight size={16} /></a>
+         <button 
+           onClick={() => onNavigate('docs')} 
+           style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+         >
+           Documentation <ArrowRight size={16} />
+         </button>
       </div>
 
       {loading ? (

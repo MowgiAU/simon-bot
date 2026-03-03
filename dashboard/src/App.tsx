@@ -16,11 +16,12 @@ import { BotIdentityPage } from './pages/BotIdentity';
 import { EmailClientPage } from './pages/EmailClient';
 import { TicketSystemPage } from './pages/TicketSystem';
 import { ChannelRules } from './pages/ChannelRules';
+import { DocumentationPage } from './pages/Documentation';
 import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 import { MessageSquare, ArrowRight, Info } from 'lucide-react';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets' | 'channel-rules';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets' | 'channel-rules' | 'docs';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -181,6 +182,8 @@ const AppContent: React.FC = () => {
          return <TicketSystemPage guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
+      case 'docs':
+        return <DocumentationPage />;
       case 'dashboard':
         return <Dashboard 
           guildId={selectedGuild.id} 
@@ -302,9 +305,12 @@ const AppContent: React.FC = () => {
                     Manage your community, configuration, and automation tools. Changes sync in real-time.
                 </div>
                 <div style={{ flex: 1 }} />
-                <a href="#" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button 
+                  onClick={() => handleNavigate('docs')} 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
                     Documentation <ArrowRight size={14} />
-                </a>
+                </button>
             </div>
 
           {renderContent()}
