@@ -45,6 +45,13 @@ interface DashboardStats {
     welcome: { enabled: boolean };
     filter: { enabled: boolean };
   };
+  recentLogs?: Array<{
+    id: string;
+    pluginId: string;
+    action: string;
+    executorName: string;
+    createdAt: string;
+  }>;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, accessiblePlugins }) => {
@@ -161,27 +168,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
              <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                    <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Recent Activity</h3>
-                   <Settings size={16} color="#8A92A0" />
+                   <FileText size={16} color="#8A92A0" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                   {[
-                      { icon: <Shield size={16} />, title: 'Plugin Updated', desc: 'Moderation core updated to v2.4', time: '2 MINS AGO', color: colors.primary },
-                      { icon: <ShieldAlert size={16} />, title: 'System Alert', desc: 'High latency detected in Tokyo node', time: '1 HOUR AGO', color: colors.highlight },
-                      { icon: <UserPlus size={16} />, title: 'New Members', desc: '14 users joined the Discord', time: 'YESTERDAY', color: colors.info }
-                   ].map((item, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '12px' }}>
-                         <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${item.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
-                            {item.icon}
-                         </div>
-                         <div>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{item.title}</div>
-                            <div style={{ fontSize: '11px', color: '#8A92A0', marginBottom: '2px' }}>{item.desc}</div>
-                            <div style={{ fontSize: '10px', color: '#8A92A0', opacity: 0.6 }}>{item.time}</div>
-                         </div>
-                      </div>
-                   ))}
+                   {stats?.recentLogs && stats.recentLogs.length > 0 ? (
+                    stats.recentLogs.map((log) => {
+                      const getLogIcon = (pluginId: string) => {
+                        switch(pluginId) {
+                          case 'moderation': return <Shield size={16} />;
+                          case 'word-filter': return <ShieldAlert size={16} />;
+                          case 'tickets': return <MessageSquare size={16} />;
+                          case 'economy': return <DollarSign size={16} />;
+                          default: return <Settings size={16} />;
+                        }
+                      };
+
+                      const getLogColor = (pluginId: string) => {
+                        switch(pluginId) {
+                          case 'moderation': return colors.primary;
+                          case 'word-filter': return colors.highlight;
+                          case 'tickets': return colors.info;
+                          case 'economy': return colors.success;
+                          default: return colors.textSecondary;
+                        }
+                      };
+
+                      const timeAgo = (date: string) => {
+                         const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+                         if (seconds < 60) return 'JUST NOW';
+                         const minutes = Math.floor(seconds / 60);
+                         if (minutes < 60) return `${minutes} MINS AGO`;
+                         const hours = Math.floor(minutes / 60);
+                         if (hours < 24) return `${hours} HOURS AGO`;
+                         return new Date(date).toLocaleDateString();
+                      };
+
+                      return (
+                        <div key={log.id} style={{ display: 'flex', gap: '12px' }}>
+                           <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: `${getLogColor(log.pluginId)}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: getLogColor(log.pluginId), flexShrink: 0 }}>
+                              {getLogIcon(log.pluginId)}
+                           </div>
+                           <div style={{ overflow: 'hidden' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                 {log.action.replace(/_/g, ' ').toUpperCase()}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#8A92A0', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                 By {log.executorName} via {log.pluginId}
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#8A92A0', opacity: 0.6 }}>{timeAgo(log.createdAt)}</div>
+                           </div>
+                        </div>
+                      );
+                    })
+                   ) : (
+                     <div style={{ textAlign: 'center', padding: '20px', color: colors.textSecondary, fontSize: '13px' }}>
+                        No recent activity found.
+                     </div>
+                   )}
                 </div>
-                <button style={{ width: '100%', marginTop: '24px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '12px', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>View All Logs</button>
+                <button 
+                  onClick={() => onNavigate('logs')}
+                  style={{ width: '100%', marginTop: '24px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '12px', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  View All Logs
+                </button>
              </div>
           </div>
 

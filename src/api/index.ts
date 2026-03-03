@@ -850,6 +850,22 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
     const latestStat = history[history.length - 1];
     const totalMembers = latestStat?.memberCount || 0;
 
+    // 6.5 Action Logs (Recent Activity)
+    const recentLogs = await db.actionLog.findMany({
+      where: { guildId },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+
+    // Resolve user data for logs
+    const resolvedLogs = await Promise.all(recentLogs.map(async log => {
+      const executor = log.executorId ? await resolveUser(log.executorId) : null;
+      return {
+        ...log,
+        executorName: executor?.username || 'System'
+      };
+    }));
+
     // 7. Plugins Data
     const openTickets = await db.ticket.count({ where: { guildId, status: 'open' } });
     
@@ -877,6 +893,7 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       },
       today: todayStats,
       totalMembers,
+      recentLogs: resolvedLogs,
       pluginsData: {
         tickets: { open: openTickets },
         email: { unread: unreadEmails },
