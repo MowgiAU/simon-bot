@@ -15,6 +15,7 @@ import { simpleParser } from 'mailparser';
 import { Resend } from 'resend';
 import { EmailService } from '../services/EmailService';
 import { ProfileService } from '../services/ProfileService';
+import { AudioService } from '../services/AudioService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +24,9 @@ const app = express();
 // Configure multer for handling file uploads (in-memory)
 const upload = multer({ storage: multer.memoryStorage() });
 const emailService = new EmailService();
-const profileService = new ProfileService(new PrismaClient());
+const prismaInstance = new PrismaClient();
+const profileService = new ProfileService(prismaInstance);
+const audioService = new AudioService(prismaInstance);
 
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
@@ -3000,6 +3003,50 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 });
 
 // --- Musician Profile API ---
+
+// Leaderboard: Top Tracks
+app.get('/api/musician/leaderboards/tracks', async (req, res) => {
+    try {
+        const topTracks = await audioService.getTrackLeaderboard(10);
+        res.json(topTracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Leaderboard: Top Artists
+app.get('/api/musician/leaderboards/artists', async (req, res) => {
+    try {
+        const topArtists = await audioService.getArtistLeaderboard(10);
+        res.json(topArtists);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Record Track Play (With Anti-Cheat Logic)
+app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
+    try {
+        const { trackId } = req.params;
+        const { duration } = req.body;
+        
+        // Extract IP and UserAgent for anti-cheat
+        const ip = req.ip || req.headers['x-forwarded-for'] as string || '0.0.0.0';
+        const userAgent = req.headers['user-agent'];
+        const userId = (req.session?.user as any)?.id;
+
+        const result = await audioService.recordPlay(trackId, {
+            ip,
+            userAgent,
+            userId,
+            duration
+        });
+
+        res.json(result);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // Discovery (List all profiles)
 app.get('/api/musician/profiles', async (req, res) => {
