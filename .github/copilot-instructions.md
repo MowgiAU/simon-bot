@@ -16,11 +16,6 @@
         git commit -m "<your message>"
         git push origin staging
         ```
-    *   Then instruct the user to run:
-        ```powershell
-        ssh root@simon-bot-main "git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
-        ```
-    *   This pulls, installs, builds backend and dashboard, and restarts all services.
     *   **Dashboard Builds**: React builds consume high RAM. If a build fails with "Killed", check server swap space.
 
 3.  **Plugin Architecture (Strict)**:
