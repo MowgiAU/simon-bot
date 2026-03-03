@@ -34,6 +34,24 @@ const AppContent: React.FC = () => {
   const [navigationParams, setNavigationParams] = useState<any>(null);
   const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
+  // Route Handling for /profile
+  const path = window.location.pathname;
+  if (path === '/profile' && user) {
+    return (
+      <AuthProvider>
+        <ResourceProvider>
+          <div className="app">
+            <main className="main-content" style={{ marginLeft: 0, width: '100%' }}>
+              <div style={{ padding: '40px 16px' }}>
+                <MusicianProfilePage />
+              </div>
+            </main>
+          </div>
+        </ResourceProvider>
+      </AuthProvider>
+    );
+  }
+
   if (loading) return (
     <div style={{ 
       display: 'flex', 
@@ -140,20 +158,25 @@ const AppContent: React.FC = () => {
   }
   if (mutualAdminGuilds.length === 0) {
     return (
-      <div className="app">
-        <Sidebar 
-            activeSection={'musician-profiles'} 
-            onNavigate={(s) => setActiveSection(s as Section)} 
-            user={user} 
-            guild={null as any} 
-            permissions={{ canManagePlugins: false, accessiblePlugins: ['musician-profiles'] }} 
-            logout={logout} 
-        />
-        <main className="main-content">
-          <div style={{ padding: '0 16px 24px', marginTop: '40px' }}>
-            <MusicianProfilePage />
+      <div style={{ padding: 40, textAlign: 'center', backgroundColor: colors.background, minHeight: '100vh', color: colors.textPrimary }}>
+        <div style={{ maxWidth: '500px', margin: '100px auto', padding: '40px', borderRadius: '24px', background: 'rgba(34, 43, 61, 0.8)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <h2>No Admin Communities Found</h2>
+          <p style={{ color: colors.textSecondary, marginBottom: '24px' }}>You are not an administrator of any Discord servers where Fuji Studio is present.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button 
+              onClick={() => window.location.href = '/profile'} 
+              style={{ background: colors.primary, color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Go to My Musician Profile
+            </button>
+            <button 
+              onClick={logout} 
+              style={{ background: 'rgba(255,255,255,0.05)', color: colors.textSecondary, border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Logout
+            </button>
           </div>
-        </main>
+        </div>
       </div>
     );
   }

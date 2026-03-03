@@ -216,17 +216,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Profiles Config</span>
             </button>
           )}
-
-          {permissions.accessiblePlugins.includes('musician-profiles') && !permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'musician-profiles' ? 'active' : ''}`}
-                onClick={() => onNavigate('musician-profiles')}
-                title={collapsed ? "My Profile" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
-                <span className="nav-label">My Profile</span>
-            </button>
-          )}
         </div>
 
         <div className="nav-group">
