@@ -22,6 +22,7 @@ export class MusicianProfilePlugin implements IPlugin {
     readonly author = 'Fuji Studio';
     readonly defaultEnabled = true;
 
+    readonly requiredPermissions = [];
     readonly commands = ['profile'];
     readonly events = ['interactionCreate'];
     readonly dashboardSections = ['musician-profiles'];
@@ -42,22 +43,26 @@ export class MusicianProfilePlugin implements IPlugin {
         this.logger.info('Musician Profile Plugin initialized');
     }
 
-    async handleInteraction(interaction: ChatInputCommandInteraction): Promise<void> {
-        if (!interaction.isChatInputCommand()) return;
+    async shutdown(): Promise<void> {
+        this.logger.info('Musician Profile Plugin shutting down');
+    }
 
-        if (interaction.commandName === 'profile') {
-            const subcommand = interaction.options.getSubcommand();
-            
-            if (subcommand === 'view') {
-                await this.handleViewProfile(interaction);
-            } else if (subcommand === 'edit') {
-                await this.handleEditProfile(interaction);
+    async handleInteraction(interaction: any): Promise<void> {
+        if (interaction.isChatInputCommand()) {
+            if (interaction.commandName === 'profile') {
+                const subcommand = interaction.options.getSubcommand();
+                
+                if (subcommand === 'view') {
+                    await this.handleViewProfile(interaction);
+                } else if (subcommand === 'edit') {
+                    await this.handleEditProfile(interaction);
+                }
             }
         }
 
         // Handle Modal Submissions
         if (interaction.isModalSubmit() && interaction.customId === 'profile_edit_modal') {
-            await this.handleModalSubmit(interaction as any);
+            await this.handleModalSubmit(interaction);
         }
     }
 
