@@ -183,7 +183,10 @@ const AppContent: React.FC = () => {
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
       case 'docs':
-        return <DocumentationPage initialSection={navigationParams?.docSection} />;
+        return <DocumentationPage 
+          initialSection={navigationParams?.docSection} 
+          onNavigate={handleNavigate} 
+        />;
       case 'dashboard':
         return <Dashboard 
           guildId={selectedGuild.id} 

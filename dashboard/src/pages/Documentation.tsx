@@ -80,9 +80,27 @@ const docSections: DocSection[] = [
   }
 ];
 
-export const DocumentationPage: React.FC<{ initialSection?: string }> = ({ initialSection }) => {
+export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?: (section: any) => void }> = ({ initialSection, onNavigate }) => {
   const [activeSection, setActiveSection] = useState(initialSection || docSections[0].id);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleOpenSettings = () => {
+    if (!onNavigate) return;
+    
+    const settingsMap: any = {
+      'overview': 'dashboard',
+      'moderation': 'moderation',
+      'word-filter': 'word-filter-settings',
+      'tickets': 'tickets',
+      'economy': 'economy',
+      'welcome-gate': 'welcome-gate'
+    };
+
+    const target = settingsMap[activeSection];
+    if (target) {
+      onNavigate(target);
+    }
+  };
 
   // Handle section changes when navigating from outside
   React.useEffect(() => {
@@ -291,7 +309,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string }> = ({ initi
             <h4 style={{ margin: '0 0 8px', color: '#FFFFFF' }}>Ready to configure?</h4>
             <p style={{ margin: '0 0 24px', color: colors.textSecondary, fontSize: '14px' }}>Head over to the {currentSection.title.split(' ')[0]} settings page to start using these features.</p>
             <button 
-              onClick={() => {/* Use internal navigation logic */}}
+              onClick={handleOpenSettings}
               style={{
                 background: `linear-gradient(135deg, ${currentSection.color} 0%, ${currentSection.color}dd 100%)`,
                 color: 'white',
@@ -303,7 +321,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string }> = ({ initi
                 boxShadow: `0 4px 15px ${currentSection.color}33`
               }}
             >
-              Open Settings Hub
+              Open {currentSection.title.split(' ')[0]} Settings Hub
             </button>
           </div>
         </div>
