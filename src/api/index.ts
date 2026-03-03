@@ -3020,10 +3020,20 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         const data = req.body;
+        
+        // Ensure username is present (Required by schema)
+        if (!data.username) {
+            const user = await resolveUser(userId);
+            data.username = user ? user.username : 'Unknown Musician';
+        }
+
         // Basic check for common structure
         if (!data.genres) data.genres = [];
         
-        const updated = await profileService.updateProfile(userId, data);
+        const updated = await profileService.updateProfile(userId, {
+            ...data,
+            genreIds: data.genres // The frontend sends array of IDs or objects, ProfileService expects genreIds
+        });
         res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
