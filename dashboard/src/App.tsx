@@ -21,6 +21,7 @@ import { MusicianProfilePage } from './pages/MusicianProfile';
 import { MusicianProfileAdmin } from './pages/MusicianProfileAdmin';
 import { ArtistDiscoveryPage } from './pages/ArtistDiscovery';
 import { DocumentationPage } from './pages/Documentation';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationMenu } from './components/NotificationMenu';
 import { InternalChat } from './components/InternalChat';
 import Logs from './pages/Logs';
@@ -40,7 +41,9 @@ const AppContent: React.FC = () => {
 
   if (path === '/discover') {
     return (
-      <ArtistDiscoveryPage />
+      <ErrorBoundary>
+        <ArtistDiscoveryPage />
+      </ErrorBoundary>
     );
   }
 
