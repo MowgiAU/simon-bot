@@ -74,15 +74,26 @@ export const ModerationSettingsPage: React.FC = () => {
                     if (isMounted) {
                         setSettings(settingsRes.data);
                         
-                        const sortedRoles = rolesRes.data.sort((a: any, b: any) => b.position - a.position);
+                        const sortedRoles = Array.isArray(rolesRes.data) ? rolesRes.data.sort((a: any, b: any) => b.position - a.position) : [];
                         setRoles(sortedRoles);
                         if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
 
-                        setChannels(channelsRes.data);
+                        setChannels(Array.isArray(channelsRes.data) ? channelsRes.data : []);
                     }
                 } catch (err: any) {
                     if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
-                    console.error(err);
+                    console.error('Moderation Load Error:', err);
+                    
+                    // Specific check for Discord communication failures to provide a cleaner UI experience
+                    if (err.response?.status === 500 || err.response?.status === 504) {
+                         setMsg({ type: 'error', text: 'Discord connection timed out. Retrying automatically...' });
+                         // Attempt a silent retry after 2 seconds if still mounted
+                         setTimeout(() => {
+                            if (isMounted) fetchData();
+                         }, 2000);
+                         return;
+                    }
+
                     const errorText = err.response?.data?.error || err.message || 'Unknown error';
                     setMsg({ type: 'error', text: `Failed to load settings: ${errorText}` });
                 } finally {
