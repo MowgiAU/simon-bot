@@ -31,13 +31,12 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
 
   // Simple scale/rotate animation logic for better UI feedback
   const getTransform = () => {
-    if (trigger === 'hover' && isHovered) return 'scale(1.1)';
-    if (trigger === 'mount' && isMounted) return 'scale(1)';
+    if (trigger === 'hover' && isHovered) return 'scale(1.25) rotate(5deg)';
     return 'scale(1)';
   };
 
   const getTransition = () => {
-    return 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    return 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
   };
 
   return (
