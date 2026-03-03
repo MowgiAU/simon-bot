@@ -80,9 +80,16 @@ const docSections: DocSection[] = [
   }
 ];
 
-export const DocumentationPage: React.FC = () => {
-  const [activeSection, setActiveSection] = useState(docSections[0].id);
+export const DocumentationPage: React.FC<{ initialSection?: string }> = ({ initialSection }) => {
+  const [activeSection, setActiveSection] = useState(initialSection || docSections[0].id);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Handle section changes when navigating from outside
+  React.useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
 
   const currentSection = docSections.find(s => s.id === activeSection) || docSections[0];
 

@@ -183,7 +183,7 @@ const AppContent: React.FC = () => {
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
       case 'docs':
-        return <DocumentationPage />;
+        return <DocumentationPage initialSection={navigationParams?.docSection} />;
       case 'dashboard':
         return <Dashboard 
           guildId={selectedGuild.id} 
@@ -306,7 +306,17 @@ const AppContent: React.FC = () => {
                 </div>
                 <div style={{ flex: 1 }} />
                 <button 
-                  onClick={() => handleNavigate('docs')} 
+                  onClick={() => {
+                    const docMap: any = {
+                      'dashboard': 'overview',
+                      'moderation': 'moderation',
+                      'word-filter-settings': 'word-filter',
+                      'tickets': 'tickets',
+                      'economy': 'economy',
+                      'welcome-gate': 'welcome-gate'
+                    };
+                    handleNavigate('docs', { docSection: docMap[activeSection] || 'overview' });
+                  }} 
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
                     Documentation <ArrowRight size={14} />
