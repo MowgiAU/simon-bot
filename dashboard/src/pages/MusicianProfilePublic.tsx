@@ -32,6 +32,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [isPlaying, setIsPlaying] = useState(false);
 
     useEffect(() => {
+        if (profile) {
+            document.title = `${profile.displayName || profile.username} | Fuji Studio Artist`;
+        } else {
+            document.title = 'Artist Discovery | Fuji Studio';
+        }
+        
+        return () => {
+            document.title = 'Fuji Studio Dashboard';
+        };
+    }, [profile]);
+
+    useEffect(() => {
         const fetchProfile = async () => {
             setLoading(true);
             try {
