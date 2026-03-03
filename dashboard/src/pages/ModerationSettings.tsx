@@ -85,6 +85,65 @@ export const ModerationSettingsPage: React.FC = () => {
 
     if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
+    const saveGeneral = async () => {
+        if (!settings || !selectedGuild) return;
+        setSaving(true);
+        try {
+            await axios.post(`/api/guilds/${selectedGuild.id}/moderation`, {
+                logChannelId: settings.logChannelId === '' ? null : settings.logChannelId,
+                dmUponAction: settings.dmUponAction,
+                kickMessage: settings.kickMessage,
+                banMessage: settings.banMessage,
+                timeoutMessage: settings.timeoutMessage
+            }, { withCredentials: true });
+
+            setMsg({ type: 'success', text: 'Settings saved.' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to save settings.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const togglePermission = async (roleId: string, perm: keyof Permission) => {
+        if (!selectedGuild) return;
+
+        // Optimistic update
+        const currentPerms = settings?.permissions.find(p => p.roleId === roleId);
+        const newValue = currentPerms ? !(currentPerms as any)[perm] : true;
+
+        // Clone state for UI update
+        const newSettings = { ...settings! };
+        const permIndex = newSettings.permissions.findIndex(p => p.roleId === roleId);
+
+        if (permIndex >= 0) {
+            (newSettings.permissions[permIndex] as any)[perm] = newValue;
+        } else {
+            // New permission entry
+            newSettings.permissions.push({
+                id: 'temp',
+                roleId,
+                canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false,
+                [perm]: true
+            } as any);
+        }
+        setSettings(newSettings);
+
+        // API Call
+        try {
+            const payload = permIndex >= 0 ? newSettings.permissions[permIndex] : newSettings.permissions[newSettings.permissions.length - 1];
+            // Don't send the ID if it is temp
+            const { id, settingsId, ...cleanPayload } = payload as any;
+
+            await axios.post(`/api/guilds/${selectedGuild.id}/moderation/permissions`, {
+                roleId,
+                permissions: cleanPayload
+            }, { withCredentials: true });
+        } catch (err) {
+            console.error('Failed to save permission');
+            setMsg({ type: 'error', text: 'Failed to save permission change.' });
+        }
+    };
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
     const selectedRolePerms = settings?.permissions.find(p => p.roleId === selectedRoleId) || {
