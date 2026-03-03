@@ -25,6 +25,7 @@ export class ProfileService {
     async updateProfile(userId: string, data: {
         username: string;
         displayName?: string;
+        avatar?: string;
         bio?: string;
         location?: string;
         collabStatus?: boolean;
@@ -33,6 +34,7 @@ export class ProfileService {
         contactEmail?: string;
         socials?: Array<{ platform: string, url: string }>;
         genreIds?: string[];
+        gearList?: string[];
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         const validatedSocials = (data.socials || []).filter(s => {
@@ -51,24 +53,28 @@ export class ProfileService {
                     userId,
                     username: data.username,
                     displayName: data.displayName,
+                    avatar: data.avatar,
                     bio: data.bio,
                     location: data.location,
                     collabStatus: data.collabStatus || false,
                     primaryDAW: data.primaryDAW,
                     dawVersion: data.dawVersion,
                     contactEmail: data.contactEmail,
-                    socials: validatedSocials
+                    socials: validatedSocials,
+                    hardware: data.gearList || []
                 },
                 update: {
                     username: data.username,
                     displayName: data.displayName,
+                    avatar: data.avatar,
                     bio: data.bio,
                     location: data.location,
                     collabStatus: data.collabStatus,
                     primaryDAW: data.primaryDAW,
                     dawVersion: data.dawVersion,
                     contactEmail: data.contactEmail,
-                    socials: validatedSocials
+                    socials: validatedSocials,
+                    hardware: data.gearList
                 }
             });
 

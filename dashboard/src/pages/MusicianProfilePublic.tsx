@@ -143,8 +143,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <Hammer size={20} /> Gear Rack
                         </h3>
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                            {profile.gearList?.length > 0 ? profile.gearList.map((item, i) => (
-                                <li key={i} style={{ padding: '8px 0', borderBottom: i === profile.gearList.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)', color: colors.textPrimary }}>
+                            {(profile.gearList?.length > 0 || (profile as any).hardware?.length > 0) ? (profile.gearList || (profile as any).hardware).map((item: string, i: number) => (
+                                <li key={i} style={{ padding: '8px 0', borderBottom: i === (profile.gearList || (profile as any).hardware).length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)', color: colors.textPrimary }}>
                                     • {item}
                                 </li>
                             )) : <li style={{ color: colors.textSecondary }}>No equipment listed.</li>}

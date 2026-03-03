@@ -3022,9 +3022,14 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
         const data = req.body;
         
         // Ensure username is present (Required by schema)
+        const user = await resolveUser(userId);
         if (!data.username) {
-            const user = await resolveUser(userId);
             data.username = user ? user.username : 'Unknown Musician';
+        }
+        
+        // Auto-update avatar from Discord
+        if (user && user.avatar) {
+            data.avatar = user.avatar;
         }
 
         // Basic check for common structure

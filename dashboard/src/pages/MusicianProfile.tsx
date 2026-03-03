@@ -79,7 +79,14 @@ export const MusicianProfilePage: React.FC = () => {
                     axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true }),
                     axios.get('/api/musician/genres', { withCredentials: true })
                 ]);
-                setProfile(profileRes.data);
+                
+                const data = profileRes.data;
+                // Map hardware to gearList for frontend consistency
+                if (data && !data.gearList && data.hardware) {
+                    data.gearList = data.hardware;
+                }
+                
+                setProfile(data);
                 setAllGenres(genresRes.data);
             } catch (err: any) {
                 if (err.response?.status === 404) {
