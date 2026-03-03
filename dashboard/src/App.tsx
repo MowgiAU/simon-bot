@@ -36,13 +36,14 @@ const AppContent: React.FC = () => {
 
   // Route Handling for /profile
   const path = window.location.pathname;
-  if (path === '/profile' && user) {
+  if (path.startsWith('/profile') && user) {
+    // If user is accessing /profile directly, or a username/ID like /profile/mowgi
     return (
       <AuthProvider>
         <ResourceProvider>
           <div className="app">
-            <main className="main-content" style={{ marginLeft: 0, width: '100%' }}>
-              <div style={{ padding: '40px 16px' }}>
+            <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '40px 16px', flex: 1 }}>
                 <MusicianProfilePage />
               </div>
             </main>

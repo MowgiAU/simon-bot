@@ -32,7 +32,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    const profileUrl = profile?.id ? `${window.location.origin}/profile/${profile.id}` : '';
+    const profileUrl = profile?.username ? `${window.location.origin}/profile/${profile.username}` : '';
 
     const handleCopyLink = () => {
         if (!profileUrl) return;
@@ -46,8 +46,12 @@ export const MusicianProfilePage: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
+                // Check if we have a username/ID in the URL
+                const pathParts = window.location.pathname.split('/');
+                const identifier = pathParts.length > 2 ? pathParts[2] : user.id;
+
                 const [profileRes, genresRes] = await Promise.all([
-                    axios.get(`/api/musician/profile/${user.id}`, { withCredentials: true }),
+                    axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true }),
                     axios.get('/api/musician/genres', { withCredentials: true })
                 ]);
                 setProfile(profileRes.data);

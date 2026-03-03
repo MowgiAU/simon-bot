@@ -92,9 +92,14 @@ export class ProfileService {
         });
     }
 
-    async getProfile(userId: string) {
-        return await this.prisma.musicianProfile.findUnique({
-            where: { userId },
+    async getProfile(identifier: string) {
+        return await this.prisma.musicianProfile.findFirst({
+            where: {
+                OR: [
+                    { userId: identifier },
+                    { username: identifier }
+                ]
+            },
             include: {
                 genres: {
                     include: { genre: true }
