@@ -5,6 +5,7 @@ import {
     Ticket, MessageSquare, Send, CheckCircle, XCircle, AlertTriangle, 
     MoreHorizontal, RefreshCw, Filter, User, ArrowLeft, Settings, List, Save, Shield, Info, History
 } from 'lucide-react';
+import { AnimatedIcon } from '../components/AnimatedIcon';
 import { useMobile } from '../hooks/useMobile';
 import { RoleSelect } from '../components/RoleSelect';
 import { ChannelSelect } from '../components/ChannelSelect';
@@ -272,7 +273,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                             cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
                         }}
                     >
-                        <List size={16} /> Tickets
+                        <AnimatedIcon icon={List} size={16} /> Tickets
                     </button>
                     <button 
                         onClick={() => setView('settings')}
@@ -284,7 +285,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                             cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
                         }}
                     >
-                        <Settings size={16} /> Settings
+                        <AnimatedIcon icon={Settings} size={16} /> Settings
                     </button>
                 </div>
             </div>
