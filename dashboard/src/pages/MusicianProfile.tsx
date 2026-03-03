@@ -29,7 +29,7 @@ interface Genre {
 }
 
 export const MusicianProfilePage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,16 +43,16 @@ export const MusicianProfilePage: React.FC = () => {
     const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
 
     useEffect(() => {
-        if (!user) return;
-        
-        // If we are at exactly /profile (no identifier), default to 'edit' mode for our own profile
         // If we have an identifier, default to 'view' mode
-        if (urlIdentifier && urlIdentifier !== user.id && urlIdentifier !== user.username) {
+        if (urlIdentifier) {
             setMode('view');
-        } else if (!urlIdentifier) {
+        } else if (!urlIdentifier && user) {
             setMode('edit');
+        } else if (!urlIdentifier && !user && !authLoading) {
+            // No identifier and no user = can't do anything, but App.tsx handles login redirect
+            setMode('view');
         }
-    }, [user?.id, urlIdentifier]);
+    }, [user?.id, urlIdentifier, authLoading]);
 
     const profileUrl = profile?.username ? `${window.location.origin}/profile/${profile.username}` : '';
 
@@ -64,13 +64,16 @@ export const MusicianProfilePage: React.FC = () => {
     };
 
     useEffect(() => {
-        if (!user) return;
         const fetchData = async () => {
             setLoading(true);
             try {
                 // Check if we have a username/ID in the URL
-                const pathParts = window.location.pathname.split('/');
-                const identifier = pathParts.length > 2 ? pathParts[2] : user.id;
+                const identifier = urlIdentifier || user?.id;
+                
+                if (!identifier) {
+                    if (!authLoading) setLoading(false);
+                    return;
+                }
 
                 const [profileRes, genresRes] = await Promise.all([
                     axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true }),

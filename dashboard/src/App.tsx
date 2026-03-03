@@ -34,23 +34,29 @@ const AppContent: React.FC = () => {
   const [navigationParams, setNavigationParams] = useState<any>(null);
   const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
-  // Route Handling for /profile
+  // Route Handling for /profile (PUBLIC ACCESS ALLOWED)
   const path = window.location.pathname;
-  if (path.startsWith('/profile') && user) {
-    // If user is accessing /profile directly, or a username/ID like /profile/mowgi
-    return (
-      <AuthProvider>
-        <ResourceProvider>
-          <div className="app">
-            <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '40px 16px', flex: 1 }}>
-                <MusicianProfilePage />
-              </div>
-            </main>
-          </div>
-        </ResourceProvider>
-      </AuthProvider>
-    );
+  if (path.startsWith('/profile')) {
+    const isEditing = path === '/profile';
+    
+    // Force login ONLY if trying to edit (/profile)
+    if (isEditing && !user && !loading) {
+       // login() might trigger redirect, but we'll show login screen below
+    } else {
+      return (
+        <AuthProvider>
+          <ResourceProvider>
+            <div className="app">
+              <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
+                <div style={{ padding: '40px 16px', flex: 1 }}>
+                  <MusicianProfilePage />
+                </div>
+              </main>
+            </div>
+          </ResourceProvider>
+        </AuthProvider>
+      );
+    }
   }
 
   if (loading) return (

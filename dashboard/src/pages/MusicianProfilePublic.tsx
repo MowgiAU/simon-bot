@@ -49,6 +49,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         <div style={{ textAlign: 'center', padding: '100px' }}>
             <h2 style={{ color: '#ff4444' }}>{error || 'Profile not found'}</h2>
             <p style={{ color: colors.textSecondary }}>The musician you are looking for hasn't set up their Fuji Studio profile yet.</p>
+            <div style={{ marginTop: spacing.xl }}>
+                <a href="/" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 'bold' }}>← Back to Fuji Studio</a>
+            </div>
         </div>
     );
 
