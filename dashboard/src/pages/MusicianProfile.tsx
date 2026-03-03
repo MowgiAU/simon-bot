@@ -86,6 +86,18 @@ export const MusicianProfilePage: React.FC = () => {
                     data.gearList = data.hardware;
                 }
                 
+                // Map social array to flat fields for editing
+                if (data && data.socials && Array.isArray(data.socials)) {
+                    data.socials.forEach((s: any) => {
+                        if (s.platform === 'spotify') data.spotifyUrl = s.url;
+                        if (s.platform === 'soundcloud') data.soundcloudUrl = s.url;
+                        if (s.platform === 'youtube') data.youtubeUrl = s.url;
+                        if (s.platform === 'instagram') data.instagramUrl = s.url;
+                        if (s.platform === 'twitter') data.twitterUrl = s.url;
+                        if (s.platform === 'website') data.websiteUrl = s.url;
+                    });
+                }
+                
                 // Extract genres into simple {id, name} objects for the editor
                 if (data && data.genres) {
                     data.genres = data.genres.map((pg: any) => ({

@@ -3032,6 +3032,16 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
             data.avatar = user.avatar;
         }
 
+        // Map frontend social fields to ProfileService format
+        const socials = [
+            { platform: 'spotify', url: data.spotifyUrl },
+            { platform: 'soundcloud', url: data.soundcloudUrl },
+            { platform: 'youtube', url: data.youtubeUrl },
+            { platform: 'instagram', url: data.instagramUrl },
+            { platform: 'twitter', url: data.twitterUrl },
+            { platform: 'website', url: data.websiteUrl }
+        ].filter(s => !!s.url);
+
         // Basic check for common structure
         if (!data.genres) data.genres = [];
         
@@ -3040,6 +3050,7 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
 
         const updated = await profileService.updateProfile(userId, {
             ...data,
+            socials,
             genreIds
         });
         res.json(updated);
