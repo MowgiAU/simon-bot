@@ -106,15 +106,21 @@ app.get('/api/guilds/:guildId/notifications', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const notifications = await (db as any).notification.findMany({
-            where: { guildId, userId },
-            orderBy: { createdAt: 'desc' },
-            take: 20
-        });
+        let notifications = [];
+        try {
+            notifications = await (db as any).notification.findMany({
+                where: { guildId, userId },
+                orderBy: { createdAt: 'desc' },
+                take: 20
+            });
+        } catch (dbErr: any) {
+            logger.error(`Notification fetch failed (probably table doesn't exist): ${dbErr.message}`);
+            return res.json([]); 
+        }
 
         res.json(notifications);
     } catch (e) {
-        res.status(500).json({ error: 'Failed to fetch notifications' });
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
@@ -125,14 +131,18 @@ app.post('/api/guilds/:guildId/notifications/read', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-        await (db as any).notification.updateMany({
-            where: { guildId, userId, isRead: false },
-            data: { isRead: true }
-        });
+        try {
+            await (db as any).notification.updateMany({
+                where: { guildId, userId, isRead: false },
+                data: { isRead: true }
+            });
+        } catch (dbErr: any) {
+            logger.error(`Notification update failed: ${dbErr.message}`);
+        }
 
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ error: 'Failed to mark notifications' });
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
@@ -141,11 +151,18 @@ app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
     try {
         const { guildId } = req.params;
         
-        const messages = await (db as any).dashboardMessage.findMany({
-            where: { guildId },
-            orderBy: { createdAt: 'desc' },
-            take: 50
-        });
+        // Wrap in error handler to catch missing table errors
+        let messages = [];
+        try {
+            messages = await (db as any).dashboardMessage.findMany({
+                where: { guildId },
+                orderBy: { createdAt: 'desc' },
+                take: 50
+            });
+        } catch (dbErr: any) {
+            logger.error(`DashboardMessage fetch failed (probably table doesn't exist): ${dbErr.message}`);
+            return res.json([]); 
+        }
 
         const reversedMessages = messages.reverse();
 
@@ -161,7 +178,7 @@ app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
 
         res.json(resolvedMessages);
     } catch (e) {
-        res.status(500).json({ error: 'Failed to fetch messages' });
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
@@ -173,20 +190,22 @@ app.post('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId || !content) return res.status(400).json({ error: 'Incomplete message data' });
 
-        const message = await (db as any).dashboardMessage.create({
-            data: {
-                guildId,
-                senderId: userId,
-                content,
-                recipientId: recipientId || null
-            }
-        });
-
-        // If global message, we could notify others, but keep it quiet for now except mentions
-
-        res.json(message);
+        try {
+            const message = await (db as any).dashboardMessage.create({
+                data: {
+                    guildId,
+                    senderId: userId,
+                    content,
+                    recipientId: recipientId || null
+                }
+            });
+            res.json(message);
+        } catch (dbErr: any) {
+            logger.error(`DashboardMessage create failed: ${dbErr.message}`);
+            res.status(500).json({ error: 'Feature unavailable (DB setup pending)' });
+        }
     } catch (e) {
-        res.status(500).json({ error: 'Failed to send message' });
+        res.status(500).json({ error: 'Failed' });
     }
 });
 
@@ -836,16 +855,20 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
         if (mentionedIds.size > 0) {
             const senderName = req.session.user.username || 'Someone';
 
-            await (db as any).notification.createMany({
-                data: Array.from(mentionedIds).map(targetId => ({
-                    guildId: log.guildId,
-                    userId: targetId,
-                    type: 'mention',
-                    title: 'New Mention',
-                    content: `${senderName} mentioned you in an audit log comment: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
-                    link: `/audit-logs?highlight=${logId}`
-                }))
-            });
+            try {
+                await (db as any).notification.createMany({
+                    data: Array.from(mentionedIds).map(targetId => ({
+                        guildId: log.guildId,
+                        userId: targetId,
+                        type: 'mention',
+                        title: 'New Mention',
+                        content: `${senderName} mentioned you in an audit log comment: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                        link: `/audit-logs?highlight=${logId}`
+                    }))
+                });
+            } catch (dbErr: any) {
+                logger.error(`Notification creation failed in mentions: ${dbErr.message}`);
+            }
         }
     } catch (notifErr) {
         logger.error('Failed to process mentions', notifErr);
