@@ -208,12 +208,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
           {permissions.accessiblePlugins.includes('musician-profiles') && (
             <button
+                className={`nav-item ${activeSection === 'musician-profiles-admin' ? 'active' : ''}`}
+                onClick={() => onNavigate('musician-profiles-admin')}
+                title={collapsed ? "Profiles Config" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Settings} size={20} /></span>
+                <span className="nav-label">Profiles Config</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('musician-profiles') && !permissions.canManagePlugins && (
+            <button
                 className={`nav-item ${activeSection === 'musician-profiles' ? 'active' : ''}`}
                 onClick={() => onNavigate('musician-profiles')}
-                title={collapsed ? "Musician Profiles" : ""}
+                title={collapsed ? "My Profile" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
-                <span className="nav-label">Profiles</span>
+                <span className="nav-label">My Profile</span>
             </button>
           )}
         </div>

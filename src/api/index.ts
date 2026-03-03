@@ -3040,6 +3040,34 @@ app.get('/api/musician/genres', async (req, res) => {
     }
 });
 
+// Admin: Add/Update Genre
+app.post('/api/musician/genres', async (req, res) => {
+    try {
+        const { name, parentId } = req.body;
+        if (!name) return res.status(400).json({ error: 'Name is required' });
+        
+        const genre = await db.genre.upsert({
+            where: { name },
+            update: { parentId },
+            create: { name, parentId }
+        });
+        res.json(genre);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Delete Genre
+app.delete('/api/musician/genres/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.genre.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('API error', err);

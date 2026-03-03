@@ -18,6 +18,7 @@ import { EmailClientPage } from './pages/EmailClient';
 import { TicketSystemPage } from './pages/TicketSystem';
 import { ChannelRules } from './pages/ChannelRules';
 import { MusicianProfilePage } from './pages/MusicianProfile';
+import { MusicianProfileAdmin } from './pages/MusicianProfileAdmin';
 import { DocumentationPage } from './pages/Documentation';
 import { NotificationMenu } from './components/NotificationMenu';
 import { InternalChat } from './components/InternalChat';
@@ -25,7 +26,7 @@ import Logs from './pages/Logs';
 import { StagingTest } from './pages/StagingTest';
 import { MessageSquare, ArrowRight, Info } from 'lucide-react';
 
-type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets' | 'channel-rules' | 'docs' | 'musician-profiles';
+type Section = 'dashboard' | 'word-filter-settings' | 'plugins' | 'logs' | 'staging-test' | 'moderation' | 'economy' | 'feedback' | 'welcome-gate' | 'bot-identity' | 'email-client' | 'tickets' | 'channel-rules' | 'docs' | 'musician-profiles' | 'musician-profiles-admin';
 
 const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
@@ -196,6 +197,8 @@ const AppContent: React.FC = () => {
          return <TicketSystemPage guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
       case 'channel-rules':
          return <ChannelRules guildId={selectedGuild.id} />;
+      case 'musician-profiles-admin':
+        return <MusicianProfileAdmin />;
       case 'musician-profiles':
         return <MusicianProfilePage />;
       case 'docs':
