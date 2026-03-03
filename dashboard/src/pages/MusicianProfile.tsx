@@ -130,7 +130,8 @@ export const MusicianProfilePage: React.FC = () => {
         setProfile({ ...profile, genres: profile.genres.filter(g => g.id !== id) });
     };
 
-    const addGear = () => {
+    const addGear = (e: React.MouseEvent) => {
+        e.preventDefault();
         if (!profile) return;
         setProfile({ ...profile, gearList: [...profile.gearList, ''] });
     };
@@ -142,7 +143,8 @@ export const MusicianProfilePage: React.FC = () => {
         setProfile({ ...profile, gearList: newGear });
     };
 
-    const removeGear = (index: number) => {
+    const removeGear = (index: number, e: React.MouseEvent) => {
+        e.preventDefault();
         if (!profile) return;
         setProfile({ ...profile, gearList: profile.gearList.filter((_, i) => i !== index) });
     };
@@ -332,12 +334,12 @@ export const MusicianProfilePage: React.FC = () => {
                                         placeholder="FL Studio 21, Serum, DT 990 Pro..."
                                         style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
                                     />
-                                    <button onClick={() => removeGear(idx)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
+                                    <button onClick={(e) => removeGear(idx, e)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
                                         <X size={18}/>
                                     </button>
                                 </div>
                             ))}
-                            <button onClick={addGear} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textSecondary, cursor: 'pointer', marginTop: spacing.sm }}>
+                            <button onClick={(e) => addGear(e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textSecondary, cursor: 'pointer', marginTop: spacing.sm }}>
                                 <Plus size={16}/> Add Equipment
                             </button>
                         </div>

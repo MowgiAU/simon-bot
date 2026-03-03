@@ -80,12 +80,15 @@ export class ProfileService {
                 });
 
                 // Batch insert new ones
-                await tx.profileGenre.createMany({
-                    data: data.genreIds.map(gid => ({
-                        profileId: profile.id,
-                        genreId: gid
-                    }))
-                });
+                const validGenreIds = data.genreIds.filter(gid => !!gid);
+                if (validGenreIds.length > 0) {
+                    await tx.profileGenre.createMany({
+                        data: validGenreIds.map(gid => ({
+                            profileId: profile.id,
+                            genreId: gid
+                        }))
+                    });
+                }
             }
 
             return profile;

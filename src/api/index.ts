@@ -3030,9 +3030,12 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
         // Basic check for common structure
         if (!data.genres) data.genres = [];
         
+        // Extract IDs if passed as objects from frontend
+        const genreIds = data.genres.map((g: any) => typeof g === 'string' ? g : g.id).filter(Boolean);
+
         const updated = await profileService.updateProfile(userId, {
             ...data,
-            genreIds: data.genres // The frontend sends array of IDs or objects, ProfileService expects genreIds
+            genreIds
         });
         res.json(updated);
     } catch (e: any) {
