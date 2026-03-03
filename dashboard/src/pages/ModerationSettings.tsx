@@ -6,6 +6,7 @@ import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import axios from 'axios';
 import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List } from 'lucide-react';
+import { AnimatedIcon } from '../components/AnimatedIcon';
 
 interface ModerationSettings {
     id: string;
@@ -163,7 +164,7 @@ export const ModerationSettingsPage: React.FC = () => {
         <div style={{ padding: isMobile ? '16px' : '20px', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
-                    <Shield size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <AnimatedIcon icon={Shield} size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
                     <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Moderation Settings</h1>
                 </div>
                  {!isMobile && (
@@ -241,7 +242,7 @@ export const ModerationSettingsPage: React.FC = () => {
                 </div>
 
                 <h3 style={{ margin: '20px 0 10px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <MessageSquare size={16} /> Custom DM Messages
+                    <AnimatedIcon icon={MessageSquare} size={16} /> Custom DM Messages
                 </h3>
                 <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px' }}>
                     Variables: <code>{'{server}'}</code>, <code>{'{user}'}</code>, <code>{'{reason}'}</code>, <code>{'{duration}'}</code>
@@ -299,7 +300,7 @@ export const ModerationSettingsPage: React.FC = () => {
                             justifyContent: 'center'
                         }}
                     >
-                        <Save size={18} />
+                        <AnimatedIcon icon={Save} size={18} />
                         {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
@@ -311,7 +312,7 @@ export const ModerationSettingsPage: React.FC = () => {
                 {/* Left: Role List */}
                 <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: '20px', borderRadius: borderRadius.lg }}>
                     <h3 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <List size={20} /> Roles
+                        <AnimatedIcon icon={List} size={20} /> Roles
                     </h3>
                     {isMobile ? (
                         <select

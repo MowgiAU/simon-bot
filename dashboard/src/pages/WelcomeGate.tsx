@@ -5,6 +5,7 @@ import { useResources } from '../components/ResourceProvider';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { Shield, Save, Plus, Trash2 } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
+import { AnimatedIcon } from '../components/AnimatedIcon';
 
 export const WelcomeGatePluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -75,7 +76,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
             <div style={{ display: 'flex', marginBottom: '24px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center' }}>
-                <Shield size={32} color={colors.primary} style={{ marginRight: '16px' }} />
+                <AnimatedIcon icon={Shield} size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
                     <h1 style={{ margin: 0 }}>Welcome Gate</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure verification modal and role gating.</p>
@@ -94,7 +95,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
-                    <Save size={18} /> Save Settings
+                    <AnimatedIcon icon={Save} size={18} /> Save Settings
                 </button>
             </div>
 
@@ -191,7 +192,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0 }}>Verification Questions</h3>
                         <button onClick={addQuestion} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Plus size={18} /> Add Question
+                            <AnimatedIcon icon={Plus} size={18} /> Add Question
                         </button>
                     </div>
                     
@@ -205,7 +206,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                                     style={{ flex: 1, padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                                 />
                                 <button onClick={() => removeQuestion(i)} style={{ background: 'rgba(255,0,0,0.1)', border: 'none', color: colors.error, borderRadius: borderRadius.md, padding: '0 12px', cursor: 'pointer' }}>
-                                    <Trash2 size={18} />
+                                    <AnimatedIcon icon={Trash2} size={18} />
                                 </button>
                             </div>
                         ))}
