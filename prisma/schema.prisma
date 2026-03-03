@@ -663,6 +663,10 @@ model MusicianProfile {
   // Socials / Streaming (Stored as JSON for flexibility, validated via service)
   socials         Json?    @default("[]")
 
+  // Tracks & Discoverability
+  tracks          Track[]
+  totalPlays      Int      @default(0)
+  
   // Genres (Many-to-Many via Join Table)
   genres          ProfileGenre[]
 
@@ -670,6 +674,42 @@ model MusicianProfile {
   updatedAt       DateTime @updatedAt
 
   @@map("musician_profiles")
+}
+
+model Track {
+  id              String   @id @default(cuid())
+  profileId       String
+  title           String
+  description     String?  @db.Text
+  url             String   // Audio file URL (S3/Cloudinary)
+  coverUrl        String?  // Cover image URL
+  
+  duration        Int      @default(0) // In seconds
+  playCount       Int      @default(0)
+  isPublic        Boolean  @default(true)
+  
+  profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  plays           TrackPlay[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("musician_tracks")
+}
+
+model TrackPlay {
+  id              String   @id @default(cuid())
+  trackId         String
+  userId          String?  // Optional: ID of user who played (null for guests)
+  ipAddress       String   // Anti-cheat: Track IP to prevent botting
+  userAgent       String?  // Anti-cheat: Track browser to prevent botting
+  playAt          DateTime @default(now())
+  durationPlayed  Int?     // How many seconds they actually listened
+  
+  track           Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([ipAddress, trackId, playAt]) // For fast anti-cheat lookups
+  @@map("track_plays")
 }
 
 model Genre {
