@@ -25,7 +25,7 @@ export class PluginLoader {
     try {
       const files = await fs.readdir(this.pluginsDir);
       const pluginFiles = files.filter(
-        f => f.endsWith('Plugin.ts') || f.endsWith('Plugin.js')
+        f => (f.endsWith('Plugin.ts') || f.endsWith('Plugin.js')) && !f.includes('README.md')
       );
 
       for (const file of pluginFiles) {
