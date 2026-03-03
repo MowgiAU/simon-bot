@@ -23,6 +23,7 @@ import { WelcomeGatePlugin } from './plugins/WelcomeGatePlugin';
 import { EmailPlugin } from './plugins/EmailPlugin';
 import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
+import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
 
 dotenv.config();
 
@@ -97,6 +98,7 @@ export class SimonBot {
       this.pluginManager.register(new EmailPlugin());
       this.pluginManager.register(new TicketPlugin());
       this.pluginManager.register(new ChannelRulesPlugin());
+      this.pluginManager.register(new MusicianProfilePlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

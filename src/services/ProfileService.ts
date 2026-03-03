@@ -119,8 +119,7 @@ export class ProfileService {
 
     async getAllGenres() {
         return await this.prisma.genre.findMany({
-            include: { children: true },
-            where: { parentId: null }
+            include: { children: true }
         });
     }
 }

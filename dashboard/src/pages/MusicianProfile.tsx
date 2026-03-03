@@ -86,6 +86,14 @@ export const MusicianProfilePage: React.FC = () => {
                     data.gearList = data.hardware;
                 }
                 
+                // Extract genres into simple {id, name} objects for the editor
+                if (data && data.genres) {
+                    data.genres = data.genres.map((pg: any) => ({
+                        id: pg.genreId,
+                        name: pg.genre?.name || 'Unknown'
+                    }));
+                }
+                
                 setProfile(data);
                 setAllGenres(genresRes.data);
             } catch (err: any) {
