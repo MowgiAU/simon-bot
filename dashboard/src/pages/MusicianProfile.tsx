@@ -241,7 +241,7 @@ export const MusicianProfilePage: React.FC = () => {
                             <Music size={20} /> Genres
                         </h3>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
-                            {profile?.genres.map(g => (
+                            {profile?.genres?.map(g => (
                                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '4px 8px', borderRadius: '16px', fontSize: '0.85rem' }}>
                                     {g.name}
                                     <X size={14} style={{ cursor: 'pointer' }} onClick={() => removeGenre(g.id)} />
@@ -266,7 +266,7 @@ export const MusicianProfilePage: React.FC = () => {
                             }}
                         >
                             <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>Add a genre...</option>
-                            {allGenres.filter(g => !profile?.genres.some(pg => pg.id === g.id)).map(g => (
+                            {allGenres.filter(g => !profile?.genres?.some(pg => pg.id === g.id)).map(g => (
                                 <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>
                                     {g.name}
                                 </option>
@@ -279,7 +279,7 @@ export const MusicianProfilePage: React.FC = () => {
                             <Hammer size={20} /> Gear Rack
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                            {profile?.gearList.map((item, idx) => (
+                            {profile?.gearList?.map((item, idx) => (
                                 <div key={idx} style={{ display: 'flex', gap: '8px' }}>
                                     <input 
                                         type="text" 
