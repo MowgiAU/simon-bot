@@ -2,10 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio, ExternalLink, Copy, Check } from 'lucide-react';
+import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft } from 'lucide-react';
+import { MusicianProfilePublic } from './MusicianProfilePublic';
 
 interface MusicianProfile {
     id?: string;
+    userId?: string;
+    username?: string;
+    displayName?: string | null;
+    avatar?: string | null;
     bio: string | null;
     spotifyUrl: string | null;
     soundcloudUrl: string | null;
@@ -30,7 +35,24 @@ export const MusicianProfilePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [mode, setMode] = useState<'view' | 'edit'>('view');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // Get the identifier from URL (if any)
+    const pathParts = window.location.pathname.split('/');
+    const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
+
+    useEffect(() => {
+        if (!user) return;
+        
+        // If we are at exactly /profile (no identifier), default to 'edit' mode for our own profile
+        // If we have an identifier, default to 'view' mode
+        if (urlIdentifier && urlIdentifier !== user.id && urlIdentifier !== user.username) {
+            setMode('view');
+        } else if (!urlIdentifier) {
+            setMode('edit');
+        }
+    }, [user?.id, urlIdentifier]);
 
     const profileUrl = profile?.username ? `${window.location.origin}/profile/${profile.username}` : '';
 
@@ -133,9 +155,24 @@ export const MusicianProfilePage: React.FC = () => {
         { key: 'websiteUrl', label: 'External Portfolio', icon: <Globe size={16}/> },
     ];
 
+    if (mode === 'view') {
+        const identifier = urlIdentifier || user?.username || user?.id || '';
+        const isOwn = !!user && (identifier === user.id || identifier === user.username);
+        return (
+            <div style={{ minHeight: '100vh', backgroundColor: colors.background }}>
+                <MusicianProfilePublic 
+                    identifier={identifier} 
+                    isOwnProfile={isOwn} 
+                    onEdit={() => setMode('edit')}
+                />
+            </div>
+        );
+    }
+
     return (
         <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+                <ArrowLeft size={24} style={{ marginRight: '16px', cursor: 'pointer', color: colors.textSecondary }} onClick={() => setMode('view')} />
                 <User size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div style={{ flex: 1 }}>
                     <h1 style={{ margin: 0 }}>Musician Profile</h1>
