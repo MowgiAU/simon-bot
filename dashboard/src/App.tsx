@@ -34,9 +34,8 @@ const AppContent: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navigationParams, setNavigationParams] = useState<any>(null);
-  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
-
-  // Route Handling for /profile (PUBLIC ACCESS ALLOWED)
+  
+  // Route Handling for /discover (PUBLIC ACCESS ALLOWED)
   const path = window.location.pathname;
 
   if (path === '/discover') {
@@ -46,6 +45,8 @@ const AppContent: React.FC = () => {
       </ErrorBoundary>
     );
   }
+
+  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
   if (path.startsWith('/profile')) {
     const isEditing = path === '/profile';
