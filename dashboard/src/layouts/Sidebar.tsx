@@ -240,7 +240,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Logout</span>
           </button>
         </div>
-        </div>
       </div>
 
       <div className="sidebar-footer">
