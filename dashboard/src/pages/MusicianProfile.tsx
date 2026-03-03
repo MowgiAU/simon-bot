@@ -410,7 +410,7 @@ export const MusicianProfilePage: React.FC = () => {
                     <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Music size={20} /> Genres
                     </h3>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
                             {profile?.genres?.map(g => (
                                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '4px 8px', borderRadius: '16px', fontSize: '0.85rem' }}>
                                     {g.name}
