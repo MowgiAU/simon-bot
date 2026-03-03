@@ -43,6 +43,31 @@ export const WelcomeGatePluginPage: React.FC = () => {
         };
     }, [selectedGuild?.id]);
 
+    const handleSave = async () => {
+        try {
+            await axios.post(`/api/guilds/${selectedGuild?.id}/welcome`, settings, { withCredentials: true });
+            alert('Settings saved!');
+        } catch (e) {
+            alert('Failed to save settings');
+        }
+    };
+
+    const addQuestion = () => {
+        setSettings({ ...settings, questions: [...(settings.questions || []), ''] });
+    };
+
+    const updateQuestion = (index: number, val: string) => {
+        const newQ = [...(settings.questions || [])];
+        newQ[index] = val;
+        setSettings({ ...settings, questions: newQ });
+    };
+
+    const removeQuestion = (index: number) => {
+        const newQ = [...(settings.questions || [])];
+        newQ.splice(index, 1);
+        setSettings({ ...settings, questions: newQ });
+    };
+
     if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
     if (!settings) return null; // Should be handled by error view above
