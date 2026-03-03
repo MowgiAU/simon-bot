@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio } from 'lucide-react';
+import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio, ExternalLink, Copy, Check } from 'lucide-react';
 
 interface MusicianProfile {
+    id?: string;
     bio: string | null;
     spotifyUrl: string | null;
     soundcloudUrl: string | null;
@@ -28,7 +29,17 @@ export const MusicianProfilePage: React.FC = () => {
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [copied, setCopied] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    const profileUrl = profile?.id ? `${window.location.origin}/profile/${profile.id}` : '';
+
+    const handleCopyLink = () => {
+        if (!profileUrl) return;
+        navigator.clipboard.writeText(profileUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -122,10 +133,52 @@ export const MusicianProfilePage: React.FC = () => {
         <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <User size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                <div>
+                <div style={{ flex: 1 }}>
                     <h1 style={{ margin: 0 }}>Musician Profile</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Customize how you appear in the community networking lists.</p>
                 </div>
+                {profile?.id && (
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <a 
+                            href={profileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                padding: '8px 16px', 
+                                borderRadius: borderRadius.md, 
+                                color: colors.textPrimary, 
+                                textDecoration: 'none', 
+                                fontSize: '0.9rem',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}
+                        >
+                            <ExternalLink size={16} /> View Profile
+                        </a>
+                        <button 
+                            onClick={handleCopyLink}
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                backgroundColor: colors.primary, 
+                                padding: '8px 16px', 
+                                borderRadius: borderRadius.md, 
+                                color: 'white', 
+                                border: 'none', 
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Share Profile</>}
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
