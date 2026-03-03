@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { LucideIcon, LucideProps } from 'lucide-react';
-import { motion, useAnimation } from 'motion/react';
+import { motion } from 'motion/react';
 
-interface AnimatedIconProps extends LucideProps {
+interface AnimatedWrapperProps extends LucideProps {
   icon: LucideIcon;
-  trigger?: 'hover' | 'click' | 'loop';
+  trigger?: 'hover' | 'click';
 }
 
 /**
- * High-fidelity animated Lucide icons using Framer Motion.
- * Supports path-based animations and physics-based transitions.
+ * Custom interactive wrapper for icons.
+ * Provides a smooth scale and subtle wiggle animation on interaction.
  */
-export const AnimatedIcon: React.FC<AnimatedIconProps> = ({ 
+export const AnimatedWrapper: React.FC<AnimatedWrapperProps> = ({ 
   icon: Icon, 
   trigger = 'hover',
   size = 20,
@@ -20,15 +20,13 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
   style,
   ...props 
 }) => {
-  const controls = useAnimation();
   const [isHovered, setIsHovered] = useState(false);
 
-  // Define animation variants based on icon type (can be expanded)
   const variants = {
     hover: {
-      scale: 1.2,
-      rotate: [0, -5, 5, -5, 0],
-      transition: { duration: 0.4, ease: "easeInOut" }
+      scale: 1.15,
+      rotate: [0, -3, 3, -3, 0],
+      transition: { duration: 0.3, ease: "easeInOut" }
     },
     initial: {
       scale: 1,

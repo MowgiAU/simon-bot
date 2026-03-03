@@ -18,7 +18,7 @@ import {
   Ticket,
   FileText,
 } from 'lucide-react';
-import { AnimatedIcon } from '../components/AnimatedIcon';
+import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
 
 import { User, Guild } from '../components/AuthProvider';
@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('dashboard')}
             title={collapsed ? "Overview" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={LayoutDashboard} size={20} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={LayoutDashboard} size={20} /></span>
             <span className="nav-label">Overview</span>
           </button>
 
@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('bot-identity')}
             title={collapsed ? "Bot Identity" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={UserIcon} size={20} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={UserIcon} size={20} /></span>
             <span className="nav-label">Bot Identity</span>
           </button>
 
@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('logs')}
             title={collapsed ? "Audit Logs" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={ScrollText} size={20} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
             <span className="nav-label">Audit Logs</span>
           </button>
           )}
@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 onClick={() => onNavigate('email-client')}
                 title={collapsed ? "Email Client" : ""}
             >
-                <span className="nav-icon"><AnimatedIcon icon={Mail} size={20} /></span>
+                <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
                 <span className="nav-label">Email Client</span>
             </button>
           )}
@@ -134,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 onClick={() => onNavigate('tickets')}
                 title={collapsed ? "Ticket System" : ""}
             >
-                <span className="nav-icon"><AnimatedIcon icon={Ticket} size={20} /></span>
+                <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
                 <span className="nav-label">Ticket System</span>
             </button>
           )}
@@ -145,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 onClick={() => onNavigate('word-filter-settings')}
                 title={collapsed ? "Word Filter" : ""}
             >
-                <span className="nav-icon"><AnimatedIcon icon={Type} size={20} /></span>
+                <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
                 <span className="nav-label">Word Filter</span>
             </button>
           )}
@@ -156,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('moderation')}
             title={collapsed ? "Moderation" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={ShieldAlert} size={20} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
             <span className="nav-label">Moderation</span>
           </button>
           )}
@@ -167,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 onClick={() => onNavigate('channel-rules')}
                 title={collapsed ? "Channel Gatekeeper" : ""}
             >
-                <span className="nav-icon"><AnimatedIcon icon={FileText} size={20} /></span>
+                <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
                 <span className="nav-label">Channel Rules</span>
             </button>
           )}
@@ -178,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               onClick={() => onNavigate('welcome-gate')}
               title={collapsed ? "Welcome Gate" : ""}
             >
-              <span className="nav-icon"><AnimatedIcon icon={Shield} size={20} /></span>
+              <span className="nav-icon"><AnimatedWrapper icon={Shield} size={20} /></span>
               <span className="nav-label">Welcome Gate</span>
             </button>
           )}
@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('economy')}
             title={collapsed ? "Economy" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={Coins} size={20} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={Coins} size={20} /></span>
             <span className="nav-label">Economy</span>
           </button>
           )}
@@ -200,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 onClick={() => onNavigate('feedback')}
                 title={collapsed ? "Feedback" : ""}
             >
-                <span className="nav-icon"><AnimatedIcon icon={MessageSquare} size={20} /></span>
+                <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
                 <span className="nav-label">Feedback</span>
             </button>
           )}
@@ -214,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             onClick={() => onNavigate('plugins')}
             title={collapsed ? "Admin Panel" : ""}
           >
-            <span className="nav-icon"><AnimatedIcon icon={Settings} size={18} /></span>
+            <span className="nav-icon"><AnimatedWrapper icon={Settings} size={18} /></span>
             <span className="nav-label">Admin Panel</span>
           </button>
           )}
