@@ -3046,10 +3046,12 @@ app.post('/api/musician/genres', async (req, res) => {
         const { name, parentId } = req.body;
         if (!name) return res.status(400).json({ error: 'Name is required' });
         
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
         const genre = await db.genre.upsert({
             where: { name },
-            update: { parentId },
-            create: { name, parentId }
+            update: { parentId, slug },
+            create: { name, parentId, slug }
         });
         res.json(genre);
     } catch (e: any) {

@@ -14,17 +14,19 @@ async function main() {
     ];
 
     for (const genreData of genres) {
+        const slug = genreData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const parent = await prisma.genre.upsert({
             where: { name: genreData.name },
-            update: {},
-            create: { name: genreData.name }
+            update: { slug },
+            create: { name: genreData.name, slug }
         });
 
         for (const sub of genreData.subgenres) {
+            const subSlug = sub.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             await prisma.genre.upsert({
                 where: { name: sub },
-                update: { parentId: parent.id },
-                create: { name: sub, parentId: parent.id }
+                update: { parentId: parent.id, slug: subSlug },
+                create: { name: sub, parentId: parent.id, slug: subSlug }
             });
         }
     }
