@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
-    Search, Music, Layout, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
+    Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
     Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
