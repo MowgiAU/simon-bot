@@ -3004,6 +3004,39 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 
 // --- Musician Profile API ---
 
+// Post new track
+app.post('/api/musician/tracks', async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const { title, url, coverUrl, description } = req.body;
+        const track = await audioService.addTrack(userId, { title, url, coverUrl, description });
+        res.json(track);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Delete track
+app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const { trackId } = req.params;
+        
+        // Ensure user owns the track
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track || track.profile.userId !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        await db.track.delete({ where: { id: trackId } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Leaderboard: Top Tracks
 app.get('/api/musician/leaderboards/tracks', async (req, res) => {
     try {

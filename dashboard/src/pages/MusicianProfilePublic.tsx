@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { useAuth } from '../components/AuthProvider';
+import { usePlayer } from '../components/PlayerProvider';
 import axios from 'axios';
 import { 
     Music, Share2, Hammer, Globe, Instagram, Youtube, Twitter, Radio, 
     ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
-    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart
+    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play
 } from 'lucide-react';
 
 interface MusicianProfile {
@@ -23,14 +25,25 @@ interface MusicianProfile {
     hardware: string[];
     gearList: string[];
     genres: { genre: { name: string } }[];
+    totalPlays?: number;
+    tracks?: Array<{
+        id: string;
+        title: string;
+        url: string;
+        coverUrl: string | null;
+        description: string | null;
+        playCount: number;
+    }>;
 }
 
 export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () => void; isOwnProfile: boolean }> = ({ identifier, onEdit, isOwnProfile }) => {
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    
+    // Player Context
+    const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -83,9 +96,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     const gear = profile.gearList || profile.hardware || [];
     const stats = [
-        { label: 'Listeners', value: '12.4K' },
-        { label: 'Total Streams', value: '1.2M' },
-        { label: 'Releases', value: '42' }
+        { label: 'Listeners', value: '1.2K' },
+        { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
+        { label: 'Releases', value: profile.tracks?.length.toString() || '0' }
     ];
 
     const socials = [
@@ -343,29 +356,57 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     </div>
                     {/* Simplified Release Row */}
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} style={{ cursor: 'pointer' }}>
-                                <div style={{ 
-                                    aspectRatio: '1/1', borderRadius: '12px', backgroundColor: '#1e293b', 
-                                    marginBottom: '12px', overflow: 'hidden', position: 'relative',
-                                    border: '1px solid rgba(255,255,255,0.05)'
-                                }}>
-                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}>
-                                        <Music size={isMobile ? 32 : 48} />
+                        {profile.tracks && profile.tracks.length > 0 ? (
+                            profile.tracks.map((track) => {
+                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                return (
+                                    <div key={track.id} style={{ cursor: 'pointer' }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track)}>
+                                        <div style={{ 
+                                            aspectRatio: '1/1', borderRadius: '12px', backgroundColor: '#1e293b', 
+                                            marginBottom: '12px', overflow: 'hidden', position: 'relative',
+                                            border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`,
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            {track.coverUrl ? (
+                                                <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPlaying ? 0.6 : 1 }} />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}>
+                                                    <Music size={isMobile ? 32 : 48} />
+                                                </div>
+                                            )}
+                                            <div style={{ 
+                                                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                                backgroundColor: isPlaying ? 'transparent' : 'rgba(0,0,0,0.4)', 
+                                                opacity: isPlaying || isMobile ? 1 : 0,
+                                                transition: 'opacity 0.2s ease'
+                                            }} onMouseEnter={(e) => {
+                                                if (!isPlaying) e.currentTarget.style.opacity = '1';
+                                            }} onMouseLeave={(e) => {
+                                                if (!isPlaying && !isMobile) e.currentTarget.style.opacity = '0';
+                                            }}>
+                                                {isPlaying ? (
+                                                    <Pause size={isMobile ? 32 : 48} color="white" fill="white" />
+                                                ) : (
+                                                    <Play size={isMobile ? 32 : 48} color="white" fill="white" />
+                                                )}
+                                            </div>
+                                            {isPlaying && (
+                                                <div style={{ position: 'absolute', bottom: '8px', right: '8px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.primary, boxShadow: `0 0 10px ${colors.primary}` }} />
+                                            )}
+                                        </div>
+                                        <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white' }}>{track.title}</p>
+                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Zap size={10} /> {track.playCount.toLocaleString()} plays
+                                        </p>
                                     </div>
-                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)', opacity: isMobile ? 1 : 0 }}>
-                                        <PlayCircle size={isMobile ? 32 : 48} color="white" />
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Track Title {i}</p>
-                                <p style={{ fontSize: '9px', color: '#B9C3CE', margin: '2px 0 8px' }}>Oct 2023 • EP</p>
-                                <button style={{ 
-                                    width: '100%', padding: '6px', border: `1px solid ${colors.primary}4D`,
-                                    backgroundColor: 'transparent', color: colors.primary, fontSize: '9px',
-                                    fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '4px', cursor: 'pointer'
-                                }}>Listen Now</button>
+                                );
+                            })
+                        ) : (
+                            <div style={{ gridColumn: 'span 12', textAlign: 'center', padding: '40px', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
+                                <Music size={48} color="#B9C3CE" style={{ opacity: 0.2, marginBottom: '16px' }} />
+                                <p style={{ color: '#B9C3CE', fontSize: '14px' }}>No tracks uploaded yet.</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
 

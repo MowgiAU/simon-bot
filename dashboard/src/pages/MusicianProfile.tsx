@@ -38,6 +38,11 @@ export const MusicianProfilePage: React.FC = () => {
     const [mode, setMode] = useState<'view' | 'edit'>('view');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    // Track state
+    const [tracks, setTracks] = useState<any[]>([]);
+    const [isAddingTrack, setIsAddingTrack] = useState(false);
+    const [newTrack, setNewTrack] = useState({ title: '', url: '', coverUrl: '', description: '' });
+
     // Get the identifier from URL (if any)
     const pathParts = window.location.pathname.split('/');
     const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
@@ -84,6 +89,11 @@ export const MusicianProfilePage: React.FC = () => {
                 // Map hardware to gearList for frontend consistency
                 if (data && !data.gearList && data.hardware) {
                     data.gearList = data.hardware;
+                }
+                
+                // Set tracks
+                if (data && data.tracks) {
+                    setTracks(data.tracks);
                 }
                 
                 // Map social array to flat fields for editing
@@ -179,6 +189,30 @@ export const MusicianProfilePage: React.FC = () => {
         e.stopPropagation();
         if (!profile) return;
         setProfile({ ...profile, gearList: (profile.gearList || []).filter((_, i) => i !== index) });
+    };
+
+    const handleAddTrack = async () => {
+        if (!newTrack.title || !newTrack.url || !user) return;
+        try {
+            await axios.post('/api/musician/tracks', newTrack, { withCredentials: true });
+            setNewTrack({ title: '', url: '', coverUrl: '', description: '' });
+            setIsAddingTrack(false);
+            // Re-fetch profile to get new tracks
+            const profileRes = await axios.get(`/api/musician/profile/${user.id}`, { withCredentials: true });
+            if (profileRes.data && profileRes.data.tracks) setTracks(profileRes.data.tracks);
+        } catch (err: any) {
+            setMessage({ type: 'error', text: 'Failed to add track' });
+        }
+    };
+
+    const handleDeleteTrack = async (trackId: string) => {
+        if (!window.confirm('Are you sure you want to delete this track?') || !user) return;
+        try {
+            await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
+            setTracks(tracks.filter(t => t.id !== trackId));
+        } catch (err: any) {
+            setMessage({ type: 'error', text: 'Failed to delete track' });
+        }
     };
 
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
@@ -280,10 +314,67 @@ export const MusicianProfilePage: React.FC = () => {
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: spacing.lg }}>
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Share2 size={20} /> Social Links
-                    </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                        <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Music size={20} /> My Tracks
+                        </h3>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md, marginBottom: spacing.md }}>
+                            {tracks.length === 0 && (
+                                <p style={{ color: colors.textSecondary, fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
+                                    No tracks uploaded yet. Show off your work!
+                                </p>
+                            )}
+                            {tracks.map(track => (
+                                <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md }}>
+                                    <div style={{ width: '40px', height: '40px', background: colors.primary, borderRadius: '4px', overflow: 'hidden' }}>
+                                        {track.coverUrl ? <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Music size={20} style={{ margin: '10px' }} />}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>{track.title}</p>
+                                        <p style={{ margin: 0, fontSize: '0.8rem', color: colors.textSecondary }}>{track.playCount} plays</p>
+                                    </div>
+                                    <button onClick={() => handleDeleteTrack(track.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {isAddingTrack ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, background: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.md }}>
+                                <input 
+                                    type="text" placeholder="Track Title" value={newTrack.title}
+                                    onChange={e => setNewTrack({...newTrack, title: e.target.value})}
+                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                />
+                                <input 
+                                    type="text" placeholder="Audio URL (Dropbox/GDrive direct link)" value={newTrack.url}
+                                    onChange={e => setNewTrack({...newTrack, url: e.target.value})}
+                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                />
+                                <input 
+                                    type="text" placeholder="Cover Image URL (Optional)" value={newTrack.coverUrl}
+                                    onChange={e => setNewTrack({...newTrack, coverUrl: e.target.value})}
+                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                />
+                                <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
+                                    <button onClick={handleAddTrack} style={{ flex: 1, padding: '8px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 'bold' }}>Add Track</button>
+                                    <button onClick={() => setIsAddingTrack(false)} style={{ flex: 1, padding: '8px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button onClick={() => setIsAddingTrack(true)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textSecondary, cursor: 'pointer' }}>
+                                <Plus size={16}/> Add Track
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                        <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Share2 size={20} /> Social Links
+                        </h3>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

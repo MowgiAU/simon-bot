@@ -112,6 +112,10 @@ export class ProfileService {
             include: {
                 genres: {
                     include: { genre: true }
+                },
+                tracks: {
+                    where: { isPublic: true },
+                    orderBy: { createdAt: 'desc' }
                 }
             }
         });

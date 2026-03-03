@@ -16,15 +16,31 @@ interface ArtistProfile {
     bio: string | null;
     hardware: string[];
     genres: { genre: { name: string } }[];
+    totalPlays: number;
+}
+
+interface TrackInfo {
+    id: string;
+    title: string;
+    url: string;
+    coverUrl: string | null;
+    playCount: number;
+    profile: {
+        userId: string;
+        username: string;
+        displayName: string | null;
+        avatar: string | null;
+    };
 }
 
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
+    const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const { player, togglePlay, setVolume } = usePlayer();
+    const { player, setTrack, togglePlay, setVolume } = usePlayer();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -42,8 +58,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
             
             // Using absolute URL or ensuring the base is correct for the API call
             const apiBase = window.location.origin.includes('localhost') ? '' : window.location.origin;
-            const res = await axios.get(`${apiBase}/api/musician/profiles`, { params });
-            setArtists(res.data);
+            const [profilesRes, tracksRes] = await Promise.all([
+                axios.get(`${apiBase}/api/musician/profiles`, { params }),
+                axios.get(`${apiBase}/api/musician/leaderboard/tracks`, { params: { limit: 10 } })
+            ]);
+            setArtists(profilesRes.data);
+            setTopTracks(tracksRes.data);
         } catch (err) {
             console.error('Failed to fetch artists', err);
         } finally {
@@ -187,6 +207,69 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     </div>
 
                     <div style={{ padding: '48px', maxWidth: '1400px', margin: '0 auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Disc color={colors.primary} size={20} /> Top Rated Tracks
+                            </h3>
+                            <button style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '8px 16px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>View All</button>
+                        </div>
+
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                            gap: '24px',
+                            marginBottom: '64px'
+                        }}>
+                            {loading && topTracks.length === 0 ? (
+                                Array(5).fill(0).map((_, i) => (
+                                    <div key={i} style={{ backgroundColor: '#1A1E2E', height: '260px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', animation: 'pulse 1.5s infinite' }}></div>
+                                ))
+                            ) : (
+                                topTracks.map((track) => (
+                                    <div key={track.id} style={{ 
+                                        backgroundColor: '#1A1E2E', borderRadius: '12px', padding: '16px', 
+                                        border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s',
+                                        cursor: 'pointer'
+                                    }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track)}>
+                                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                                            <div style={{ 
+                                                width: '100%', aspectRatio: '1/1', borderRadius: '8px', 
+                                                backgroundColor: '#242C3D', overflow: 'hidden'
+                                            }}>
+                                                {track.coverUrl ? (
+                                                    <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Music size={48} color="rgba(255,255,255,0.1)" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ 
+                                                position: 'absolute', bottom: '8px', right: '8px', 
+                                                backgroundColor: colors.primary, borderRadius: '50%', 
+                                                width: '36px', height: '36px', display: 'flex', 
+                                                alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                                            }}>
+                                                {player.currentTrack?.id === track.id && player.isPlaying ? (
+                                                    <Pause size={18} fill="white" color="white" />
+                                                ) : (
+                                                    <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />
+                                                )}
+                                            </div>
+                                        </div>
+                                        <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
+                                        <p style={{ fontSize: '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
+                                            <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Zap size={10} /> {track.playCount.toLocaleString()} PLAYS
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
                         {/* Trending Section */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
                             <h3 style={{ fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
