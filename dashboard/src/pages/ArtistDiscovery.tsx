@@ -158,7 +158,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     backgroundColor: colors.primary, borderRadius: '50%', border: '4px solid #1A1E2E',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 10px 15px ${colors.primary}4D`
                                 }}>
-                                    <Layout color="white" />
+                                    <Disc color="white" />
                                 </div>
                             </div>
                             <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
@@ -186,7 +186,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* Trending Section */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
                             <h3 style={{ fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Layout color={colors.primary} size={20} /> Trending Artists
+                                <Disc color={colors.primary} size={20} /> Trending Artists
                             </h3>
                             <button style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '8px 16px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>View All</button>
                         </div>
