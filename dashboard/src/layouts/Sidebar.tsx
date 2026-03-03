@@ -230,6 +230,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Admin Panel</span>
           </button>
           )}
+          <button
+            className="nav-item"
+            onClick={logout}
+            title={collapsed ? "Logout" : ""}
+            style={{ color: '#ff4444' }}
+          >
+            <span className="nav-icon"><LogOut size={18} /></span>
+            <span className="nav-label">Logout</span>
+          </button>
+        </div>
         </div>
       </div>
 

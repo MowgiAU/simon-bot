@@ -139,10 +139,20 @@ const AppContent: React.FC = () => {
   }
   if (mutualAdminGuilds.length === 0) {
     return (
-      <div style={{ padding: 40 }}>
-        <h2>No servers found</h2>
-        <p>You must be an admin of a server where Fuji Studio is present.</p>
-        <button onClick={logout} style={{ marginTop: 24 }}>Logout</button>
+      <div className="app">
+        <Sidebar 
+            activeSection={'musician-profiles'} 
+            onNavigate={(s) => setActiveSection(s as Section)} 
+            user={user} 
+            guild={null as any} 
+            permissions={{ canManagePlugins: false, accessiblePlugins: ['musician-profiles'] }} 
+            logout={logout} 
+        />
+        <main className="main-content">
+          <div style={{ padding: '0 16px 24px', marginTop: '40px' }}>
+            <MusicianProfilePage />
+          </div>
+        </main>
       </div>
     );
   }
