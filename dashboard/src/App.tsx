@@ -40,11 +40,7 @@ const AppContent: React.FC = () => {
 
   if (path === '/discover') {
     return (
-      <AuthProvider>
-        <ResourceProvider>
-          <ArtistDiscoveryPage />
-        </ResourceProvider>
-      </AuthProvider>
+      <ArtistDiscoveryPage />
     );
   }
 
