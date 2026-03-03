@@ -26,6 +26,37 @@ const emailService = new EmailService();
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 
+// --- Discord API Helper with Rate Limit Handling ---
+
+const discordReq = async (method: string, path: string, data?: any): Promise<any> => {
+    const maxRetries = 3;
+    let retryDelay = 2000;
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await axios({
+                method,
+                url: `https://discord.com/api/v10${path}`,
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                data,
+                timeout: 10000 // 10s timeout
+            });
+        } catch (e: any) {
+            const isRateLimit = e.response?.status === 429;
+            const isTimeout = e.code === 'ECONNABORTED' || e.response?.status === 504 || e.response?.status === 502;
+            
+            if ((isRateLimit || isTimeout) && i < maxRetries - 1) {
+                const wait = isRateLimit ? (e.response.data.retry_after * 1000 + 500) : retryDelay;
+                logger.warn(`Discord API ${method} ${path} failed (${e.response?.status || e.code}). Retrying in ${Math.round(wait)}ms... (Attempt ${i + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, wait));
+                retryDelay *= 2; // Exponential backoff for timeouts
+                continue;
+            }
+            throw e;
+        }
+    }
+};
+
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 const db = globalForPrisma.prisma || new PrismaClient({
@@ -90,14 +121,8 @@ app.use((req, res, next) => {
 });
 // --- Internal Messaging & Notification Routes ---
 
-const discordReq = async (method: string, path: string, data?: any) => {
-    return axios({
-        method,
-        url: `https://discord.com/api/v10${path}`,
-        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-        data
-    });
-};
+// Removed redundant discordReq definition here.
+// Replaced with global discordReq above for consistency.
 
 // Get all notifications for user
 app.get('/api/guilds/:guildId/notifications', async (req: any, res) => {
@@ -1219,10 +1244,7 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
             return res.status(500).json({ error: 'Server configuration error' });
         }
 
-        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-            timeout: 5000 // Prevent hanging
-        });
+        const response = await discordReq('GET', `/guilds/${guildId}/channels`);
         
         const channels = (response.data || [])
             .map((c: any) => ({
@@ -1265,10 +1287,7 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
             return res.status(500).json({ error: 'Missing token' });
         }
 
-        const response = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-            timeout: 5000
-        });
+        const response = await discordReq('GET', `/guilds/${guildId}/roles`);
         res.json(response.data || []);
     } catch (e: any) {
         if (axios.isAxiosError(e)) {
