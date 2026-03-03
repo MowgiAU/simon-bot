@@ -201,11 +201,22 @@ export const MusicianProfilePage: React.FC = () => {
                                 if (genre) addGenre(genre);
                                 e.target.value = '';
                             }}
-                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                            style={{ 
+                                width: '100%', 
+                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                border: 'none', 
+                                borderRadius: borderRadius.sm, 
+                                padding: spacing.sm, 
+                                color: colors.textPrimary,
+                                outline: 'none',
+                                cursor: 'pointer'
+                            }}
                         >
-                            <option value="">Add a genre...</option>
+                            <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>Add a genre...</option>
                             {allGenres.filter(g => !profile?.genres.some(pg => pg.id === g.id)).map(g => (
-                                <option key={g.id} value={g.id}>{g.name}</option>
+                                <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>
+                                    {g.name}
+                                </option>
                             ))}
                         </select>
                     </div>

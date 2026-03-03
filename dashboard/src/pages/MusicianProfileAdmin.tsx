@@ -137,10 +137,24 @@ export const MusicianProfileAdmin: React.FC = () => {
                             <select 
                                 value={newGenreParent} 
                                 onChange={(e) => setNewGenreParent(e.target.value)}
-                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, marginTop: '4px' }}
+                                style={{ 
+                                    width: '100%', 
+                                    backgroundColor: 'rgba(255,255,255,0.05)', 
+                                    border: 'none', 
+                                    borderRadius: borderRadius.sm, 
+                                    padding: spacing.sm, 
+                                    color: colors.textPrimary, 
+                                    marginTop: '4px',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
                             >
-                                <option value="">None (Top Level)</option>
-                                {rootGenres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>None (Top Level)</option>
+                                {rootGenres.map(g => (
+                                    <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>
+                                        {g.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <button 
