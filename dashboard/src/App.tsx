@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './layouts/Sidebar';
 import { AuthProvider, useAuth } from './components/AuthProvider';
+import { ResourceProvider } from './components/ResourceProvider';
 import { UniversalSearch } from './components/UniversalSearch';
 import { colors } from './theme/theme';
 import logoUrl from './assets/logo.svg';
@@ -335,7 +336,9 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => (
   <AuthProvider>
-    <AppContent />
+    <ResourceProvider>
+      <AppContent />
+    </ResourceProvider>
   </AuthProvider>
 );
 

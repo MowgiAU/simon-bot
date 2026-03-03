@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import axios from 'axios';
@@ -28,23 +29,11 @@ interface Permission {
     canViewLogs: boolean;
 }
 
-interface Role {
-    id: string;
-    name: string;
-    color: number;
-}
-
-interface Channel {
-    id: string;
-    name: string;
-}
-
 export const ModerationSettingsPage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const { channels, roles, loading: resourcesLoading } = useResources();
     const isMobile = useMobile();
     const [settings, setSettings] = useState<ModerationSettings | null>(null);
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [channels, setChannels] = useState<Channel[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -59,119 +48,43 @@ export const ModerationSettingsPage: React.FC = () => {
         const controller = new AbortController();
         let isMounted = true;
         
-        // Debounce fetch to prevent spamming server during rapid navigation
-        const timeoutId = setTimeout(() => {
-            const fetchData = async () => {
-                setLoading(true);
-                try {
-                    // Parallel fetch
-                    const [settingsRes, rolesRes, channelsRes] = await Promise.all([
-                        axios.get(`/api/guilds/${selectedGuild.id}/moderation`, { withCredentials: true, signal: controller.signal }),
-                        axios.get(`/api/guilds/${selectedGuild.id}/roles`, { withCredentials: true, signal: controller.signal }),
-                        axios.get(`/api/guilds/${selectedGuild.id}/channels`, { withCredentials: true, signal: controller.signal })
-                    ]);
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const response = await axios.get(`/api/guilds/${selectedGuild.id}/moderation`, { 
+                    withCredentials: true, 
+                    signal: controller.signal 
+                });
 
-                    if (isMounted) {
-                        setSettings(settingsRes.data);
-                        
-                        const sortedRoles = Array.isArray(rolesRes.data) ? rolesRes.data.sort((a: any, b: any) => b.position - a.position) : [];
-                        setRoles(sortedRoles);
-                        if (sortedRoles.length > 0) setSelectedRoleId(sortedRoles[0].id);
-
-                        setChannels(Array.isArray(channelsRes.data) ? channelsRes.data : []);
-                    }
-                } catch (err: any) {
-                    if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
-                    console.error('Moderation Load Error:', err);
-                    
-                    // Specific check for Discord communication failures to provide a cleaner UI experience
-                    if (err.response?.status === 500 || err.response?.status === 504) {
-                         setMsg({ type: 'error', text: 'Discord connection timed out. Retrying automatically...' });
-                         // Attempt a silent retry after 2 seconds if still mounted
-                         setTimeout(() => {
-                            if (isMounted) fetchData();
-                         }, 2000);
-                         return;
-                    }
-
-                    const errorText = err.response?.data?.error || err.message || 'Unknown error';
-                    setMsg({ type: 'error', text: `Failed to load settings: ${errorText}` });
-                } finally {
-                    if (isMounted) setLoading(false);
+                if (isMounted) {
+                    setSettings(response.data);
                 }
-            };
-            fetchData();
-        }, 300); // Wait 300ms before fetching
+            } catch (err: any) {
+                if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
+                console.error('Moderation Load Error:', err);
+                const errorText = err.response?.data?.error || err.message || 'Unknown error';
+                setMsg({ type: 'error', text: `Failed to load settings: ${errorText}` });
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
 
+        fetchData();
         return () => {
             isMounted = false;
-            clearTimeout(timeoutId);
             controller.abort();
         };
-    }, [selectedGuild]);
+    }, [selectedGuild?.id]);
 
-    const saveGeneral = async () => {
-        if (!settings || !selectedGuild) return;
-        setSaving(true);
-        try {
-            await axios.post(`/api/guilds/${selectedGuild.id}/moderation`, {
-                logChannelId: settings.logChannelId === '' ? null : settings.logChannelId,
-                dmUponAction: settings.dmUponAction,
-                kickMessage: settings.kickMessage,
-                banMessage: settings.banMessage,
-                timeoutMessage: settings.timeoutMessage
-            }, { withCredentials: true });
-            
-            setMsg({ type: 'success', text: 'Settings saved.' });
-        } catch (err) {
-            setMsg({ type: 'error', text: 'Failed to save settings.' });
-        } finally {
-            setSaving(false);
+    // Set default selected role when roles are loaded
+    useEffect(() => {
+        if (roles.length > 0 && !selectedRoleId) {
+            setSelectedRoleId(roles[0].id);
         }
-    };
+    }, [roles, selectedRoleId]);
 
-    const togglePermission = async (roleId: string, perm: keyof Permission) => {
-        if (!selectedGuild) return;
-        
-        // Optimistic update
-        const currentPerms = settings?.permissions.find(p => p.roleId === roleId);
-        const newValue = currentPerms ? !currentPerms[perm] : true;
-        
-        // Clone state for UI update
-        const newSettings = { ...settings! };
-        const permIndex = newSettings.permissions.findIndex(p => p.roleId === roleId);
-        
-        if (permIndex >= 0) {
-            (newSettings.permissions[permIndex] as any)[perm] = newValue;
-        } else {
-            // New permission entry
-            newSettings.permissions.push({
-                id: 'temp',
-                roleId,
-                canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false,
-                [perm]: true
-            });
-        }
-        setSettings(newSettings);
+    if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
-        // API Call
-        try {
-            const payload = permIndex >= 0 ? newSettings.permissions[permIndex] : newSettings.permissions[newSettings.permissions.length - 1];
-            // Don't send the ID if it is temp
-            const { id, settingsId, ...cleanPayload } = payload as any;
-            
-            await axios.post(`/api/guilds/${selectedGuild.id}/moderation/permissions`, {
-                roleId,
-                permissions: cleanPayload
-            }, { withCredentials: true });
-        } catch (err) {
-            console.error('Failed to save permission');
-            setMsg({ type: 'error', text: 'Failed to save permission change.' });
-            // Revert? (Complex for now, just alerting user is okay for MVP)
-        }
-    };
-
-    if (loading) return <div>Loading...</div>;
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
     const selectedRolePerms = settings?.permissions.find(p => p.roleId === selectedRoleId) || {

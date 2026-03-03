@@ -1,115 +1,50 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
+import { useResources } from '../components/ResourceProvider';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { Shield, Save, Plus, Trash2 } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
 export const WelcomeGatePluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const { channels, roles, loading: resourcesLoading } = useResources();
     const isMobile = useMobile();
     const [settings, setSettings] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [roles, setRoles] = useState<any[]>([]);
-    const [channels, setChannels] = useState<any[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (!selectedGuild) return;
         const controller = new AbortController();
         
-        const timeoutId = setTimeout(() => {
-            fetchData(controller.signal);
-        }, 300);
+        const fetchData = async (signal?: AbortSignal) => {
+            setLoading(true);
+            setErrorMessage(null);
+            try {
+                const response = await axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { 
+                    withCredentials: true, 
+                    signal 
+                });
+                setSettings(response.data);
+            } catch (e: any) {
+                if (axios.isCancel(e) || e.name === 'AbortError') return;
+                console.error('WelcomeGate Load Error:', e);
+                const errorText = e.response?.data?.error || e.message || 'Unknown error';
+                setErrorMessage(`Failed to load settings: ${errorText}`);
+            } finally {
+                setLoading(false);
+            }
+        };
 
+        fetchData(controller.signal);
         return () => {
-            clearTimeout(timeoutId);
             controller.abort();
         };
-    }, [selectedGuild]);
+    }, [selectedGuild?.id]);
 
-    const fetchData = async (signal?: AbortSignal) => {
-        setLoading(true);
-        setErrorMessage(null);
-        let currentIsMounted = true;
-        try {
-            const [setRes, roleRes, chanRes] = await Promise.all([
-                axios.get(`/api/guilds/${selectedGuild?.id}/welcome`, { withCredentials: true, signal }),
-                axios.get(`/api/guilds/${selectedGuild?.id}/roles`, { withCredentials: true, signal }),
-                axios.get(`/api/guilds/${selectedGuild?.id}/channels`, { withCredentials: true, signal })
-            ]);
-            setSettings(setRes.data);
-            setRoles(roleRes.data);
-            setChannels(chanRes.data);
-        } catch (e: any) {
-            if (axios.isCancel(e) || e.name === 'AbortError') return;
-            console.error('WelcomeGate Load Error:', e);
-            
-            if (e.response?.status === 500 || e.response?.status === 504) {
-                setErrorMessage('Discord connection timed out. Retrying automatically...');
-                setTimeout(() => {
-                    fetchData(signal);
-                }, 2000);
-                return;
-            }
+    if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
-            const errorText = e.response?.data?.error || e.message || 'Unknown error';
-            setErrorMessage(`Failed to load settings: ${errorText}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSave = async () => {
-        try {
-            await axios.post(`/api/guilds/${selectedGuild?.id}/welcome`, settings, { withCredentials: true });
-            alert('Settings saved!');
-        } catch (e) {
-            alert('Failed to save settings');
-        }
-    };
-
-    const addQuestion = () => {
-        setSettings({ ...settings, questions: [...(settings.questions || []), ''] });
-    };
-
-    const updateQuestion = (index: number, val: string) => {
-        const newQ = [...(settings.questions || [])];
-        newQ[index] = val;
-        setSettings({ ...settings, questions: newQ });
-    };
-
-    const removeQuestion = (index: number) => {
-        const newQ = [...(settings.questions || [])];
-        newQ.splice(index, 1);
-        setSettings({ ...settings, questions: newQ });
-    };
-
-    // UI for errors (matching ModerationSettings standard)
-    if (errorMessage && !settings) return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{
-                padding: '12px',
-                borderRadius: borderRadius.md,
-                backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                color: '#f44336',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-            }}>
-                <Shield size={18} />
-                Failed to load settings
-                <button 
-                    onClick={() => { setErrorMessage(null); fetchData(); }} 
-                    style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 600 }}
-                >
-                    Retry
-                </button>
-            </div>
-        </div>
-    );
-
-    if (loading) return <div style={{ color: colors.textSecondary, padding: '20px' }}>Loading...</div>;
     if (!settings) return null; // Should be handled by error view above
 
     return (
