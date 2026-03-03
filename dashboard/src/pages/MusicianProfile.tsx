@@ -91,7 +91,8 @@ export const MusicianProfilePage: React.FC = () => {
     const addGenre = (genre: Genre) => {
         if (!profile || profile.genres.some(g => g.id === genre.id)) return;
         setProfile({ ...profile, genres: [...profile.genres, { id: genre.id, name: genre.name }] });
-    };
+    }; 
+
 
     const removeGenre = (id: string) => {
         if (!profile) return;
