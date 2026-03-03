@@ -168,7 +168,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </div>
                                 <h2 style={{ fontSize: isMobile ? '36px' : '56px', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.03em' }}>Neon Drift (Club Mix)</h2>
                                 <p style={{ fontSize: isMobile ? '18px' : '22px', color: '#B9C3CE', marginBottom: '32px' }}>Featured Artist: <span style={{ color: 'white', fontWeight: 'bold' }}>Mowgi</span></p>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', direction: 'row', alignItems: 'center', gap: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '16px' }}>
                                     <button style={{ 
                                         backgroundColor: '#F27B13', color: 'white', padding: '12px 32px', borderRadius: '12px',
                                         border: 'none', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase',
