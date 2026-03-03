@@ -3,7 +3,6 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio } from 'lucide-react';
-import { AnimatedWrapper } from '../components/AnimatedWrapper';
 
 interface MusicianProfile {
     bio: string | null;
@@ -119,9 +118,8 @@ export const MusicianProfilePage: React.FC = () => {
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
 
     return (
-        <AnimatedWrapper>
-            <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
-                {/* Header */}
+        <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
+            {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                     <User size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                     <div>
@@ -309,6 +307,6 @@ export const MusicianProfilePage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </AnimatedWrapper>
+        </div>
     );
 };
