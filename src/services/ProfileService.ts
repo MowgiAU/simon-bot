@@ -43,7 +43,7 @@ export class ProfileService {
         });
 
         // 2. Clear and re-set relations (Transaction-based)
-        return await this.prisma.\$transaction(async (tx) => {
+        return await this.prisma.$transaction(async (tx) => {
             // Find or create the profile base
             const profile = await tx.musicianProfile.upsert({
                 where: { userId },
