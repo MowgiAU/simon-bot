@@ -6,6 +6,7 @@ import {
     Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePlayer } from '../components/PlayerProvider';
 
 interface ArtistProfile {
     userId: string;
@@ -23,6 +24,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const { player, togglePlay, setVolume } = usePlayer();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -262,11 +264,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '30%' }}>
                     <div style={{ width: '48px', height: '48px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
-                        <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBL5FtdxpIzBESrl-YM_agqxqNjpXv-iXPbftCjdOEk_OXAK9-4Ii4LWjDLAApQupMvNam2eTbMXdV1H25jJ4gfdliPCbEhzDLhoQICAEEwDJeqQnivHqWEr_22cpHXachO0yu0VbER1Pdp_2Z6iC4ujH5K6QYZPiUN2zhEajhI57WyNyzU5YQfZNrH8EQ7xdkIRLaNXvjh-S-xKORGad4O7V09HN5rW6atsIHS4BiS1j4JtrWOJh6Nflg_9YyF3D0QAI_wOjnH1nvG" alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={player.currentTrack?.cover} alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div>
-                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0 }}>Neon Drift (Club Mix)</p>
-                        <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>Mowgi</p>
+                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0 }}>{player.currentTrack?.title}</p>
+                        <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>{player.currentTrack?.artist}</p>
                     </div>
                     <Heart size={18} color="#B9C3CE" />
                 </div>
@@ -275,8 +277,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                         <Shuffle size={18} color="#B9C3CE" />
                         <SkipBack size={20} color="white" />
-                        <button style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}>
-                            <Play fill="#1A1E2E" size={20} />
+                        <button 
+                            onClick={togglePlay}
+                            style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}
+                        >
+                            {player.isPlaying ? <Volume2 fill="#1A1E2E" size={20} /> : <Play fill="#1A1E2E" size={20} />}
                         </button>
                         <SkipForward size={20} color="white" />
                         <Repeat size={18} color="#B9C3CE" />
@@ -294,7 +299,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Volume2 size={18} color="#B9C3CE" />
                         <div style={{ width: '96px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px' }}>
-                            <div style={{ width: '75%', height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: '999px' }} />
+                            <div 
+                                style={{ 
+                                    width: `${player.volume * 100}%`, 
+                                    height: '100%', 
+                                    backgroundColor: 'rgba(255,255,255,0.4)', 
+                                    borderRadius: '999px' 
+                                }} 
+                            />
                         </div>
                     </div>
                 </div>
