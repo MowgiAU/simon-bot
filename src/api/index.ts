@@ -90,14 +90,23 @@ app.use((req, res, next) => {
 });
 // --- Internal Messaging & Notification Routes ---
 
+const discordReq = async (method: string, path: string, data?: any) => {
+    return axios({
+        method,
+        url: `https://discord.com/api/v10${path}`,
+        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+        data
+    });
+};
+
 // Get all notifications for user
-app.get('/api/guilds/:guildId/notifications', async (req, res) => {
+app.get('/api/guilds/:guildId/notifications', async (req: any, res) => {
     try {
         const { guildId } = req.params;
-        const userId = (req.user as any)?.id;
+        const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-        const notifications = await db.notification.findMany({
+        const notifications = await (db as any).notification.findMany({
             where: { guildId, userId },
             orderBy: { createdAt: 'desc' },
             take: 20
@@ -110,13 +119,13 @@ app.get('/api/guilds/:guildId/notifications', async (req, res) => {
 });
 
 // Mark notifications as read
-app.post('/api/guilds/:guildId/notifications/read', async (req, res) => {
+app.post('/api/guilds/:guildId/notifications/read', async (req: any, res) => {
     try {
         const { guildId } = req.params;
-        const userId = (req.user as any)?.id;
+        const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-        await db.notification.updateMany({
+        await (db as any).notification.updateMany({
             where: { guildId, userId, isRead: false },
             data: { isRead: true }
         });
@@ -132,7 +141,7 @@ app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
     try {
         const { guildId } = req.params;
         
-        const messages = await db.dashboardMessage.findMany({
+        const messages = await (db as any).dashboardMessage.findMany({
             where: { guildId },
             orderBy: { createdAt: 'desc' },
             take: 50
@@ -141,7 +150,7 @@ app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
         const reversedMessages = messages.reverse();
 
         // Resolve user names
-        const resolvedMessages = await Promise.all(reversedMessages.map(async msg => {
+        const resolvedMessages = await Promise.all(reversedMessages.map(async (msg: any) => {
             const user = await resolveUser(msg.senderId);
             return {
                 ...msg,
@@ -157,14 +166,14 @@ app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
 });
 
 // Send a chat message
-app.post('/api/guilds/:guildId/chat-messages', async (req, res) => {
+app.post('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
     try {
         const { guildId } = req.params;
         const { content, recipientId } = req.body;
-        const userId = (req.user as any)?.id;
+        const userId = req.session?.user?.id;
         if (!userId || !content) return res.status(400).json({ error: 'Incomplete message data' });
 
-        const message = await db.dashboardMessage.create({
+        const message = await (db as any).dashboardMessage.create({
             data: {
                 guildId,
                 senderId: userId,
@@ -182,20 +191,23 @@ app.post('/api/guilds/:guildId/chat-messages', async (req, res) => {
 });
 
 // Get Dashboard Admin Users (for mentions)
-app.get('/api/guilds/:guildId/staff', async (req, res) => {
+app.get('/api/guilds/:guildId/staff', async (req: any, res) => {
     try {
         const { guildId } = req.params;
-        const guild = await req.bot.guilds.fetch(guildId);
-        if (!guild) return res.status(404).json({ error: 'Guild not found' });
+        
+        // Use individual REST call to skip bot instance attachment
+        const response = await discordReq('GET', `/guilds/${guildId}/members?limit=1000`);
+        const members: any[] = response.data;
 
-        const members = await guild.members.fetch();
         const staffRoles = await db.dashboardAccess.findUnique({ where: { guildId } });
         
-        const staff = members.filter(m => 
-            m.permissions.has('Administrator') || 
-            (staffRoles?.allowedRoles || []).some(roleId => m.roles.cache.has(roleId))
-        ).map(m => ({
-            id: m.id,
+        const staff = members.filter((m: any) => 
+            // Check for Administrator permission manually (8)
+            // m.permissions might not be in member object, check roles instead if needed
+            // Actually, REST returns full member objects. Checking specific roles from DB.
+            (staffRoles?.allowedRoles || []).some(roleId => m.roles.includes(roleId))
+        ).map((m: any) => ({
+            id: m.user.id,
             username: m.user.username,
             avatar: m.user.avatar
         }));
@@ -796,6 +808,43 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
         content
       }
     });
+
+    // --- Notification Logic (Mentions) ---
+    try {
+        const mentionRegex = /@(\w+)|<@(\d+)>/g;
+        let match;
+        const mentionedIds = new Set<string>();
+
+        while ((match = mentionRegex.exec(content)) !== null) {
+            if (match[2]) {
+                mentionedIds.add(match[2]);
+            } else if (match[1]) {
+                const staffResponse = await discordReq('GET', `/guilds/${log.guildId}/members?limit=1000`);
+                const members = staffResponse.data;
+                const found = members.find((m: any) => m.user.username.toLowerCase() === match[1].toLowerCase());
+                if (found) mentionedIds.add(found.user.id);
+            }
+        }
+
+        mentionedIds.delete(req.session.user.id);
+
+        if (mentionedIds.size > 0) {
+            const senderName = req.session.user.username || 'Someone';
+
+            await (db as any).notification.createMany({
+                data: Array.from(mentionedIds).map(targetId => ({
+                    guildId: log.guildId,
+                    userId: targetId,
+                    type: 'mention',
+                    title: 'New Mention',
+                    content: `${senderName} mentioned you in an audit log comment: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                    link: `/audit-logs?highlight=${logId}`
+                }))
+            });
+        }
+    } catch (notifErr) {
+        logger.error('Failed to process mentions', notifErr);
+    }
 
     // Return enriched comment so UI updates immediately
     res.json({
