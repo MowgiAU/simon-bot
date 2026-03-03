@@ -19,6 +19,7 @@ import { TicketSystemPage } from './pages/TicketSystem';
 import { ChannelRules } from './pages/ChannelRules';
 import { MusicianProfilePage } from './pages/MusicianProfile';
 import { MusicianProfileAdmin } from './pages/MusicianProfileAdmin';
+import { ArtistDiscoveryPage } from './pages/ArtistDiscovery';
 import { DocumentationPage } from './pages/Documentation';
 import { NotificationMenu } from './components/NotificationMenu';
 import { InternalChat } from './components/InternalChat';
@@ -36,6 +37,17 @@ const AppContent: React.FC = () => {
 
   // Route Handling for /profile (PUBLIC ACCESS ALLOWED)
   const path = window.location.pathname;
+
+  if (path === '/discover') {
+    return (
+      <AuthProvider>
+        <ResourceProvider>
+          <ArtistDiscoveryPage />
+        </ResourceProvider>
+      </AuthProvider>
+    );
+  }
+
   if (path.startsWith('/profile')) {
     const isEditing = path === '/profile';
     

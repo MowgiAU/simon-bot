@@ -3001,6 +3001,36 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 
 // --- Musician Profile API ---
 
+// Discovery (List all profiles)
+app.get('/api/musician/profiles', async (req, res) => {
+  try {
+      const search = req.query.search as string;
+      const genre = req.query.genre as string;
+      const profiles = await db.musicianProfile.findMany({
+          where: {
+              OR: search ? [
+                  { username: { contains: search, mode: 'insensitive' } },
+                  { displayName: { contains: search, mode: 'insensitive' } },
+                  { bio: { contains: search, mode: 'insensitive' } },
+                  { hardware: { hasSome: [search] } }
+              ] : undefined,
+              genres: genre ? {
+                  some: {
+                      genre: { name: { contains: genre, mode: 'insensitive' } }
+                  }
+              } : undefined
+          },
+          include: {
+              genres: { include: { genre: true } }
+          },
+          take: 50
+      });
+      res.json(profiles);
+  } catch (e: any) {
+      res.status(500).json({ error: e.message });
+  }
+});
+
 // Public Profile Retrieval
 app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
