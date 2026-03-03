@@ -376,41 +376,41 @@ export const MusicianProfilePage: React.FC = () => {
                             <Share2 size={20} /> Social Links
                         </h3>
                     
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Bio (Keep it short!)</label>
-                            <textarea 
-                                value={profile?.bio || ''} 
-                                onChange={(e) => setProfile(p => p ? {...p, bio: e.target.value} : null)}
-                                placeholder="Producer / DJ / Multi-instrumentalist..."
-                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, minHeight: '80px', resize: 'vertical' }}
-                            />
-                        </div>
-
-                        {socialsList.map(social => (
-                            <div key={social.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {social.icon} {social.label}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={(profile as any)?.[social.key] || ''}
-                                    onChange={(e) => setProfile(p => p ? {...p, [social.key]: e.target.value} : null)}
-                                    placeholder="https://..."
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Bio (Keep it short!)</label>
+                                <textarea 
+                                    value={profile?.bio || ''} 
+                                    onChange={(e) => setProfile(p => p ? {...p, bio: e.target.value} : null)}
+                                    placeholder="Producer / DJ / Multi-instrumentalist..."
+                                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, minHeight: '80px', resize: 'vertical' }}
                                 />
                             </div>
-                        ))}
+
+                            {socialsList.map(social => (
+                                <div key={social.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {social.icon} {social.label}
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={(profile as any)?.[social.key] || ''}
+                                        onChange={(e) => setProfile(p => p ? {...p, [social.key]: e.target.value} : null)}
+                                        placeholder="https://..."
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Music size={20} /> Genres
-                    </h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                        <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Music size={20} /> Genres
+                        </h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
                             {profile?.genres?.map(g => (
                                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '4px 8px', borderRadius: '16px', fontSize: '0.85rem' }}>
                                     {g.name}
