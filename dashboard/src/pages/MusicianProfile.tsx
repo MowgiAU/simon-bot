@@ -299,8 +299,6 @@ export const MusicianProfilePage: React.FC = () => {
                                 borderRadius: borderRadius.md, padding: spacing.md, fontSize: '1rem', fontWeight: 'bold',
                                 cursor: 'pointer', transition: 'filter 0.2s', marginTop: 'auto'
                             }}
-                            onMouseOver={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
-                            onMouseOut={(e) => e.currentTarget.style.filter = 'brightness(1)'}
                         >
                             {saving ? 'Saving...' : <><Save size={20}/> Save Profile</>}
                         </button>
