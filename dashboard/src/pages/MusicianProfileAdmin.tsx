@@ -25,7 +25,9 @@ export const MusicianProfileAdmin: React.FC = () => {
     const fetchGenres = async () => {
         try {
             const res = await axios.get('/api/musician/genres', { withCredentials: true });
-            setGenres(res.data);
+            // Sort by name for easier navigation
+            const sorted = [...res.data].sort((a, b) => a.name.localeCompare(b.name));
+            setGenres(sorted);
         } catch (err) {
             console.error('Failed to load genres');
         } finally {
@@ -65,7 +67,10 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading admin settings...</div>;
 
+    // A "root" genre is any genre that does NOT have a parentId
     const rootGenres = genres.filter(g => !g.parentId);
+    // A "sub" genre is any genre that DOES have a parentId
+    const allSubGenres = genres.filter(g => !!g.parentId);
 
     return (
         <div style={{ padding: spacing.lg, maxWidth: '1000px', margin: '0 auto' }}>
@@ -95,24 +100,63 @@ export const MusicianProfileAdmin: React.FC = () => {
                     <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <List size={20} /> Current Library
                     </h3>
-                    <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '8px' }}>
                         {rootGenres.length === 0 && <p style={{ color: colors.textSecondary }}>No genres configured.</p>}
+                        
                         {rootGenres.map(parent => (
-                            <div key={parent.id} style={{ marginBottom: spacing.md }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <span>{parent.name}</span>
-                                    <Trash2 size={16} style={{ cursor: 'pointer', color: '#ff4444' }} onClick={() => handleDeleteGenre(parent.id)} />
+                            <div key={parent.id} style={{ 
+                                marginBottom: spacing.sm, 
+                                border: '1px solid rgba(255,255,255,0.05)', 
+                                borderRadius: borderRadius.sm,
+                                backgroundColor: 'rgba(255,255,255,0.02)'
+                            }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    fontWeight: 'bold', 
+                                    padding: '10px 12px', 
+                                    borderBottom: '1px solid rgba(255,255,255,0.05)' 
+                                }}>
+                                    <span style={{ color: colors.primary }}>{parent.name}</span>
+                                    <Trash2 size={16} style={{ cursor: 'pointer', color: '#ff4444', opacity: 0.6 }} onClick={() => handleDeleteGenre(parent.id)} />
                                 </div>
-                                <div style={{ paddingLeft: spacing.lg }}>
+                                <div style={{ padding: '4px 0 8px 12px' }}>
                                     {genres.filter(g => g.parentId === parent.id).map(sub => (
-                                        <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.9rem', color: colors.textSecondary }}>
+                                        <div key={sub.id} style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center',
+                                            padding: '8px 12px', 
+                                            fontSize: '0.9rem', 
+                                            color: colors.textSecondary,
+                                            borderBottom: '1px solid rgba(255,255,255,0.03)'
+                                        }}>
                                             <span>• {sub.name}</span>
-                                            <Trash2 size={14} style={{ cursor: 'pointer', color: 'rgba(255,0,0,0.5)' }} onClick={() => handleDeleteGenre(sub.id)} />
+                                            <Trash2 size={14} style={{ cursor: 'pointer', color: '#ff4444', opacity: 0.4 }} onClick={() => handleDeleteGenre(sub.id)} />
                                         </div>
                                     ))}
+                                    {genres.filter(g => g.parentId === parent.id).length === 0 && (
+                                        <div style={{ padding: '8px 12px', fontSize: '0.8rem', color: colors.textSecondary, fontStyle: 'italic', opacity: 0.5 }}>
+                                            No sub-genres
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
+
+                        {/* Orphans or Deeply Nested (Fallback) */}
+                        {allSubGenres.filter(sub => !genres.some(p => p.id === sub.parentId)).length > 0 && (
+                            <div style={{ marginTop: spacing.lg }}>
+                                <h4 style={{ fontSize: '0.8rem', color: colors.textSecondary, textTransform: 'uppercase', marginBottom: spacing.sm }}>Other Categories</h4>
+                                {allSubGenres.filter(sub => !genres.some(p => p.id === sub.parentId)).map(sub => (
+                                    <div key={sub.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginBottom: '4px' }}>
+                                        <span style={{ color: colors.textSecondary }}>{sub.name} (ID: {sub.parentId})</span>
+                                        <Trash2 size={14} style={{ cursor: 'pointer', color: '#ff4444' }} onClick={() => handleDeleteGenre(sub.id)} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
