@@ -258,7 +258,7 @@ export const MusicianProfilePage: React.FC = () => {
                     You need to be logged in to manage your musician profile and upload tracks.
                 </p>
                 <button 
-                    onClick={() => window.location.href = '/api/auth/discord'}
+                    onClick={() => window.location.href = '/api/auth/discord/login'}
                     style={{ 
                         backgroundColor: colors.primary, color: 'white', border: 'none', 
                         padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', 
