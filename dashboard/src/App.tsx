@@ -436,16 +436,21 @@ const AppContent: React.FC = () => {
     // 4. Default: Artist Discovery (HOME)
     console.log('[App] Routing to Artist Discovery (Default)');
     return (
-      <div className="app" style={{ 
+      <div className="debug-root" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
+        width: '100vw',
         display: 'flex', 
         flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center',
         padding: '20px',
         color: 'white',
-        fontFamily: 'sans-serif'
+        fontFamily: 'sans-serif',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 9999
       }}>
         <div style={{ 
           background: 'rgba(255,255,255,0.05)', 
@@ -453,13 +458,14 @@ const AppContent: React.FC = () => {
           borderRadius: '20px', 
           border: '1px solid rgba(255,255,255,0.1)',
           textAlign: 'center',
-          marginBottom: '40px'
+          maxWidth: '500px'
         }}>
-          <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>Fuji Studio</h1>
+          <h1 style={{ fontSize: '48px', marginBottom: '10px', color: '#2B8C71' }}>Fuji Studio</h1>
           <p style={{ color: '#94a3b8', fontSize: '18px' }}>React is Mounting Successfully ✅</p>
-          <div style={{ marginTop: '20px', padding: '10px', background: '#1e293b', borderRadius: '8px', fontSize: '14px' }}>
+          <div style={{ marginTop: '20px', padding: '10px', background: '#1e293b', borderRadius: '8px', fontSize: '14px', border: '1px solid #334155' }}>
              Path: {currentPath}
           </div>
+          <p style={{ marginTop: '20px', fontSize: '12px', color: '#64748b' }}>If you see this, the code is executing and rendering to the DOM.</p>
         </div>
       </div>
     );

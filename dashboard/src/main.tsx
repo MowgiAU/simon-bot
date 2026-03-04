@@ -16,15 +16,14 @@ if (!rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     console.log('Rendering App component...');
     root.render(
-      <React.StrictMode>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </React.StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     );
     console.log('Render call completed.');
   } catch (err) {
     console.error('FAILED TO RENDER REACT:', err);
-    document.body.innerHTML = `<div style="background:darkred;color:white;padding:20px;"><h1>REACT RENDER FAILED</h1><pre>${err}</pre></div>`;
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    document.body.innerHTML = `<div style="background:darkred;color:white;padding:20px;font-family:sans-serif;"><h1>REACT RENDER FAILED</h1><pre>${errorMsg}</pre></div>`;
   }
 }
