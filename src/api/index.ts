@@ -3369,25 +3369,34 @@ const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
     logger.info(`Serving dashboard from ${distPath}`);
-    // Explicitly serve static assets FIRST, but skip if they are API calls
+    
+    // Debug logging for requests
     app.use((req, res, next) => {
-        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-            return next();
+        if (!req.path.startsWith('/api')) {
+            logger.info(`Request: ${req.method} ${req.path}`);
         }
-        express.static(distPath)(req, res, next);
+        next();
     });
+
+    // Explicitly serve static assets FIRST
+    app.use(express.static(distPath, {
+        index: false, // Don't serve index.html automatically, we handle it below
+        fallthrough: true // Let it fall through to our SPA route
+    }));
 
     // SPA Routing:
     app.get('*', (req, res) => {
         // Skip API routes and Uploads
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-            return; // Controller should handle these
+            return; 
         }
         
         if (fs.existsSync(indexHtml)) {
+            logger.info(`Sending index.html for path: ${req.path}`);
             res.sendFile(indexHtml);
         } else {
-            res.status(404).send('Dashboard build not found. Run "npm run build" in dashboard folder.');
+            logger.error(`Index file NOT FOUND: ${indexHtml}`);
+            res.status(404).send('Dashboard build not found.');
         }
     });
 } else {
