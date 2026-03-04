@@ -436,7 +436,18 @@ const AppContent: React.FC = () => {
     // 4. Default: Artist Discovery (HOME)
     console.log('[App] Routing to Artist Discovery (Default)');
     return (
-      <div className="app" style={{ background: colors.background, minHeight: '100vh' }}>
+      <div className="app" style={{ 
+        background: '#0f172a', 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{ color: 'white', textAlign: 'center' }}>
+          <h1>Fuji Studio Discovery</h1>
+          <p>If you see this, the app is mounted. Loading components...</p>
+        </div>
         <ArtistDiscoveryPage />
       </div>
     );
