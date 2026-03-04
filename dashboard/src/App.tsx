@@ -61,6 +61,7 @@ const AppContent: React.FC = () => {
        // login() might trigger redirect, but we'll show login screen below
     } else {
       return (
+        <AuthProvider>
           <ResourceProvider>
             <div className="app">
               <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
@@ -71,6 +72,7 @@ const AppContent: React.FC = () => {
               <GlobalPlayer />
             </div>
           </ResourceProvider>
+        </AuthProvider>
       );
     }
   }
