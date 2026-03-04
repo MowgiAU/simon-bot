@@ -197,6 +197,15 @@ const resolveUser = async (userId: string) => {
     }
 };
 
+// --- Global Middleware ---
+
+// Static files for uploads (Public access) - Served first to avoid SPA/Auth redirects
+const uploadsPath = path.resolve(process.cwd(), 'public', 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
+
 // Debug middleware
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
@@ -922,13 +931,6 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     res.status(500).json({ error: 'Failed to get logs' });
   }
 });
-
-// Static files for uploads (Public access) - Robust path resolution
-const uploadsPath = path.resolve(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsPath));
 
 // Add a comment to a log entry
 app.post('/api/logs/:logId/comments', async (req, res) => {
