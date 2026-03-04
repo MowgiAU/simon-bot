@@ -43,7 +43,10 @@ const AppContent: React.FC = () => {
   if (path === '/discover') {
     return (
       <ErrorBoundary>
-        <ArtistDiscoveryPage />
+        <div className="app">
+          <ArtistDiscoveryPage />
+          <GlobalPlayer />
+        </div>
       </ErrorBoundary>
     );
   }
@@ -58,7 +61,6 @@ const AppContent: React.FC = () => {
        // login() might trigger redirect, but we'll show login screen below
     } else {
       return (
-        <AuthProvider>
           <ResourceProvider>
             <div className="app">
               <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
@@ -66,9 +68,9 @@ const AppContent: React.FC = () => {
                   <MusicianProfilePage />
                 </div>
               </main>
+              <GlobalPlayer />
             </div>
           </ResourceProvider>
-        </AuthProvider>
       );
     }
   }
