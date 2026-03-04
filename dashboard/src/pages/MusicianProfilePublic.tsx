@@ -417,15 +417,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 <button 
                     onClick={onEdit}
                     style={{ 
-                        position: 'fixed', bottom: '24px', right: '24px', 
+                        position: 'fixed', bottom: player.currentTrack ? '104px' : '24px', right: '24px', 
                         backgroundColor: colors.primary, color: 'white', padding: isMobile ? '12px' : '12px 24px', 
                         borderRadius: '999px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 100
+                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 100,
+                        transition: 'bottom 0.3s'
                     }}
                 >
                     <Edit3 size={18} /> {!isMobile && 'Edit My Profile'}
                 </button>
             )}
+
+            <div style={{ height: player.currentTrack ? '100px' : '20px' }} />
         </div>
     );
 };
