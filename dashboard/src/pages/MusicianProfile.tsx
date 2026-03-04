@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft } from 'lucide-react';
+import { 
+    User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
+    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play 
+} from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 
 interface MusicianProfile {
