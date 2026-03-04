@@ -461,9 +461,6 @@ const AppContent: React.FC = () => {
              Path: {currentPath}
           </div>
         </div>
-        <div style={{ width: '100%', maxWidth: '1200px' }}>
-          <ArtistDiscoveryPage />
-        </div>
       </div>
     );
   };
