@@ -38,10 +38,6 @@ export const MusicianProfilePage: React.FC = () => {
     const [mode, setMode] = useState<'view' | 'edit'>('view');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    // Track state
-    const [tracks, setTracks] = useState<any[]>([]);
-    const [isAddingTrack, setIsAddingTrack] = useState(false);
-
     // Get the identifier from URL (if any)
     const pathParts = window.location.pathname.split('/');
     const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
