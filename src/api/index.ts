@@ -26,11 +26,15 @@ const app = express();
 // Configure storage for tracks and artwork
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (file.fieldname === 'audio') {
-      cb(null, path.join(__dirname, '../../public/uploads/tracks'));
-    } else {
-      cb(null, path.join(__dirname, '../../public/uploads/artwork'));
+    const dir = file.fieldname === 'audio' 
+      ? path.join(__dirname, '../../public/uploads/tracks')
+      : path.join(__dirname, '../../public/uploads/artwork');
+    
+    // Ensure directory exists synchronously to prevent race conditions during target upload
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
+    cb(null, dir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
