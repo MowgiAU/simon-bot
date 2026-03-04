@@ -384,16 +384,26 @@ const AppContent: React.FC = () => {
   const path = window.location.pathname;
   const hash = window.location.hash;
 
+  // 1. Check for explicit dashboard redirect triggers
   if (path === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
-    window.history.replaceState(null, "", "/dashboard");
+    window.location.href = "/dashboard";
+    return null;
   }
 
+  // Reload path after potential manipulation
   const currentPath = window.location.pathname;
 
+  // 2. Artist Discovery (HOME) - Rendered for root "/" and "/discover"
+  // We check for "/" first to ensure it's not caught by any other logic
   if (currentPath === "/" || currentPath === "/discover") {
-    return <ArtistDiscoveryPage />;
+    return (
+      <div className="app">
+        <ArtistDiscoveryPage />
+      </div>
+    );
   }
 
+  // 3. Musician Profiles (Public and Private Editor)
   if (currentPath.startsWith("/profile")) {
     const isPublicProfile = currentPath !== "/profile" && currentPath !== "/profile/";
 
@@ -426,6 +436,7 @@ const AppContent: React.FC = () => {
     }
   }
 
+  // 4. Admin Dashboard (Protected per component logic)
   if (currentPath.startsWith("/dashboard")) {
     return (
       <AuthProvider>
@@ -436,7 +447,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (path !== "/") {
+  // Catch-all: If it's none of the above, redirect to discovery
+  if (currentPath !== "/") {
     window.location.href = "/";
   }
   return null;
