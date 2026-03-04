@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <h3 className="nav-group-title">Discovery</h3>
           <button
             className="nav-item"
-            onClick={() => window.location.href = '/discover'}
+            onClick={() => window.location.href = '/'}
             title={collapsed ? "Artist Discovery" : ""}
           >
             <span className="nav-icon"><AnimatedWrapper icon={Compass} size={20} /></span>

@@ -37,10 +37,21 @@ const AppContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navigationParams, setNavigationParams] = useState<any>(null);
   
-  // Route Handling for /discover (PUBLIC ACCESS ALLOWED)
+  // Route Handling
   const path = window.location.pathname;
+  const hash = window.location.hash;
 
-  if (path === '/discover') {
+  // 1. Force Dashboard Route if login hash or search param exists
+  if (hash === '#login' || window.location.search.includes('login=true')) {
+    window.history.replaceState(null, '', '/dashboard');
+    // Continue execution to let the '/dashboard' logic pick it up
+  }
+
+  // Reload path after potential hash manipulation
+  const currentPath = window.location.pathname;
+
+  // 2. Artist Discovery (HOME)
+  if (currentPath === '/' || currentPath === '/discover') {
     return (
       <ErrorBoundary>
         <div className="app">
@@ -51,31 +62,31 @@ const AppContent: React.FC = () => {
     );
   }
 
-  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
-
-  if (path.startsWith('/profile')) {
-    const isEditing = path === '/profile';
+  // 3. Musician Profiles (Public and Private Editor)
+  if (currentPath.startsWith('/profile')) {
+    const isEditing = currentPath === '/profile';
     
-    // Force login ONLY if trying to edit (/profile)
-    if (isEditing && !user && !loading) {
-       // login() might trigger redirect, but we'll show login screen below
-    } else {
-      return (
-        <AuthProvider>
-          <ResourceProvider>
-            <div className="app">
-              <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
-                <div style={{ padding: '40px 16px', flex: 1 }}>
-                  <MusicianProfilePage />
-                </div>
-              </main>
-              <GlobalPlayer />
-            </div>
-          </ResourceProvider>
-        </AuthProvider>
-      );
-    }
+    // We render the profile page - the component itself handles Auth checks for editing
+    return (
+      <AuthProvider>
+        <ResourceProvider>
+          <div className="app">
+            <main className="main-content" style={{ marginLeft: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: colors.background }}>
+              <div style={{ padding: '0px', flex: 1 }}>
+                <MusicianProfilePage />
+              </div>
+            </main>
+            <GlobalPlayer />
+          </div>
+        </ResourceProvider>
+      </AuthProvider>
+    );
   }
+
+  // 4. Admin Dashboard (Must start with /dashboard)
+  const isDashboardRoute = currentPath.startsWith('/dashboard');
+
+  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
   if (loading) return (
     <div style={{ 
@@ -90,7 +101,8 @@ const AppContent: React.FC = () => {
     </div>
   );
 
-  if (!user) {
+  // If we're on a dashboard route but not logged in, show the login screen
+  if (isDashboardRoute && !user) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -178,6 +190,15 @@ const AppContent: React.FC = () => {
             <span style={{ fontSize: '20px' }}>⚡</span> Login with Discord
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // If user hits root or unknown route without '/dashboard', redirect them to discovery
+  if (!isDashboardRoute && path !== '/') {
+    window.location.href = '/';
+    return null;
+  }
       </div>
     );
   }

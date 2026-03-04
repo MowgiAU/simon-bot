@@ -113,6 +113,35 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <button 
+                        onClick={() => window.location.hash = 'login'} 
+                        style={{ 
+                            backgroundColor: `${colors.primary}15`, 
+                            color: colors.primary, 
+                            border: `1px solid ${colors.primary}33`,
+                            padding: '8px 20px', 
+                            borderRadius: '8px', 
+                            fontSize: '12px', 
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor = `${colors.primary}25`;
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = `${colors.primary}15`;
+                            e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                        title="Artist & Staff Login"
+                    >
+                        <Zap size={14} fill={colors.primary} />
+                        DASHBOARD
+                    </button>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                         <Search size={16} color="#B9C3CE" style={{ position: 'absolute', left: '16px' }} />
                         <input 
