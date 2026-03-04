@@ -3360,21 +3360,28 @@ const indexHtml = path.join(distPath, 'index.html');
 console.log(`[DEBUG] SPA config: distPath=${distPath}, indexHtml=${indexHtml}, exists=${fs.existsSync(distPath)}`);
 
 if (fs.existsSync(distPath)) {
-    // Basic static middleware - serve physical files if they exist in dist
-    app.use(express.static(distPath, { index: false }));
+    // 1. Serve static files with logging (but no index)
+    app.use((req, res, next) => {
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+            console.log(`[Static] Request: ${req.path}`);
+        }
+        next();
+    }, express.static(distPath, { index: false }));
 
-    // SPA Routing: Serve index.html for non-API, non-asset routes
+    // 2. SPA Catch-all
     app.get('*', (req, res, next) => {
-        // 1. If it's an API or Uploads call, pass it along immediately
+        // API/Uploads go through
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
             return next();
         }
 
-        // 2. If it's none of the above, send the index.html
+        // Everything else gets index.html
         if (fs.existsSync(indexHtml)) {
-            res.sendFile(indexHtml);
+             // For debugging: Set a header so we can see if Express served this
+             res.setHeader('X-Powered-By-Fuji', 'Express-SPA');
+             res.sendFile(indexHtml);
         } else {
-            next();
+             next();
         }
     });
 }
