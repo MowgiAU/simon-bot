@@ -41,7 +41,6 @@ export const MusicianProfilePage: React.FC = () => {
     // Track state
     const [tracks, setTracks] = useState<any[]>([]);
     const [isAddingTrack, setIsAddingTrack] = useState(false);
-    const [newTrack, setNewTrack] = useState({ title: '', url: '', coverUrl: '', description: '' });
 
     // Get the identifier from URL (if any)
     const pathParts = window.location.pathname.split('/');
@@ -191,27 +190,63 @@ export const MusicianProfilePage: React.FC = () => {
         setProfile({ ...profile, gearList: (profile.gearList || []).filter((_, i) => i !== index) });
     };
 
+    // Track state
+    const [tracks, setTracks] = useState<any[]>([]);
+    const [isAddingTrack, setIsAddingTrack] = useState(false);
+    const [newTrack, setNewTrack] = useState({ title: '', description: '' });
+    const [audioFile, setAudioFile] = useState<File | null>(null);
+    const [artworkFile, setArtworkFile] = useState<File | null>(null);
+
     const handleAddTrack = async () => {
-        if (!newTrack.title || !newTrack.url || !user) return;
+        if (!audioFile) {
+            setMessage({ type: 'error', text: 'Please select an audio file' });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('audio', audioFile);
+        if (artworkFile) formData.append('artwork', artworkFile);
+        formData.append('title', newTrack.title);
+        formData.append('description', newTrack.description);
+
+        setSaving(true);
         try {
-            await axios.post('/api/musician/tracks', newTrack, { withCredentials: true });
-            setNewTrack({ title: '', url: '', coverUrl: '', description: '' });
+            const res = await axios.post('/api/musician/tracks', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+            setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
-            // Re-fetch profile to get new tracks
-            const profileRes = await axios.get(`/api/musician/profile/${user.id}`, { withCredentials: true });
-            if (profileRes.data && profileRes.data.tracks) setTracks(profileRes.data.tracks);
-        } catch (err: any) {
-            setMessage({ type: 'error', text: 'Failed to add track' });
+            setNewTrack({ title: '', description: '' });
+            setAudioFile(null);
+            setArtworkFile(null);
+            setMessage({ type: 'success', text: 'Track uploaded successfully!' });
+        } catch (e: any) {
+            setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to add track' });
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleDeleteTrack = async (trackId: string) => {
-        if (!window.confirm('Are you sure you want to delete this track?') || !user) return;
+        if (!window.confirm('Are you sure you want to delete this track?')) return;
         try {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
-        } catch (err: any) {
+            setMessage({ type: 'success', text: 'Track deleted' });
+        } catch (e: any) {
             setMessage({ type: 'error', text: 'Failed to delete track' });
+        }
+    };
+
+    const handleToggleStream = async (track: any) => {
+        try {
+            const res = await axios.patch(`/api/musician/tracks/${track.id}`, { 
+                isPublic: !track.isPublic 
+            }, { withCredentials: true });
+            setTracks(tracks.map(t => t.id === track.id ? res.data : t));
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Failed to update track visibility' });
         }
     };
 
@@ -320,47 +355,72 @@ export const MusicianProfilePage: React.FC = () => {
                             <Music size={20} /> My Tracks
                         </h3>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md, marginBottom: spacing.md }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.md }}>
                             {tracks.length === 0 && (
                                 <p style={{ color: colors.textSecondary, fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
                                     No tracks uploaded yet. Show off your work!
                                 </p>
                             )}
                             {tracks.map(track => (
-                                <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md }}>
-                                    <div style={{ width: '40px', height: '40px', background: colors.primary, borderRadius: '4px', overflow: 'hidden' }}>
-                                        {track.coverUrl ? <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Music size={20} style={{ margin: '10px' }} />}
+                                <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
+                                    {track.coverUrl ? (
+                                        <img src={track.coverUrl} alt="" style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 40, height: 40, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={20} color={colors.textSecondary} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>{track.title}</div>
+                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+                                            {track.playCount || 0} plays • {track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--'}
+                                        </div>
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>{track.title}</p>
-                                        <p style={{ margin: 0, fontSize: '0.8rem', color: colors.textSecondary }}>{track.playCount} plays</p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            onClick={() => handleToggleStream(track)}
+                                            style={{ background: 'none', border: 'none', color: track.isPublic ? colors.primary : colors.textSecondary, cursor: 'pointer', display: 'flex' }}
+                                            title={track.isPublic ? "Public" : "Private"}
+                                        >
+                                            <Globe size={18} />
+                                        </button>
+                                        <button onClick={() => handleDeleteTrack(track.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', display: 'flex' }}>
+                                            <X size={18} />
+                                        </button>
                                     </div>
-                                    <button onClick={() => handleDeleteTrack(track.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
-                                        <X size={18} />
-                                    </button>
                                 </div>
                             ))}
                         </div>
 
                         {isAddingTrack ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, background: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.md }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc)</div>
                                 <input 
-                                    type="text" placeholder="Track Title" value={newTrack.title}
+                                    type="file" accept="audio/*"
+                                    onChange={e => setAudioFile(e.target.files?.[0] || null)}
+                                    style={{ color: colors.textPrimary, fontSize: '0.85rem' }}
+                                />
+                                
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Artwork (Optional)</div>
+                                <input 
+                                    type="file" accept="image/*"
+                                    onChange={e => setArtworkFile(e.target.files?.[0] || null)}
+                                    style={{ color: colors.textPrimary, fontSize: '0.85rem' }}
+                                />
+
+                                <input 
+                                    type="text" placeholder="Track Title (Optional, will use metadata/filename)" value={newTrack.title}
                                     onChange={e => setNewTrack({...newTrack, title: e.target.value})}
-                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                />
-                                <input 
-                                    type="text" placeholder="Audio URL (Dropbox/GDrive direct link)" value={newTrack.url}
-                                    onChange={e => setNewTrack({...newTrack, url: e.target.value})}
-                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                />
-                                <input 
-                                    type="text" placeholder="Cover Image URL (Optional)" value={newTrack.coverUrl}
-                                    onChange={e => setNewTrack({...newTrack, coverUrl: e.target.value})}
-                                    style={{ backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                    style={{ marginTop: '8px', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
                                 />
                                 <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
-                                    <button onClick={handleAddTrack} style={{ flex: 1, padding: '8px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 'bold' }}>Add Track</button>
+                                    <button 
+                                        onClick={handleAddTrack} 
+                                        disabled={saving || !audioFile}
+                                        style={{ flex: 1, padding: '8px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile) ? 0.7 : 1 }}
+                                    >
+                                        {saving ? 'Uploading...' : 'Upload Track'}
+                                    </button>
                                     <button onClick={() => setIsAddingTrack(false)} style={{ flex: 1, padding: '8px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
                                 </div>
                             </div>

@@ -16,13 +16,52 @@ import { Resend } from 'resend';
 import { EmailService } from '../services/EmailService';
 import { ProfileService } from '../services/ProfileService';
 import { AudioService } from '../services/AudioService';
+import * as mm from 'music-metadata';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// Configure multer for handling file uploads (in-memory)
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Configure storage for tracks and artwork
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'audio') {
+      cb(null, path.join(__dirname, '../../public/uploads/tracks'));
+    } else {
+      cb(null, path.join(__dirname, '../../public/uploads/artwork'));
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for tracks
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'audio') {
+      if (file.mimetype.startsWith('audio/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only audio files are allowed for the track!'));
+      }
+    } else if (file.fieldname === 'artwork') {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed for artwork!'));
+      }
+    } else {
+      cb(null, true);
+    }
+  }
+});
+
 const emailService = new EmailService();
 const prismaInstance = new PrismaClient();
 const profileService = new ProfileService(prismaInstance);
@@ -879,6 +918,9 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     res.status(500).json({ error: 'Failed to get logs' });
   }
 });
+
+// Static files for uploads (Public access)
+app.use('/uploads', express.static(path.join(__dirname, '../../public/uploads')));
 
 // Add a comment to a log entry
 app.post('/api/logs/:logId/comments', async (req, res) => {
@@ -3019,14 +3061,78 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 
 // --- Musician Profile API ---
 
-// Post new track
-app.post('/api/musician/tracks', async (req: any, res) => {
+// Post new track (Now with file uploads and metadata)
+app.post('/api/musician/tracks', upload.fields([
+  { name: 'audio', maxCount: 1 },
+  { name: 'artwork', maxCount: 1 }
+]), async (req: any, res) => {
     try {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        const { title, url, coverUrl, description } = req.body;
-        const track = await audioService.addTrack(userId, { title, url, coverUrl, description });
+        
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const audioFile = files['audio']?.[0];
+        const artworkFile = files['artwork']?.[0];
+
+        if (!audioFile) {
+            return res.status(400).json({ error: 'Audio file is required' });
+        }
+
+        // 1. Initial metadata extraction
+        let metadata = {
+            title: req.body.title || audioFile.originalname,
+            duration: 0,
+            bpm: undefined as number | undefined
+        };
+
+        try {
+            const parsed = await mm.parseFile(audioFile.path);
+            metadata.duration = Math.round(parsed.format.duration || 0);
+            if (!req.body.title && parsed.common.title) metadata.title = parsed.common.title;
+        } catch (err) {
+            logger.warn(`Failed to parse metadata for ${audioFile.path}: ${err}`);
+        }
+
+        // 2. Map to public URLs
+        const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
+        const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
+
+        // 3. Save to database
+        const track = await audioService.addTrack(userId, { 
+            title: metadata.title, 
+            url: audioUrl, 
+            coverUrl, 
+            description: req.body.description,
+            duration: metadata.duration
+        });
+
         res.json(track);
+    } catch (e: any) {
+        logger.error('Failed to upload track', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update track info
+app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const { trackId } = req.params;
+        const { title, description, isPublic } = req.body;
+
+        // Ownership check
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track || track.profile.userId !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const updated = await db.track.update({
+            where: { id: trackId },
+            data: { title, description, isPublic }
+        });
+
+        res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -3043,6 +3149,16 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
         if (!track || track.profile.userId !== userId) {
             return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        // Optional: Delete physical files
+        if (track.url.startsWith('/uploads/')) {
+            const filePath = path.join(__dirname, '../../public', track.url);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+        if (track.coverUrl?.startsWith('/uploads/')) {
+            const filePath = path.join(__dirname, '../../public', track.coverUrl);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
 
         await db.track.delete({ where: { id: trackId } });

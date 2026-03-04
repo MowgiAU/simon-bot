@@ -60,7 +60,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
             const apiBase = window.location.origin.includes('localhost') ? '' : window.location.origin;
             const [profilesRes, tracksRes] = await Promise.all([
                 axios.get(`${apiBase}/api/musician/profiles`, { params }),
-                axios.get(`${apiBase}/api/musician/leaderboard/tracks`, { params: { limit: 10 } })
+                axios.get(`${apiBase}/api/musician/leaderboards/tracks`, { params: { limit: 10 } })
             ]);
             setArtists(profilesRes.data);
             setTopTracks(tracksRes.data);
