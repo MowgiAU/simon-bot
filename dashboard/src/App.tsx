@@ -381,103 +381,66 @@ const AdminDashboard: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
-
-  // CRITICAL DEBUG: If this shows up, React is working
-  console.log('--- REACT BOOT UP ---');
-  console.log('[App] Rendering for path:', currentPath);
-  console.log('[App] window.location.pathname:', window.location.pathname);
-
-  // Listen for internal navigation if any
-  React.useEffect(() => {
-    const handleLocationChange = () => {
-      console.log('[App] Path changed to:', window.location.pathname);
-      setCurrentPath(window.location.pathname);
-    };
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
-
-  const hash = window.location.hash;
-
-  // 1. Explicit dashboard login trigger
-  if (currentPath === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
-    window.location.href = "/dashboard";
-    return null;
-  }
-
-  // 2. Artist Discovery (HOME) - Root and /discover
-  if (currentPath === "/" || currentPath === "/discover") {
-    console.log('[App] Rendering ArtistDiscoveryPage');
-    return (
-      <div className="app" style={{ background: 'red', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <h1 style={{ color: 'white' }}>DEBUG: Artist Discovery Loading...</h1>
-        <ArtistDiscoveryPage />
-      </div>
-    );
-  }
-
-  // 3. Admin Dashboard (MUST GO ABOVE /profile if there's overlap, but here it's fine)
-  if (currentPath.startsWith("/dashboard")) {
-    return (
-      <AuthProvider>
-        <ResourceProvider>
-          <AdminDashboard />
-        </ResourceProvider>
-      </AuthProvider>
-    );
-  }
-
-  // 4. Musician Profiles (Public and Private Editor)
-  if (currentPath.startsWith("/profile")) {
-    const isPublicProfile = currentPath !== "/profile" && currentPath !== "/profile/";
-
-    if (isPublicProfile) {
-      return (
-        <ResourceProvider>
-          <div className="app">
-            <main className="main-content" style={{ marginLeft: 0, width: "100%", minHeight: "100vh", display: "flex", flexDirection: "column", background: colors.background }}>
-              <div style={{ padding: "0px", flex: 1 }}>
-                <MusicianProfilePage />
-              </div>
-            </main>
-          </div>
-        </ResourceProvider>
+    const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  
+    // Log for debugging
+    console.log('[App] window.location.pathname:', window.location.pathname);
+    console.log('[App] currentPath state:', currentPath);
+  
+    // Use Effect for navigation
+    React.useEffect(() => {
+      const handleLocationChange = () => setCurrentPath(window.location.pathname);
+      window.addEventListener('popstate', handleLocationChange);
+      return () => window.removeEventListener('popstate', handleLocationChange);
+    }, []);
+  
+    const hash = window.location.hash;
+    const isDashboard = currentPath.startsWith('/dashboard');
+    const isProfile = currentPath.startsWith('/profile');
+  
+    // 1. Dashboard entry via hash or search
+    if (currentPath === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
+      window.location.href = "/dashboard";
+      return null;
+    }
+  
+    // 2. Musician Profiles
+    if (isProfile) {
+      console.log('[App] Routing to Musician Profile');
+      const isPublic = currentPath !== "/profile" && currentPath !== "/profile/";
+      const content = (
+        <main className="main-content" style={{ width: "100%", minHeight: "100vh", background: colors.background }}>
+          <MusicianProfilePage />
+        </main>
       );
-    } else {
+  
+      if (isPublic) {
+        return <ResourceProvider><div className="app">{content}</div></ResourceProvider>;
+      } else {
+        return <AuthProvider><ResourceProvider><div className="app">{content}</div></ResourceProvider></AuthProvider>;
+      }
+    }
+  
+    // 3. Admin Dashboard
+    if (isDashboard) {
+      console.log('[App] Routing to Admin Dashboard');
       return (
         <AuthProvider>
           <ResourceProvider>
-            <div className="app">
-              <main className="main-content" style={{ marginLeft: 0, width: "100%", minHeight: "100vh", display: "flex", flexDirection: "column", background: colors.background }}>
-                <div style={{ padding: "0px", flex: 1 }}>
-                  <MusicianProfilePage />
-                </div>
-              </main>
-            </div>
+            <AdminDashboard />
           </ResourceProvider>
         </AuthProvider>
       );
     }
-  }
-
-  // 4. Admin Dashboard (Protected per component logic)
-  if (currentPath.startsWith("/dashboard")) {
+  
+    // 4. Default: Artist Discovery (HOME)
+    console.log('[App] Routing to Artist Discovery (Default)');
     return (
-      <AuthProvider>
-        <ResourceProvider>
-          <AdminDashboard />
-        </ResourceProvider>
-      </AuthProvider>
+      <div className="app" style={{ background: colors.background, minHeight: '100vh' }}>
+        <ArtistDiscoveryPage />
+      </div>
     );
-  }
-
-  // Catch-all: If it's none of the above, redirect to discovery
-  if (currentPath !== "/") {
-    window.location.href = "/";
-  }
-  return null;
-};
+  };
 
 export const App: React.FC = () => (
   <ErrorBoundary>
