@@ -41,8 +41,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const { player, setTrack, togglePlay, setVolume } = usePlayer();
+    const { player, setTrack, togglePlay, setVolume } = usePlayer() || {};
     const navigate = useNavigate();
+    
+    // Safety check for Provider access
+    if (!usePlayer()) {
+        console.warn('ArtistDiscoveryPage: PlayerProvider not found in tree');
+    }
+
     const auth = React.useContext(useAuth as any); // Safe access if AuthProvider exists higher up
 
     useEffect(() => {

@@ -432,22 +432,28 @@ const AppContent: React.FC = () => {
   
     // 4. Default: Artist Discovery (HOME)
     console.log('[App] Routing to Artist Discovery (Default)');
-    return (
-      <div className="app" style={{ 
-        background: '#09090b', 
-        minHeight: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '20px',
-        color: 'white',
-        fontFamily: 'sans-serif'
-      }}>
-        <div style={{ width: '100%', maxWidth: '1200px' }}>
-          <ArtistDiscoveryPage />
+    try {
+      return (
+        <div className="app" style={{ 
+          background: '#09090b', 
+          minHeight: '100vh', 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '20px',
+          color: 'white',
+          fontFamily: 'sans-serif'
+        }}>
+          <h1 style={{ color: '#2B8C71' }}>Fuji Studio Discovery (Loading...)</h1>
+          <div style={{ width: '100%', maxWidth: '1200px' }}>
+            <ArtistDiscoveryPage />
+          </div>
         </div>
-      </div>
-    );
+      );
+    } catch (err) {
+      console.error('[App] ArtistDiscoveryPage crash:', err);
+      return <div style={{ background: 'darkred', color: 'white', padding: '20px' }}>Component Crash: {String(err)}</div>;
+    }
   };
 
 export const App: React.FC = () => (
