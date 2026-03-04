@@ -381,20 +381,24 @@ const AdminDashboard: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const path = window.location.pathname;
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  // Listen for internal navigation if any
+  React.useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
   const hash = window.location.hash;
 
-  // 1. Check for explicit dashboard redirect triggers
-  if (path === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
+  // 1. Explicit dashboard login trigger
+  if (currentPath === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
     window.location.href = "/dashboard";
     return null;
   }
 
-  // Reload path after potential manipulation
-  const currentPath = window.location.pathname;
-
-  // 2. Artist Discovery (HOME) - Rendered for root "/" and "/discover"
-  // We check for "/" first to ensure it's not caught by any other logic
+  // 2. Artist Discovery (HOME) - Root and /discover
   if (currentPath === "/" || currentPath === "/discover") {
     return (
       <div className="app">
@@ -403,7 +407,18 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 3. Musician Profiles (Public and Private Editor)
+  // 3. Admin Dashboard (MUST GO ABOVE /profile if there's overlap, but here it's fine)
+  if (currentPath.startsWith("/dashboard")) {
+    return (
+      <AuthProvider>
+        <ResourceProvider>
+          <AdminDashboard />
+        </ResourceProvider>
+      </AuthProvider>
+    );
+  }
+
+  // 4. Musician Profiles (Public and Private Editor)
   if (currentPath.startsWith("/profile")) {
     const isPublicProfile = currentPath !== "/profile" && currentPath !== "/profile/";
 

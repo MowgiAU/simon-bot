@@ -3362,6 +3362,32 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const PORT = process.env.API_PORT || 3001;
+
+// --- Serve Dashboard Dist in Production ---
+const distPath = path.resolve(process.cwd(), 'dashboard/dist');
+const indexHtml = path.join(distPath, 'index.html');
+
+if (fs.existsSync(distPath)) {
+    logger.info(`Serving dashboard from ${distPath}`);
+    // Explicitly serve static assets FIRST
+    app.use(express.static(distPath, {
+        index: false // We will handle root requests manually
+    }));
+
+    // SPA Routing:
+    // 1. /dashboard and /profile -> index.html (Main SPA with Auth)
+    // 2. / -> index.html (Now handles Discovery without Auth internally)
+    app.get(['/', '/dashboard*', '/profile*'], (req, res) => {
+        if (fs.existsSync(indexHtml)) {
+            res.sendFile(indexHtml);
+        } else {
+            res.status(404).send('Dashboard build not found. Run "npm run build" in dashboard folder.');
+        }
+    });
+} else {
+    logger.warn(`Dashboard dist folder NOT found at ${distPath}. Web interface will not be served.`);
+}
+
 app.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
 });
