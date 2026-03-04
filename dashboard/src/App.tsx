@@ -42,12 +42,11 @@ const AppContent: React.FC = () => {
   const hash = window.location.hash;
 
   // 1. Force Dashboard Route if login hash or search param exists
-  if (hash === '#login' || window.location.search.includes('login=true')) {
+  if (path === '/' && (hash === '#login' || window.location.search.includes('login=true'))) {
     window.history.replaceState(null, '', '/dashboard');
-    // Continue execution to let the '/dashboard' logic pick it up
   }
 
-  // Reload path after potential hash manipulation
+  // Reload path after potential manipulation
   const currentPath = window.location.pathname;
 
   // 2. Artist Discovery (HOME)
@@ -64,9 +63,6 @@ const AppContent: React.FC = () => {
 
   // 3. Musician Profiles (Public and Private Editor)
   if (currentPath.startsWith('/profile')) {
-    const isEditing = currentPath === '/profile';
-    
-    // We render the profile page - the component itself handles Auth checks for editing
     return (
       <AuthProvider>
         <ResourceProvider>
