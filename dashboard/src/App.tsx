@@ -4,7 +4,7 @@ import { ResourceProvider } from "./components/ResourceProvider";
 import { PlayerProvider } from "./components/PlayerProvider";
 import GlobalPlayer from "./components/GlobalPlayer";
 import Sidebar from "./layouts/Sidebar";
-import Dashboard from "./pages/Dashboard";
+import { Dashboard } from "./pages/Dashboard";
 import { WordFilterSettings } from "./pages/WordFilterSettings";
 import { ModerationSettingsPage } from "./pages/ModerationSettings";
 import { EconomyPluginPage } from "./pages/EconomyPlugin";
