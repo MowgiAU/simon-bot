@@ -450,15 +450,11 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   console.log('[App] Mounting App Root');
   return (
-    <ErrorBoundary>
-      <PlayerProvider>
-        <style>{AppStyles}</style>
-        <div id="app-structure">
-          <AppContent />
-          <GlobalPlayer />
-        </div>
-      </PlayerProvider>
-    </ErrorBoundary>
+    <div id="emergency-render" style={{ background: 'darkblue', color: 'white', padding: '100px', fontSize: '30px' }}>
+      APP ROOT IS RENDERING BUT PROVIDERS ARE REMOVED
+      <hr />
+      <AppContent />
+    </div>
   );
 };
 
