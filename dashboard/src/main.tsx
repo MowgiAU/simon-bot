@@ -14,11 +14,16 @@ if (!rootElement) {
 } else {
   try {
     const root = ReactDOM.createRoot(rootElement);
-    console.log('Rendering App component...');
+    console.log('Rendering SIMPLE HTML to root...');
+    
+    // ATTEMPT 1: DIRECT DOM WRITE (BYPASS REACT)
+    rootElement.innerHTML = '<div style="background:purple;color:white;padding:100px;font-size:50px;position:relative;z-index:99999;">DIRECT DOM WRITE SUCCESSFUL</div>';
+    
+    console.log('Attempting React render...');
     root.render(
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+       <div style={{ background: 'blue', color: 'white', padding: '100px', fontSize: '50px' }}>
+         REACT RENDER SUCCESSFUL
+       </div>
     );
     console.log('Render call completed.');
   } catch (err) {
