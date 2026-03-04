@@ -203,37 +203,32 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', marginBottom: '32px' }} />
                         )}
 
-                        {/* Controls */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px' }}>
-                                <Shuffle size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
-                                <SkipBack size={20} style={{ cursor: 'pointer' }} />
-                                <button 
-                                    onClick={() => {
-                                        if (featuredTrack) {
-                                            player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack);
-                                        }
-                                    }}
-                                    style={{ 
-                                        width: '48px', height: '48px', borderRadius: '50%', 
-                                        backgroundColor: colors.primary, display: 'flex', 
-                                        alignItems: 'center', justifyContent: 'center', 
-                                        border: 'none', color: 'white', cursor: 'pointer',
-                                        transition: 'transform 0.1s'
-                                    }}
-                                >
-                                    {player.currentTrack?.id === featuredTrack?.id && player.isPlaying ? <Pause size={28} fill="white" /> : <PlayCircle size={28} fill="white" />}
-                                </button>
-                                <SkipForward size={20} style={{ cursor: 'pointer' }} />
-                                <Repeat size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
-                            </div>
-                            {!isMobile && <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.1)' }} />}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: isMobile ? '1 0 100%' : 'none', marginTop: isMobile ? '8px' : 0 }}>
-                                <Volume2 size={18} style={{ opacity: 0.6 }} />
-                                <div style={{ width: isMobile ? '100%' : '96px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px' }}>
-                                    <div style={{ width: `${player.volume * 100}%`, height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: '999px' }} />
-                                </div>
-                            </div>
+                        {/* Play Button Only */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+                            <button 
+                                onClick={() => {
+                                    if (featuredTrack) {
+                                        player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack);
+                                    }
+                                }}
+                                style={{ 
+                                    padding: '12px 32px', borderRadius: '999px', 
+                                    backgroundColor: colors.primary, display: 'flex', 
+                                    alignItems: 'center', justifyContent: 'center', gap: '12px',
+                                    border: 'none', color: 'white', cursor: 'pointer',
+                                    fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    transition: 'transform 0.1s, background-color 0.2s',
+                                    boxShadow: `0 4px 15px ${colors.primary}44`
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                {player.currentTrack?.id === featuredTrack?.id && player.isPlaying ? (
+                                    <><Pause size={20} fill="white" /> Pause</>
+                                ) : (
+                                    <><PlayCircle size={24} fill="white" /> Play Featured Track</>
+                                )}
+                            </button>
                         </div>
                     </div>
 
