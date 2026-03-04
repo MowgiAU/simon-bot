@@ -456,14 +456,19 @@ const AppContent: React.FC = () => {
     }
   };
 
-export const App: React.FC = () => (
-  <ErrorBoundary>
-    <PlayerProvider>
-      <style>{AppStyles}</style>
-      <AppContent />
-      <GlobalPlayer />
-    </PlayerProvider>
-  </ErrorBoundary>
-);
+export const App: React.FC = () => {
+  console.log('[App] Mounting App Root');
+  return (
+    <ErrorBoundary>
+      <PlayerProvider>
+        <style>{AppStyles}</style>
+        <div id="app-structure">
+          <AppContent />
+          <GlobalPlayer />
+        </div>
+      </PlayerProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
