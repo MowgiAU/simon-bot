@@ -224,9 +224,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 {player.currentTrack?.id === featuredTrack?.id && player.isPlaying ? (
-                                    <><Pause size={20} fill="white" /> Pause</>
+                                    <><Pause size={20} fill="currentColor" /> Pause</>
                                 ) : (
-                                    <><PlayCircle size={24} fill="white" /> Play Featured Track</>
+                                    <><Play size={20} fill="currentColor" /> Play Featured Track</>
                                 )}
                             </button>
                         </div>
