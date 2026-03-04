@@ -125,38 +125,10 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const fetchLogs = async (pageNum: number) => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams({
-        page: pageNum.toString(),
-        limit: '20',
-        ...(activeCategory !== 'all' && { action: activeCategory }),
-        ...(searchQuery && { search: searchQuery }),
-        ...(activeUser && { userId: activeUser })
-      });
-      const res = await fetch(`/api/guilds/${guildId}/logs?${queryParams}`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.items); 
-        setTotalPages(data.pagination.pages);
-      }
-    } catch (err) {
-        console.error("Failed to fetch logs:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-      setPage(1);
-  }, [activeCategory, searchQuery, activeUser]);
-
   // Fetch logs when page or filters change (debounced)
   useEffect(() => {
+    if (activeTab !== 'logs') return;
+
     const controller = new AbortController();
     let isMounted = true;
 
@@ -197,7 +169,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
         clearTimeout(timer);
         controller.abort();
     };
-  }, [page, activeCategory, searchQuery, activeUser]);
+  }, [page, activeCategory, searchQuery, activeUser, activeTab, guildId]);
 
   const fetchUserNotes = async (userId: string) => {
       try {
