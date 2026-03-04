@@ -190,7 +190,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <Shuffle size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
                                 <SkipBack size={20} style={{ cursor: 'pointer' }} />
                                 <button 
-                                    onClick={() => setIsPlaying(!isPlaying)}
+                                    onClick={() => togglePlay()}
                                     style={{ 
                                         width: '48px', height: '48px', borderRadius: '50%', 
                                         backgroundColor: colors.primary, display: 'flex', 
@@ -199,7 +199,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         transition: 'transform 0.1s'
                                     }}
                                 >
-                                    {isPlaying ? <Pause size={28} fill="white" /> : <PlayCircle size={28} fill="white" />}
+                                    {player.isPlaying ? <Pause size={28} fill="white" /> : <PlayCircle size={28} fill="white" />}
                                 </button>
                                 <SkipForward size={20} style={{ cursor: 'pointer' }} />
                                 <Repeat size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
