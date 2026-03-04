@@ -20,6 +20,7 @@ interface MusicianProfile {
     websiteUrl: string | null;
     gearList: string[];
     genres: { id: string; name: string }[];
+    featuredTrackId?: string | null;
 }
 
 interface Genre {
@@ -461,7 +462,34 @@ export const MusicianProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                        <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Play size={20} /> Featured Track
+                        </h3>
+                        <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>Select a track to showcase at the top of your profile.</p>
+                        <select 
+                            value={profile?.featuredTrackId || ''}
+                            onChange={(e) => setProfile(p => p ? {...p, featuredTrackId: e.target.value || null} : null)}
+                            style={{ 
+                                width: '100%', 
+                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                border: 'none', 
+                                borderRadius: borderRadius.sm, 
+                                padding: spacing.sm, 
+                                color: colors.textPrimary,
+                                outline: 'none',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>No featured track</option>
+                            {tracks.map(t => (
+                                <option key={t.id} value={t.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>
+                                    {t.title}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
                         <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Music size={20} /> Genres

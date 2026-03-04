@@ -35,6 +35,7 @@ export class ProfileService {
         socials?: Array<{ platform: string, url: string }>;
         genreIds?: string[];
         gearList?: string[];
+        featuredTrackId?: string | null;
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         const validatedSocials = (data.socials || []).filter(s => {
@@ -61,7 +62,8 @@ export class ProfileService {
                     dawVersion: data.dawVersion,
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
-                    hardware: data.gearList || []
+                    hardware: data.gearList || [],
+                    featuredTrackId: data.featuredTrackId
                 },
                 update: {
                     username: data.username,
@@ -74,7 +76,8 @@ export class ProfileService {
                     dawVersion: data.dawVersion,
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
-                    hardware: data.gearList
+                    hardware: data.gearList,
+                    featuredTrackId: data.featuredTrackId
                 }
             });
 
@@ -116,7 +119,8 @@ export class ProfileService {
                 tracks: {
                     where: { isPublic: true },
                     orderBy: { createdAt: 'desc' }
-                }
+                },
+                featuredTrack: true
             }
         });
     }

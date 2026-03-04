@@ -3302,7 +3302,8 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
         const updated = await profileService.updateProfile(userId, {
             ...data,
             socials,
-            genreIds
+            genreIds,
+            featuredTrackId: data.featuredTrackId
         });
         res.json(updated);
     } catch (e: any) {

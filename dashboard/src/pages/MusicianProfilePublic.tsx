@@ -26,6 +26,14 @@ interface MusicianProfile {
     gearList: string[];
     genres: { genre: { name: string } }[];
     totalPlays?: number;
+    featuredTrackId?: string | null;
+    featuredTrack?: {
+        id: string;
+        title: string;
+        url: string;
+        coverUrl: string | null;
+        description: string | null;
+    };
     tracks?: Array<{
         id: string;
         title: string;
@@ -107,9 +115,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, color: '#1DB954' },
     ];
 
-    const avatarUrl = profile.avatar 
+    const featuredTrack = profile.featuredTrack || (profile.tracks && profile.tracks.length > 0 ? profile.tracks[0] : null);
+    const avatarUrl = featuredTrack?.coverUrl || (profile.avatar 
         ? `https://cdn.discordapp.com/avatars/${profile.userId}/${profile.avatar}.png?size=256`
-        : null;
+        : null);
 
     return (
         <div style={{ 
@@ -171,18 +180,28 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <Layout size={12} /> Now Playing
                             </span>
                         </div>
-                        <h2 style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{profile.displayName || profile.username} - Neon Drift</h2>
-                        <p style={{ color: '#B9C3CE', fontSize: '14px', marginBottom: '24px' }}>From the upcoming album "Digital Echoes"</p>
+                        <h2 style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                            {profile.displayName || profile.username} - {featuredTrack?.title || 'No track available'}
+                        </h2>
+                        <p style={{ color: '#B9C3CE', fontSize: '14px', marginBottom: '24px' }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
                         
                         {/* Progress Bar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                            <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary }}>02:45</span>
-                            <div style={{ flex: 1, height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', position: 'relative' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, width: '66%', height: '100%', backgroundColor: colors.primary, borderRadius: '999px', boxShadow: `0 0 10px ${colors.primary}88` }} />
-                                <div style={{ position: 'absolute', top: '50%', left: '66%', width: '12px', height: '12px', backgroundColor: 'white', borderRadius: '50%', transform: 'translate(-50%, -50%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                        {player.currentTrack?.id === featuredTrack?.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary }}>
+                                    {Math.floor(player.currentTime/60)}:{(Math.floor(player.currentTime%60)).toString().padStart(2, '0')}
+                                </span>
+                                <div style={{ flex: 1, height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', position: 'relative' }}>
+                                    <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime/player.duration)*100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px', boxShadow: `0 0 10px ${colors.primary}88` }} />
+                                    <div style={{ position: 'absolute', top: '50%', left: `${(player.currentTime/player.duration)*100}%`, width: '12px', height: '12px', backgroundColor: 'white', borderRadius: '50%', transform: 'translate(-50%, -50%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                </div>
+                                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#B9C3CE' }}>
+                                    {Math.floor(player.duration/60)}:{(Math.floor(player.duration%60)).toString().padStart(2, '0')}
+                                </span>
                             </div>
-                            <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#B9C3CE' }}>04:12</span>
-                        </div>
+                        ) : (
+                            <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', marginBottom: '32px' }} />
+                        )}
 
                         {/* Controls */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px', flexWrap: 'wrap' }}>
@@ -190,7 +209,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <Shuffle size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
                                 <SkipBack size={20} style={{ cursor: 'pointer' }} />
                                 <button 
-                                    onClick={() => togglePlay()}
+                                    onClick={() => {
+                                        if (featuredTrack) {
+                                            player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack);
+                                        }
+                                    }}
                                     style={{ 
                                         width: '48px', height: '48px', borderRadius: '50%', 
                                         backgroundColor: colors.primary, display: 'flex', 
@@ -199,7 +222,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         transition: 'transform 0.1s'
                                     }}
                                 >
-                                    {player.isPlaying ? <Pause size={28} fill="white" /> : <PlayCircle size={28} fill="white" />}
+                                    {player.currentTrack?.id === featuredTrack?.id && player.isPlaying ? <Pause size={28} fill="white" /> : <PlayCircle size={28} fill="white" />}
                                 </button>
                                 <SkipForward size={20} style={{ cursor: 'pointer' }} />
                                 <Repeat size={18} style={{ cursor: 'pointer', opacity: 0.6 }} />
@@ -208,31 +231,26 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: isMobile ? '1 0 100%' : 'none', marginTop: isMobile ? '8px' : 0 }}>
                                 <Volume2 size={18} style={{ opacity: 0.6 }} />
                                 <div style={{ width: isMobile ? '100%' : '96px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px' }}>
-                                    <div style={{ width: '75%', height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: '999px' }} />
+                                    <div style={{ width: `${player.volume * 100}%`, height: '100%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: '999px' }} />
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Up Next (Hidden on mobile) */}
-                    {!isMobile && (
+                    {/* More Tracks (Hidden on mobile) */}
+                    {!isMobile && profile.tracks && profile.tracks.length > 1 && (
                         <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', width: '256px' }}>
-                            <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Up Next</p>
+                            <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>More Tracks</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                                    <div style={{ width: '40px', height: '40px', backgroundColor: '#1e293b', borderRadius: '4px' }} />
-                                    <div>
-                                        <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>Starlight Path</p>
-                                        <p style={{ fontSize: '9px', color: '#B9C3CE', margin: 0 }}>3:42</p>
+                                {profile.tracks.filter(t => t.id !== featuredTrack?.id).slice(0, 2).map(t => (
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setTrack(t)}>
+                                        <div style={{ width: '40px', height: '40px', backgroundColor: '#1e293b', borderRadius: '4px', backgroundImage: `url(${t.coverUrl})`, backgroundSize: 'cover' }} />
+                                        <div>
+                                            <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0, color: player.currentTrack?.id === t.id ? colors.primary : 'white' }}>{t.title}</p>
+                                            <p style={{ fontSize: '9px', color: '#B9C3CE', margin: 0 }}>Play Track</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', opacity: 0.5 }}>
-                                    <div style={{ width: '40px', height: '40px', backgroundColor: '#1e293b', borderRadius: '4px' }} />
-                                    <div>
-                                        <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>Deep Blue</p>
-                                        <p style={{ fontSize: '9px', color: '#B9C3CE', margin: 0 }}>5:15</p>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
                         </div>
                     )}

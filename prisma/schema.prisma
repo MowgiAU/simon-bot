@@ -669,6 +669,10 @@ model MusicianProfile {
   
   // Genres (Many-to-Many via Join Table)
   genres          ProfileGenre[]
+  
+  // Featured Content
+  featuredTrackId String?  @unique
+  featuredTrack   Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -689,6 +693,7 @@ model Track {
   isPublic        Boolean  @default(true)
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
   plays           TrackPlay[]
 
   createdAt       DateTime @default(now())
