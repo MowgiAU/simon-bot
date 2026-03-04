@@ -215,6 +215,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const renderContent = () => {
+    console.log('[App] Rendering Dashboard Content, section:', activeSection);
     switch (activeSection) {
       case "word-filter-settings":
         return <WordFilterSettings guildId={selectedGuild.id} />;
@@ -439,18 +440,14 @@ const AppContent: React.FC = () => {
       <div className="debug-root" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
-        width: '100vw',
+        width: '100%',
         display: 'flex', 
         flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center',
         padding: '20px',
         color: 'white',
-        fontFamily: 'sans-serif',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 9999
+        fontFamily: 'sans-serif'
       }}>
         <div style={{ 
           background: 'rgba(255,255,255,0.05)', 
