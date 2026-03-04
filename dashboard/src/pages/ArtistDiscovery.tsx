@@ -3,7 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
-    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink
+    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -339,61 +339,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     </div>
                 </main>
             </div>
-
-            {/* Bottom Player */}
-            <footer style={{ 
-                height: '80px', backgroundColor: '#1A1E2E', borderTop: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '30%' }}>
-                    <div style={{ width: '48px', height: '48px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }}>
-                        <img src={player.currentTrack?.cover} alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <div>
-                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0 }}>{player.currentTrack?.title}</p>
-                        <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>{player.currentTrack?.artist}</p>
-                    </div>
-                    <Heart size={18} color="#B9C3CE" />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '40%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                        <Shuffle size={18} color="#B9C3CE" />
-                        <SkipBack size={20} color="white" />
-                        <button 
-                            onClick={togglePlay}
-                            style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}
-                        >
-                            {player.isPlaying ? <Volume2 fill="#1A1E2E" size={20} /> : <Play fill="#1A1E2E" size={20} />}
-                        </button>
-                        <SkipForward size={20} color="white" />
-                        <Repeat size={18} color="#B9C3CE" />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: '400px' }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)' }}>2:45</span>
-                        <div style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px' }}>
-                            <div style={{ width: '66%', height: '100%', backgroundColor: colors.primary, borderRadius: '999px' }} />
-                        </div>
-                        <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)' }}>4:12</span>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '24px', width: '30%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Volume2 size={18} color="#B9C3CE" />
-                        <div style={{ width: '96px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px' }}>
-                            <div 
-                                style={{ 
-                                    width: `${player.volume * 100}%`, 
-                                    height: '100%', 
-                                    backgroundColor: 'rgba(255,255,255,0.4)', 
-                                    borderRadius: '999px' 
-                                }} 
-                            />
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            
+            <div style={{ height: player.currentTrack ? '80px' : 0 }} />
         </div>
     );
 };

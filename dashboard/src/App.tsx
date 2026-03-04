@@ -23,6 +23,7 @@ import { ArtistDiscoveryPage } from './pages/ArtistDiscovery';
 import { DocumentationPage } from './pages/Documentation';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PlayerProvider } from './components/PlayerProvider';
+import { GlobalPlayer } from './components/GlobalPlayer';
 import { NotificationMenu } from './components/NotificationMenu';
 import { InternalChat } from './components/InternalChat';
 import Logs from './pages/Logs';
@@ -388,6 +389,7 @@ const AppContent: React.FC = () => {
           {renderContent()}
         </div>
       </main>
+      <GlobalPlayer />
       <InternalChat guildId={selectedGuild.id} />
     </div>
   );
