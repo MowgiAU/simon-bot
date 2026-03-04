@@ -382,94 +382,13 @@ const AdminDashboard: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-    const [currentPath, setCurrentPath] = useState(window.location.pathname);
-  
-    // Log for debugging
-    console.log('[App] window.location.pathname:', window.location.pathname);
-    console.log('[App] currentPath state:', currentPath);
-  
-    // Use Effect for navigation
-    React.useEffect(() => {
-      const handleLocationChange = () => setCurrentPath(window.location.pathname);
-      window.addEventListener('popstate', handleLocationChange);
-      return () => window.removeEventListener('popstate', handleLocationChange);
-    }, []);
-  
-    const hash = window.location.hash;
-    const isDashboard = currentPath.startsWith('/dashboard');
-    const isProfile = currentPath.startsWith('/profile');
-  
-    // 1. Dashboard entry via hash or search
-    if (currentPath === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
-      window.location.href = "/dashboard";
-      return null;
-    }
-  
-    // 2. Musician Profiles
-    if (isProfile) {
-      console.log('[App] Routing to Musician Profile');
-      const isPublic = currentPath !== "/profile" && currentPath !== "/profile/";
-      const content = (
-        <main className="main-content" style={{ width: "100%", minHeight: "100vh", background: colors.background }}>
-          <MusicianProfilePage />
-        </main>
-      );
-  
-      if (isPublic) {
-        return <ResourceProvider><div className="app">{content}</div></ResourceProvider>;
-      } else {
-        return <AuthProvider><ResourceProvider><div className="app">{content}</div></ResourceProvider></AuthProvider>;
-      }
-    }
-  
-    // 3. Admin Dashboard
-    if (isDashboard) {
-      console.log('[App] Routing to Admin Dashboard');
-      return (
-        <AuthProvider>
-          <ResourceProvider>
-            <AdminDashboard />
-          </ResourceProvider>
-        </AuthProvider>
-      );
-    }
-  
-    // 4. Default: Artist Discovery (HOME)
-    console.log('[App] Routing to Artist Discovery (Default)');
+    // FORCE RENDER DEBUG
     return (
-      <div className="debug-root" style={{ 
-        background: '#09090b', 
-        minHeight: '100vh', 
-        width: '100%',
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center',
-        padding: '20px',
-        color: 'white',
-        fontFamily: 'sans-serif'
-      }}>
-        <div style={{ 
-          background: 'rgba(255,255,255,0.05)', 
-          padding: '40px', 
-          borderRadius: '20px', 
-          border: '1px solid rgba(255,255,255,0.1)',
-          textAlign: 'center',
-          maxWidth: '500px',
-          marginBottom: '40px'
-        }}>
-          <h1 style={{ fontSize: '48px', marginBottom: '10px', color: '#2B8C71' }}>Fuji Studio</h1>
-          <p style={{ color: '#94a3b8', fontSize: '18px' }}>React is Mounting Successfully ✅</p>
-          <div style={{ marginTop: '20px', padding: '10px', background: '#1e293b', borderRadius: '8px', fontSize: '14px', border: '1px solid #334155' }}>
-             Path: {currentPath}
-          </div>
-        </div>
-        <div style={{ width: '100%', maxWidth: '1200px' }}>
-          <ArtistDiscoveryPage />
-        </div>
+      <div style={{ background: 'orange', color: 'black', padding: '100px', fontSize: '50px', fontWeight: 'bold', zIndex: 99999, position: 'relative' }}>
+        REACT APPCONTENT IS RENDERING!
       </div>
     );
-  };
+};
 
 export const App: React.FC = () => (
   <ErrorBoundary>
