@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { useAuth } from '../components/AuthProvider';
 
 interface ArtistProfile {
     userId: string;
@@ -42,6 +43,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const { player, setTrack, togglePlay, setVolume } = usePlayer();
     const navigate = useNavigate();
+    const auth = React.useContext(useAuth as any); // Safe access if AuthProvider exists higher up
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -58,10 +60,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
             
             // Using absolute URL or ensuring the base is correct for the API call
             const apiBase = window.location.origin.includes('localhost') ? '' : window.location.origin;
-            const [profilesRes, tracksRes] = await Promise.all([
-                axios.get(`${apiBase}/api/musician/profiles`, { params }),
-                axios.get(`${apiBase}/api/musician/leaderboards/tracks`, { params: { limit: 10 } })
-            ]);
+            const profilesRes = await axios.get(`${apiBase}/api/musician/profiles`, { params });
+            const tracksRes = await axios.get(`${apiBase}/api/musician/leaderboards/tracks`, { params: { limit: 10 } });
+            
             setArtists(profilesRes.data);
             setTopTracks(tracksRes.data);
         } catch (err) {
