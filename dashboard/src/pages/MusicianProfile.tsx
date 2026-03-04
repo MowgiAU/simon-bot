@@ -460,7 +460,6 @@ export const MusicianProfilePage: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                </div>
 
                     <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
                         <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
