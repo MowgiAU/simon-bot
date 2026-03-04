@@ -383,9 +383,15 @@ const AdminDashboard: React.FC = () => {
 const AppContent: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
+  // Debug path
+  console.log('[App] Rendering for path:', currentPath);
+
   // Listen for internal navigation if any
   React.useEffect(() => {
-    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    const handleLocationChange = () => {
+      console.log('[App] Path changed to:', window.location.pathname);
+      setCurrentPath(window.location.pathname);
+    };
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
