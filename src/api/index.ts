@@ -3385,10 +3385,10 @@ if (fs.existsSync(distPath)) {
     }));
 
     // SPA Routing:
-    app.get('*', (req, res) => {
+    app.get('*', (req, res, next) => {
         // Skip API routes and Uploads
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-            return; 
+            return next(); 
         }
         
         if (fs.existsSync(indexHtml)) {
