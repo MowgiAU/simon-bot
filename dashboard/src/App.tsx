@@ -383,8 +383,10 @@ const AdminDashboard: React.FC = () => {
 const AppContent: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
-  // Debug path
+  // CRITICAL DEBUG: If this shows up, React is working
+  console.log('--- REACT BOOT UP ---');
   console.log('[App] Rendering for path:', currentPath);
+  console.log('[App] window.location.pathname:', window.location.pathname);
 
   // Listen for internal navigation if any
   React.useEffect(() => {
@@ -406,8 +408,10 @@ const AppContent: React.FC = () => {
 
   // 2. Artist Discovery (HOME) - Root and /discover
   if (currentPath === "/" || currentPath === "/discover") {
+    console.log('[App] Rendering ArtistDiscoveryPage');
     return (
-      <div className="app">
+      <div className="app" style={{ background: 'red', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <h1 style={{ color: 'white' }}>DEBUG: Artist Discovery Loading...</h1>
         <ArtistDiscoveryPage />
       </div>
     );
