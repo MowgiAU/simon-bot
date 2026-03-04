@@ -28,7 +28,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight } from "lucide-react";
 
-import "./App.css";
+import { AppStyles } from "./AppStyles";
 
 const logoUrl = "https://cdn.discordapp.com/attachments/1089304323218526270/1335474619934150739/simon_fuji.png";
 
@@ -472,6 +472,7 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => (
   <ErrorBoundary>
     <PlayerProvider>
+      <style>{AppStyles}</style>
       <AppContent />
       <GlobalPlayer />
     </PlayerProvider>
