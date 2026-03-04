@@ -14,18 +14,19 @@ if (!rootElement) {
 } else {
   try {
     const root = ReactDOM.createRoot(rootElement);
-    console.log('Rendering SIMPLE HTML to root...');
+    console.log('Rendering App component...');
     
-    // ATTEMPT 1: DIRECT DOM WRITE (BYPASS REACT)
-    rootElement.innerHTML = '<div style="background:purple;color:white;padding:100px;font-size:50px;position:relative;z-index:99999;">DIRECT DOM WRITE SUCCESSFUL</div>';
-    
-    console.log('Attempting React render...');
-    root.render(
-       <div style={{ background: 'blue', color: 'white', padding: '100px', fontSize: '50px' }}>
-         REACT RENDER SUCCESSFUL
-       </div>
-    );
-    console.log('Render call completed.');
+    // Use a small delay to ensure anything that might be wiping the DOM has finished
+    setTimeout(() => {
+      console.log('Final render attempt...');
+      root.render(
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      );
+    }, 100);
+
+    console.log('Initial render calls issued.');
   } catch (err) {
     console.error('FAILED TO RENDER REACT:', err);
     const errorMsg = err instanceof Error ? err.message : String(err);
