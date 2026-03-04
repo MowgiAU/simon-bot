@@ -3360,23 +3360,21 @@ const indexHtml = path.join(distPath, 'index.html');
 console.log(`[DEBUG] SPA config: distPath=${distPath}, indexHtml=${indexHtml}, exists=${fs.existsSync(distPath)}`);
 
 if (fs.existsSync(distPath)) {
-    // 1. Log non-API requests for debugging
-    app.use((req, res, next) => {
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-            logger.info(`Frontend Request: ${req.method} ${req.path}`);
-        }
-        next();
-    });
-
-    // 2. Serve static assets directly if they exist in dist
+    // Basic static middleware - serve physical files if they exist in dist
     app.use(express.static(distPath, { index: false }));
 
-    // 3. Catch-all for SPA: Serve index.html for any route that ISN'T /api, /uploads, or a real file
-    app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
+    // SPA Routing: Serve index.html for non-API, non-asset routes
+    app.get('*', (req, res, next) => {
+        // 1. If it's an API or Uploads call, pass it along immediately
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+            return next();
+        }
+
+        // 2. If it's none of the above, send the index.html
         if (fs.existsSync(indexHtml)) {
             res.sendFile(indexHtml);
         } else {
-            res.status(404).send('Dashboard build not found.');
+            next();
         }
     });
 }
