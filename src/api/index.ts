@@ -332,8 +332,13 @@ const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localho
 
 // Helper: get bot guilds from database (where bot is present)
 const getBotGuildIds = async () => {
-  const guilds = await db.guild.findMany({ select: { id: true, name: true, icon: true } });
-  return guilds;
+    try {
+        const guilds = await db.guild.findMany({ select: { id: true, name: true, icon: true } });
+        return guilds;
+    } catch (e) {
+        logger.error('Failed to fetch bot guilds from DB', e);
+        return [];
+    }
 };
 
 // Discord OAuth2 endpoints
@@ -1506,7 +1511,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians'] 
             });
         }
 
@@ -2468,6 +2473,16 @@ app.get('/api/tickets/list/:guildId', async (req, res) => {
     
     const tickets = await db.ticket.findMany({
         where,
+        select: {
+            id: true,
+            channelId: true,
+            guildId: true,
+            ownerId: true,
+            status: true,
+            priority: true,
+            createdAt: true,
+            closedAt: true
+        },
         orderBy: { createdAt: 'desc' }
     });
     res.json(tickets);
