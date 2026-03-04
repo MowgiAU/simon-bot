@@ -429,17 +429,17 @@ const AppContent: React.FC = () => {
     // 4. Default: Artist Discovery (HOME)
     console.log('[AppContent] Branch: Home/Discovery');
     return (
-      <div className="app" style={{ 
+      <div className="discovery-container" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
+        width: '100vw',
         display: 'flex', 
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '20px',
         color: 'white',
-        fontFamily: 'sans-serif'
+        fontFamily: 'sans-serif',
+        overflowX: 'hidden'
       }}>
-        <h1 style={{ color: '#2B8C71' }}>Fuji Studio</h1>
         <div style={{ width: '100%', maxWidth: '1200px' }}>
           <ArtistDiscoveryPage />
         </div>

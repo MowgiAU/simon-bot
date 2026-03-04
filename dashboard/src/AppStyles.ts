@@ -20,17 +20,22 @@ export const AppStyles = `
 
   .app {
     display: flex;
-    height: 100vh;
+    min-height: 100vh;
   }
 
   .main-content {
     flex: 1;
-    margin-left: 260px;
     overflow-y: auto;
     background-color: ${colors.background};
     transition: margin-left 0.3s ease;
     z-index: 1; /* Keep content below sidebar popovers */
     position: relative;
+  }
+
+  /* Only indent content when a sidebar is actually present */
+  .sidebar:not(.collapsed) + .main-content,
+  .sidebar:not(.collapsed) ~ .main-content {
+    margin-left: 260px;
   }
 
   .sidebar.collapsed + .main-content,
