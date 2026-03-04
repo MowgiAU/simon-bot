@@ -455,14 +455,17 @@ const AppContent: React.FC = () => {
           borderRadius: '20px', 
           border: '1px solid rgba(255,255,255,0.1)',
           textAlign: 'center',
-          maxWidth: '500px'
+          maxWidth: '500px',
+          marginBottom: '40px'
         }}>
           <h1 style={{ fontSize: '48px', marginBottom: '10px', color: '#2B8C71' }}>Fuji Studio</h1>
           <p style={{ color: '#94a3b8', fontSize: '18px' }}>React is Mounting Successfully ✅</p>
           <div style={{ marginTop: '20px', padding: '10px', background: '#1e293b', borderRadius: '8px', fontSize: '14px', border: '1px solid #334155' }}>
              Path: {currentPath}
           </div>
-          <p style={{ marginTop: '20px', fontSize: '12px', color: '#64748b' }}>If you see this, the code is executing and rendering to the DOM.</p>
+        </div>
+        <div style={{ width: '100%', maxWidth: '1200px' }}>
+          <ArtistDiscoveryPage />
         </div>
       </div>
     );
