@@ -3369,15 +3369,20 @@ const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
     logger.info(`Serving dashboard from ${distPath}`);
-    // Explicitly serve static assets
-    app.use(express.static(distPath));
+    // Explicitly serve static assets FIRST, but skip if they are API calls
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+            return next();
+        }
+        express.static(distPath)(req, res, next);
+    });
 
     // SPA Routing:
-    // 1. /dashboard and /profile -> index.html (Main SPA with Auth)
-    // 2. / -> index.html (Now handles Discovery without Auth internally)
     app.get('*', (req, res) => {
-        // Skip API routes
-        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return;
+        // Skip API routes and Uploads
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+            return; // Controller should handle these
+        }
         
         if (fs.existsSync(indexHtml)) {
             res.sendFile(indexHtml);
