@@ -382,16 +382,15 @@ const AdminDashboard: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-    const [currentPath, setCurrentPath] = useState(window.location.pathname);
-  
-    // Use Effect for navigation
-    React.useEffect(() => {
-      const handleLocationChange = () => setCurrentPath(window.location.pathname);
-      window.addEventListener('popstate', handleLocationChange);
-      return () => window.removeEventListener('popstate', handleLocationChange);
-    }, []);
-  
+    // 0. IMMEDIATE LOG
+    console.log('[AppContent] Execution started');
+    
+    // Hardcode path for initial render to avoid any hook issues
+    const currentPath = window.location.pathname;
     const hash = window.location.hash;
+    
+    console.log('[AppContent] Path detected:', currentPath);
+    
     const isDashboard = currentPath.startsWith('/dashboard');
     const isProfile = currentPath.startsWith('/profile');
   
@@ -403,24 +402,21 @@ const AppContent: React.FC = () => {
   
     // 2. Musician Profiles
     if (isProfile) {
-      console.log('[App] Routing to Musician Profile');
-      const isPublic = currentPath !== "/profile" && currentPath !== "/profile/";
-      const content = (
-        <main className="main-content" style={{ width: "100%", minHeight: "100vh", background: colors.background }}>
-          <MusicianProfilePage />
-        </main>
+      console.log('[AppContent] Branch: Profile');
+      return (
+        <ResourceProvider>
+          <div className="app">
+            <main className="main-content" style={{ width: "100%", minHeight: "100vh", background: colors.background }}>
+              <MusicianProfilePage />
+            </main>
+          </div>
+        </ResourceProvider>
       );
-  
-      if (isPublic) {
-        return <ResourceProvider><div className="app">{content}</div></ResourceProvider>;
-      } else {
-        return <AuthProvider><ResourceProvider><div className="app">{content}</div></ResourceProvider></AuthProvider>;
-      }
     }
   
     // 3. Admin Dashboard
     if (isDashboard) {
-      console.log('[App] Routing to Admin Dashboard');
+      console.log('[AppContent] Branch: Dashboard');
       return (
         <AuthProvider>
           <ResourceProvider>
@@ -431,30 +427,25 @@ const AppContent: React.FC = () => {
     }
   
     // 4. Default: Artist Discovery (HOME)
-    console.log('[App] Routing to Artist Discovery (Default)');
-    try {
-      return (
-        <div className="app" style={{ 
-          background: '#09090b', 
-          minHeight: '100vh', 
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '20px',
-          color: 'white',
-          fontFamily: 'sans-serif'
-        }}>
-          <h1 style={{ color: '#2B8C71' }}>Fuji Studio Discovery (Loading...)</h1>
-          <div style={{ width: '100%', maxWidth: '1200px' }}>
-            <ArtistDiscoveryPage />
-          </div>
+    console.log('[AppContent] Branch: Home/Discovery');
+    return (
+      <div className="app" style={{ 
+        background: '#09090b', 
+        minHeight: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '20px',
+        color: 'white',
+        fontFamily: 'sans-serif'
+      }}>
+        <h1 style={{ color: '#2B8C71' }}>Fuji Studio</h1>
+        <div style={{ width: '100%', maxWidth: '1200px' }}>
+          <ArtistDiscoveryPage />
         </div>
-      );
-    } catch (err) {
-      console.error('[App] ArtistDiscoveryPage crash:', err);
-      return <div style={{ background: 'darkred', color: 'white', padding: '20px' }}>Component Crash: {String(err)}</div>;
-    }
-  };
+      </div>
+    );
+};
 
 export const App: React.FC = () => {
   console.log('[App] Mounting App Root');
