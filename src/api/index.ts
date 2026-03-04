@@ -26,10 +26,10 @@ const app = express();
 // Configure storage for tracks and artwork
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = file.fieldname === 'audio' 
-      ? path.join(__dirname, '../../public/uploads/tracks')
-      : path.join(__dirname, '../../public/uploads/artwork');
-    
+    const dir = file.fieldname === 'audio'
+      ? path.resolve(process.cwd(), 'public/uploads/tracks')
+      : path.resolve(process.cwd(), 'public/uploads/artwork');
+
     // Ensure directory exists synchronously to prevent race conditions during target upload
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -923,8 +923,12 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
   }
 });
 
-// Static files for uploads (Public access)
-app.use('/uploads', express.static(path.join(__dirname, '../../public/uploads')));
+// Static files for uploads (Public access) - Robust path resolution
+const uploadsPath = path.resolve(process.cwd(), 'public', 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
 
 // Add a comment to a log entry
 app.post('/api/logs/:logId/comments', async (req, res) => {
@@ -1396,8 +1400,8 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
 
 app.get('/api/plugins/list', (req, res) => {
     try {
-        const pluginsDir = path.join(__dirname, '../bot/plugins');
-        logger.info(`Scanning plugins directory: ${pluginsDir}`);
+          // Robust path resolution for production
+          const pluginsDir = path.resolve(process.cwd(), 'src/bot/plugins');
         
         if (!fs.existsSync(pluginsDir)) {
             logger.warn('Plugins directory not found:', pluginsDir);
@@ -3155,13 +3159,13 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        // Optional: Delete physical files
-        if (track.url.startsWith('/uploads/')) {
-            const filePath = path.join(__dirname, '../../public', track.url);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
-        if (track.coverUrl?.startsWith('/uploads/')) {
-            const filePath = path.join(__dirname, '../../public', track.coverUrl);
+// Delete physical files
+          if (track.url.startsWith('/uploads/')) {
+              const filePath = path.join(process.cwd(), 'public', track.url);
+              if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          }
+          if (track.coverUrl?.startsWith('/uploads/')) {
+              const filePath = path.join(process.cwd(), 'public', track.coverUrl);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
 
