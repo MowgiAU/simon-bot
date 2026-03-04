@@ -24,7 +24,7 @@ import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
-import ErrorBoundary from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight } from "lucide-react";
 
