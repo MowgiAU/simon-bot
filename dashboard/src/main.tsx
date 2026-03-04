@@ -16,15 +16,12 @@ if (!rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     console.log('Rendering App component...');
     
-    // Use a small delay to ensure anything that might be wiping the DOM has finished
-    setTimeout(() => {
-      console.log('Final render attempt...');
-      root.render(
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      );
-    }, 100);
+    // Immediate render to root
+    root.render(
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    );
 
     console.log('Initial render calls issued.');
   } catch (err) {
