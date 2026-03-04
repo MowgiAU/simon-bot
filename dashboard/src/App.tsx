@@ -437,18 +437,33 @@ const AppContent: React.FC = () => {
     console.log('[App] Routing to Artist Discovery (Default)');
     return (
       <div className="app" style={{ 
-        background: '#0f172a', 
+        background: '#09090b', 
         minHeight: '100vh', 
         display: 'flex', 
+        flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center',
-        padding: '20px'
+        padding: '20px',
+        color: 'white',
+        fontFamily: 'sans-serif'
       }}>
-        <div style={{ color: 'white', textAlign: 'center' }}>
-          <h1>Fuji Studio Discovery</h1>
-          <p>If you see this, the app is mounted. Loading components...</p>
+        <div style={{ 
+          background: 'rgba(255,255,255,0.05)', 
+          padding: '40px', 
+          borderRadius: '20px', 
+          border: '1px solid rgba(255,255,255,0.1)',
+          textAlign: 'center',
+          marginBottom: '40px'
+        }}>
+          <h1 style={{ fontSize: '48px', marginBottom: '10px' }}>Fuji Studio</h1>
+          <p style={{ color: '#94a3b8', fontSize: '18px' }}>React is Mounting Successfully ✅</p>
+          <div style={{ marginTop: '20px', padding: '10px', background: '#1e293b', borderRadius: '8px', fontSize: '14px' }}>
+             Path: {currentPath}
+          </div>
         </div>
-        <ArtistDiscoveryPage />
+        <div style={{ width: '100%', maxWidth: '1200px' }}>
+          <ArtistDiscoveryPage />
+        </div>
       </div>
     );
   };
