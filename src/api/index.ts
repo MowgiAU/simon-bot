@@ -3351,56 +3351,34 @@ app.delete('/api/musician/genres/:id', async (req, res) => {
     }
 });
 
-// Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('API error', err);
-  console.error('Full API Error:', err); // Ensure visibility in console
-  res.status(err.status || 500).json({ 
-    error: err.message,
-    details: process.env.NODE_ENV !== 'production' ? err.stack : undefined 
-  });
-});
-
 const PORT = process.env.API_PORT || 3001;
 
 // --- Serve Dashboard Dist in Production ---
 const distPath = path.resolve(process.cwd(), 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
+console.log(`[DEBUG] SPA config: distPath=${distPath}, indexHtml=${indexHtml}, exists=${fs.existsSync(distPath)}`);
+
 if (fs.existsSync(distPath)) {
-    logger.info(`Serving dashboard from ${distPath}`);
-    
-    // Debug logging for requests
+    // 1. Log non-API requests for debugging
     app.use((req, res, next) => {
-        if (!req.path.startsWith('/api')) {
-            logger.info(`Request: ${req.method} ${req.path}`);
+        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+            logger.info(`Frontend Request: ${req.method} ${req.path}`);
         }
         next();
     });
 
-    // Explicitly serve static assets FIRST
-    app.use(express.static(distPath, {
-        index: false, // Don't serve index.html automatically, we handle it below
-        fallthrough: true // Let it fall through to our SPA route
-    }));
+    // 2. Serve static assets directly if they exist in dist
+    app.use(express.static(distPath, { index: false }));
 
-    // SPA Routing:
-    app.get('*', (req, res, next) => {
-        // Skip API routes and Uploads
-        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-            return next(); 
-        }
-        
+    // 3. Catch-all for SPA: Serve index.html for any route that ISN'T /api, /uploads, or a real file
+    app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
         if (fs.existsSync(indexHtml)) {
-            logger.info(`Sending index.html for path: ${req.path}`);
             res.sendFile(indexHtml);
         } else {
-            logger.error(`Index file NOT FOUND: ${indexHtml}`);
             res.status(404).send('Dashboard build not found.');
         }
     });
-} else {
-    logger.warn(`Dashboard dist folder NOT found at ${distPath}. Web interface will not be served.`);
 }
 
 app.listen(PORT, () => {
