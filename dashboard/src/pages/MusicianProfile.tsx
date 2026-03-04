@@ -247,7 +247,29 @@ export const MusicianProfilePage: React.FC = () => {
         }
     };
 
-    if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
+    if (loading || authLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
+
+    if (!user && !urlIdentifier) {
+        return (
+            <div style={{ textAlign: 'center', padding: '100px', backgroundColor: colors.background, minHeight: '100vh', color: colors.textPrimary }}>
+                <User size={64} color={colors.primary} style={{ marginBottom: spacing.xl, opacity: 0.5 }} />
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Authentication Required</h2>
+                <p style={{ color: colors.textSecondary, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
+                    You need to be logged in to manage your musician profile and upload tracks.
+                </p>
+                <button 
+                    onClick={() => window.location.href = '/api/auth/discord'}
+                    style={{ 
+                        backgroundColor: colors.primary, color: 'white', border: 'none', 
+                        padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', 
+                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
+                    }}
+                >
+                    Login with Discord
+                </button>
+            </div>
+        );
+    }
 
     const socialsList = [
         { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/> },
