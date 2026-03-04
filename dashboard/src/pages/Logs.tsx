@@ -152,14 +152,15 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                 if (isMounted) {
                     setLogs(data.items); 
                     setTotalPages(data.pagination.pages);
+                    // Crucial: Only set loading false IF we successfully got data
+                    setLoading(false);
                 }
               }
             } catch (err: any) {
                 if (err.name !== 'AbortError' && isMounted) {
                     console.error("Failed to fetch logs:", err);
+                    setLoading(false);
                 }
-            } finally {
-              if (isMounted) setLoading(false);
             }
           };
       fetchLogsInner(page);
