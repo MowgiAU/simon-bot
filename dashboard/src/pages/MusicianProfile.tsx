@@ -439,8 +439,18 @@ export const MusicianProfilePage: React.FC = () => {
                                     )}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>{track.title}</div>
-                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
-                                            {track.playCount || 0} plays • {track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--'}
+                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>{track.playCount || 0} plays • {track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--'}</span>
+                                            {track.slug && (
+                                                <a 
+                                                    href={`/profile/${profile?.username || user?.username}/${track.slug}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', textDecoration: 'none', color: colors.textSecondary, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    View Page <ExternalLink size={10} />
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>

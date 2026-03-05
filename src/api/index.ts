@@ -3119,9 +3119,13 @@ app.post('/api/musician/tracks', upload.fields([
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
+        // Create slug from title
+        const slug = metadata.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
         // 3. Save to database
         const track = await audioService.addTrack(userId, { 
             title: metadata.title, 
+            slug,
             url: audioUrl, 
             coverUrl, 
             description: req.body.description,
@@ -3317,9 +3321,53 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         const { userId } = req.params;
         const profile = await profileService.getProfile(userId);
         if (!profile) {
+            // Try fetching by username (the :userId param might be a username)
+            const byUsername = await db.musicianProfile.findFirst({
+                where: { username: { equals: userId, mode: 'insensitive' } },
+                include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } } } } }
+            });
+            if (byUsername) return res.json(byUsername);
             return res.status(404).json({ error: 'Profile not found' });
         }
         res.json(profile);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
+    try {
+        const { username, trackSlug } = req.params;
+        
+        const profile = await db.musicianProfile.findFirst({
+            where: { username: { equals: username, mode: 'insensitive' } }
+        });
+
+        if (!profile) return res.status(404).json({ error: 'Artist not found' });
+
+        const track = await db.track.findFirst({
+            where: { 
+                profileId: profile.id,
+                slug: { equals: trackSlug, mode: 'insensitive' }
+            },
+            include: { 
+                profile: true,
+                genres: { include: { genre: true } },
+                plays: true
+            }
+        });
+
+        if (!track) {
+            // Fallback: try by ID if slug doesn't match
+            const byId = await db.track.findFirst({
+                where: { profileId: profile.id, id: trackSlug },
+                include: { profile: true, genres: { include: { genre: true } }, plays: true }
+            });
+            if (byId) return res.json(byId);
+            return res.status(404).json({ error: 'Track not found' });
+        }
+
+        res.json(track);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

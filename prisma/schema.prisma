@@ -684,6 +684,7 @@ model Track {
   id              String   @id @default(cuid())
   profileId       String
   title           String
+  slug            String?  // URL identifier (e.g., 'hey-brother')
   description     String?  @db.Text
   url             String   // Audio file URL (S3/Cloudinary)
   coverUrl        String?  // Cover image URL

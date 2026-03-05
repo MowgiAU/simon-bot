@@ -17,6 +17,7 @@ import { TicketSystemPage } from "./pages/TicketSystem";
 import { ChannelRules } from "./pages/ChannelRules";
 import { MusicianProfileAdmin } from "./pages/MusicianProfileAdmin";
 import { MusicianProfilePage } from "./pages/MusicianProfile";
+import { TrackPage } from "./pages/TrackPage";
 import { DocumentationPage } from "./pages/Documentation";
 import Logs from "./pages/Logs";
 import { StagingTest } from "./pages/StagingTest";
@@ -400,6 +401,11 @@ const AppInternal: React.FC = () => {
 
   // /profile → Musician profile (edit or public view)
   if (currentPath.startsWith('/profile')) {
+    // Check if it's /profile/:username/:trackSlug
+    const parts = currentPath.split('/').filter(Boolean); // [profile, username, trackSlug?]
+    if (parts.length >= 3) {
+      return <TrackPage />;
+    }
     return <MusicianProfilePage />;
   }
 

@@ -37,6 +37,7 @@ interface MusicianProfile {
     tracks?: Array<{
         id: string;
         title: string;
+        slug: string | null;
         url: string;
         coverUrl: string | null;
         description: string | null;
@@ -371,8 +372,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             profile.tracks.map((track) => {
                                 const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
                                 return (
-                                    <div key={track.id} style={{ cursor: 'pointer' }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track)}>
-                                        <div style={{ 
+                                    <div key={track.id} style={{ cursor: 'pointer' }}>
+                                        <div 
+                                            onClick={() => window.location.href = `/profile/${profile.username}/${track.slug || track.id}`}
+                                            style={{ 
                                             aspectRatio: '1/1', borderRadius: '12px', backgroundColor: '#1e293b', 
                                             marginBottom: '12px', overflow: 'hidden', position: 'relative',
                                             border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`,
@@ -395,17 +398,30 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             }} onMouseLeave={(e) => {
                                                 if (!isPlaying && !isMobile) e.currentTarget.style.opacity = '0';
                                             }}>
-                                                {isPlaying ? (
-                                                    <Pause size={isMobile ? 32 : 48} color="white" fill="white" />
-                                                ) : (
-                                                    <Play size={isMobile ? 32 : 48} color="white" fill="white" />
-                                                )}
+                                                <div 
+                                                    style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        player.currentTrack?.id === track.id ? togglePlay() : setTrack(track);
+                                                    }}
+                                                >
+                                                    {isPlaying ? (
+                                                        <Pause size={isMobile ? 32 : 48} color="white" fill="white" />
+                                                    ) : (
+                                                        <Play size={isMobile ? 32 : 48} color="white" fill="white" />
+                                                    )}
+                                                </div>
                                             </div>
                                             {isPlaying && (
                                                 <div style={{ position: 'absolute', bottom: '8px', right: '8px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.primary, boxShadow: `0 0 10px ${colors.primary}` }} />
                                             )}
                                         </div>
-                                        <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white' }}>{track.title}</p>
+                                        <p 
+                                            onClick={() => window.location.href = `/profile/${profile.username}/${track.slug || track.id}`}
+                                            style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white' }}
+                                        >
+                                            {track.title}
+                                        </p>
                                         <p style={{ fontSize: '10px', color: '#B9C3CE', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <Zap size={10} /> {track.playCount.toLocaleString()} plays
                                         </p>
