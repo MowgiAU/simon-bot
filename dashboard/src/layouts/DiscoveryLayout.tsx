@@ -56,22 +56,34 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         }}>
             {/* Header */}
             <header style={{
-                height: '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', zIndex: 100,
-                flexShrink: 0
+                height: isMobile ? '110px' : '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '12px 16px' : '0 24px', zIndex: 100,
+                flexShrink: 0, gap: isMobile ? '12px' : '0'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
                         <div style={{
-                            width: '36px', height: '36px', backgroundColor: colors.primary,
+                            width: '32px', height: '32px', backgroundColor: colors.primary,
                             borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                            <Music color="white" size={24} />
+                            <Music color="white" size={20} />
                         </div>
                         <div>
                             <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
                         </div>
                     </div>
+                    {isMobile && (
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {hasDashboardAccess && (
+                                <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, border: 'none', padding: '6px', borderRadius: '6px' }}>
+                                    <Zap size={18} fill={colors.primary} />
+                                </button>
+                            )}
+                            <button onClick={() => navigate('/profile')} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', padding: '6px', borderRadius: '6px' }}>
+                                <User size={18} />
+                            </button>
+                         </div>
+                    )}
                     {!isMobile && (
                         <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                             {navItems.map(item => (
@@ -95,8 +107,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </nav>
                     )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    {hasDashboardAccess ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: isMobile ? '100%' : 'auto' }}>
+                    {!isMobile && hasDashboardAccess ? (
                         <button
                             onClick={() => navigate('/dashboard')}
                             style={{
@@ -129,7 +141,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </button>
                     ) : null}
 
-                    {user ? (
+                    {user && !isMobile ? (
                         <button
                             onClick={() => navigate('/profile')}
                             style={{
@@ -149,9 +161,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             }}
                         >
                             <User size={14} />
-                            {isMobile ? '' : 'EDIT PROFILE'}
+                            EDIT PROFILE
                         </button>
-                    ) : (
+                    ) : !user && !isMobile ? (
                         <button
                             onClick={() => window.location.href = '/api/auth/discord/login'}
                             style={{
@@ -173,9 +185,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             <User size={14} />
                             LOG IN
                         </button>
-                    )}
+                    ) : null}
                     {onSearchChange && (
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: isMobile ? 1 : 'none' }}>
                             <Search size={16} color="#B9C3CE" style={{ position: 'absolute', left: '16px' }} />
                             <input
                                 type="text"
@@ -183,7 +195,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 value={search}
                                 onChange={(e) => onSearchChange(e.target.value)}
                                 style={{
-                                    width: isMobile ? '160px' : '300px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
+                                    width: isMobile ? '100%' : '300px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
                                     borderRadius: '999px', padding: '8px 48px', fontSize: '12px', color: 'white', outline: 'none'
                                 }}
                             />
