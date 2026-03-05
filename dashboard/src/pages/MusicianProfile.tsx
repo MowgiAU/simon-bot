@@ -120,8 +120,11 @@ export const MusicianProfilePage: React.FC = () => {
                 setProfile(data);
                 setAllGenres(genresRes.data);
             } catch (err: any) {
-                if (err.response?.status === 404) {
+                // If profile is missing, start fresh for currently logged in user
+                if (err.response?.status === 404 && !urlIdentifier) {
                     setProfile({
+                        username: user?.username || '',
+                        displayName: user?.username || '',
                         bio: '',
                         spotifyUrl: '',
                         soundcloudUrl: '',
