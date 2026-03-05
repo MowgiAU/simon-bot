@@ -429,31 +429,32 @@ const AppContent: React.FC = () => {
     // 4. Default: Artist Discovery (HOME)
     console.log('[AppContent] Branch: Home/Discovery');
     return (
-      <div id="debug-discovery-container" className="discovery-container" style={{ 
+      <div className="discovery-container" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
-        width: '100vw',
+        width: '100%',
         display: 'flex', 
         flexDirection: 'column',
         color: 'white',
         fontFamily: 'sans-serif',
       }}>
-        <div style={{ padding: '50px', border: '5px solid yellow', background: 'blue', color: 'white' }}>
-            <h1>APP CONTENT DISCOVERY RENDERED</h1>
-        </div>
         <ArtistDiscoveryPage />
       </div>
     );
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v4 (Forced Discovery Only)');
+  console.log('[App] Mounting App Root');
   return (
-    <div style={{ padding: '50px', backgroundColor: 'blue', color: 'white', minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <h1 style={{ fontSize: '48px', margin: 0 }}>FUJI STUDIO - FORCED LANDING</h1>
-      <p style={{ opacity: 0.8 }}>If this is blue, React has successfully rendered. If it is blank, React failed after the main entry point.</p>
-      <ArtistDiscoveryPage />
-    </div>
+    <ErrorBoundary>
+      <PlayerProvider>
+        <style>{AppStyles}</style>
+        <div id="app-structure">
+          <AppContent />
+          <GlobalPlayer />
+        </div>
+      </PlayerProvider>
+    </ErrorBoundary>
   );
 };
 

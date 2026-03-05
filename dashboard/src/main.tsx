@@ -16,12 +16,6 @@ if (!rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     console.log('Rendering App component...');
     
-    // FORCED OVERRIDE: INJECT SUCCESS MESSAGE DIRECTLY TO BODY TO VERIFY JS IS RUNNING
-    const marker = document.createElement('div');
-    marker.style.cssText = 'position:fixed;top:10px;left:10px;background:green;color:white;padding:20px;z-index:10000;font-weight:bold;';
-    marker.innerText = 'JS BUNDLE EXECUTING SUCCESSFULLY - MOUNTING...';
-    document.body.appendChild(marker);
-
     // Immediate render to root
     root.render(
       <BrowserRouter>
