@@ -167,47 +167,4 @@ export const GlobalPlayer: React.FC = () => {
         </footer>
     );
 };
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: '400px' }}>
-                    <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px', textAlign: 'right' }}>{formatTime(player.currentTime)}</span>
-                    <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <input 
-                            type="range"
-                            min="0"
-                            max={player.duration || 100}
-                            value={player.currentTime}
-                            onChange={handleSeek}
-                            style={{ 
-                                width: '100%', 
-                                cursor: 'pointer',
-                                accentColor: colors.primary,
-                                height: '4px',
-                                outline: 'none'
-                             }}
-                        />
-                    </div>
-                    <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px' }}>{formatTime(player.duration)}</span>
-                </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '24px', width: '30%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Volume2 size={18} color="#B9C3CE" />
-                    <input 
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={player.volume}
-                        onChange={handleVolumeChange}
-                        style={{ 
-                            width: '96px', 
-                            height: '4px', 
-                            cursor: 'pointer',
-                            accentColor: colors.primary
-                        }}
-                    />
-                </div>
-            </div>
-        </footer>
-    );
-};
