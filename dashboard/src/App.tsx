@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { ResourceProvider } from "./components/ResourceProvider";
 import { PlayerProvider } from "./components/PlayerProvider";
@@ -386,7 +387,7 @@ const AdminDashboard: React.FC = () => {
  * so every hook (useAuth, usePlayer, useResources) is always available.
  */
 const AppInternal: React.FC = () => {
-  const currentPath = window.location.pathname;
+  const { pathname: currentPath } = useLocation();
 
   // /dashboard → Full admin dashboard
   if (currentPath.startsWith('/dashboard')) {
