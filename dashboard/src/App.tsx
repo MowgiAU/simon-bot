@@ -388,27 +388,31 @@ const AppInternal: React.FC = () => {
 
   if (isProfile) {
     return (
-      <ResourceProvider>
+      <div style={{ padding: '20px', background: '#1a1a1a', color: 'white' }}>
+        <h2>PROFILE BRANCH (Sanity Check)</h2>
+        <p>ResourceProvider is currently disabled for this test.</p>
         <MusicianProfilePage />
-      </ResourceProvider>
+      </div>
     );
   }
 
   if (isDashboard) {
     return (
       <AuthProvider>
-        <ResourceProvider>
-          <AdminDashboard />
-        </ResourceProvider>
+        <div style={{ padding: '20px', background: '#1a1a1a', color: 'white' }}>
+            <h2>DASHBOARD BRANCH (Sanity Check)</h2>
+            <AdminDashboard />
+        </div>
       </AuthProvider>
     );
   }
 
   // DEFAULT: Home / Artist Discovery
   return (
-    <ResourceProvider>
+    <div style={{ background: '#09090b', minHeight: '100vh', width: '100%', color: 'white' }}>
+       <h1 style={{ color: '#22C55E', padding: '20px' }}>FUJI STUDIO - DISCOVERY (PROVIDER BYPASS)</h1>
        <ArtistDiscoveryPage />
-    </ResourceProvider>
+    </div>
   );
 };
 
