@@ -276,7 +276,14 @@ const AdminDashboard: React.FC = () => {
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
-      <main className="main-content">
+      <main className="main-content" style={{ 
+        marginLeft: window.innerWidth > 1024 ? (sidebarOpen ? "260px" : "260px") : "0", 
+        transition: "margin-left 0.3s ease",
+        width: "100%",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column"
+      }}>
         <div style={{ 
           display: "flex", 
           justifyContent: "space-between", 
@@ -287,17 +294,26 @@ const AdminDashboard: React.FC = () => {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          margin: "16px",
-          borderRadius: "12px",
+          margin: window.innerWidth > 768 ? "16px" : "0",
+          borderRadius: window.innerWidth > 768 ? "12px" : "0",
           boxShadow: "0 4px 24px 0 rgba(0,0,0,0.1)"
         }}>
-           <button
+          <button
             className="mobile-menu-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle menu"
-            style={{ display: "none" }} 
+            style={{ 
+              display: "flex", 
+              background: "rgba(255,255,255,0.05)", 
+              border: "1px solid rgba(255,255,255,0.1)", 
+              color: "white", 
+              padding: "8px", 
+              borderRadius: "8px",
+              cursor: "pointer",
+              marginRight: "12px"
+            }} 
           >
-            ☰
+            <span style={{ fontSize: "20px" }}>{sidebarOpen ? '✕' : '☰'}</span>
           </button>
           
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "16px" }}>

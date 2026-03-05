@@ -56,7 +56,13 @@ export const InternalChat: React.FC<{ guildId: string }> = ({ guildId }) => {
     try {
       const resp = await fetch(`/api/guilds/${guildId}/chat-messages`);
       if (resp.ok) {
-        setMessages(await resp.json());
+        const data = await resp.json();
+        // Only trigger scroll if messages length changed, to prevent jumpy UI on polling
+        const hasNew = data.length > messages.length;
+        setMessages(data);
+        if (hasNew && scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
       }
     } catch (e) {
       console.error('Failed to fetch chat messages', e);
@@ -77,11 +83,23 @@ export const InternalChat: React.FC<{ guildId: string }> = ({ guildId }) => {
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     
+    // Check for @mentions
+    const mentionMatch = inputValue.match(/@(\w+)/);
+    let recipientId = null;
+    if (mentionMatch) {
+      const username = mentionMatch[1];
+      const target = staff.find(s => s.username.toLowerCase() === username.toLowerCase());
+      if (target) recipientId = target.id;
+    }
+
     try {
       const resp = await fetch(`/api/guilds/${guildId}/chat-messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: inputValue })
+        body: JSON.stringify({ 
+          content: inputValue,
+          recipientId
+        })
       });
       
       if (resp.ok) {

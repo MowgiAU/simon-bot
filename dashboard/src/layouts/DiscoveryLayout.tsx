@@ -28,6 +28,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     activeTab = 'discover'
 }) => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { user, permissions, mutualAdminGuilds } = useAuth();
@@ -72,7 +73,20 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
                         </div>
                     </div>
-                    {isMobile && (
+                    {isMobile && sidebar && (
+                         <button 
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            style={{ 
+                                backgroundColor: isSidebarOpen ? `${colors.primary}33` : 'rgba(255,255,255,0.05)', 
+                                color: isSidebarOpen ? colors.primary : 'white', 
+                                border: 'none', padding: '8px 12px', borderRadius: '8px',
+                                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 'bold'
+                            }}
+                         >
+                            <Search size={16} /> {isSidebarOpen ? 'CLOSE' : 'FILTERS'}
+                         </button>
+                    )}
+                    {isMobile && !sidebar && (
                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {hasDashboardAccess && (
                                 <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, border: 'none', padding: '6px', borderRadius: '6px' }}>
@@ -204,16 +218,46 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 </div>
             </header>
 
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                {/* Optional Sidebar */}
-                {sidebar && !isMobile && (
-                    <aside style={{ width: '256px', backgroundColor: '#1A1E2E', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '24px', overflowY: 'auto', flexShrink: 0 }}>
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+                {/* Optional Sidebar (Desktop and Mobile Overlay) */}
+                {sidebar && (
+                    <aside style={{ 
+                        width: isMobile ? '100%' : '256px', 
+                        backgroundColor: '#1A1E2E', 
+                        borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)', 
+                        padding: '24px', 
+                        overflowY: 'auto', 
+                        flexShrink: 0,
+                        display: isMobile ? (isSidebarOpen ? 'block' : 'none') : 'block',
+                        position: isMobile ? 'absolute' : 'relative',
+                        top: 0, left: 0, bottom: 0, zIndex: 90,
+                        boxShadow: isMobile ? '0 10px 25px rgba(0,0,0,0.5)' : 'none'
+                    }}>
                         {sidebar}
+                        {isMobile && (
+                            <button 
+                                onClick={() => setIsSidebarOpen(false)}
+                                style={{ 
+                                    width: '100%', marginTop: '24px', padding: '12px', 
+                                    backgroundColor: colors.primary, color: 'white', 
+                                    border: 'none', borderRadius: '8px', fontWeight: 'bold' 
+                                }}
+                            >
+                                APPLY FILTERS
+                            </button>
+                        )}
                     </aside>
                 )}
 
                 {/* Main Content */}
-                <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#161925', paddingBottom: player.currentTrack ? '100px' : '24px' }}>
+                <main style={{ 
+                    flex: 1, 
+                    overflowY: 'auto', 
+                    backgroundColor: '#161925', 
+                    paddingBottom: player.currentTrack ? '100px' : '24px',
+                    opacity: isMobile && isSidebarOpen ? 0.3 : 1,
+                    filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
+                }}>
                     {children}
                 </main>
             </div>

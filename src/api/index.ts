@@ -351,6 +351,25 @@ app.post('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
                     recipientId: recipientId || null
                 }
             });
+
+            // If it's a mention or direct message, create a notification
+            if (recipientId) {
+                try {
+                    await (db as any).notification.create({
+                        data: {
+                            guildId,
+                            userId: recipientId,
+                            type: 'mention',
+                            title: 'New Mention',
+                            message: `${req.session.user.username} mentioned you: "${content.substring(0, 50)}..."`,
+                            link: '/dashboard'
+                        }
+                    });
+                } catch (notifErr) {
+                    logger.error(`Failed to create notification: ${notifErr}`);
+                }
+            }
+
             res.json(message);
         } catch (dbErr: any) {
             logger.error(`DashboardMessage create failed: ${dbErr.message}`);

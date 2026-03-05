@@ -16,6 +16,15 @@ export const SidebarStyles = `
     transition: width 0.3s ease, transform 0.3s ease;
   }
 
+  @media (max-width: 1024px) {
+    .sidebar {
+      transform: translateX(-100%);
+    }
+    .sidebar-open .sidebar {
+      transform: translateX(0);
+    }
+  }
+
   .sidebar.collapsed {
     width: 80px;
     overflow: visible; /* Double-ensure for collapsed state */

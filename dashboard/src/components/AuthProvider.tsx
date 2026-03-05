@@ -56,6 +56,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [selectedGuild]);
 
   useEffect(() => {
+    // DEV MODE BYPASS: If on localhost, simulate successful login
+    if (window.location.hostname === 'localhost') {
+        process.env.NODE_ENV === 'development' && console.log('[AuthProvider] Dev mode: Simulating login');
+        setUser({
+            id: 'dev_user_id',
+            username: 'DevMode',
+            discriminator: '0000',
+            avatar: 'https://cdn.discordapp.com/embed/avatars/0.png'
+        });
+        setMutualAdminGuilds([{
+            id: 'dev_guild_id',
+            name: 'Dev Community',
+            icon: ''
+        }]);
+        setSelectedGuild({
+            id: 'dev_guild_id',
+            name: 'Dev Community',
+            icon: ''
+        });
+        setPermissions({
+            canManagePlugins: true,
+            accessiblePlugins: ['musician-profile', 'moderation', 'economy', 'roles', 'bot-identity', 'logs', 'welcome-gate', 'ticket-system', 'feedback', 'word-filter']
+        });
+        setLoading(false);
+        return;
+    }
+
     fetch('/api/auth/status', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {

@@ -391,7 +391,7 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
             <h3>Vault Manager & Leaderboard</h3>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '20px' }}>
                 {/* Search Section */}
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1.5 }}>
                     <h4>Search User</h4>
                     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
                         <input 
@@ -434,7 +434,7 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
                 </div>
 
                 {/* Leaderboard Section */}
-                <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '20px' : '0' }}>
+                <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '20px' : '0', marginTop: isMobile ? '24px' : '0' }}>
                     <h4>Top Currency Holders</h4>
                     <div style={{ maxHeight: '400px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
                         {leaderboard.length === 0 ? (
