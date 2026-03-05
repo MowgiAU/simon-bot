@@ -381,48 +381,45 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
+/**
+ * AppInternal: Pure path-based routing. All providers are already wrapped above,
+ * so every hook (useAuth, usePlayer, useResources) is always available.
+ */
 const AppInternal: React.FC = () => {
   const currentPath = window.location.pathname;
-  const isDashboard = currentPath.startsWith('/dashboard');
-  const isProfile = currentPath.startsWith('/profile');
 
-  if (isProfile) {
+  // /dashboard → Full admin dashboard
+  if (currentPath.startsWith('/dashboard')) {
     return (
-      <div style={{ padding: '20px', background: '#1a1a1a', color: 'white' }}>
-        <h2>PROFILE BRANCH (Sanity Check)</h2>
-        <p>ResourceProvider is currently disabled for this test.</p>
-        <MusicianProfilePage />
-      </div>
+      <ResourceProvider>
+        <AdminDashboard />
+      </ResourceProvider>
     );
   }
 
-  if (isDashboard) {
-    return (
-      <AuthProvider>
-        <div style={{ padding: '20px', background: '#1a1a1a', color: 'white' }}>
-            <h2>DASHBOARD BRANCH (Sanity Check)</h2>
-            <AdminDashboard />
-        </div>
-      </AuthProvider>
-    );
+  // /profile → Musician profile (edit or public view)
+  if (currentPath.startsWith('/profile')) {
+    return <MusicianProfilePage />;
   }
 
-  // DEFAULT: Home / Artist Discovery
-  return (
-    <div style={{ background: '#09090b', minHeight: '100vh', width: '100%', color: 'white' }}>
-       <h1 style={{ color: '#22C55E', padding: '20px' }}>FUJI STUDIO - DISCOVERY (PROVIDER BYPASS)</h1>
-       <ArtistDiscoveryPage />
-    </div>
-  );
+  // / → Artist Discovery homepage (public, no extra providers needed)
+  return <ArtistDiscoveryPage />;
 };
 
+/**
+ * App Root: Wraps the entire app in AuthProvider + PlayerProvider so that
+ * useAuth() and usePlayer() are available in EVERY route without crashing.
+ * ResourceProvider is only loaded for /dashboard (it fetches guild data).
+ */
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v8 (Fixed Redundancy)');
   return (
     <ErrorBoundary>
-      <div id="verified-root">
-        <AppInternal />
-      </div>
+      <AuthProvider>
+        <PlayerProvider>
+          <AppInternal />
+          <GlobalPlayer />
+        </PlayerProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 };
