@@ -381,32 +381,99 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-const AppInternal: React.FC = () => {
-    const currentPath = window.location.pathname;
-    const isDashboard = currentPath.startsWith('/dashboard');
-    const isProfile = currentPath.startsWith('/profile');
-
-    if (isProfile) return <div style={{background:'purple',color:'white',padding:'50px'}}>PROFILE PLACEHOLDER</div>;
-    if (isDashboard) return <div style={{background:'orange',color:'white',padding:'50px'}}>DASHBOARD PLACEHOLDER</div>;
-
+const AdminDashboard: React.FC = () => {
+    const [section, setSection] = useState<Section>("dashboard");
+    const { login, selectedGuild } = useAuth();
+    
+    if (!selectedGuild) {
+      return <WelcomeScreen login={login} />;
+    }
+  
+    const renderSidebar = () => <Sidebar section={section} setSection={setSection} />;
+  
+    const renderSection = () => {
+      switch (section) {
+        case "dashboard": return <Dashboard />;
+        case "word-filter-settings": return <WordFilterSettings />;
+        case "moderation": return <ModerationSettingsPage />;
+        case "economy": return <EconomyPluginPage />;
+        case "feedback": return <FeedbackPluginPage />;
+        case "welcome-gate": return <WelcomeGatePluginPage />;
+        case "bot-identity": return <BotIdentityPage />;
+        case "email-client": return <EmailClientPage />;
+        case "tickets": return <TicketSystemPage />;
+        case "channel-rules": return <ChannelRules />;
+        case "musician-profiles-admin": return <MusicianProfileAdmin />;
+        case "musician-profiles": return <MusicianProfilePage />;
+        case "docs": return <DocumentationPage />;
+        case "logs": return <Logs />;
+        case "staging-test": return <StagingTest />;
+        case "plugins": return <PluginManagementPage />;
+        default: return <Dashboard />;
+      }
+    };
+  
     return (
-      <div style={{ background: '#09090b', minHeight: '100vh', width: '100%', padding: '50px', color: 'white' }}>
-        <h1 style={{ color: '#22C55E' }}>FUJI STUDIO - RE-VERIFIED MOUNT</h1>
-        <p>If you see this, the App component is rendering WITHOUT any complex providers or routing logic.</p>
-        <p>Path: {currentPath}</p>
-        <div style={{ padding: '20px', border: '1px solid #333', marginTop: '20px' }}>
-          <ArtistDiscoveryPage />
+      <div className="app">
+        <AppStyles />
+        <div style={{ display: "flex", width: "100%", height: "100vh" }}>
+          {renderSidebar()}
+          <main className="main-content" style={{ flex: 1, padding: "32px", overflowY: "auto", background: colors.background }}>
+            <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "32px", gap: "24px" }}>
+                <UniversalSearch />
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <InternalChat />
+                  <NotificationMenu />
+                </div>
+              </div>
+              {renderSection()}
+            </div>
+          </main>
         </div>
       </div>
     );
 };
 
-export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v6 (Absolute Simplicity)');
+const AppInternal: React.FC = () => {
+  const currentPath = window.location.pathname;
+  const isDashboard = currentPath.startsWith('/dashboard');
+  const isProfile = currentPath.startsWith('/profile');
+
+  if (isProfile) {
+    return (
+      <ResourceProvider>
+        <MusicianProfilePage />
+      </ResourceProvider>
+    );
+  }
+
+  if (isDashboard) {
+    return (
+      <AuthProvider>
+        <ResourceProvider>
+          <AdminDashboard />
+        </ResourceProvider>
+      </AuthProvider>
+    );
+  }
+
+  // DEFAULT: Home / Artist Discovery
   return (
-    <div id="verified-root">
-      <AppInternal />
-    </div>
+    <ResourceProvider>
+       <ArtistDiscoveryPage />
+    </ResourceProvider>
+  );
+};
+
+export const App: React.FC = () => {
+  console.log('[App] Mounting App Root - v7 (Restoring Logic)');
+  return (
+    <ErrorBoundary>
+      <div id="verified-root">
+        <AppInternal />
+      </div>
+    </ErrorBoundary>
   );
 };
 
