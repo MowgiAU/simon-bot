@@ -122,8 +122,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     return (
         <div style={{ 
-            minHeight: '100vh', 
-            backgroundColor: '#161925', 
             color: '#F8FAFC',
             padding: isMobile ? '12px' : '24px',
             maxWidth: '1600px',

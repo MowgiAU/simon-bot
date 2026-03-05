@@ -7,6 +7,7 @@ import {
     Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play 
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
+import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 interface MusicianProfile {
     id?: string;
@@ -250,27 +251,33 @@ export const MusicianProfilePage: React.FC = () => {
         }
     };
 
-    if (loading || authLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>;
+    if (loading || authLoading) return (
+        <DiscoveryLayout activeTab="profile">
+            <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading profile...</div>
+        </DiscoveryLayout>
+    );
 
     if (!user && !urlIdentifier) {
         return (
-            <div style={{ textAlign: 'center', padding: '100px', backgroundColor: colors.background, minHeight: '100vh', color: colors.textPrimary }}>
-                <User size={64} color={colors.primary} style={{ marginBottom: spacing.xl, opacity: 0.5 }} />
-                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Authentication Required</h2>
-                <p style={{ color: colors.textSecondary, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
-                    You need to be logged in to manage your musician profile and upload tracks.
-                </p>
-                <button 
-                    onClick={() => window.location.href = '/api/auth/discord/login'}
-                    style={{ 
-                        backgroundColor: colors.primary, color: 'white', border: 'none', 
-                        padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', 
-                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
-                    }}
-                >
-                    Login with Discord
-                </button>
-            </div>
+            <DiscoveryLayout activeTab="profile">
+                <div style={{ textAlign: 'center', padding: '100px', color: colors.textPrimary }}>
+                    <User size={64} color={colors.primary} style={{ marginBottom: spacing.xl, opacity: 0.5 }} />
+                    <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Authentication Required</h2>
+                    <p style={{ color: colors.textSecondary, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
+                        You need to be logged in to manage your musician profile and upload tracks.
+                    </p>
+                    <button 
+                        onClick={() => window.location.href = '/api/auth/discord/login'}
+                        style={{ 
+                            backgroundColor: colors.primary, color: 'white', border: 'none', 
+                            padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', 
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px'
+                        }}
+                    >
+                        Login with Discord
+                    </button>
+                </div>
+            </DiscoveryLayout>
         );
     }
 
@@ -287,17 +294,18 @@ export const MusicianProfilePage: React.FC = () => {
         const identifier = urlIdentifier || user?.username || user?.id || '';
         const isOwn = !!user && (identifier === user.id || identifier === user.username);
         return (
-            <div style={{ minHeight: '100vh', backgroundColor: colors.background }}>
+            <DiscoveryLayout activeTab="profile">
                 <MusicianProfilePublic 
                     identifier={identifier} 
                     isOwnProfile={isOwn} 
                     onEdit={() => setMode('edit')}
                 />
-            </div>
+            </DiscoveryLayout>
         );
     }
 
     return (
+        <DiscoveryLayout activeTab="profile">
         <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <ArrowLeft size={24} style={{ marginRight: '16px', cursor: 'pointer', color: colors.textSecondary }} onClick={() => setMode('view')} />
@@ -587,5 +595,6 @@ export const MusicianProfilePage: React.FC = () => {
                 </div>
             </div>
         </div>
+        </DiscoveryLayout>
     );
 };

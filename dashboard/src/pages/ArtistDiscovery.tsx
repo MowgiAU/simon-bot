@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 interface ArtistProfile {
     userId: string;
@@ -76,120 +77,43 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
     const genres = ["Electronic", "Ambient", "Lo-Fi", "Techno", "Hip Hop", "Rock", "Experimental"];
 
+    const sidebarContent = (
+        <>
+            <h3 style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '24px' }}>Discovery Filters</h3>
+            <div style={{ marginBottom: '32px' }}>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Genre</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {genres.map(g => (
+                        <label key={g} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '12px', color: selectedGenre === g ? 'white' : '#B9C3CE' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={selectedGenre === g}
+                                onChange={() => setSelectedGenre(selectedGenre === g ? null : g)}
+                                style={{ accentColor: colors.primary }}
+                            />
+                            {g}
+                        </label>
+                    ))}
+                </div>
+            </div>
+            <div>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Popularity</p>
+                <input type="range" style={{ width: '100%', accentColor: colors.primary }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', marginTop: '8px' }}>
+                    <span>Emerging</span>
+                    <span>Established</span>
+                </div>
+            </div>
+        </>
+    );
+
     return (
-        <div style={{ 
-            height: '100vh', display: 'flex', flexDirection: 'column', 
-            backgroundColor: '#161925', color: '#F8FAFC', overflow: 'hidden',
-            fontFamily: 'Inter, system-ui, sans-serif'
-        }}>
-            {/* Header */}
-            <header style={{ 
-                height: '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', zIndex: 100
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
-                        <div style={{ 
-                            width: '36px', height: '36px', backgroundColor: colors.primary, 
-                            borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <Music color="white" size={24} />
-                        </div>
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>FUJI STUDIO</h1>
-                            <p style={{ margin: 0, fontSize: '9px', color: colors.primary, fontWeight: 'bold', letterSpacing: '0.2em' }}>FAN DISCOVERY</p>
-                        </div>
-                    </div>
-                    {!isMobile && (
-                        <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <button style={{ padding: '6px 16px', borderRadius: '4px', backgroundColor: `${colors.primary}33`, color: colors.primary, border: 'none', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Search size={14} /> DISCOVER
-                            </button>
-                            <button style={{ padding: '6px 16px', borderRadius: '4px', backgroundColor: 'transparent', color: '#B9C3CE', border: 'none', fontSize: '10px', fontWeight: 'bold' }}>LIBRARY</button>
-                            <button style={{ padding: '6px 16px', borderRadius: '4px', backgroundColor: 'transparent', color: '#B9C3CE', border: 'none', fontSize: '10px', fontWeight: 'bold' }}>LIVE</button>
-                        </nav>
-                    )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <button 
-                        onClick={() => navigate('/dashboard')} 
-                        style={{ 
-                            backgroundColor: `${colors.primary}15`, 
-                            color: colors.primary, 
-                            border: `1px solid ${colors.primary}33`,
-                            padding: '8px 20px', 
-                            borderRadius: '8px', 
-                            fontSize: '12px', 
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.backgroundColor = `${colors.primary}25`;
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.backgroundColor = `${colors.primary}15`;
-                            e.currentTarget.style.transform = 'translateY(0)';
-                        }}
-                        title="Artist & Staff Login"
-                    >
-                        <Zap size={14} fill={colors.primary} />
-                        DASHBOARD
-                    </button>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <Search size={16} color="#B9C3CE" style={{ position: 'absolute', left: '16px' }} />
-                        <input 
-                            type="text" 
-                            placeholder="Search artists, genres, equipment..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            style={{ 
-                                width: isMobile ? '160px' : '300px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
-                                borderRadius: '999px', padding: '8px 48px', fontSize: '12px', color: 'white', outline: 'none'
-                            }}
-                        />
-                    </div>
-                </div>
-            </header>
-
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                {/* Sidebar */}
-                {!isMobile && (
-                    <aside style={{ width: '256px', backgroundColor: '#1A1E2E', borderRight: '1px solid rgba(255,255,255,0.05)', padding: '24px', overflowY: 'auto' }}>
-                        <h3 style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '24px' }}>Discovery Filters</h3>
-                        <div style={{ marginBottom: '32px' }}>
-                            <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Genre</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {genres.map(g => (
-                                    <label key={g} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '12px', color: selectedGenre === g ? 'white' : '#B9C3CE' }}>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={selectedGenre === g}
-                                            onChange={() => setSelectedGenre(selectedGenre === g ? null : g)}
-                                            style={{ accentColor: colors.primary }}
-                                        />
-                                        {g}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Popularity</p>
-                            <input type="range" style={{ width: '100%', accentColor: colors.primary }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', marginTop: '8px' }}>
-                                <span>Emerging</span>
-                                <span>Established</span>
-                            </div>
-                        </div>
-                    </aside>
-                )}
-
-                {/* Main Content */}
-                <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#161925', paddingBottom: '100px' }}>
+        <DiscoveryLayout 
+            sidebar={sidebarContent} 
+            search={search} 
+            onSearchChange={setSearch}
+            activeTab="discover"
+        >
                     {/* Hero Section */}
                     <div style={{ 
                         background: 'linear-gradient(135deg, #242C3D 0%, #1A1E2E 100%)',
@@ -364,10 +288,6 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             )}
                         </div>
                     </div>
-                </main>
-            </div>
-            
-            <div style={{ height: player.currentTrack ? '80px' : 0 }} />
-        </div>
+        </DiscoveryLayout>
     );
 };
