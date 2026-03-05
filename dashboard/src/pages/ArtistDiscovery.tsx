@@ -321,7 +321,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <div style={{ position: 'relative', marginBottom: '16px' }}>
                                             <div style={{ width: '128px', height: '128px', borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.05)' }}>
                                                 {artist.avatar ? (
-                                                    <img src={`https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} alt={artist.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <img 
+                                                        src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} 
+                                                        alt={artist.username} 
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                                    />
                                                 ) : (
                                                     <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '32px' }}>
                                                         {artist.username.charAt(0).toUpperCase()}

@@ -117,9 +117,17 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     ];
 
     const featuredTrack = profile.featuredTrack || (profile.tracks && profile.tracks.length > 0 ? profile.tracks[0] : null);
-    const avatarUrl = featuredTrack?.coverUrl || (profile.avatar 
-        ? `https://cdn.discordapp.com/avatars/${profile.userId}/${profile.avatar}.png?size=256`
-        : null);
+    
+    // Fallback logic for avatar:
+    // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
+    // 2. Discord avatar (if it's just a hash)
+    // 3. First letter of username
+    const avatarUrl = profile.avatar 
+        ? (profile.avatar.startsWith('/uploads/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${profile.userId}/${profile.avatar}.png?size=256`)
+        : null;
+
+    // Track cover should strictly be the track's cover, or a fallback music icon
+    const trackCoverUrl = featuredTrack?.coverUrl || null;
 
     return (
         <div style={{ 
@@ -161,8 +169,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             border: '1px solid rgba(255,255,255,0.1)',
                             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
                         }}>
-                            {avatarUrl ? (
-                                <img src={avatarUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            {trackCoverUrl ? (
+                                <img src={trackCoverUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Music size={isMobile ? 80 : 64} color={colors.primary} />
