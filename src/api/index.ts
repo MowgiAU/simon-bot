@@ -58,11 +58,11 @@ const upload = multer({
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
       }
-    } else if (file.fieldname === 'artwork') {
+    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar') {
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
-        cb(new Error('Only image files are allowed for artwork!'));
+        cb(new Error(`Only image files are allowed for ${file.fieldname}!`));
       }
     } else {
       cb(null, true);
@@ -206,9 +206,19 @@ const resolveUser = async (userId: string) => {
 // Helper to log administrative actions
 const logAction = async (guildId: string, action: string, executorId: string, targetId: string | null = null, details: any = null) => {
     try {
+        let finalGuildId = guildId;
+        
+        // If GLOBAL, try to find the first guild where the executor is an admin to associate the log,
+        // otherwise just use the first guild in the DB as a fallback to satisfy Prisma relations.
+        if (guildId === 'GLOBAL') {
+            const firstGuild = await db.guild.findFirst({ select: { id: true } });
+            if (firstGuild) finalGuildId = firstGuild.id;
+            else return; // No guilds in DB yet
+        }
+
         await db.actionLog.create({
             data: {
-                guildId,
+                guildId: finalGuildId,
                 pluginId: 'musician-profiles',
                 action,
                 executorId,
