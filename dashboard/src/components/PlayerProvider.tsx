@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
+import axios from 'axios';
 
 interface PlayerState {
   currentTrack: {
@@ -34,9 +35,23 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   });
 
   const [audio] = useState(new Audio());
+  const hasRecordedPlay = useRef<string | null>(null);
 
   React.useEffect(() => {
-    const updateTime = () => setPlayer(prev => ({ ...prev, currentTime: audio.currentTime }));
+    const updateTime = () => {
+      setPlayer(prev => ({ ...prev, currentTime: audio.currentTime }));
+      
+      // Auto-record play after 10 seconds or 25% of the track, whichever is shorter
+      if (player.currentTrack?.id && hasRecordedPlay.current !== player.currentTrack.id) {
+        const threshold = Math.min(10, audio.duration * 0.25);
+        if (audio.currentTime >= threshold && threshold > 0) {
+          hasRecordedPlay.current = player.currentTrack.id;
+          axios.post(`/api/musician/tracks/${player.currentTrack.id}/play`, { 
+            duration: Math.floor(audio.duration) 
+          }, { withCredentials: true }).catch(() => {});
+        }
+      }
+    };
     const updateDuration = () => setPlayer(prev => ({ ...prev, duration: audio.duration }));
     const onEnded = () => setPlayer(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
 
@@ -49,7 +64,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [audio]);
+  }, [audio, player.currentTrack?.id]);
 
   React.useEffect(() => {
     audio.volume = player.volume;
@@ -74,6 +89,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     if (newTrack.url) {
+      // Reset play recording flag for the new track
+      hasRecordedPlay.current = null;
       audio.src = newTrack.url;
       setPlayer(prev => ({ ...prev, currentTrack: newTrack, isPlaying: true, currentTime: 0 }));
     }
