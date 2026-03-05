@@ -40,10 +40,44 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [searchingTracks, setSearchingTracks] = useState(false);
     const [featuredLabel, setFeaturedLabel] = useState('');
 
+    // Admin wipe state
+    const [adminSearch, setAdminSearch] = useState('');
+    const [adminProfiles, setAdminProfiles] = useState<any[]>([]);
+    const [searchingProfiles, setSearchingProfiles] = useState(false);
+    const [confirmWipe, setConfirmWipe] = useState<string | null>(null);
+
     useEffect(() => {
         fetchGenres();
         fetchDiscoverySettings();
     }, []);
+
+    const handleSearchProfiles = async (query: string) => {
+        setAdminSearch(query);
+        if (query.length < 2) { setAdminProfiles([]); return; }
+        setSearchingProfiles(true);
+        try {
+            const res = await axios.get('/api/admin/musician/profiles/search', { params: { search: query }, withCredentials: true });
+            setAdminProfiles(res.data);
+        } catch (err) {
+            console.error('Failed to search profiles');
+        } finally {
+            setSearchingProfiles(false);
+        }
+    };
+
+    const handleWipeProfile = async (id: string) => {
+        setSaving(true);
+        try {
+            await axios.post(`/api/admin/musician/profile/${id}/wipe`, {}, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Profile and all associated content wiped successfully.' });
+            setConfirmWipe(null);
+            setAdminProfiles(adminProfiles.filter(p => p.id !== id));
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to wipe profile' });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const fetchGenres = async () => {
         try {
@@ -381,6 +415,66 @@ export const MusicianProfileAdmin: React.FC = () => {
                         >
                             {saving ? 'Saving...' : 'Create Genre'}
                         </button>
+                    </div>
+                </div>
+
+                {/* --- Admin: User Cleanup & Wipe --- */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255, 68, 68, 0.2)' }}>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#ff4444' }}>
+                        <Trash2 size={20} /> Wipe Musician Profile
+                    </h3>
+                    <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>
+                        Search for a musician to completely delete their profile, all tracks, album artwork, and profile photos. 
+                        <strong> This action is irreversible and will be logged.</strong>
+                    </p>
+                    
+                    <div style={{ position: 'relative', marginBottom: spacing.md }}>
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textSecondary }} />
+                        <input 
+                            type="text" 
+                            value={adminSearch} 
+                            onChange={(e) => handleSearchProfiles(e.target.value)}
+                            placeholder="Search by username, real name, or Discord ID..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: '10px 10px 10px 40px', color: colors.textPrimary }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {searchingProfiles && <p style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Searching...</p>}
+                        {adminProfiles.map(p => (
+                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#242C3D', overflow: 'hidden' }}>
+                                        {p.avatar ? <img src={p.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Search size={16} style={{ margin: '8px' }} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{p.displayName || p.username}</div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{p._count.tracks} tracks • ID: {p.userId}</div>
+                                    </div>
+                                </div>
+                                
+                                {confirmWipe === p.id ? (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            onClick={() => handleWipeProfile(p.id)}
+                                            style={{ backgroundColor: '#ff4444', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            CONFIRM DELETE
+                                        </button>
+                                        <button 
+                                            onClick={() => setConfirmWipe(null)}
+                                            style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                            CANCEL
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => setConfirmWipe(p.id)}
+                                        style={{ backgroundColor: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', border: '1px solid rgba(255, 68, 68, 0.3)', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                        WIPE PROFILE
+                                    </button>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

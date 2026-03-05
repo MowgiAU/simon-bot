@@ -201,7 +201,26 @@ const resolveUser = async (userId: string) => {
     }
 };
 
-// --- Global Middleware ---
+// --- Global Global Middleware ---
+
+// Helper to log administrative actions
+const logAction = async (guildId: string, action: string, executorId: string, targetId: string | null = null, details: any = null) => {
+    try {
+        await db.actionLog.create({
+            data: {
+                guildId,
+                pluginId: 'musician-profiles',
+                action,
+                executorId,
+                targetId,
+                details,
+                searchableText: `${action} ${targetId || ''} ${JSON.stringify(details || '')}`.toLowerCase()
+            }
+        });
+    } catch (e) {
+        logger.error(`Failed to create action log: ${action}`, e);
+    }
+};
 
 // Static files for uploads (Public access) - Served first to avoid SPA/Auth redirects
 const uploadsPath = path.resolve(process.cwd(), 'public', 'uploads');
@@ -3141,6 +3160,9 @@ app.post('/api/musician/tracks', upload.fields([
             key: metadata.key
         });
 
+        // Log track upload
+        await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
+
         // 4. Handle genre tags for this track
         const genreIds = req.body.genreIds;
         if (genreIds) {
@@ -3620,8 +3642,87 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
             data: { avatar: avatarUrl }
         });
 
+        // Log avatar upload
+        await logAction('GLOBAL', 'avatar_uploaded', userId, profile.id, { url: avatarUrl });
+
         res.json({ avatar: updated.avatar });
     } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Search Profiles
+app.get('/api/admin/musician/profiles/search', async (req: any, res) => {
+    try {
+        const { search } = req.query;
+        if (!search) return res.json([]);
+        
+        const profiles = await db.musicianProfile.findMany({
+            where: {
+                OR: [
+                    { username: { contains: search, mode: 'insensitive' } },
+                    { displayName: { contains: search, mode: 'insensitive' } },
+                    { userId: { contains: search } }
+                ]
+            },
+            take: 10,
+            include: { _count: { select: { tracks: true } } }
+        });
+        res.json(profiles);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Wipe Profile
+app.post('/api/admin/musician/profile/:id/wipe', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const executorId = req.session?.user?.id;
+        if (!executorId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const profile = await db.musicianProfile.findUnique({
+            where: { id },
+            include: { tracks: true }
+        });
+
+        if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+        // 1. Gather files to delete
+        const filesToDelete: string[] = [];
+        if (profile.avatar && profile.avatar.startsWith('/uploads/')) {
+            filesToDelete.push(path.join(process.cwd(), 'public', profile.avatar));
+        }
+        for (const track of profile.tracks) {
+            if (track.url.startsWith('/uploads/')) {
+                filesToDelete.push(path.join(process.cwd(), 'public', track.url));
+            }
+            if (track.coverUrl && track.coverUrl.startsWith('/uploads/')) {
+                filesToDelete.push(path.join(process.cwd(), 'public', track.coverUrl));
+            }
+        }
+
+        // 2. Delete from DB (Tracks cascade delete, but we need to stay safe)
+        await db.musicianProfile.delete({ where: { id } });
+
+        // 3. Physically delete files
+        for (const f of filesToDelete) {
+            try {
+                if (fs.existsSync(f)) fs.unlinkSync(f);
+            } catch (err) {
+                logger.error(`Failed to delete file during profile wipe: ${f}`, err);
+            }
+        }
+
+        // 4. Log the wipe
+        await logAction('GLOBAL', 'profile_wiped', executorId, profile.userId, { 
+            profileName: profile.username,
+            trackCount: profile.tracks.length 
+        });
+
+        res.json({ success: true, message: `Profile and ${profile.tracks.length} tracks deleted.` });
+    } catch (e: any) {
+        logger.error('Failed to wipe profile', e);
         res.status(500).json({ error: e.message });
     }
 });
