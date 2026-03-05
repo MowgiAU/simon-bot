@@ -35,13 +35,13 @@ export const GlobalPlayer: React.FC = () => {
 
     return (
         <footer style={{ 
-            height: isMobile ? '70px' : '80px', backgroundColor: '#1A1E2E', borderTop: '1px solid rgba(255,255,255,0.05)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', 
+            height: isMobile ? '80px' : '80px', backgroundColor: '#1A1E2E', borderTop: '1px solid rgba(255,255,255,0.05)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 16px' : '0 24px', 
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
             boxShadow: '0 -10px 25px rgba(0,0,0,0.3)'
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px', width: isMobile ? '40%' : '30%' }}>
-                <div style={{ width: isMobile ? '40px' : '48px', height: isMobile ? '40px' : '48px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px', width: isMobile ? '45%' : '30%', minWidth: 0 }}>
+                <div style={{ width: isMobile ? '44px' : '48px', height: isMobile ? '44px' : '48px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
                     {player.currentTrack.cover ? (
                         <img src={player.currentTrack.cover} alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
@@ -50,14 +50,13 @@ export const GlobalPlayer: React.FC = () => {
                         </div>
                     )}
                 </div>
-                <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: isMobile ? '12px' : '13px', fontWeight: 'bold', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'white' }}>{player.currentTrack.title}</p>
-                    {!isMobile && <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.currentTrack.artist}</p>}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: isMobile ? '13px' : '13px', fontWeight: 'bold', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'white' }}>{player.currentTrack.title}</p>
+                    <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.currentTrack.artist}</p>
                 </div>
-                {!isMobile && <Heart size={18} color="#B9C3CE" style={{ flexShrink: 0, cursor: 'pointer' }} />}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: isMobile ? '50%' : '40%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: isMobile ? '40%' : '40%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px' }}>
                     {!isMobile && (
                         <Shuffle 
@@ -68,7 +67,7 @@ export const GlobalPlayer: React.FC = () => {
                         />
                     )}
                     <SkipBack 
-                        size={isMobile ? 18 : 20} 
+                        size={isMobile ? 22 : 20} 
                         color="white" 
                         style={{ cursor: 'pointer' }} 
                         onClick={prevTrack}
@@ -76,17 +75,17 @@ export const GlobalPlayer: React.FC = () => {
                     <button 
                         onClick={togglePlay}
                         style={{ 
-                            width: isMobile ? '36px' : '40px', height: isMobile ? '36px' : '40px', borderRadius: '50%', backgroundColor: 'white', 
+                            width: isMobile ? '40px' : '40px', height: isMobile ? '40px' : '40px', borderRadius: '50%', backgroundColor: 'white', 
                             display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer',
                             transition: 'transform 0.1s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                         }}
                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                     >
-                        {player.isPlaying ? <Pause fill="#1A1E2E" size={isMobile ? 18 : 20} /> : <Play fill="#1A1E2E" size={isMobile ? 18 : 20} style={{ marginLeft: '2px' }} />}
+                        {player.isPlaying ? <Pause fill="#1A1E2E" size={isMobile ? 22 : 20} /> : <Play fill="#1A1E2E" size={isMobile ? 22 : 20} style={{ marginLeft: '2px' }} />}
                     </button>
                     <SkipForward 
-                        size={isMobile ? 18 : 20} 
+                        size={isMobile ? 22 : 20} 
                         color="white" 
                         style={{ cursor: 'pointer' }} 
                         onClick={nextTrack}

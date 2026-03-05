@@ -180,17 +180,30 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     </div>
 
                     {/* Player Content */}
-                    <div style={{ flex: 1, width: '100%' }}>
+                    <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ backgroundColor: '#F27B13', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
-                            <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ backgroundColor: '#F27B13', color: 'white', fontSize: isMobile ? '8px' : '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
+                            <span style={{ color: colors.primary, fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Layout size={12} /> Now Playing
                             </span>
                         </div>
-                        <h2 style={{ fontSize: isMobile ? '24px' : '36px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                        <h2 style={{ 
+                            fontSize: isMobile ? '20px' : '36px', 
+                            fontWeight: '800', 
+                            margin: '0 0 4px 0', 
+                            letterSpacing: '-0.02em', 
+                            lineHeight: 1.2,
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word'
+                        }}>
                             {profile.displayName || profile.username} - {featuredTrack?.title || 'No track available'}
                         </h2>
-                        <p style={{ color: '#B9C3CE', fontSize: '14px', marginBottom: isMobile ? '16px' : '24px' }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
+                        <p style={{ 
+                            color: '#B9C3CE', 
+                            fontSize: isMobile ? '13px' : '14px', 
+                            marginBottom: isMobile ? '12px' : '24px',
+                            lineHeight: 1.4
+                        }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
                         
                         {/* Progress Bar */}
                         {player.currentTrack?.id === featuredTrack?.id ? (

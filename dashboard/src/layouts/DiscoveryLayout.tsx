@@ -69,8 +69,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             <Music color="white" size={24} />
                         </div>
                         <div>
-                            <h1 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>FUJI STUDIO</h1>
-                            <p style={{ margin: 0, fontSize: '9px', color: colors.primary, fontWeight: 'bold', letterSpacing: '0.2em' }}>FAN DISCOVERY</p>
+                            <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
                         </div>
                     </div>
                     {!isMobile && (
