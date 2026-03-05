@@ -26,9 +26,13 @@ const app = express();
 // Configure storage for tracks and artwork
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = file.fieldname === 'audio'
-      ? path.resolve(process.cwd(), 'public/uploads/tracks')
-      : path.resolve(process.cwd(), 'public/uploads/artwork');
+    let dir = path.resolve(process.cwd(), 'public/uploads/tracks');
+    
+    if (file.fieldname === 'artwork') {
+      dir = path.resolve(process.cwd(), 'public/uploads/artwork');
+    } else if (file.fieldname === 'avatar') {
+      dir = path.resolve(process.cwd(), 'public/uploads/avatars');
+    }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
     if (!fs.existsSync(dir)) {
@@ -3588,6 +3592,35 @@ app.get('/api/discovery/genres', async (req, res) => {
             orderBy: { name: 'asc' }
         });
         res.json(genres);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Avatar upload endpoint
+app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'Avatar file is required' });
+        }
+
+        const avatarUrl = `/uploads/avatars/${path.basename(file.path)}`;
+
+        // Update profile with the new avatar URL
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        const updated = await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { avatar: avatarUrl }
+        });
+
+        res.json({ avatar: updated.avatar });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

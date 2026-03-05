@@ -185,6 +185,27 @@ export const MusicianProfilePage: React.FC = () => {
         }
     };
 
+    const handleAvatarUpload = async (file: File) => {
+        if (!user || !profile) return;
+        setUploadingAvatar(true);
+        const formData = new FormData();
+        formData.append('avatar', file);
+        
+        try {
+            const res = await axios.post(`/api/musician/profile/${user.id}/avatar`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+            setProfile({ ...profile, avatar: res.data.avatar });
+            setMessage({ type: 'success', text: 'Profile picture updated!' });
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to upload avatar' });
+        } finally {
+            setUploadingAvatar(false);
+            setAvatarFile(null);
+        }
+    };
+
     const addGenre = (genre: Genre) => {
         if (!profile || profile.genres.some(g => g.id === genre.id)) return;
         setProfile({ ...profile, genres: [...profile.genres, { id: genre.id, name: genre.name }] });
@@ -223,6 +244,10 @@ export const MusicianProfilePage: React.FC = () => {
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
+    
+    // Avatar state
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     
     // Artist name validation
     const [nameError, setNameError] = useState<string | null>(null);
@@ -639,6 +664,42 @@ export const MusicianProfilePage: React.FC = () => {
                         </h3>
                     
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.md }}>
+                                <div style={{ position: 'relative' }}>
+                                    {profile?.avatar ? (
+                                        <img 
+                                            src={profile.avatar.startsWith('http') ? profile.avatar : (profile.avatar.includes('/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${user?.id}/${profile.avatar}.png?size=256`)} 
+                                            alt="Avatar" 
+                                            style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${colors.primary}` }} 
+                                        />
+                                    ) : (
+                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px dashed rgba(255,255,255,0.1)` }}>
+                                            <User size={32} color={colors.textSecondary} />
+                                        </div>
+                                    )}
+                                    <label style={{ 
+                                        position: 'absolute', bottom: 0, right: 0, 
+                                        backgroundColor: colors.primary, width: '28px', height: '28px', 
+                                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                        cursor: uploadingAvatar ? 'not-allowed' : 'pointer', border: `2px solid ${colors.surface}`
+                                    }}>
+                                        <Plus size={16} color="white" />
+                                        <input 
+                                            type="file" accept="image/*" 
+                                            onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])}
+                                            style={{ display: 'none' }}
+                                            disabled={uploadingAvatar}
+                                        />
+                                    </label>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Profile Picture</label>
+                                    <p style={{ fontSize: '0.75rem', color: colors.textSecondary, margin: 0 }}>
+                                        {uploadingAvatar ? 'Uploading... please wait.' : 'Upload a custom artist photo. Supported formats: JPG, PNG, WEBP.'}
+                                    </p>
+                                </div>
+                            </div>
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Artist / Display Name</label>
                                 <input 
