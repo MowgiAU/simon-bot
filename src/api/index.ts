@@ -3455,6 +3455,10 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
             genreIds,
             featuredTrackId: data.featuredTrackId
         });
+
+        // Log profile creation/update
+        await logAction('GLOBAL', 'profile_updated', userId, updated.id, { username: updated.username });
+
         res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
