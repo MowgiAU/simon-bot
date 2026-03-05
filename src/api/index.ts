@@ -3092,16 +3092,28 @@ app.post('/api/musician/tracks', upload.fields([
         let metadata = {
             title: req.body.title || audioFile.originalname,
             duration: 0,
-            bpm: undefined as number | undefined
+            bpm: undefined as number | undefined,
+            artist: req.body.artist || undefined,
+            album: req.body.album || undefined,
+            year: req.body.year ? parseInt(req.body.year) : undefined,
+            key: req.body.key || undefined,
         };
 
         try {
             const parsed = await mm.parseFile(audioFile.path);
             metadata.duration = Math.round(parsed.format.duration || 0);
             if (!req.body.title && parsed.common.title) metadata.title = parsed.common.title;
+            // Auto-fill from ID3 if user didn't supply
+            if (!metadata.artist && parsed.common.artist) metadata.artist = parsed.common.artist;
+            if (!metadata.album && parsed.common.album) metadata.album = parsed.common.album;
+            if (!metadata.year && parsed.common.year) metadata.year = parsed.common.year;
+            if (parsed.common.bpm) metadata.bpm = Math.round(parsed.common.bpm);
         } catch (err) {
             logger.warn(`Failed to parse metadata for ${audioFile.path}: ${err}`);
         }
+
+        // Override BPM if user provided it
+        if (req.body.bpm) metadata.bpm = parseInt(req.body.bpm);
 
         // 2. Map to public URLs
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
@@ -3113,10 +3125,33 @@ app.post('/api/musician/tracks', upload.fields([
             url: audioUrl, 
             coverUrl, 
             description: req.body.description,
-            duration: metadata.duration
+            duration: metadata.duration,
+            artist: metadata.artist,
+            album: metadata.album,
+            year: metadata.year,
+            bpm: metadata.bpm,
+            key: metadata.key
         });
 
-        res.json(track);
+        // 4. Handle genre tags for this track
+        const genreIds = req.body.genreIds;
+        if (genreIds) {
+            const ids = typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds;
+            if (Array.isArray(ids) && ids.length > 0) {
+                await db.trackGenre.createMany({
+                    data: ids.map((gid: string) => ({ trackId: track.id, genreId: gid })),
+                    skipDuplicates: true
+                });
+            }
+        }
+
+        // Return with genres included
+        const fullTrack = await db.track.findUnique({
+            where: { id: track.id },
+            include: { genres: { include: { genre: true } } }
+        });
+
+        res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to upload track', e);
         res.status(500).json({ error: e.message });
@@ -3129,7 +3164,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
-        const { title, description, isPublic } = req.body;
+        const { title, description, isPublic, artist, album, year, bpm, key, genreIds } = req.body;
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -3139,10 +3174,34 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
 
         const updated = await db.track.update({
             where: { id: trackId },
-            data: { title, description, isPublic }
+            data: { 
+                ...(title !== undefined && { title }),
+                ...(description !== undefined && { description }),
+                ...(isPublic !== undefined && { isPublic }),
+                ...(artist !== undefined && { artist }),
+                ...(album !== undefined && { album }),
+                ...(year !== undefined && { year: year ? parseInt(year) : null }),
+                ...(bpm !== undefined && { bpm: bpm ? parseInt(bpm) : null }),
+                ...(key !== undefined && { key: key || null }),
+            }
         });
 
-        res.json(updated);
+        // Sync genre tags if provided
+        if (genreIds && Array.isArray(genreIds)) {
+            await db.trackGenre.deleteMany({ where: { trackId } });
+            if (genreIds.length > 0) {
+                await db.trackGenre.createMany({
+                    data: genreIds.map((gid: string) => ({ trackId, genreId: gid })),
+                    skipDuplicates: true
+                });
+            }
+        }
+
+        const fullTrack = await db.track.findUnique({
+            where: { id: trackId },
+            include: { genres: { include: { genre: true } } }
+        });
+        res.json(fullTrack);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -3272,6 +3331,23 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
         const { userId } = req.params;
         const data = req.body;
         
+        // Validate displayName against word filters if provided
+        if (data.displayName && typeof data.displayName === 'string' && data.displayName.trim()) {
+            const wordGroups = await db.wordGroup.findMany({
+                where: { enabled: true },
+                include: { words: true }
+            });
+            const lowerName = data.displayName.toLowerCase();
+            for (const group of wordGroups) {
+                for (const fw of group.words) {
+                    const pattern = new RegExp(`\\b${fw.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(s|es)?\\b`, 'i');
+                    if (pattern.test(lowerName)) {
+                        return res.status(400).json({ error: 'Your artist name contains a restricted word. Please choose a different name.' });
+                    }
+                }
+            }
+        }
+
         // Ensure username is present (Required by schema)
         const user = await resolveUser(userId);
         if (!data.username) {
@@ -3346,6 +3422,124 @@ app.delete('/api/musician/genres/:id', async (req, res) => {
         const { id } = req.params;
         await db.genre.delete({ where: { id } });
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ===== Discovery Settings (Admin) =====
+
+// Get discovery settings
+app.get('/api/discovery/settings', async (req, res) => {
+    try {
+        let settings = await db.discoverySettings.findUnique({ where: { id: 'singleton' } });
+        if (!settings) {
+            settings = await db.discoverySettings.create({ data: { id: 'singleton' } });
+        }
+        // If there's a featured track, include full track + profile info
+        let featuredTrack = null;
+        if (settings.featuredTrackId) {
+            featuredTrack = await db.track.findUnique({
+                where: { id: settings.featuredTrackId },
+                include: { profile: true }
+            });
+        }
+        res.json({ ...settings, featuredTrack });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update discovery settings (admin only)
+app.post('/api/discovery/settings', async (req, res) => {
+    try {
+        const userId = (req.session as any)?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { featuredTrackId, featuredLabel } = req.body;
+
+        const settings = await db.discoverySettings.upsert({
+            where: { id: 'singleton' },
+            create: { id: 'singleton', featuredTrackId, featuredLabel },
+            update: { featuredTrackId, featuredLabel }
+        });
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Search all tracks (for admin featured track picker)
+app.get('/api/discovery/tracks/search', async (req, res) => {
+    try {
+        const search = req.query.search as string;
+        const tracks = await db.track.findMany({
+            where: {
+                isPublic: true,
+                ...(search ? {
+                    OR: [
+                        { title: { contains: search, mode: 'insensitive' as const } },
+                        { artist: { contains: search, mode: 'insensitive' as const } },
+                        { profile: { displayName: { contains: search, mode: 'insensitive' as const } } },
+                        { profile: { username: { contains: search, mode: 'insensitive' as const } } }
+                    ]
+                } : {})
+            },
+            include: { profile: true },
+            orderBy: { playCount: 'desc' },
+            take: 20
+        });
+        res.json(tracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ===== Artist Name Validation (word filter check) =====
+app.post('/api/musician/validate-name', async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || typeof name !== 'string') {
+            return res.status(400).json({ error: 'Name is required' });
+        }
+
+        // Get all enabled word filter groups across all guilds
+        const wordGroups = await db.wordGroup.findMany({
+            where: { enabled: true },
+            include: { words: true }
+        });
+
+        const lowerName = name.toLowerCase();
+        for (const group of wordGroups) {
+            for (const fw of group.words) {
+                // Match the word with optional plural forms, same as the WordFilterPlugin
+                const pattern = new RegExp(`\\b${fw.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(s|es)?\\b`, 'i');
+                if (pattern.test(lowerName)) {
+                    return res.json({ valid: false, reason: 'This name contains a restricted word.' });
+                }
+            }
+        }
+
+        res.json({ valid: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ===== Genres used in discovery (from actual user profiles) =====
+app.get('/api/discovery/genres', async (req, res) => {
+    try {
+        // Get genres that are actually used by at least one profile
+        const genres = await db.genre.findMany({
+            where: {
+                profiles: { some: {} }
+            },
+            include: {
+                _count: { select: { profiles: true } }
+            },
+            orderBy: { name: 'asc' }
+        });
+        res.json(genres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

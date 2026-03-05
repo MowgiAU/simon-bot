@@ -691,10 +691,18 @@ model Track {
   duration        Int      @default(0) // In seconds
   playCount       Int      @default(0)
   isPublic        Boolean  @default(true)
+
+  // ID3 Metadata (user-editable)
+  artist          String?
+  album           String?
+  year            Int?
+  bpm             Int?
+  key             String?  // Musical key, e.g. "Am", "C#"
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
   plays           TrackPlay[]
+  genres          TrackGenre[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -730,6 +738,7 @@ model Genre {
 
   // Relations
   profiles        ProfileGenre[]
+  tracks          TrackGenre[]
 
   @@map("genres")
 }
@@ -743,4 +752,24 @@ model ProfileGenre {
 
   @@id([profileId, genreId])
   @@map("profile_genres")
+}
+
+model TrackGenre {
+  trackId         String
+  genreId         String
+  
+  track           Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  genre           Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, genreId])
+  @@map("track_genres")
+}
+
+model DiscoverySettings {
+  id              String   @id @default("singleton")
+  featuredTrackId String?  // Global featured track on the discovery page
+  featuredLabel   String?  // Custom label for the featured section
+  updatedAt       DateTime @updatedAt
+
+  @@map("discovery_settings")
 }

@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
-    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play 
+    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -145,6 +145,10 @@ export const MusicianProfilePage: React.FC = () => {
 
     const handleSave = async () => {
         if (!user || !profile) return;
+        if (nameError) {
+            setMessage({ type: 'error', text: 'Please fix the artist name before saving.' });
+            return;
+        }
         setSaving(true);
         try {
             const payload = { 
@@ -157,6 +161,26 @@ export const MusicianProfilePage: React.FC = () => {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const validateArtistName = async (name: string) => {
+        if (!name || name.trim().length === 0) {
+            setNameError(null);
+            return;
+        }
+        setValidatingName(true);
+        try {
+            const res = await axios.post('/api/musician/validate-name', { name }, { withCredentials: true });
+            if (!res.data.valid) {
+                setNameError(res.data.reason || 'This name is not allowed.');
+            } else {
+                setNameError(null);
+            }
+        } catch {
+            setNameError(null);
+        } finally {
+            setValidatingName(false);
         }
     };
 
@@ -194,9 +218,14 @@ export const MusicianProfilePage: React.FC = () => {
     // Track state
     const [tracks, setTracks] = useState<any[]>([]);
     const [isAddingTrack, setIsAddingTrack] = useState(false);
-    const [newTrack, setNewTrack] = useState({ title: '', description: '' });
+    const [newTrack, setNewTrack] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
+    const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
+    
+    // Artist name validation
+    const [nameError, setNameError] = useState<string | null>(null);
+    const [validatingName, setValidatingName] = useState(false);
 
     const handleAddTrack = async () => {
         if (!audioFile) {
@@ -207,8 +236,14 @@ export const MusicianProfilePage: React.FC = () => {
         const formData = new FormData();
         formData.append('audio', audioFile);
         if (artworkFile) formData.append('artwork', artworkFile);
-        formData.append('title', newTrack.title);
-        formData.append('description', newTrack.description);
+        if (newTrack.title) formData.append('title', newTrack.title);
+        if (newTrack.description) formData.append('description', newTrack.description);
+        if (newTrack.artist) formData.append('artist', newTrack.artist);
+        if (newTrack.album) formData.append('album', newTrack.album);
+        if (newTrack.year) formData.append('year', newTrack.year);
+        if (newTrack.bpm) formData.append('bpm', newTrack.bpm);
+        if (newTrack.key) formData.append('key', newTrack.key);
+        if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
         setSaving(true);
         try {
@@ -218,9 +253,10 @@ export const MusicianProfilePage: React.FC = () => {
             });
             setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
-            setNewTrack({ title: '', description: '' });
+            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
             setAudioFile(null);
             setArtworkFile(null);
+            setSelectedTrackGenres([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to add track' });
@@ -423,8 +459,8 @@ export const MusicianProfilePage: React.FC = () => {
                         </div>
 
                         {isAddingTrack ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
-                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc)</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc) *</div>
                                 <input 
                                     type="file" accept="audio/*"
                                     onChange={e => setAudioFile(e.target.files?.[0] || null)}
@@ -438,20 +474,113 @@ export const MusicianProfilePage: React.FC = () => {
                                     style={{ color: colors.textPrimary, fontSize: '0.85rem' }}
                                 />
 
-                                <input 
-                                    type="text" placeholder="Track Title (Optional, will use metadata/filename)" value={newTrack.title}
-                                    onChange={e => setNewTrack({...newTrack, title: e.target.value})}
-                                    style={{ marginTop: '8px', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Track Title</label>
+                                        <input 
+                                            type="text" placeholder="Will use metadata/filename if empty" value={newTrack.title}
+                                            onChange={e => setNewTrack({...newTrack, title: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Artist</label>
+                                        <input 
+                                            type="text" placeholder="Artist name" value={newTrack.artist}
+                                            onChange={e => setNewTrack({...newTrack, artist: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Album</label>
+                                        <input 
+                                            type="text" placeholder="Album / EP name" value={newTrack.album}
+                                            onChange={e => setNewTrack({...newTrack, album: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Year</label>
+                                        <input 
+                                            type="number" placeholder="2025" value={newTrack.year}
+                                            onChange={e => setNewTrack({...newTrack, year: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>BPM</label>
+                                        <input 
+                                            type="number" placeholder="120" value={newTrack.bpm}
+                                            onChange={e => setNewTrack({...newTrack, bpm: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Key</label>
+                                        <select 
+                                            value={newTrack.key}
+                                            onChange={e => setNewTrack({...newTrack, key: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        >
+                                            <option value="">Select key...</option>
+                                            {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
+                                                <option key={`${note} Major`} value={`${note} Major`}>{note} Major</option>,
+                                                <option key={`${note} Minor`} value={`${note} Minor`}>{note} Minor</option>
+                                            ])}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: spacing.sm }}>
+                                    <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Description</label>
+                                    <textarea 
+                                        placeholder="Notes about this track..."
+                                        value={newTrack.description}
+                                        onChange={e => setNewTrack({...newTrack, description: e.target.value})}
+                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, minHeight: '60px', resize: 'vertical' }}
+                                    />
+                                </div>
+
+                                <div style={{ marginTop: spacing.sm }}>
+                                    <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Tag size={14} /> Genre Tags
+                                    </label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', marginBottom: '6px' }}>
+                                        {selectedTrackGenres.map(gId => {
+                                            const genre = allGenres.find(g => g.id === gId);
+                                            return genre ? (
+                                                <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'white' }}>
+                                                    {genre.name}
+                                                    <X size={12} style={{ cursor: 'pointer' }} onClick={() => setSelectedTrackGenres(prev => prev.filter(id => id !== gId))} />
+                                                </span>
+                                            ) : null;
+                                        })}
+                                    </div>
+                                    <select
+                                        value=""
+                                        onChange={e => {
+                                            if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                                setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                            }
+                                        }}
+                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                    >
+                                        <option value="">Add a genre tag...</option>
+                                        {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
+                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
                                     <button 
                                         onClick={handleAddTrack} 
                                         disabled={saving || !audioFile}
-                                        style={{ flex: 1, padding: '8px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile) ? 0.7 : 1 }}
+                                        style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile) ? 0.7 : 1 }}
                                     >
                                         {saving ? 'Uploading...' : 'Upload Track'}
                                     </button>
-                                    <button onClick={() => setIsAddingTrack(false)} style={{ flex: 1, padding: '8px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
+                                    <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
                                 </div>
                             </div>
                         ) : (
@@ -463,10 +592,45 @@ export const MusicianProfilePage: React.FC = () => {
 
                     <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
                         <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Share2 size={20} /> Social Links
+                            <Share2 size={20} /> Profile Details
                         </h3>
                     
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Artist / Display Name</label>
+                                <input 
+                                    type="text"
+                                    value={profile?.displayName || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setProfile(p => p ? {...p, displayName: val || null} : null);
+                                        if (val.trim().length > 0) {
+                                            validateArtistName(val.trim());
+                                        } else {
+                                            setNameError(null);
+                                        }
+                                    }}
+                                    placeholder="Your public artist name..."
+                                    style={{ 
+                                        backgroundColor: 'rgba(255,255,255,0.05)', 
+                                        border: nameError ? `1px solid ${colors.error || '#ef4444'}` : '1px solid transparent', 
+                                        borderRadius: borderRadius.sm, 
+                                        padding: spacing.sm, 
+                                        color: colors.textPrimary 
+                                    }}
+                                />
+                                {validatingName && (
+                                    <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Checking name...</span>
+                                )}
+                                {nameError && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: colors.error || '#ef4444', marginTop: '2px' }}>
+                                        <AlertCircle size={14} />
+                                        {nameError}
+                                    </div>
+                                )}
+                                <span style={{ fontSize: '0.75rem', color: colors.textSecondary }}>This is how your name appears publicly. Leave blank to use your Discord username.</span>
+                            </div>
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Bio (Keep it short!)</label>
                                 <textarea 

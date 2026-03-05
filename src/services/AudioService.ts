@@ -96,7 +96,10 @@ export class AudioService {
     /**
      * Adds a new track to a profile.
      */
-    async addTrack(userId: string, data: { title: string, url: string, coverUrl?: string, description?: string, duration?: number }) {
+    async addTrack(userId: string, data: { 
+        title: string, url: string, coverUrl?: string, description?: string, duration?: number,
+        artist?: string, album?: string, year?: number, bpm?: number, key?: string
+    }) {
         const profile = await this.prisma.musicianProfile.findUnique({ where: { userId } });
         if (!profile) throw new Error('Profile not found');
 
@@ -107,7 +110,12 @@ export class AudioService {
                 url: data.url,
                 coverUrl: data.coverUrl,
                 description: data.description,
-                duration: data.duration ?? 0
+                duration: data.duration ?? 0,
+                artist: data.artist,
+                album: data.album,
+                year: data.year,
+                bpm: data.bpm,
+                key: data.key
             }
         });
     }

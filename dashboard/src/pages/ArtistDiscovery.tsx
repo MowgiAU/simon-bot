@@ -34,6 +34,32 @@ interface TrackInfo {
     };
 }
 
+interface DiscoveryGenre {
+    id: string;
+    name: string;
+    _count: { profiles: number };
+}
+
+interface FeaturedData {
+    featuredTrackId: string | null;
+    featuredLabel: string | null;
+    featuredTrack: {
+        id: string;
+        title: string;
+        url: string;
+        coverUrl: string | null;
+        artist: string | null;
+        description: string | null;
+        playCount: number;
+        profile: {
+            userId: string;
+            username: string;
+            displayName: string | null;
+            avatar: string | null;
+        };
+    } | null;
+}
+
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
@@ -41,6 +67,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
+    const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const { player, setTrack, togglePlay, setVolume } = usePlayer();
     const navigate = useNavigate();
 
@@ -48,6 +76,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Load genres from DB (only genres used in profiles)
+    useEffect(() => {
+        axios.get('/api/discovery/genres').then(res => setGenres(res.data)).catch(() => {});
+        axios.get('/api/discovery/settings').then(res => setFeatured(res.data)).catch(() => {});
     }, []);
 
     const fetchArtists = async () => {
@@ -75,23 +109,23 @@ export const ArtistDiscoveryPage: React.FC = () => {
         return () => clearTimeout(timer);
     }, [search, selectedGenre]);
 
-    const genres = ["Electronic", "Ambient", "Lo-Fi", "Techno", "Hip Hop", "Rock", "Experimental"];
-
     const sidebarContent = (
         <>
             <h3 style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '24px' }}>Discovery Filters</h3>
             <div style={{ marginBottom: '32px' }}>
                 <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Genre</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {genres.length === 0 && <span style={{ fontSize: '11px', color: '#B9C3CE', fontStyle: 'italic' }}>No genres yet</span>}
                     {genres.map(g => (
-                        <label key={g} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '12px', color: selectedGenre === g ? 'white' : '#B9C3CE' }}>
+                        <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '12px', color: selectedGenre === g.name ? 'white' : '#B9C3CE' }}>
                             <input 
                                 type="checkbox" 
-                                checked={selectedGenre === g}
-                                onChange={() => setSelectedGenre(selectedGenre === g ? null : g)}
+                                checked={selectedGenre === g.name}
+                                onChange={() => setSelectedGenre(selectedGenre === g.name ? null : g.name)}
                                 style={{ accentColor: colors.primary }}
                             />
-                            {g}
+                            {g.name}
+                            <span style={{ fontSize: '10px', color: 'rgba(185,195,206,0.5)', marginLeft: 'auto' }}>{g._count?.profiles || 0}</span>
                         </label>
                     ))}
                 </div>
@@ -115,6 +149,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
             activeTab="discover"
         >
                     {/* Hero Section */}
+                    {featured?.featuredTrack ? (
                     <div style={{ 
                         background: 'linear-gradient(135deg, #242C3D 0%, #1A1E2E 100%)',
                         padding: isMobile ? '32px 20px' : '64px 48px', borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -126,36 +161,75 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     width: isMobile ? '240px' : '280px', height: isMobile ? '240px' : '280px', borderRadius: '16px', overflow: 'hidden',
                                     boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)'
                                 }}>
-                                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBL5FtdxpIzBESrl-YM_agqxqNjpXv-iXPbftCjdOEk_OXAK9-4Ii4LWjDLAApQupMvNam2eTbMXdV1H25jJ4gfdliPCbEhzDLhoQICAEEwDJeqQnivHqWEr_22cpHXachO0yu0VbER1Pdp_2Z6iC4ujH5K6QYZPiUN2zhEajhI57WyNyzU5YQfZNrH8EQ7xdkIRLaNXvjh-S-xKORGad4O7V09HN5rW6atsIHS4BiS1j4JtrWOJh6Nflg_9YyF3D0QAI_wOjnH1nvG" alt="Featured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {featured.featuredTrack.coverUrl ? (
+                                        <img src={featured.featuredTrack.coverUrl} alt="Featured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#242C3D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={80} color="rgba(255,255,255,0.15)" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ 
                                     position: 'absolute', bottom: '-16px', right: '-16px', width: '56px', height: '56px',
                                     backgroundColor: colors.primary, borderRadius: '50%', border: '4px solid #1A1E2E',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 10px 15px ${colors.primary}4D`
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 10px 15px ${colors.primary}4D`,
+                                    cursor: 'pointer'
+                                }} onClick={() => {
+                                    if (featured.featuredTrack) {
+                                        if (player.currentTrack?.id === featured.featuredTrack.id) togglePlay();
+                                        else setTrack(featured.featuredTrack);
+                                    }
                                 }}>
-                                    <Disc color="white" />
+                                    {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? (
+                                        <Pause color="white" size={24} />
+                                    ) : (
+                                        <Play color="white" size={24} fill="white" />
+                                    )}
                                 </div>
                             </div>
                             <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
                                 <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                    <span style={{ backgroundColor: `${colors.primary}33`, color: colors.primary, padding: '4px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Now Discovery</span>
-                                    <span style={{ color: '#B9C3CE', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Auto-playing Featured Track</span>
+                                    <span style={{ backgroundColor: `${colors.primary}33`, color: colors.primary, padding: '4px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                                        {featured.featuredLabel || 'Featured Track'}
+                                    </span>
                                 </div>
-                                <h2 style={{ fontSize: isMobile ? '36px' : '56px', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.03em' }}>Neon Drift (Club Mix)</h2>
-                                <p style={{ fontSize: isMobile ? '18px' : '22px', color: '#B9C3CE', marginBottom: '32px' }}>Featured Artist: <span style={{ color: 'white', fontWeight: 'bold' }}>Mowgi</span></p>
+                                <h2 style={{ fontSize: isMobile ? '36px' : '56px', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.03em' }}>
+                                    {featured.featuredTrack.title}
+                                </h2>
+                                <p style={{ fontSize: isMobile ? '18px' : '22px', color: '#B9C3CE', marginBottom: '32px' }}>
+                                    Featured Artist: <span style={{ color: 'white', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => navigate(`/profile/${featured.featuredTrack!.profile.username}`)}>
+                                        {featured.featuredTrack.profile.displayName || featured.featuredTrack.profile.username}
+                                    </span>
+                                </p>
                                 <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '16px' }}>
-                                    <button style={{ 
+                                    <button onClick={() => navigate(`/profile/${featured.featuredTrack!.profile.username}`)} style={{ 
                                         backgroundColor: '#F27B13', color: 'white', padding: '12px 32px', borderRadius: '12px',
                                         border: 'none', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase',
                                         letterSpacing: '0.1em', cursor: 'pointer', boxShadow: '0 10px 15px rgba(242, 123, 19, 0.3)'
-                                    }}>Support Artist</button>
-                                    <button style={{ width: '48px', height: '48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Plus />
+                                    }}>View Artist</button>
+                                    <button onClick={() => {
+                                        if (featured.featuredTrack) {
+                                            if (player.currentTrack?.id === featured.featuredTrack.id) togglePlay();
+                                            else setTrack(featured.featuredTrack);
+                                        }
+                                    }} style={{ width: '48px', height: '48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? <Pause /> : <Play fill="white" />}
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    ) : (
+                    <div style={{ 
+                        background: 'linear-gradient(135deg, #242C3D 0%, #1A1E2E 100%)',
+                        padding: isMobile ? '32px 20px' : '48px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        textAlign: 'center'
+                    }}>
+                        <Disc size={48} color={colors.primary} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                        <h2 style={{ fontSize: '28px', fontWeight: '800', margin: '0 0 8px 0' }}>Artist Discovery</h2>
+                        <p style={{ color: '#B9C3CE', fontSize: '14px' }}>Discover talented musicians from the FL Studio community</p>
+                    </div>
+                    )}
 
                     <div style={{ padding: isMobile ? '24px' : '48px', maxWidth: '1400px', margin: '0 auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>

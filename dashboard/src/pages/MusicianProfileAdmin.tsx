@@ -2,12 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2 } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag } from 'lucide-react';
 
 interface Genre {
     id: string;
     name: string;
     parentId: string | null;
+}
+
+interface TrackResult {
+    id: string;
+    title: string;
+    artist: string | null;
+    coverUrl: string | null;
+    playCount: number;
+    profile: { displayName: string | null; username: string };
+}
+
+interface DiscoveryConfig {
+    featuredTrackId: string | null;
+    featuredLabel: string | null;
+    featuredTrack: TrackResult | null;
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
@@ -18,20 +33,86 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    // Discovery settings state
+    const [discoveryConfig, setDiscoveryConfig] = useState<DiscoveryConfig>({ featuredTrackId: null, featuredLabel: null, featuredTrack: null });
+    const [trackSearch, setTrackSearch] = useState('');
+    const [trackResults, setTrackResults] = useState<TrackResult[]>([]);
+    const [searchingTracks, setSearchingTracks] = useState(false);
+    const [featuredLabel, setFeaturedLabel] = useState('');
+
     useEffect(() => {
         fetchGenres();
+        fetchDiscoverySettings();
     }, []);
 
     const fetchGenres = async () => {
         try {
             const res = await axios.get('/api/musician/genres', { withCredentials: true });
             // Sort by name for easier navigation
-            const sorted = [...res.data].sort((a, b) => a.name.localeCompare(b.name));
+            const sorted = [...res.data].sort((a: Genre, b: Genre) => a.name.localeCompare(b.name));
             setGenres(sorted);
         } catch (err) {
             console.error('Failed to load genres');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchDiscoverySettings = async () => {
+        try {
+            const res = await axios.get('/api/discovery/settings', { withCredentials: true });
+            setDiscoveryConfig(res.data);
+            setFeaturedLabel(res.data.featuredLabel || '');
+        } catch (err) {
+            console.error('Failed to load discovery settings');
+        }
+    };
+
+    const handleSearchTracks = async (query: string) => {
+        setTrackSearch(query);
+        if (query.length < 2) { setTrackResults([]); return; }
+        setSearchingTracks(true);
+        try {
+            const res = await axios.get('/api/discovery/tracks/search', { params: { search: query }, withCredentials: true });
+            setTrackResults(res.data);
+        } catch (err) {
+            console.error('Failed to search tracks');
+        } finally {
+            setSearchingTracks(false);
+        }
+    };
+
+    const handleSetFeaturedTrack = async (trackId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { 
+                featuredTrackId: trackId, 
+                featuredLabel: featuredLabel || null 
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: trackId ? 'Featured track updated!' : 'Featured track removed.' });
+            fetchDiscoverySettings();
+            setTrackSearch('');
+            setTrackResults([]);
+        } catch (err: any) {
+            setMsg({ type: 'error', text: 'Failed to update featured track' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveFeaturedLabel = async () => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { 
+                featuredTrackId: discoveryConfig.featuredTrackId, 
+                featuredLabel: featuredLabel || null 
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Featured label updated!' });
+            fetchDiscoverySettings();
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to update label' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -93,6 +174,98 @@ export const MusicianProfileAdmin: React.FC = () => {
                     {msg.text}
                 </div>
             )}
+
+            {/* Discovery Settings Section */}
+            <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.xl }}>
+                <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.lg }}>
+                    <Star size={20} color={colors.primary} /> Discovery Page Settings
+                </h3>
+                
+                {/* Current Featured Track */}
+                <div style={{ marginBottom: spacing.lg }}>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Featured Track (Hero Section)</label>
+                    {discoveryConfig.featuredTrack ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            {discoveryConfig.featuredTrack.coverUrl ? (
+                                <img src={discoveryConfig.featuredTrack.coverUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Music size={24} color={colors.textSecondary} />
+                                </div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{discoveryConfig.featuredTrack.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+                                    by {discoveryConfig.featuredTrack.profile?.displayName || discoveryConfig.featuredTrack.profile?.username}
+                                    {' '}&bull; {discoveryConfig.featuredTrack.playCount} plays
+                                </div>
+                            </div>
+                            <button onClick={() => handleSetFeaturedTrack(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginTop: '8px', color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            No featured track set. The hero section will display a placeholder.
+                        </div>
+                    )}
+                </div>
+
+                {/* Search for tracks */}
+                <div style={{ marginBottom: spacing.lg }}>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search for a track to feature</label>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <input
+                            type="text"
+                            value={trackSearch}
+                            onChange={(e) => handleSearchTracks(e.target.value)}
+                            placeholder="Search by track title, artist name..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }}
+                        />
+                    </div>
+                    {trackResults.length > 0 && (
+                        <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '240px', overflowY: 'auto' }}>
+                            {trackResults.map(track => (
+                                <div key={track.id} onClick={() => handleSetFeaturedTrack(track.id)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    {track.coverUrl ? (
+                                        <img src={track.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 32, height: 32, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{track.profile?.displayName || track.profile?.username} &bull; {track.playCount} plays</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {searchingTracks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                </div>
+
+                {/* Featured Label */}
+                <div>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Hero Section Label (optional)</label>
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <input
+                            type="text"
+                            value={featuredLabel}
+                            onChange={(e) => setFeaturedLabel(e.target.value)}
+                            placeholder='e.g. "Track of the Week"'
+                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }}
+                        />
+                        <button onClick={handleSaveFeaturedLabel} disabled={saving}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xl }}>
                 {/* Genre Library */}
