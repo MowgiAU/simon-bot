@@ -3406,8 +3406,8 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
             data.username = user ? user.username : 'Unknown Musician';
         }
         
-        // Auto-update avatar from Discord
-        if (user && user.avatar) {
+        // Auto-update avatar from Discord ONLY if no custom avatar is provided
+        if (user && user.avatar && !data.avatar) {
             data.avatar = user.avatar;
         }
 
