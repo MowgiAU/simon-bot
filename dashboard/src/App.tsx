@@ -429,15 +429,18 @@ const AppContent: React.FC = () => {
     // 4. Default: Artist Discovery (HOME)
     console.log('[AppContent] Branch: Home/Discovery');
     return (
-      <div className="discovery-container" style={{ 
+      <div id="debug-discovery-container" className="discovery-container" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
-        width: '100%',
+        width: '100vw',
         display: 'flex', 
         flexDirection: 'column',
         color: 'white',
         fontFamily: 'sans-serif',
       }}>
+        <div style={{ padding: '50px', border: '5px solid yellow', background: 'blue', color: 'white' }}>
+            <h1>APP CONTENT DISCOVERY RENDERED</h1>
+        </div>
         <ArtistDiscoveryPage />
       </div>
     );
