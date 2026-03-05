@@ -215,7 +215,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <button 
                                 onClick={() => {
                                     if (featuredTrack) {
-                                        player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack);
+                                        player.currentTrack?.id === featuredTrack.id 
+                                            ? togglePlay() 
+                                            : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
                                     }
                                 }}
                                 style={{ 
@@ -245,7 +247,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>More Tracks</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {profile.tracks.filter(t => t.id !== featuredTrack?.id).slice(0, 2).map(t => (
-                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setTrack(t)}>
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setTrack(t, profile.tracks)}>
                                         <div style={{ width: '40px', height: '40px', backgroundColor: '#1e293b', borderRadius: '4px', backgroundImage: `url(${t.coverUrl})`, backgroundSize: 'cover' }} />
                                         <div>
                                             <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0, color: player.currentTrack?.id === t.id ? colors.primary : 'white' }}>{t.title}</p>
@@ -410,7 +412,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                     style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        player.currentTrack?.id === track.id ? togglePlay() : setTrack(track);
+                                                        player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, profile.tracks);
                                                     }}
                                                 >
                                                     {isPlaying ? (

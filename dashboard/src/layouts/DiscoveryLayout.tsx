@@ -44,8 +44,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
     const navItems = [
         { key: 'discover', label: 'DISCOVER', icon: <Search size={14} />, path: '/' },
-        { key: 'library', label: 'LIBRARY', path: null },
-        { key: 'live', label: 'LIVE', path: null },
+        { key: 'library', label: 'LIBRARY', path: null, comingSoon: true },
+        { key: 'live', label: 'LIVE', path: null, comingSoon: true },
     ];
 
     return (
@@ -79,12 +79,15 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 <button
                                     key={item.key}
                                     onClick={() => item.path && navigate(item.path)}
+                                    title={item.comingSoon ? 'Coming Soon' : undefined}
                                     style={{
                                         padding: '6px 16px', borderRadius: '4px',
                                         backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
                                         color: activeTab === item.key ? colors.primary : '#B9C3CE',
                                         border: 'none', fontSize: '10px', fontWeight: 'bold',
-                                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
+                                        display: 'flex', alignItems: 'center', gap: '8px', cursor: item.comingSoon ? 'not-allowed' : 'pointer',
+                                        textDecoration: item.comingSoon ? 'line-through' : 'none',
+                                        opacity: item.comingSoon ? 0.6 : 1
                                     }}
                                 >
                                     {item.icon} {item.label}

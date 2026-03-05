@@ -7,7 +7,7 @@ import { usePlayer } from './PlayerProvider';
 import { colors } from '../theme/theme';
 
 export const GlobalPlayer: React.FC = () => {
-    const { player, togglePlay, setVolume, seek } = usePlayer();
+    const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode } = usePlayer();
 
     if (!player.currentTrack) return null;
 
@@ -52,8 +52,18 @@ export const GlobalPlayer: React.FC = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '40%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <Shuffle size={18} color="#B9C3CE" style={{ cursor: 'pointer' }} />
-                    <SkipBack size={20} color="white" style={{ cursor: 'pointer' }} />
+                    <Shuffle 
+                        size={18} 
+                        color={player.isShuffle ? colors.primary : "#B9C3CE"} 
+                        style={{ cursor: 'pointer' }} 
+                        onClick={toggleShuffle}
+                    />
+                    <SkipBack 
+                        size={20} 
+                        color="white" 
+                        style={{ cursor: 'pointer' }} 
+                        onClick={prevTrack}
+                    />
                     <button 
                         onClick={togglePlay}
                         style={{ 
@@ -66,8 +76,31 @@ export const GlobalPlayer: React.FC = () => {
                     >
                         {player.isPlaying ? <Pause fill="#1A1E2E" size={20} /> : <Play fill="#1A1E2E" size={20} style={{ marginLeft: '2px' }} />}
                     </button>
-                    <SkipForward size={20} color="white" style={{ cursor: 'pointer' }} />
-                    <Repeat size={18} color="#B9C3CE" style={{ cursor: 'pointer' }} />
+                    <SkipForward 
+                        size={20} 
+                        color="white" 
+                        style={{ cursor: 'pointer' }} 
+                        onClick={nextTrack}
+                    />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Repeat 
+                            size={18} 
+                            color={player.repeatMode !== 'none' ? colors.primary : "#B9C3CE"} 
+                            style={{ cursor: 'pointer' }} 
+                            onClick={() => {
+                                if (player.repeatMode === 'none') setRepeatMode('all');
+                                else if (player.repeatMode === 'all') setRepeatMode('one');
+                                else setRepeatMode('none');
+                            }}
+                        />
+                        {player.repeatMode === 'one' && (
+                            <span style={{ 
+                                position: 'absolute', fontSize: '8px', top: '50%', left: '50%', 
+                                transform: 'translate(-50%, -50%)', fontWeight: 'bold', pointerEvents: 'none',
+                                color: colors.primary
+                            }}>1</span>
+                        )}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: '400px' }}>
                     <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px', textAlign: 'right' }}>{formatTime(player.currentTime)}</span>

@@ -131,7 +131,7 @@ export const TrackPage: React.FC = () => {
                             )}
                             
                             <button 
-                                onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track)}
+                                onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, [track])}
                                 style={{ 
                                     position: 'absolute', bottom: '20px', right: '20px',
                                     width: '64px', height: '64px', borderRadius: '50%',

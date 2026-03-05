@@ -72,6 +72,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const { player, setTrack, togglePlay, setVolume } = usePlayer();
     const navigate = useNavigate();
 
+    const playFullQueue = (startTrack: any, tracks: any[]) => {
+        setTrack(startTrack, tracks);
+    };
+
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
@@ -177,7 +181,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 }} onClick={() => {
                                     if (featured.featuredTrack) {
                                         if (player.currentTrack?.id === featured.featuredTrack.id) togglePlay();
-                                        else setTrack(featured.featuredTrack);
+                                        else playFullQueue(featured.featuredTrack, [featured.featuredTrack, ...topTracks]);
                                     }
                                 }}>
                                     {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? (
@@ -210,7 +214,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     <button onClick={() => {
                                         if (featured.featuredTrack) {
                                             if (player.currentTrack?.id === featured.featuredTrack.id) togglePlay();
-                                            else setTrack(featured.featuredTrack);
+                                            else playFullQueue(featured.featuredTrack, [featured.featuredTrack, ...topTracks]);
                                         }
                                     }} style={{ width: '48px', height: '48px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                                         {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? <Pause /> : <Play fill="white" />}
@@ -255,7 +259,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         backgroundColor: '#1A1E2E', borderRadius: '12px', padding: '16px', 
                                         border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s',
                                         cursor: 'pointer'
-                                    }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track)}>
+                                    }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : playFullQueue(track, topTracks)}>
                                         <div style={{ position: 'relative', marginBottom: '16px' }}>
                                             <div style={{ 
                                                 width: '100%', aspectRatio: '1/1', borderRadius: '8px', 
