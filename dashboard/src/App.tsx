@@ -447,18 +447,13 @@ const AppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v3');
+  console.log('[App] Mounting App Root - v4 (Forced Discovery Only)');
   return (
-    <ErrorBoundary>
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '5px', background: 'red', zIndex: 9999 }}></div>
-      <PlayerProvider>
-        <style>{AppStyles}</style>
-        <div id="app-structure" style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          <AppContent />
-          <GlobalPlayer />
-        </div>
-      </PlayerProvider>
-    </ErrorBoundary>
+    <div style={{ padding: '50px', backgroundColor: 'blue', color: 'white', minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <h1 style={{ fontSize: '48px', margin: 0 }}>FUJI STUDIO - FORCED LANDING</h1>
+      <p style={{ opacity: 0.8 }}>If this is blue, React has successfully rendered. If it is blank, React failed after the main entry point.</p>
+      <ArtistDiscoveryPage />
+    </div>
   );
 };
 
