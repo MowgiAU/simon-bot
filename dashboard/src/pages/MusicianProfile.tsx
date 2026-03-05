@@ -4,7 +4,8 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
-    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle
+    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle,
+    FileAudio, Image as ImageIcon
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -461,18 +462,50 @@ export const MusicianProfilePage: React.FC = () => {
                         {isAddingTrack ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
                                 <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc) *</div>
-                                <input 
-                                    type="file" accept="audio/*"
-                                    onChange={e => setAudioFile(e.target.files?.[0] || null)}
-                                    style={{ color: colors.textPrimary, fontSize: '0.85rem' }}
-                                />
+                                <label style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '10px', 
+                                    padding: '10px 14px', 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', 
+                                    border: '1px solid rgba(255,255,255,0.1)', 
+                                    borderRadius: borderRadius.sm, 
+                                    cursor: 'pointer',
+                                    color: audioFile ? colors.textPrimary : colors.textSecondary,
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <FileAudio size={18} color={audioFile ? colors.primary : colors.textSecondary} />
+                                    {audioFile ? audioFile.name : 'Choose audio file...'}
+                                    <input 
+                                        type="file" accept="audio/*"
+                                        onChange={e => setAudioFile(e.target.files?.[0] || null)}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
                                 
                                 <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Artwork (Optional)</div>
-                                <input 
-                                    type="file" accept="image/*"
-                                    onChange={e => setArtworkFile(e.target.files?.[0] || null)}
-                                    style={{ color: colors.textPrimary, fontSize: '0.85rem' }}
-                                />
+                                <label style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '10px', 
+                                    padding: '10px 14px', 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', 
+                                    border: '1px solid rgba(255,255,255,0.1)', 
+                                    borderRadius: borderRadius.sm, 
+                                    cursor: 'pointer',
+                                    color: artworkFile ? colors.textPrimary : colors.textSecondary,
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <ImageIcon size={18} color={artworkFile ? colors.primary : colors.textSecondary} />
+                                    {artworkFile ? artworkFile.name : 'Choose artwork image...'}
+                                    <input 
+                                        type="file" accept="image/*"
+                                        onChange={e => setArtworkFile(e.target.files?.[0] || null)}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>
                                     <div style={{ gridColumn: '1 / -1' }}>
