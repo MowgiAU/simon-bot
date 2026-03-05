@@ -381,77 +381,32 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-const AppContent: React.FC = () => {
-    // 0. IMMEDIATE LOG
-    console.log('[AppContent] Execution started');
-    
-    // Hardcode path for initial render to avoid any hook issues
+const AppInternal: React.FC = () => {
     const currentPath = window.location.pathname;
-    const hash = window.location.hash;
-    
-    console.log('[AppContent] Path detected:', currentPath);
-    
     const isDashboard = currentPath.startsWith('/dashboard');
     const isProfile = currentPath.startsWith('/profile');
-  
-    // 1. Dashboard entry via hash or search
-    if (currentPath === "/" && (hash === "#login" || window.location.search.includes("login=true"))) {
-      window.location.href = "/dashboard";
-      return null;
-    }
-  
-    // 2. Musician Profiles
-    if (isProfile) {
-      console.log('[AppContent] Branch: Profile');
-      return (
-        <ResourceProvider>
-          <div className="app">
-            <main className="main-content" style={{ width: "100%", minHeight: "100vh", background: colors.background }}>
-              <MusicianProfilePage />
-            </main>
-          </div>
-        </ResourceProvider>
-      );
-    }
-  
-    // 3. Admin Dashboard
-    if (isDashboard) {
-      console.log('[AppContent] Branch: Dashboard');
-      return (
-        <AuthProvider>
-          <ResourceProvider>
-            <AdminDashboard />
-          </ResourceProvider>
-        </AuthProvider>
-      );
-    }
-  
-    // 4. Default: Artist Discovery (HOME)
-    console.log('[AppContent] Branch: Home/Discovery');
+
+    if (isProfile) return <div style={{background:'purple',color:'white',padding:'50px'}}>PROFILE PLACEHOLDER</div>;
+    if (isDashboard) return <div style={{background:'orange',color:'white',padding:'50px'}}>DASHBOARD PLACEHOLDER</div>;
+
     return (
-      <div className="discovery-container" style={{ 
-        background: '#09090b', 
-        minHeight: '100vh', 
-        width: '100%',
-        display: 'flex', 
-        flexDirection: 'column',
-        color: 'white',
-        fontFamily: 'sans-serif',
-      }}>
-        <ArtistDiscoveryPage />
+      <div style={{ background: '#09090b', minHeight: '100vh', width: '100%', padding: '50px', color: 'white' }}>
+        <h1 style={{ color: '#22C55E' }}>FUJI STUDIO - RE-VERIFIED MOUNT</h1>
+        <p>If you see this, the App component is rendering WITHOUT any complex providers or routing logic.</p>
+        <p>Path: {currentPath}</p>
+        <div style={{ padding: '20px', border: '1px solid #333', marginTop: '20px' }}>
+          <ArtistDiscoveryPage />
+        </div>
       </div>
     );
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v5 (Bypass Providers)');
+  console.log('[App] Mounting App Root - v6 (Absolute Simplicity)');
   return (
-    <ErrorBoundary>
-        <div id="app-structure">
-          <AppContent />
-          <GlobalPlayer />
-        </div>
-    </ErrorBoundary>
+    <div id="verified-root">
+      <AppInternal />
+    </div>
   );
 };
 
