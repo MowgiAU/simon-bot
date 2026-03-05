@@ -381,60 +381,6 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-const AdminDashboard: React.FC = () => {
-    const [section, setSection] = useState<Section>("dashboard");
-    const { login, selectedGuild } = useAuth();
-    
-    if (!selectedGuild) {
-      return <WelcomeScreen login={login} />;
-    }
-  
-    const renderSidebar = () => <Sidebar section={section} setSection={setSection} />;
-  
-    const renderSection = () => {
-      switch (section) {
-        case "dashboard": return <Dashboard />;
-        case "word-filter-settings": return <WordFilterSettings />;
-        case "moderation": return <ModerationSettingsPage />;
-        case "economy": return <EconomyPluginPage />;
-        case "feedback": return <FeedbackPluginPage />;
-        case "welcome-gate": return <WelcomeGatePluginPage />;
-        case "bot-identity": return <BotIdentityPage />;
-        case "email-client": return <EmailClientPage />;
-        case "tickets": return <TicketSystemPage />;
-        case "channel-rules": return <ChannelRules />;
-        case "musician-profiles-admin": return <MusicianProfileAdmin />;
-        case "musician-profiles": return <MusicianProfilePage />;
-        case "docs": return <DocumentationPage />;
-        case "logs": return <Logs />;
-        case "staging-test": return <StagingTest />;
-        case "plugins": return <PluginManagementPage />;
-        default: return <Dashboard />;
-      }
-    };
-  
-    return (
-      <div className="app">
-        <AppStyles />
-        <div style={{ display: "flex", width: "100%", height: "100vh" }}>
-          {renderSidebar()}
-          <main className="main-content" style={{ flex: 1, padding: "32px", overflowY: "auto", background: colors.background }}>
-            <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: "32px", gap: "24px" }}>
-                <UniversalSearch />
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <InternalChat />
-                  <NotificationMenu />
-                </div>
-              </div>
-              {renderSection()}
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-};
-
 const AppInternal: React.FC = () => {
   const currentPath = window.location.pathname;
   const isDashboard = currentPath.startsWith('/dashboard');
@@ -467,7 +413,7 @@ const AppInternal: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root - v7 (Restoring Logic)');
+  console.log('[App] Mounting App Root - v8 (Fixed Redundancy)');
   return (
     <ErrorBoundary>
       <div id="verified-root">
