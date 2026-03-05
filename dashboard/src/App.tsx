@@ -444,16 +444,13 @@ const AppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root');
+  console.log('[App] Mounting App Root - v5 (Bypass Providers)');
   return (
     <ErrorBoundary>
-      <PlayerProvider>
-        <style>{AppStyles}</style>
         <div id="app-structure">
           <AppContent />
           <GlobalPlayer />
         </div>
-      </PlayerProvider>
     </ErrorBoundary>
   );
 };
