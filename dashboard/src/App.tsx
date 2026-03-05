@@ -432,17 +432,13 @@ const AppContent: React.FC = () => {
       <div className="discovery-container" style={{ 
         background: '#09090b', 
         minHeight: '100vh', 
-        width: '100vw',
+        width: '100%',
         display: 'flex', 
         flexDirection: 'column',
-        alignItems: 'center',
         color: 'white',
         fontFamily: 'sans-serif',
-        overflowX: 'hidden'
       }}>
-        <div style={{ width: '100%', maxWidth: '1200px' }}>
-          <ArtistDiscoveryPage />
-        </div>
+        <ArtistDiscoveryPage />
       </div>
     );
 };
@@ -453,7 +449,7 @@ export const App: React.FC = () => {
     <ErrorBoundary>
       <PlayerProvider>
         <style>{AppStyles}</style>
-        <div id="app-structure">
+        <div id="app-structure" style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <AppContent />
           <GlobalPlayer />
         </div>
