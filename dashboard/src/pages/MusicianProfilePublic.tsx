@@ -181,16 +181,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                     {/* Player Content */}
                     <div style={{ flex: 1, width: '100%' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                             <span style={{ backgroundColor: '#F27B13', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
                             <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Layout size={12} /> Now Playing
                             </span>
                         </div>
-                        <h2 style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                        <h2 style={{ fontSize: isMobile ? '24px' : '36px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                             {profile.displayName || profile.username} - {featuredTrack?.title || 'No track available'}
                         </h2>
-                        <p style={{ color: '#B9C3CE', fontSize: '14px', marginBottom: '24px' }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
+                        <p style={{ color: '#B9C3CE', fontSize: '14px', marginBottom: isMobile ? '16px' : '24px' }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
                         
                         {/* Progress Bar */}
                         {player.currentTrack?.id === featuredTrack?.id ? (
@@ -207,7 +207,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 </span>
                             </div>
                         ) : (
-                            <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', marginBottom: '32px' }} />
+                            <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', marginBottom: isMobile ? '24px' : '32px' }} />
                         )}
 
                         {/* Play Button Only */}
@@ -221,12 +221,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     }
                                 }}
                                 style={{ 
-                                    padding: '12px 32px', borderRadius: '999px', 
+                                    padding: isMobile ? '12px 24px' : '12px 32px', borderRadius: '999px', 
                                     backgroundColor: colors.primary, display: 'flex', 
                                     alignItems: 'center', justifyContent: 'center', gap: '12px',
                                     border: 'none', color: 'white', cursor: 'pointer',
-                                    fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    fontWeight: 'bold', fontSize: isMobile ? '12px' : '14px', textTransform: 'uppercase', letterSpacing: '0.05em',
                                     transition: 'transform 0.1s, background-color 0.2s',
+                                    width: isMobile ? '100%' : 'auto',
                                     boxShadow: `0 4px 15px ${colors.primary}44`
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}

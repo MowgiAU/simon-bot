@@ -309,7 +309,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(280px, 1fr))', 
                             gap: '16px' 
                         }}>
                             {loading ? (
@@ -319,11 +319,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             ) : (
                                 artists.map(artist => (
                                     <div key={artist.userId} className="widget-card" style={{ 
-                                        backgroundColor: '#242C3D', padding: '24px', borderRadius: '12px',
+                                        backgroundColor: '#242C3D', padding: isMobile ? '16px' : '24px', borderRadius: '12px',
                                         border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'
                                     }}>
                                         <div style={{ position: 'relative', marginBottom: '16px' }}>
-                                            <div style={{ width: '128px', height: '128px', borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ width: isMobile ? '96px' : '128px', height: isMobile ? '96px' : '128px', borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.05)' }}>
                                                 {artist.avatar ? (
                                                     <img 
                                                         src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} 

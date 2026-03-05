@@ -44,7 +44,14 @@ export const TrackPage: React.FC = () => {
     const [track, setTrackData] = useState<Track | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const { player, setTrack, togglePlay } = usePlayer();
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         const fetchTrack = async () => {
@@ -102,7 +109,7 @@ export const TrackPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="discovery">
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: spacing.xl }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
                 {/* Back Link */}
                 <button 
                     onClick={() => window.location.href = `/profile/${track.profile.username}`}
@@ -111,7 +118,7 @@ export const TrackPage: React.FC = () => {
                     <ArrowLeft size={16} /> Back to {track.profile.displayName || track.profile.username}'s Profile
                 </button>
 
-                <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 900 ? '1fr' : '400px 1fr', gap: '40px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', gap: isMobile ? '24px' : '40px' }}>
                     {/* Left: Artwork & Main Action */}
                     <div>
                         <div style={{ 
@@ -120,13 +127,14 @@ export const TrackPage: React.FC = () => {
                             overflow: 'hidden', 
                             boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
                             border: '1px solid rgba(255,255,255,0.05)',
-                            position: 'relative'
+                            position: 'relative',
+                            width: isMobile ? '100%' : 'auto'
                         }}>
                             {track.coverUrl ? (
                                 <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
-                                    <Music size={80} opacity={0.1} />
+                                    <Music size={isMobile ? 120 : 80} opacity={0.1} />
                                 </div>
                             )}
                             
@@ -134,7 +142,7 @@ export const TrackPage: React.FC = () => {
                                 onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, [track])}
                                 style={{ 
                                     position: 'absolute', bottom: '20px', right: '20px',
-                                    width: '64px', height: '64px', borderRadius: '50%',
+                                    width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px', borderRadius: '50%',
                                     backgroundColor: colors.primary, color: 'white',
                                     border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     cursor: 'pointer', boxShadow: `0 4px 20px ${colors.primary}44`,
@@ -143,7 +151,7 @@ export const TrackPage: React.FC = () => {
                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
-                                {isPlaying ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" style={{ marginLeft: '4px' }} />}
+                                {isPlaying ? <Pause size={isMobile ? 24 : 32} fill="white" /> : <Play size={isMobile ? 24 : 32} fill="white" style={{ marginLeft: '4px' }} />}
                             </button>
                         </div>
 
@@ -151,12 +159,12 @@ export const TrackPage: React.FC = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spacing.xl, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)' }}>
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Plays</div>
-                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{track.playCount.toLocaleString()}</div>
+                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{track.playCount.toLocaleString()}</div>
                             </div>
                             <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Duration</div>
-                                <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{formatDuration(track.duration)}</div>
+                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{formatDuration(track.duration)}</div>
                             </div>
                         </div>
                     </div>
@@ -164,19 +172,19 @@ export const TrackPage: React.FC = () => {
                     {/* Right: Info & Metadata */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
                         <div>
-                            <h1 style={{ fontSize: '3rem', margin: '0 0 8px 0', lineHeight: 1.1 }}>{track.title}</h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem', color: colors.textSecondary }}>
+                            <h1 style={{ fontSize: isMobile ? '2rem' : '3rem', margin: '0 0 8px 0', lineHeight: 1.1 }}>{track.title}</h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: isMobile ? '1.1rem' : '1.25rem', color: colors.textSecondary }}>
                                 by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none' }}>{track.profile.displayName || track.profile.username}</a>
                             </div>
                         </div>
 
                         {track.description && (
                             <div style={{ padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
-                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{track.description}</p>
+                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.9rem' : '1rem' }}>{track.description}</p>
                             </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: spacing.md }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(200px, 1fr))', gap: spacing.md }}>
                             {track.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={track.artist} />}
                             {track.album && <InfoItem icon={<Music size={16}/>} label="Album" value={track.album} />}
                             {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
