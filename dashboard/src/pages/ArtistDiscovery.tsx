@@ -35,69 +35,23 @@ interface TrackInfo {
 }
 
 export const ArtistDiscoveryPage: React.FC = () => {
-    const [artists, setArtists] = useState<ArtistProfile[]>([]);
-    const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const { player, setTrack, togglePlay, setVolume } = usePlayer() || {};
-    const navigate = useNavigate();
-    
-    // Safety check for Provider access
-    if (!usePlayer()) {
-        console.warn('ArtistDiscoveryPage: PlayerProvider not found in tree');
-    }
-
-    const auth = React.useContext(useAuth as any); // Safe access if AuthProvider exists higher up
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1024);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    const fetchArtists = async () => {
-        setLoading(true);
-        try {
-            const params: any = {};
-            if (search) params.search = search;
-            if (selectedGenre) params.genre = selectedGenre;
-            
-            // Using absolute URL or ensuring the base is correct for the API call
-            const apiBase = window.location.origin.includes('localhost') ? '' : window.location.origin;
-            const profilesRes = await axios.get(`${apiBase}/api/musician/profiles`, { params });
-            const tracksRes = await axios.get(`${apiBase}/api/musician/leaderboards/tracks`, { params: { limit: 10 } });
-            
-            setArtists(profilesRes.data);
-            setTopTracks(tracksRes.data);
-        } catch (err) {
-            console.error('Failed to fetch artists', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        const timer = setTimeout(fetchArtists, 300);
-        return () => clearTimeout(timer);
-    }, [search, selectedGenre]);
-
-    const genres = ["Electronic", "Ambient", "Lo-Fi", "Techno", "Hip Hop", "Rock", "Experimental"];
-
     return (
-        <div style={{ 
-            height: '100vh', display: 'flex', flexDirection: 'column', 
-            backgroundColor: '#161925', color: '#F8FAFC', overflow: 'hidden',
-            fontFamily: 'Inter, system-ui, sans-serif'
-        }}>
-            {/* Header */}
-            <header style={{ 
-                height: '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', zIndex: 100
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
+        <div style={{ padding: '40px', textAlign: 'center', background: '#161925', minHeight: '100vh', color: 'white' }}>
+            <h1 style={{ fontSize: '48px', color: '#22C55E' }}>FUJI STUDIO - DISCOVERY</h1>
+            <p>If you see this, React successfully rendered the discovery component.</p>
+            <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #333' }}>
+                DEBUG: {window.location.pathname}
+            </div>
+            <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer' }}>
+                Reload Page
+            </button>
+        </div>
+    );
+};
+
+/*
+export const ArtistDiscoveryPage_REAL: React.FC = () => {
+    const [artists, setArtists] = useState<ArtistProfile[]>([]);
                         <div style={{ 
                             width: '36px', height: '36px', backgroundColor: colors.primary, 
                             borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'

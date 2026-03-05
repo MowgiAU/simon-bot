@@ -444,9 +444,10 @@ const AppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  console.log('[App] Mounting App Root');
+  console.log('[App] Mounting App Root - v3');
   return (
     <ErrorBoundary>
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '5px', background: 'red', zIndex: 9999 }}></div>
       <PlayerProvider>
         <style>{AppStyles}</style>
         <div id="app-structure" style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
