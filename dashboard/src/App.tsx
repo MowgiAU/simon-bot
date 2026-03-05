@@ -31,8 +31,7 @@ import { colors } from "./theme/theme";
 import { Info, ArrowRight } from "lucide-react";
 
 import { AppStyles } from "./AppStyles";
-
-const logoUrl = "https://cdn.discordapp.com/attachments/1089304323218526270/1335474619934150739/simon_fuji.png";
+import logoUrl from "./assets/logo.svg";
 
 type Section = 
   | "dashboard" 
@@ -83,7 +82,7 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
         margin: "0 auto 24px",
         border: "1px solid rgba(40, 123, 102, 0.2)"
       }}>
-        <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: "64px", height: "64px" }} />
+        <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: "64px", height: "64px", filter: "brightness(0) invert(1)" }} />
       </div>
       
       <h1 style={{ 
