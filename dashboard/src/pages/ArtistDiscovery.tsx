@@ -245,22 +245,22 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(200px, 1fr))', 
-                            gap: isMobile ? '16px' : '24px',
+                            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))', 
+                            gap: isMobile ? '12px' : '24px',
                             marginBottom: '64px'
                         }}>
                             {loading && topTracks.length === 0 ? (
-                                Array(5).fill(0).map((_, i) => (
-                                    <div key={i} style={{ backgroundColor: '#1A1E2E', height: '260px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', animation: 'pulse 1.5s infinite' }}></div>
+                                Array(isMobile ? 4 : 5).fill(0).map((_, i) => (
+                                    <div key={i} style={{ backgroundColor: '#1A1E2E', height: isMobile ? '220px' : '260px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', animation: 'pulse 1.5s infinite' }}></div>
                                 ))
                             ) : (
                                 topTracks.map((track) => (
                                     <div key={track.id} style={{ 
-                                        backgroundColor: '#1A1E2E', borderRadius: '12px', padding: '16px', 
+                                        backgroundColor: '#1A1E2E', borderRadius: '12px', padding: isMobile ? '12px' : '16px', 
                                         border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s',
                                         cursor: 'pointer'
                                     }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : playFullQueue(track, topTracks)}>
-                                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                                        <div style={{ position: 'relative', marginBottom: isMobile ? '12px' : '16px' }}>
                                             <div style={{ 
                                                 width: '100%', aspectRatio: '1/1', borderRadius: '8px', 
                                                 backgroundColor: '#242C3D', overflow: 'hidden'
@@ -269,28 +269,28 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                     <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
                                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Music size={48} color="rgba(255,255,255,0.1)" />
+                                                        <Music size={isMobile ? 32 : 48} color="rgba(255,255,255,0.1)" />
                                                     </div>
                                                 )}
                                             </div>
                                             <div style={{ 
                                                 position: 'absolute', bottom: '8px', right: '8px', 
                                                 backgroundColor: colors.primary, borderRadius: '50%', 
-                                                width: '36px', height: '36px', display: 'flex', 
+                                                width: isMobile ? '28px' : '36px', height: isMobile ? '28px' : '36px', display: 'flex', 
                                                 alignItems: 'center', justifyContent: 'center',
                                                 boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
                                             }}>
                                                 {player.currentTrack?.id === track.id && player.isPlaying ? (
-                                                    <Pause size={18} fill="white" color="white" />
+                                                    <Pause size={isMobile ? 14 : 18} fill="white" color="white" />
                                                 ) : (
-                                                    <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />
+                                                    <Play size={isMobile ? 14 : 18} fill="white" color="white" style={{ marginLeft: '2px' }} />
                                                 )}
                                             </div>
                                         </div>
-                                        <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
-                                        <p style={{ fontSize: '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
+                                        <h4 style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
+                                        <p style={{ fontSize: isMobile ? '10px' : '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
-                                            <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontSize: isMobile ? '8px' : '10px', color: colors.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <Zap size={10} /> {track.playCount.toLocaleString()} PLAYS
                                             </span>
                                         </div>
@@ -309,7 +309,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(280px, 1fr))', 
+                            gridTemplateColumns: isMobile ? 'repeat(1, 1fr)' : 'repeat(auto-fill, minmax(280px, 1fr))', 
                             gap: '16px' 
                         }}>
                             {loading ? (
@@ -320,10 +320,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 artists.map(artist => (
                                     <div key={artist.userId} className="widget-card" style={{ 
                                         backgroundColor: '#242C3D', padding: isMobile ? '16px' : '24px', borderRadius: '12px',
-                                        border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'
+                                        border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: 'center', textAlign: isMobile ? 'left' : 'center',
+                                        gap: isMobile ? '16px' : '0'
                                     }}>
-                                        <div style={{ position: 'relative', marginBottom: '16px' }}>
-                                            <div style={{ width: isMobile ? '96px' : '128px', height: isMobile ? '96px' : '128px', borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ position: 'relative', marginBottom: isMobile ? '0' : '16px' }}>
+                                            <div style={{ width: isMobile ? '64px' : '128px', height: isMobile ? '64px' : '128px', borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.05)' }}>
                                                 {artist.avatar ? (
                                                     <img 
                                                         src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} 
@@ -331,40 +332,36 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                                                     />
                                                 ) : (
-                                                    <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '32px' }}>
+                                                    <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: isMobile ? '20px' : '32px' }}>
                                                         {artist.username.charAt(0).toUpperCase()}
                                                     </div>
                                                 )}
                                             </div>
-                                            <button style={{ 
-                                                position: 'absolute', bottom: 0, right: 0, width: '40px', height: '40px',
-                                                backgroundColor: colors.primary, borderRadius: '50%', border: 'none',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-                                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                                            }}>
-                                                <Play size={20} fill="white" />
-                                            </button>
                                         </div>
-                                        <h4 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 4px 0' }}>{artist.displayName || artist.username}</h4>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
-                                            {artist.genres.slice(0, 2).map((g, i) => (
-                                                <span key={i} style={{ backgroundColor: `${colors.primary}1A`, color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }}>{g.genre.name}</span>
-                                            ))}
+                                        <div style={{ flex: 1 }}>
+                                            <h4 style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', margin: '0 0 4px 0' }}>{artist.displayName || artist.username}</h4>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: isMobile ? 'flex-start' : 'center', gap: '8px', marginBottom: isMobile ? '8px' : '16px' }}>
+                                                {artist.genres.slice(0, 2).map((g, i) => (
+                                                    <span key={i} style={{ backgroundColor: `${colors.primary}1A`, color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }}>{g.genre.name}</span>
+                                                ))}
+                                            </div>
+                                            {!isMobile && (
+                                                <div style={{ width: '100%', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
+                                                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', marginBottom: '4px' }}>Main Gear</p>
+                                                    <p style={{ fontSize: '11px', fontWeight: 'medium', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {artist.hardware?.[0] || 'No gear listed'}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <button 
+                                                onClick={() => navigate(`/profile/${artist.username}`)}
+                                                style={{ 
+                                                    marginTop: isMobile ? '8px' : '24px', width: isMobile ? 'auto' : '100%', padding: isMobile ? '6px 16px' : '10px', backgroundColor: 'rgba(242, 123, 19, 0.1)',
+                                                    border: '1px solid rgba(242, 123, 19, 0.3)', color: '#F27B13', fontSize: isMobile ? '9px' : '10px',
+                                                    fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '8px', cursor: 'pointer'
+                                                }}
+                                            >View Profile</button>
                                         </div>
-                                        <div style={{ width: '100%', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
-                                            <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', marginBottom: '4px' }}>Main Gear</p>
-                                            <p style={{ fontSize: '11px', fontWeight: 'medium', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {artist.hardware?.[0] || 'No gear listed'}
-                                            </p>
-                                        </div>
-                                        <button 
-                                            onClick={() => navigate(`/profile/${artist.username}`)}
-                                            style={{ 
-                                                marginTop: '24px', width: '100%', padding: '10px', backgroundColor: 'rgba(242, 123, 19, 0.1)',
-                                                border: '1px solid rgba(242, 123, 19, 0.3)', color: '#F27B13', fontSize: '10px',
-                                                fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '8px', cursor: 'pointer'
-                                            }}
-                                        >View Profile</button>
                                     </div>
                                 ))
                             )}
