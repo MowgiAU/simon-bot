@@ -30,8 +30,11 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { user } = useAuth();
+    const { user, permissions, mutualAdminGuilds } = useAuth();
     const { player } = usePlayer();
+
+    // Check if user has access to ANY guild's dashboard
+    const hasDashboardAccess = permissions.canManagePlugins || mutualAdminGuilds.length > 0;
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -91,55 +94,82 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <button
-                        onClick={() => navigate('/dashboard')}
-                        style={{
-                            backgroundColor: `${colors.primary}15`,
-                            color: colors.primary,
-                            border: `1px solid ${colors.primary}33`,
-                            padding: '8px 20px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.backgroundColor = `${colors.primary}25`;
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.backgroundColor = `${colors.primary}15`;
-                            e.currentTarget.style.transform = 'translateY(0)';
-                        }}
-                        title="Artist & Staff Login"
-                    >
-                        <Zap size={14} fill={colors.primary} />
-                        DASHBOARD
-                    </button>
-                    {user && (
+                    {hasDashboardAccess ? (
                         <button
-                            onClick={() => navigate('/profile')}
+                            onClick={() => navigate('/dashboard')}
                             style={{
-                                backgroundColor: pathname.startsWith('/profile') ? `${colors.primary}33` : 'rgba(255,255,255,0.05)',
-                                color: pathname.startsWith('/profile') ? colors.primary : '#B9C3CE',
-                                border: pathname.startsWith('/profile') ? `1px solid ${colors.primary}33` : '1px solid rgba(255,255,255,0.05)',
-                                padding: '8px 16px',
+                                backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`,
+                                color: colors.primary,
+                                border: `1px solid ${colors.primary}33`,
+                                padding: '8px 20px',
                                 borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '600',
+                                fontSize: '11px',
+                                fontWeight: '700',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                letterSpacing: '0.05em'
+                            }}
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.backgroundColor = `${colors.primary}25`;
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.backgroundColor = pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`;
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                            title="Admin Dashboard"
+                        >
+                            <Zap size={14} fill={colors.primary} />
+                            DASHBOARD
+                        </button>
+                    ) : null}
+
+                    {user ? (
+                        <button
+                            onClick={() => navigate('/profile')}
+                            style={{
+                                backgroundColor: pathname === '/profile' ? `${colors.primary}33` : 'rgba(255,255,255,0.05)',
+                                color: pathname === '/profile' ? colors.primary : '#B9C3CE',
+                                border: pathname === '/profile' ? `1px solid ${colors.primary}33` : '1px solid rgba(255,255,255,0.05)',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s',
+                                letterSpacing: '0.05em'
                             }}
                         >
                             <User size={14} />
-                            {isMobile ? '' : 'MY PROFILE'}
+                            {isMobile ? '' : 'EDIT PROFILE'}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => window.location.href = '/api/auth/discord/login'}
+                            style={{
+                                backgroundColor: colors.primary,
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 20px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s',
+                                letterSpacing: '0.05em'
+                            }}
+                        >
+                            <User size={14} />
+                            LOG IN
                         </button>
                     )}
                     {onSearchChange && (
