@@ -774,3 +774,75 @@ model DiscoverySettings {
 
   @@map("discovery_settings")
 }
+
+// Fuji Studio - Cloud Sample Manager
+model SamplePack {
+  id              String   @id @default(cuid())
+  guildId         String   // Channel/Pack logic: Storage Guild ID
+  channelId       String   @unique // Each channel in the storage guild is a pack
+  name            String   // Pack name (usually channel name)
+  description     String?
+  thumbnailUrl    String?
+  creatorId       String?  // Original uploader/owner Discord ID
+  
+  samples         SampleMetadata[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("fuji_sample_packs")
+}
+
+model SampleMetadata {
+  id              String   @id @default(cuid())
+  packId          String
+  messageId       String   @unique // Discord Message ID
+  attachmentId    String   @unique // Discord Attachment ID
+  
+  filename        String
+  filesize        Int
+  mimetype        String
+  
+  duration        Float?   // Seconds
+  bpm             Int?
+  key             String?
+  isLoop          Boolean  @default(false)
+  
+  // Search vector
+  tags            String[] @default([])
+  
+  pack            SamplePack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  favoritedBy     UserSampleFavorite[]
+
+  createdAt       DateTime @default(now())
+
+  @@index([packId, filename])
+  @@map("fuji_samples")
+}
+
+model UserSampleFavorite {
+  id              String   @id @default(cuid())
+  userId          String   // Discord User ID
+  sampleId        String
+  collectionId    String?  // Optional grouping
+  
+  sample          SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  collection      SampleCollection? @relation(fields: [collectionId], references: [id])
+
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, sampleId])
+  @@map("fuji_user_favorites")
+}
+
+model SampleCollection {
+  id              String   @id @default(cuid())
+  userId          String   // Discord User ID
+  name            String
+  description     String?
+  
+  favorites       UserSampleFavorite[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("fuji_sample_collections")
+}

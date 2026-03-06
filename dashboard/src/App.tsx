@@ -23,6 +23,7 @@ import Logs from "./pages/Logs";
 import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
+import { FujiStudio } from "./pages/FujiStudio";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
@@ -425,6 +426,10 @@ const AppInternal: React.FC = () => {
   }
 
   // / → Artist Discovery homepage (public, no extra providers needed)
+  if (currentPath === '/fuji') {
+    return <FujiStudio />;
+  }
+
   return <ArtistDiscoveryPage />;
 };
 

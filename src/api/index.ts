@@ -3760,6 +3760,89 @@ app.post('/api/admin/musician/profile/:id/wipe', async (req: any, res) => {
     }
 });
 
+/**
+ * --- FUJI STUDIO: CLOUD SAMPLE MANAGER API ---
+ */
+
+// Stream/Proxy Audio from Discord
+app.get('/api/fuji/stream/:attachmentId', async (req, res) => {
+    try {
+        const { attachmentId } = req.params;
+        const msgId = req.query.msgId as string;
+
+        // 1. Fetch metadata from DB
+        const sample = await db.sampleMetadata.findUnique({
+            where: { attachmentId }
+        });
+
+        if (!sample) return res.status(404).send('Sample not found in index');
+
+        // 2. Refresh the Discord URL signature
+        // We use the message ID and channel ID from the indexed pack to get the latest attachment URL
+        const pack = await db.samplePack.findUnique({ where: { id: sample.packId } });
+        if (!pack) return res.status(404).send('Pack not found');
+
+        const discordMsgResp = await discordReq('GET', `/channels/${pack.channelId}/messages/${sample.messageId}`);
+        const attachment = discordMsgResp.data.attachments.find((a: any) => a.id === attachmentId);
+
+        if (!attachment || !attachment.url) {
+            return res.status(410).send('Discord attachment no longer exists');
+        }
+
+        // 3. Set Headers (Important for audio buffering)
+        res.setHeader('Content-Type', sample.mimetype);
+        if (sample.filesize) res.setHeader('Content-Length', sample.filesize);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+
+        // 4. Pipe the Stream
+        const streamResp = await axios.get(attachment.url, { responseType: 'stream' });
+        streamResp.data.pipe(res);
+
+    } catch (e: any) {
+        logger.error(`Fuji Stream Error: ${e.message}`);
+        res.status(500).send('Streaming failed');
+    }
+});
+
+// Search Samples
+app.get('/api/fuji/samples/search', async (req, res) => {
+    try {
+        const { q, packId, limit = 50 } = req.query;
+        
+        const samples = await db.sampleMetadata.findMany({
+            where: {
+                ...(packId ? { packId: packId as string } : {}),
+                ...(q ? {
+                    OR: [
+                        { filename: { contains: q as string, mode: 'insensitive' } },
+                        { tags: { has: (q as string).toLowerCase() } }
+                    ]
+                } : {})
+            },
+            take: Number(limit),
+            orderBy: { createdAt: 'desc' },
+            include: { pack: true }
+        });
+
+        res.json(samples);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// List Packs/Libraries
+app.get('/api/fuji/libraries', async (req, res) => {
+    try {
+        const packs = await db.samplePack.findMany({
+            include: { _count: { select: { samples: true } } }
+        });
+        res.json(packs);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 const PORT = process.env.API_PORT || 3001;
 
 // --- Serve Dashboard Dist in Production ---

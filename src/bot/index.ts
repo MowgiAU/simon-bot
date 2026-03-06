@@ -24,6 +24,7 @@ import { EmailPlugin } from './plugins/EmailPlugin';
 import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
 import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
+import { FujiGenerator } from './utils/FujiGenerator';
 
 dotenv.config();
 
@@ -140,6 +141,15 @@ export class SimonBot {
       // Login to Discord
       await this.client.login(process.env.DISCORD_TOKEN);
       this.logger.info('Bot logged in to Discord');
+
+      // TEMPORARY: Fuji Studio Scaffold Check
+      if (process.env.RUN_FUJI_SCAFFOLD === 'true' && process.env.FUJI_STORAGE_GUILD_ID) {
+        this.logger.info('RUN_FUJI_SCAFFOLD is enabled. Starting scaffold process...');
+        const generator = new FujiGenerator(this.client);
+        const listPath = process.env.FUJI_LIST_PATH || 'h:\\Online\\FL Studio\\samplecategories.txt';
+        await generator.generateFromList(process.env.FUJI_STORAGE_GUILD_ID, listPath);
+        this.logger.info('Scaffold finished. You can now disable RUN_FUJI_SCAFFOLD.');
+      }
     } catch (error) {
       this.logger.error('Failed to start bot', error);
       process.exit(1);
