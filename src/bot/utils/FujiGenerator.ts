@@ -32,6 +32,8 @@ export class FujiGenerator {
     const categories = new Map<string, any>(); // Name -> CategoryChannel
     const forums = new Map<string, any>();     // CategoryName:ForumName -> ForumChannel
 
+    let creationCount = 0;
+
     for (const line of lines) {
       const parts = line.split('>').map(p => p.trim());
       if (parts.length < 3) continue;
@@ -50,6 +52,7 @@ export class FujiGenerator {
               name: catName,
               type: ChannelType.GuildCategory,
             });
+            creationCount++;
           }
           categories.set(catName, category);
         }
@@ -59,7 +62,13 @@ export class FujiGenerator {
         let forum = forums.get(forumKey);
         if (!forum) {
           // Check if forum exists under this category
-          forum = guild.channels.cache.find(c => c.name.toLowerCase() === forumName.toLowerCase().replace(/ /g, '-') && c.parent_id === category.id);
+          const normalizedForumName = forumName.toLowerCase().replace(/ /g, '-');
+          forum = guild.channels.cache.find(c => 
+            (c.name.toLowerCase() === forumName.toLowerCase() || c.name.toLowerCase() === normalizedForumName) 
+            && c.parentId === category.id 
+            && c.type === ChannelType.GuildForum
+          );
+
           if (!forum) {
             this.logger.info(`Creating Forum: ${forumName} in ${catName}`);
             forum = await guild.channels.create({
@@ -68,25 +77,41 @@ export class FujiGenerator {
               parent: category.id,
               topic: `Cloud storage for ${catName} > ${forumName}`
             });
+            creationCount++;
           }
           forums.set(forumKey, forum);
         }
 
         // 3. Handle Thread
-        // Check if thread exists in forum
-        const existingThreads = await forum.threads.fetch();
-        const thread = existingThreads.threads.find(t => t.name === threadName);
+        // Fetch threads to ensure cache is hot
+        const threadManager = forum.threads;
+        const existingThreads = await threadManager.fetchActive();
+        const archivedThreads = await threadManager.fetchArchived();
+        
+        let thread = existingThreads.threads.find(t => t.name.toLowerCase() === threadName.toLowerCase());
+        if (!thread) {
+            thread = archivedThreads.threads.find(t => t.name.toLowerCase() === threadName.toLowerCase());
+        }
 
         if (!thread) {
           this.logger.info(`Creating Thread: ${threadName} in ${forumName}`);
           await forum.threads.create({
             name: threadName,
+            autoArchiveDuration: 10080, // 1 week
             message: { content: `📦 **${threadName}**\nUpload your ${catName.toLowerCase()} ${forumName.toLowerCase()} samples here.` },
           });
+          creationCount++;
         }
 
-        // Increased delay to 2.5 seconds to avoid Discord rate limits during mass channel creation
-        await new Promise(r => setTimeout(r, 2500));
+        // Rate Limit Handling Logic
+        if (creationCount >= 10) {
+          this.logger.info('Created 10 items. Resting for 2 minutes to respect Discord Rate Limits...');
+          await new Promise(r => setTimeout(r, 120000)); // 2 minute rest
+          creationCount = 0; // Reset counter
+        } else {
+          // Normal delay between items
+          await new Promise(r => setTimeout(r, 3000));
+        }
 
       } catch (err: any) {
         this.logger.error(`Failed to create structure for "${line}": ${err.message}`);
