@@ -85,8 +85,8 @@ export class FujiGenerator {
           });
         }
 
-        // Small delay to prevent hitting Discord rate limits for bulk channel creation
-        await new Promise(r => setTimeout(r, 1200));
+        // Increased delay to 2.5 seconds to avoid Discord rate limits during mass channel creation
+        await new Promise(r => setTimeout(r, 2500));
 
       } catch (err: any) {
         this.logger.error(`Failed to create structure for "${line}": ${err.message}`);
