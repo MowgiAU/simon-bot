@@ -279,25 +279,7 @@ export const FujiStudio: React.FC = () => {
             </div>
         </DiscoveryLayout>
     );
-}; 
-                    bottom: 0, 
-                    left: 0, 
-                    right: 0, 
-                    height: '90px', 
-                    backgroundColor: '#111', 
-                    borderTop: `1px solid ${colors.border}`, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: `0 ${spacing.xl}`, 
-                    zIndex: 100 
-                }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `${colors.primary}20` }}>
-                        <div style={{ height: '100%', background: colors.primary, width: `${progress}%`, transition: 'width 0.1s linear' }} />
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', width: '30%' }}>
-                        <div style={{ width: '56px', height: '56px', backgroundColor: '#222', borderRadius: borderRadius.md, marginRight: spacing.md, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                           {currentSample.pack?.coverUrl ? <img src={currentSample.pack.coverUrl} style={{ width: '100%', borderRadius: borderRadius.md }} alt="cover" /> : <Music size={24} color={colors.primary} />}
+};
                         </div>
                         <div style={{ overflow: 'hidden' }}>
                             <div style={{ fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{currentSample.filename}</div>
