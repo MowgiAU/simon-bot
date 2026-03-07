@@ -14,7 +14,7 @@ import {
     SkipBack,
     MoreHorizontal
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../components/AuthProvider';
 
 // Interfaces
 interface Sample {
