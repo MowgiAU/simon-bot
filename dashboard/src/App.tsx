@@ -47,6 +47,7 @@ type Section =
   | "channel-rules" 
   | "musician-profiles-admin"
   | "musician-profiles"
+  | "samples"
   | "docs"
   | "logs"
   | "staging-test"
@@ -241,6 +242,8 @@ const AdminDashboard: React.FC = () => {
         return <MusicianProfileAdmin />;
       case "musician-profiles":
         return <MusicianProfilePage />;
+      case "samples":
+        return <FujiStudio />;
       case "docs":
         return <DocumentationPage 
           initialSection={navigationParams?.docSection} 

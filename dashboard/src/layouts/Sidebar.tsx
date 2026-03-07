@@ -208,6 +208,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           </button>
           )}
 
+          {permissions.accessiblePlugins.includes('fuji-studio') && (
+            <button
+                className={`nav-item ${activeSection === 'samples' ? 'active' : ''}`}
+                onClick={() => onNavigate('samples')}
+                title={collapsed ? "Sample Library" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
+                <span className="nav-label">Sample Library</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('production-feedback') && (
             <button
                 className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}
