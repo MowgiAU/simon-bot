@@ -81,6 +81,7 @@ export class FujiScanner {
 
     const forumThreads = threadsData.threads.filter((t: any) => t.parent_id === forumId);
 
+    for (let i = 0; i < forumThreads.length; i++) {
       const thread = forumThreads[i];
       // Index the thread as a pack, including the category and forum name in metadata/tags
       const packName = `${categoryName} | ${forumName} | ${thread.name}`;
