@@ -61,6 +61,28 @@ export const AppStyles = `
     background: ${colors.textTertiary};
   }
 
+  /* Dashboard & Grid Layouts */
+  .dashboard-grid-split {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .dashboard-card-main {
+    background: #252D3E;
+    border-radius: 12px;
+    border: 1px solid #3E455633;
+    padding: 24px;
+  }
+
+  .dashboard-card-activity {
+    background: linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9));
+    border-radius: 12px;
+    border: 1px solid #3E455633;
+    padding: 24px;
+  }
+
   /* Shared Mobile Optimizations */
   @media (max-width: 1024px) {
     .main-content {
@@ -74,6 +96,10 @@ export const AppStyles = `
       background: rgba(0,0,0,0.5);
       z-index: 999;
       backdrop-filter: blur(4px);
+    }
+
+    .dashboard-grid-split {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -93,8 +119,12 @@ export const AppStyles = `
       grid-template-columns: 1fr !important;
     }
 
+    .dashboard-card-main, .dashboard-card-activity {
+      padding: 16px;
+    }
+
     .stats-grid {
-      grid-template-columns: 1fr 1fr !important;
+      grid-template-columns: 1fr !important;
       gap: 12px !important;
     }
 
