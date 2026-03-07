@@ -429,7 +429,7 @@ const AppInternal: React.FC = () => {
   }
 
   // / → Artist Discovery homepage (public, no extra providers needed)
-  if (currentPath === '/fuji') {
+  if (currentPath === '/samples') {
     return <FujiStudio />;
   }
 
