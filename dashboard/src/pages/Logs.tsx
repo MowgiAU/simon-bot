@@ -750,10 +750,34 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 );
                             }
 
-                            // 6. Fallback
+                            // 6. Channel Rules & Feedback Reviews
+                            if (log.details?.ruleId) {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colors.primaryLight }}>Channel Rule Update</div>
+                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary, flexWrap: 'wrap' }}>
+                                            <span>Rule ID: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.ruleId}</code></span>
+                                            {log.details.channelId && <span>Channel: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.channelId}</code></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (log.details?.reviewId) {
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: colors.highlight }}>Feedback Review</div>
+                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary }}>
+                                            <span>Review ID: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.reviewId}</code></span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 7. Fallback
                             return (
                                 <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
-                                    {log.details?.content || JSON.stringify(log.details || {}).slice(0, 150)}
+                                    {log.details?.content || (typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}).slice(0, 150))}
                                 </div>
                             );
                         };
