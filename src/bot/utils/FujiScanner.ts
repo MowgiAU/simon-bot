@@ -160,8 +160,8 @@ export class FujiScanner {
       const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
 
       // Basic Key detection (A-G followed by optional #/b and maj/min/m)
-      const keyMatch = attachment.filename.match(/(?:\s|_|^)([A-G][#b]?(?:maj|min|maj7|min7|m)?)(?:\s|_|\.|$)/i);
-      const key = keyMatch ? keyMatch[1].toUpperCase() : null;
+      const keyMatch = attachment.filename.match(/(\s|_|^)([A-G](?:#|b|#m|bm|m|maj|min)?)(?:\s|_|\.|$)/i);
+      const key = keyMatch ? keyMatch[2].toUpperCase() : null;
 
       // Parse metadata
       let duration: number | null = null;
