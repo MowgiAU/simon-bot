@@ -3894,7 +3894,10 @@ if (fs.existsSync(distPath)) {
 
         // Everything else gets index.html
         if (fs.existsSync(indexHtml)) {
-             // For debugging: Set a header so we can see if Express served this
+             // CRITICAL: Prevent index.html from being cached so users always get the latest JS build hash
+             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+             res.setHeader('Pragma', 'no-cache');
+             res.setHeader('Expires', '0');
              res.setHeader('X-Powered-By-Fuji', 'Express-SPA');
              res.sendFile(indexHtml);
         } else {
