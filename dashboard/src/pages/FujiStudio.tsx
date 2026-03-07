@@ -280,23 +280,6 @@ export const FujiStudio: React.FC = () => {
         </DiscoveryLayout>
     );
 };
-                        </div>
-                        <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{currentSample.filename}</div>
-                            <div style={{ fontSize: '12px', color: colors.textSecondary }}>{currentSample.pack?.name || 'Fuji Local'}</div>
-                        </div>
-                    </div>
-
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.xl }}>
-                        <SkipBack size={20} color={colors.textSecondary} />
-                        <div 
-                            onClick={() => handlePlayPause(currentSample)}
-                            style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                        >
-                            {isPlaying ? <Pause color="black" fill="black" /> : <Play color="black" fill="black" style={{ marginLeft: '4px' }} />}
-                        </div>
-                        <SkipForward size={20} color={colors.textSecondary} />
-                    </div>
 
                     <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
                         <Volume2 size={20} color={colors.textSecondary} />
