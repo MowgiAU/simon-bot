@@ -280,10 +280,8 @@ const AdminDashboard: React.FC = () => {
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
       <main className="main-content" style={{ 
-        marginLeft: window.innerWidth > 1024 ? (sidebarOpen ? "260px" : "80px") : "0", 
         transition: "margin-left 0.3s ease",
         height: "100vh",
-        width: window.innerWidth > 1024 ? (sidebarOpen ? "calc(100% - 260px)" : "calc(100% - 80px)") : "100%",
         display: "flex",
         flexDirection: "column"
       }}>

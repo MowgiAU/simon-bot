@@ -31,31 +31,26 @@ export const AppStyles = `
     flex-direction: column;
     background-color: ${colors.background};
     transition: margin-left 0.3s ease;
-    z-index: 1;
+    z-index: 10;
     position: relative;
     height: 100vh;
+    width: 100%;
     overflow: hidden;
   }
 
-  /* Only indent content when a sidebar is actually present */
-  .sidebar:not(.collapsed) + .main-content,
-  .sidebar:not(.collapsed) ~ .main-content {
-    margin-left: 260px;
-  }
+  /* Indent only when Desktop Sidebar is visible */
+  @media (min-width: 1025px) {
+    .sidebar:not(.collapsed) + .main-content,
+    .sidebar:not(.collapsed) ~ .main-content {
+      margin-left: 260px;
+      width: calc(100% - 260px);
+    }
 
-  .sidebar.collapsed + .main-content,
-  .sidebar.collapsed ~ .main-content {
-    margin-left: 80px;
-  }
-
-  .sidebar:not(.collapsed) + .main-content,
-  .sidebar:not(.collapsed) ~ .main-content {
-    margin-left: 260px;
-  }
-
-  .sidebar.collapsed + .main-content,
-  .sidebar.collapsed ~ .main-content {
-    margin-left: 80px;
+    .sidebar.collapsed + .main-content,
+    .sidebar.collapsed ~ .main-content {
+      margin-left: 80px;
+      width: calc(100% - 80px);
+    }
   }
 
   .main-content-scroll-container {
