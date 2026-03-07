@@ -298,12 +298,9 @@ const AdminDashboard: React.FC = () => {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          margin: window.innerWidth > 768 ? "0" : "0",
+          margin: "0",
           borderRadius: 0,
           boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-        }}>
-          borderRadius: window.innerWidth > 768 ? "12px" : "0",
-          boxShadow: "0 4px 24px 0 rgba(0,0,0,0.1)"
         }}>
           <button
             className="mobile-menu-toggle"
