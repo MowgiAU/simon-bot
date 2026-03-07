@@ -280,24 +280,28 @@ const AdminDashboard: React.FC = () => {
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
       <main className="main-content" style={{ 
-        marginLeft: window.innerWidth > 1024 ? (sidebarOpen ? "260px" : "260px") : "0", 
+        marginLeft: window.innerWidth > 1024 ? (sidebarOpen ? "260px" : "80px") : "0", 
         transition: "margin-left 0.3s ease",
         width: "100%",
         minHeight: "100vh",
         display: "flex",
-        flexDirection: "column"
+        flexDirection: "column",
+        overflow: "hidden"
       }}>
         <div style={{ 
           display: "flex", 
           justifyContent: "space-between", 
           alignItems: "center", 
-          padding: "12px 24px", 
+          padding: window.innerWidth > 768 ? "12px 24px" : "12px 16px", 
           background: "rgb(34,43,61)", 
           borderBottom: "1px solid #1F293A",
           position: "sticky",
           top: 0,
           zIndex: 100,
-          margin: window.innerWidth > 768 ? "16px" : "0",
+          margin: window.innerWidth > 768 ? "0" : "0",
+          borderRadius: 0,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+        }}>
           borderRadius: window.innerWidth > 768 ? "12px" : "0",
           boxShadow: "0 4px 24px 0 rgba(0,0,0,0.1)"
         }}>
