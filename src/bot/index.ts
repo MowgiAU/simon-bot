@@ -25,6 +25,7 @@ import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
 import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
+import { FujiScanner } from './utils/FujiScanner';
 
 dotenv.config();
 
@@ -149,6 +150,25 @@ export class SimonBot {
         const listPath = process.env.FUJI_LIST_PATH || 'h:\\Online\\FL Studio\\samplecategories.txt';
         await generator.generateFromList(process.env.FUJI_STORAGE_GUILD_ID, listPath);
         this.logger.info('Scaffold finished. You can now disable RUN_FUJI_SCAFFOLD.');
+      }
+
+      // FUJI STUDIO: Start Scanning Loop
+      if (process.env.FUJI_STORAGE_GUILD_ID) {
+        this.logger.info(`Starting FujiScanner loop for storage guild: ${process.env.FUJI_STORAGE_GUILD_ID}`);
+        const scanner = new FujiScanner(this.db);
+        
+        // Initial scan
+        scanner.scanGuild(process.env.FUJI_STORAGE_GUILD_ID).catch(err => {
+          this.logger.error('Initial Fuji scan failed:', err);
+        });
+
+        // Run scan every 10 minutes (600,000ms)
+        setInterval(() => {
+          this.logger.info('Running scheduled Fuji scan...');
+          scanner.scanGuild(process.env.FUJI_STORAGE_GUILD_ID!).catch(err => {
+            this.logger.error('Scheduled Fuji scan failed:', err);
+          });
+        }, 600000);
       }
     } catch (error) {
       this.logger.error('Failed to start bot', error);
