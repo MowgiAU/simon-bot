@@ -297,9 +297,5 @@ export const FujiStudio: React.FC = () => {
         </DiscoveryLayout>
     );
 };
-            </div>
-        </DiscoveryLayout>
-    );
-};
 
 export default FujiStudio;
