@@ -17,6 +17,31 @@ export class FujiScanner {
   }
 
   /**
+   * Helper method to handle Discord API requests with rate limiting and retries.
+   */
+  private async request(url: string, retries = 3): Promise<any> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bot ${this.token}` }
+        });
+        return response.data;
+      } catch (error: any) {
+        const status = error.response?.status;
+        if ((status === 429 || status === 503) && i < retries - 1) {
+          const retryAfter = error.response?.headers['retry-after'] 
+            ? parseInt(error.response.headers['retry-after']) * 1000 
+            : 5000;
+          this.logger.warn(`Rate limited or service unavailable (${status}). Retrying in ${retryAfter}ms... (Attempt ${i + 1}/${retries})`);
+          await new Promise(r => setTimeout(r, retryAfter));
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Main entry point to scan and index a Storage Guild.
    */
   async scanGuild(guildId: string) {
@@ -24,11 +49,8 @@ export class FujiScanner {
     
     try {
       // 1. Fetch all channels in the guild
-      const channelsResp = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-        headers: { Authorization: `Bot ${this.token}` }
-      });
+      const allChannels = await this.request(`https://discord.com/api/v10/guilds/${guildId}/channels`);
       
-      const allChannels = channelsResp.data;
       const forumChannels = allChannels.filter((c: any) => c.type === 15); // Type 15 is FORUM
       
       this.logger.info(`Found ${forumChannels.length} forum channels to scan.`);
@@ -55,16 +77,17 @@ export class FujiScanner {
     this.logger.info(`Scanning forum: ${categoryName} > ${forumName} (${forumId})`);
 
     // Fetch active threads in the guild (Discord returns all active threads for the guild)
-    const threadsResp = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/threads/active`, {
-      headers: { Authorization: `Bot ${this.token}` }
-    });
+    const threadsData = await this.request(`https://discord.com/api/v10/guilds/${guildId}/threads/active`);
 
-    const forumThreads = threadsResp.data.threads.filter((t: any) => t.parent_id === forumId);
+    const forumThreads = threadsData.threads.filter((t: any) => t.parent_id === forumId);
 
     for (const thread of forumThreads) {
       // Index the thread as a pack, including the category and forum name in metadata/tags
       const packName = `${categoryName} | ${forumName} | ${thread.name}`;
       await this.scanChannel(guildId, thread.id, packName, [categoryName, forumName]); 
+      
+      // Add a small delay between scanning individual threads to avoid hitting global limits
+      await new Promise(r => setTimeout(r, 500));
     }
   }
 
@@ -92,11 +115,8 @@ export class FujiScanner {
     // 2. Paginate through channel messages
     while (true) {
       const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${lastMessageId ? `&before=${lastMessageId}` : ''}`;
-      const messagesResp = await axios.get(url, {
-        headers: { Authorization: `Bot ${this.token}` }
-      });
+      const messages = await this.request(url);
 
-      const messages = messagesResp.data;
       if (messages.length === 0) break;
 
       for (const msg of messages) {
