@@ -128,89 +128,6 @@ export class FujiScanner {
 
       this.logger.info(`Indexing: ${attachment.filename}`);
 
-      // Parse metadata
-      let duration: number | null = null;
-      try {
-        const metadataResp = await axios.get(attachment.url, { responseType: 'arraybuffer' });
-        const metadata = await mm.parseBuffer(Buffer.from(metadataResp.data), attachment.content_type);
-        duration = metadata.format.duration || null;
-      } catch (err) {
-        // Fallback for duration
-      }
-
-      await this.prisma.sampleMetadata.create({
-        data: {
-          packId,
-          messageId,
-          attachmentId: attachment.id,
-          filename: attachment.filename,
-          filesize: attachment.size,
-          mimetype: attachment.content_type || 'audio/mpeg',
-          duration: duration,
-          tags: [...parentTags.map(t => t.toLowerCase()), ...this.generateTags(attachment.filename)]
-        }
-      });
-
-      return true;
-    } catch (e: any) {
-      return false;
-    }
-  }
-    this.logger.info(`Scanning channel: #${channelName} (${channelId})`);
-    
-    // 1. Ensure SamplePack exists in DB
-    const pack = await this.prisma.samplePack.upsert({
-      where: { channelId },
-      update: { name: channelName },
-      create: { 
-        guildId, 
-        channelId, 
-        name: channelName 
-      }
-    });
-
-    let lastMessageId: string | null = null;
-    let totalIndexed = 0;
-
-    // 2. Paginate through channel messages
-    while (true) {
-      const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${lastMessageId ? `&before=${lastMessageId}` : ''}`;
-      const messagesResp = await axios.get(url, {
-        headers: { Authorization: `Bot ${this.token}` }
-      });
-
-      const messages = messagesResp.data;
-      if (messages.length === 0) break;
-
-      for (const msg of messages) {
-        for (const attachment of msg.attachments) {
-          if (this.isAudioFile(attachment.filename)) {
-            const indexed = await this.indexSample(pack.id, msg.id, attachment);
-            if (indexed) totalIndexed++;
-          }
-        }
-        lastMessageId = msg.id;
-      }
-      
-      this.logger.info(`Processed ${messages.length} messages in #${channelName}...`);
-    }
-
-    this.logger.info(`Finished #${channelName}. Indexed ${totalIndexed} new/updated samples.`);
-  }
-
-  /**
-   * Core logic to index a single sample attachment.
-   */
-  private async indexSample(packId: string, messageId: string, attachment: any) {
-    try {
-      // Skip if already indexed and identical
-      const existing = await this.prisma.sampleMetadata.findUnique({
-        where: { attachmentId: attachment.id }
-      });
-      if (existing) return false;
-
-      this.logger.info(`Indexing new sample: ${attachment.filename}`);
-
       // Extract BPM and Key from filename
       const bpmMatch = attachment.filename.match(/(\d{2,3})\s*(?:bpm|BPM)/);
       const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
@@ -219,8 +136,7 @@ export class FujiScanner {
       const keyMatch = attachment.filename.match(/(?:\s|_|^)([A-G][#b]?(?:maj|min|maj7|min7|m)?)(?:\s|_|\.|$)/i);
       const key = keyMatch ? keyMatch[1].toUpperCase() : null;
 
-      // Optional: Fetch metadata using a stream. 
-      // For large-scale indexing, we might want to do this in batches.
+      // Parse metadata
       let duration: number | null = null;
       try {
         const metadataResp = await axios.get(attachment.url, { responseType: 'arraybuffer' });
@@ -233,7 +149,7 @@ export class FujiScanner {
       await this.prisma.sampleMetadata.create({
         data: {
           packId,
-          messageId: messageId,
+          messageId,
           attachmentId: attachment.id,
           filename: attachment.filename,
           filesize: attachment.size,
@@ -241,7 +157,7 @@ export class FujiScanner {
           duration: duration,
           bpm: bpm,
           key: key,
-          tags: this.generateTags(attachment.filename)
+          tags: [...parentTags.map(t => t.toLowerCase()), ...this.generateTags(attachment.filename)]
         }
       });
 
