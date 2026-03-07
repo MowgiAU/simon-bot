@@ -60,4 +60,46 @@ export const AppStyles = `
   ::-webkit-scrollbar-thumb:hover {
     background: ${colors.textTertiary};
   }
+
+  /* Shared Mobile Optimizations */
+  @media (max-width: 1024px) {
+    .main-content {
+      margin-left: 0 !important;
+      padding-top: 0 !important;
+    }
+    
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+      backdrop-filter: blur(4px);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-container {
+      padding: 12px !important;
+    }
+
+    .settings-overview-banner {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      padding: 16px !important;
+    }
+
+    /* Grid splitting for mobile */
+    .dashboard-grid-split {
+      grid-template-columns: 1fr !important;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 12px !important;
+    }
+
+    .info-banner-hide-mobile {
+      display: none !important;
+    }
+  }
 `;

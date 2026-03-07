@@ -331,26 +331,28 @@ const AdminDashboard: React.FC = () => {
              />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: window.innerWidth > 768 ? "20px" : "12px" }}>
               <NotificationMenu guildId={selectedGuild.id} />
               
-              <div style={{ width: "1px", height: "24px", background: "#1F293A" }} />
+              <div style={{ width: "1px", height: "24px", background: "#1F293A", display: window.innerWidth > 768 ? "block" : "none" }} />
 
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                 <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}>
+                 <div style={{ textAlign: "right", display: window.innerWidth > 768 ? "flex" : "none", flexDirection: "column" }}>
                     <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>{user?.username}</span>
                     <span style={{ fontSize: "11px", color: colors.textSecondary }}>{permissions.canManagePlugins ? "Administrator" : "Moderator"}</span>
                  </div>
-                 <div style={{ width: "38px", height: "38px", borderRadius: "8px", background: colors.primary, display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden", border: "2px solid #1F293A" }}>
+                 <div style={{ width: window.innerWidth > 768 ? "38px" : "32px", height: window.innerWidth > 768 ? "38px" : "32px", borderRadius: "8px", background: colors.primary, display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden", border: "2px solid #1F293A" }}>
                     <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%" }} alt="User" />
                  </div>
               </div>
           </div>
         </div>
         
-        <div style={{ padding: "0 16px 24px" }}>
-            <div style={{ 
-                display: "flex", 
+        <div style={{ padding: window.innerWidth > 768 ? "0 16px 24px" : "0" }}>
+            <div 
+              className="info-banner-hide-mobile"
+              style={{ 
+                display: window.innerWidth > 768 ? "flex" : "none", 
                 alignItems: "center", 
                 gap: "12px", 
                 padding: "12px 24px",

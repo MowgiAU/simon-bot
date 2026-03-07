@@ -106,7 +106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
   })) || [];
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" style={{ padding: window.innerWidth > 768 ? '24px' : '12px' }}>
       <div className="dashboard-header" style={{ marginBottom: '24px' }}>
         <h1 style={{ color: colors.textPrimary, margin: 0, fontSize: '24px', fontWeight: 700 }}>
           Dashboard Overview
@@ -137,9 +137,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
         <div style={{ padding: 40, color: colors.textSecondary }}>Loading stats...</div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+          <div className="dashboard-grid-split" style={{ display: 'grid', gridTemplateColumns: window.innerWidth > 1024 ? '2fr 1fr' : '1fr', gap: '24px', marginBottom: '32px' }}>
              {/* Main Chart Card */}
-             <div style={{ background: '#252D3E', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
+             <div style={{ background: '#252D3E', borderRadius: '12px', border: '1px solid #3E455633', padding: window.innerWidth > 768 ? '24px' : '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                    <div>
                       <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Server Growth</h3>
@@ -170,7 +170,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
              </div>
 
              {/* Recent Activity Card */}
-             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: '12px', border: '1px solid #3E455633', padding: '24px' }}>
+             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: '12px', border: '1px solid #3E455633', padding: window.innerWidth > 768 ? '24px' : '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                    <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Recent Activity</h3>
                    <FileText size={16} color="#8A92A0" />
