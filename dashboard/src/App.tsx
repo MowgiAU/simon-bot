@@ -47,7 +47,7 @@ type Section =
   | "channel-rules" 
   | "musician-profiles-admin"
   | "musician-profiles"
-  | "samples"
+  | "library"
   | "docs"
   | "logs"
   | "staging-test"
@@ -242,7 +242,7 @@ const AdminDashboard: React.FC = () => {
         return <MusicianProfileAdmin />;
       case "musician-profiles":
         return <MusicianProfilePage />;
-      case "samples":
+      case "library":
         return <FujiStudio />;
       case "docs":
         return <DocumentationPage 
@@ -429,7 +429,7 @@ const AppInternal: React.FC = () => {
   }
 
   // / → Artist Discovery homepage (public, no extra providers needed)
-  if (currentPath === '/samples') {
+  if (currentPath === '/library') {
     return <FujiStudio />;
   }
 

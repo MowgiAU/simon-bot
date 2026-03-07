@@ -45,8 +45,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
     const navItems = [
         { key: 'discover', label: 'DISCOVER', icon: <Search size={14} />, path: '/' },
-        { key: 'samples', label: 'SAMPLES', icon: <Music size={14} color={colors.primary} />, path: '/samples' },
-        { key: 'library', label: 'LIBRARY', path: null, comingSoon: true },
+        { key: 'library', label: 'LIBRARY', icon: <Music size={14} color={colors.primary} />, path: '/library' },
         { key: 'live', label: 'LIVE', path: null, comingSoon: true },
     ];
 

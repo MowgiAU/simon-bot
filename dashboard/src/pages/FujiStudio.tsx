@@ -135,7 +135,7 @@ export const FujiStudio: React.FC = () => {
     };
 
     return (
-        <DiscoveryLayout activeTab="samples" onSearchChange={setSearch} search={search} searchPlaceholder="Search loops, one-shots...">
+        <DiscoveryLayout activeTab="library" onSearchChange={setSearch} search={search} searchPlaceholder="Search loops, one-shots...">
             <div style={{ padding: spacing.xl, color: colors.textPrimary, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 
                 {/* Content Area */}
