@@ -21,25 +21,30 @@ export const AppStyles = `
   .app {
     display: flex;
     min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .main-content {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
     background-color: ${colors.background};
     transition: margin-left 0.3s ease;
-    z-index: 1; /* Keep content below sidebar popovers */
+    z-index: 1;
     position: relative;
-    max-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .main-content-scroll-container {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto !important;
     overflow-x: hidden;
     width: 100%;
+    height: 100%;
     -webkit-overflow-scrolling: touch;
+    display: block;
   }
 
   /* Only indent content when a sidebar is actually present */

@@ -282,11 +282,7 @@ const AdminDashboard: React.FC = () => {
       <main className="main-content" style={{ 
         marginLeft: window.innerWidth > 1024 ? (sidebarOpen ? "260px" : "80px") : "0", 
         transition: "margin-left 0.3s ease",
-        width: "100%",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden"
+        width: "100%"
       }}>
         <div style={{ 
           display: "flex", 
@@ -295,13 +291,13 @@ const AdminDashboard: React.FC = () => {
           padding: window.innerWidth > 768 ? "12px 24px" : "8px 12px", 
           background: "rgb(34,43,61)", 
           borderBottom: "1px solid #1F293A",
-          position: "sticky",
-          top: 0,
+          position: "relative",
           zIndex: 100,
           margin: "0",
           borderRadius: 0,
           boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          gap: "8px"
+          gap: "8px",
+          minHeight: "56px"
         }}>
           <button
             className="mobile-menu-toggle"
