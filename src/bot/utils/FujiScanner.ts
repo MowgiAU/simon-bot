@@ -81,13 +81,13 @@ export class FujiScanner {
 
     const forumThreads = threadsData.threads.filter((t: any) => t.parent_id === forumId);
 
-    for (const thread of forumThreads) {
+      const thread = forumThreads[i];
       // Index the thread as a pack, including the category and forum name in metadata/tags
       const packName = `${categoryName} | ${forumName} | ${thread.name}`;
       await this.scanChannel(guildId, thread.id, packName, [categoryName, forumName]); 
       
-      // Add a small delay between scanning individual threads to avoid hitting global limits
-      await new Promise(r => setTimeout(r, 500));
+      // Delay 2000ms between each thread (sample pack)
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
 
@@ -124,6 +124,9 @@ export class FujiScanner {
           if (this.isAudioFile(attachment.filename)) {
             const indexed = await this.indexSample(pack.id, msg.id, attachment, parentTags);
             if (indexed) totalIndexed++;
+
+            // Wait 1000ms after indexing each attachment
+            await new Promise(r => setTimeout(r, 1000));
           }
         }
         lastMessageId = msg.id;
@@ -140,11 +143,15 @@ export class FujiScanner {
    */
   private async indexSample(packId: string, messageId: string, attachment: any, parentTags: string[] = []) {
     try {
+      this.logger.info(`Starting indexing for sample: ${attachment.filename}`);
       // Skip if already indexed and identical
       const existing = await this.prisma.sampleMetadata.findUnique({
         where: { attachmentId: attachment.id }
       });
-      if (existing) return false;
+      if (existing) {
+        this.logger.info(`Sample ${attachment.filename} already indexed, skipping.`);
+        return false;
+      }
 
       this.logger.info(`Indexing: ${attachment.filename}`);
 
@@ -181,6 +188,7 @@ export class FujiScanner {
         }
       });
 
+      this.logger.info(`Successfully indexed sample: ${attachment.filename}`);
       return true;
     } catch (e: any) {
       this.logger.error(`Failed to index sample ${attachment.filename}: ${e.message}`);
