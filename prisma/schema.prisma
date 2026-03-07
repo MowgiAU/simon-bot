@@ -106,6 +106,10 @@ model ModerationPermission {
   @@map("moderation_permissions")
 }
 
+// ---------------------------------------------------------
+// Existing Models Below
+// ---------------------------------------------------------
+
 // Action Logs for Auditing
 model ActionLog {
   id         String   @id @default(cuid())
@@ -779,28 +783,36 @@ model DiscoverySettings {
 model SamplePack {
   id              String   @id @default(cuid())
   guildId         String   // Channel/Pack logic: Storage Guild ID
-  channelId       String   @unique // Each channel in the storage guild is a pack
-  name            String   // Pack name (usually channel name)
+  channelId       String?  @unique // Old single-channel pack logic
+  forumId         String?  // Tier 2: Forum ID
+  threadId        String?  @unique // Tier 3: Thread ID (Specific Pack)
+  category        String?  // Tier 1: Category Name
+  name            String   // Pack name (usually channel or thread name)
   description     String?
   thumbnailUrl    String?
   creatorId       String?  // Original uploader/owner Discord ID
+  isPublic        Boolean  @default(true)
   
   samples         SampleMetadata[]
+  collections     SampleCollectionItem[]
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([guildId, category])
   @@map("fuji_sample_packs")
 }
 
 model SampleMetadata {
   id              String   @id @default(cuid())
   packId          String
-  messageId       String   @unique // Discord Message ID
+  messageId       String?  // Discord Message ID
   attachmentId    String   @unique // Discord Attachment ID
   
   filename        String
   filesize        Int
   mimetype        String
+  url             String   @default("") // CDN URL
   
   duration        Float?   // Seconds
   bpm             Int?
@@ -809,13 +821,15 @@ model SampleMetadata {
   
   // Search vector
   tags            String[] @default([])
+  authorId        String?  // Uploader Discord ID
   
   pack            SamplePack @relation(fields: [packId], references: [id], onDelete: Cascade)
   favoritedBy     UserSampleFavorite[]
+  inCollections   SampleCollectionItem[]
 
   createdAt       DateTime @default(now())
 
-  @@index([packId, filename])
+  @@index([packId, filename, bpm, key])
   @@map("fuji_samples")
 }
 
@@ -823,10 +837,8 @@ model UserSampleFavorite {
   id              String   @id @default(cuid())
   userId          String   // Discord User ID
   sampleId        String
-  collectionId    String?  // Optional grouping
   
   sample          SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
-  collection      SampleCollection? @relation(fields: [collectionId], references: [id])
 
   createdAt       DateTime @default(now())
 
@@ -839,10 +851,29 @@ model SampleCollection {
   userId          String   // Discord User ID
   name            String
   description     String?
+  isPublic        Boolean  @default(false)
+  shareCode       String?  @unique @default(cuid())
   
-  favorites       UserSampleFavorite[]
+  items           SampleCollectionItem[]
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([userId])
   @@map("fuji_sample_collections")
+}
+
+model SampleCollectionItem {
+  id              String   @id @default(cuid())
+  collectionId    String
+  sampleId        String
+  packId          String?  // Shortcut
+  createdAt       DateTime @default(now())
+
+  collection      SampleCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  sample          SampleMetadata   @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  pack            SamplePack?      @relation(fields: [packId], references: [id])
+
+  @@unique([collectionId, sampleId])
+  @@map("fuji_collection_items")
 }

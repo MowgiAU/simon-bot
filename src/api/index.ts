@@ -1615,7 +1615,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio'] 
             });
         }
 
@@ -3793,7 +3793,8 @@ app.get('/api/fuji/stream/:attachmentId', async (req, res) => {
         res.setHeader('Content-Type', sample.mimetype);
         if (sample.filesize) res.setHeader('Content-Length', sample.filesize);
         res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.setHeader('Cache-Control', 'public, max-age=1800'); // Cache for 30 mins
+        res.setHeader('Content-Disposition', `inline; filename="${sample.filename}"`);
 
         // 4. Pipe the Stream
         const streamResp = await axios.get(attachment.url, { responseType: 'stream' });
@@ -3802,6 +3803,30 @@ app.get('/api/fuji/stream/:attachmentId', async (req, res) => {
     } catch (e: any) {
         logger.error(`Fuji Stream Error: ${e.message}`);
         res.status(500).send('Streaming failed');
+    }
+});
+
+// Download Proxy
+app.get('/api/fuji/download/:attachmentId', async (req, res) => {
+    try {
+        const { attachmentId } = req.params;
+        const sample = await db.sampleMetadata.findUnique({
+            where: { attachmentId },
+            include: { pack: true }
+        });
+
+        if (!sample || !sample.pack) return res.status(404).send('Sample not found');
+
+        const discordMsgResp = await discordReq('GET', `/channels/${sample.pack.channelId}/messages/${sample.messageId}`);
+        const attachment = discordMsgResp.data.attachments.find((a: any) => a.id === attachmentId);
+
+        if (!attachment || !attachment.url) return res.status(410).send('Expired');
+
+        res.setHeader('Content-Disposition', `attachment; filename="${sample.filename}"`);
+        const streamResp = await axios.get(attachment.url, { responseType: 'stream' });
+        streamResp.data.pipe(res);
+    } catch (e: any) {
+        res.status(500).send(e.message);
     }
 });
 

@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
-    Library, 
     Play, 
     Pause, 
     Download, 
     Heart, 
     Search, 
-    ArrowRight, 
     Music, 
-    Hash, 
-    ChevronRight,
-    FolderPlus
+    FolderPlus,
+    Volume2,
+    SkipForward,
+    SkipBack,
+    MoreHorizontal
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
+// Interfaces
 interface Sample {
     id: string;
     attachmentId: string;
@@ -26,207 +27,279 @@ interface Sample {
     key: string | null;
     mimetype: string;
     packId: string;
-    pack?: { name: string };
+    isLoop: boolean;
+    tags: string[];
+    pack?: { name: string; author?: string; coverUrl?: string };
+    isLiked?: boolean;
 }
 
 interface Pack {
     id: string;
     name: string;
-    _count: { samples: number };
+    author: string;
+    coverUrl?: string;
+    sampleCount: number;
+    tags: string[];
 }
 
 export const FujiStudio: React.FC = () => {
-    const [packs, setPacks] = useState<Pack[]>([]);
+    const { selectedGuild } = useAuth();
     const [samples, setSamples] = useState<Sample[]>([]);
+    const [packs, setPacks] = useState<Pack[]>([]);
     const [search, setSearch] = useState('');
-    const [selectedPack, setSelectedPack] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'browse' | 'packs' | 'likes'>('browse');
     const [loading, setLoading] = useState(false);
     
-    // Audio State
-    const [playingId, setPlayingId] = useState<string | null>(null);
-    const [audio] = useState(new Audio());
+    // Audio Player State
+    const [currentSample, setCurrentSample] = useState<Sample | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const audioRef = useRef<HTMLAudioElement>(new Audio());
 
     useEffect(() => {
-        fetchPacks();
-        fetchSamples();
+        const audio = audioRef.current;
+        
+        const updateProgress = () => {
+            if (audio.duration) {
+                setProgress((audio.currentTime / audio.duration) * 100);
+            }
+        };
+
+        const handleEnded = () => {
+            setIsPlaying(false);
+            setProgress(0);
+        };
+
+        audio.addEventListener('timeupdate', updateProgress);
+        audio.addEventListener('ended', handleEnded);
+
+        fetchInitialData();
 
         return () => {
             audio.pause();
-            audio.src = '';
+            audio.removeEventListener('timeupdate', updateProgress);
+            audio.removeEventListener('ended', handleEnded);
         };
-    }, []);
+    }, [selectedGuild?.id]);
 
-    const fetchPacks = async () => {
-        const res = await axios.get('/api/fuji/libraries');
-        setPacks(res.data);
-    };
-
-    const fetchSamples = async (q = '', packId = null) => {
+    const fetchInitialData = async () => {
+        if (!selectedGuild?.id) return;
         setLoading(true);
         try {
-            const res = await axios.get(`/api/fuji/samples/search`, {
-                params: { q, packId }
-            });
-            setSamples(res.data);
+            const [samplesRes, packsRes] = await Promise.all([
+                axios.get(`/api/fuji/samples/search`, { params: { guildId: selectedGuild.id } }),
+                axios.get(`/api/fuji/libraries`, { params: { guildId: selectedGuild.id } })
+            ]);
+            setSamples(samplesRes.data);
+            setPacks(packsRes.data);
+        } catch (err) {
+            console.error('Failed to fetch Fuji data:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSearch = (val: string) => {
-        setSearch(val);
-        fetchSamples(val, selectedPack as any);
-    };
-
-    const togglePlay = (sample: Sample) => {
-        if (playingId === sample.id) {
-            audio.pause();
-            setPlayingId(null);
+    const handlePlayPause = (sample: Sample) => {
+        const audio = audioRef.current;
+        if (currentSample?.id === sample.id) {
+            if (isPlaying) {
+                audio.pause();
+                setIsPlaying(false);
+            } else {
+                audio.play();
+                setIsPlaying(true);
+            }
         } else {
             audio.pause();
             audio.src = `/api/fuji/stream/${sample.attachmentId}`;
+            setCurrentSample(sample);
             audio.play();
-            setPlayingId(sample.id);
+            setIsPlaying(true);
         }
     };
 
-    const formatSize = (bytes: number) => {
-        const mb = bytes / (1024 * 1024);
-        return `${mb.toFixed(1)} MB`;
+    const toggleLike = async (sample: Sample) => {
+        // Optimistic UI
+        setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: !s.isLiked } : s));
+        try {
+            await axios.post(`/api/fuji/samples/${sample.id}/like`, { guildId: selectedGuild?.id });
+        } catch (err) {
+            // Revert on error
+            setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: s.isLiked } : s));
+        }
     };
 
-    const formatDuration = (seconds: number | null) => {
-        if (!seconds) return '--:--';
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const downloadSample = (sample: Sample) => {
+        window.open(`/api/fuji/download/${sample.attachmentId}`, '_blank');
     };
-
-    const sidebar = (
-        <div style={{ color: colors.textPrimary }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <Library color={colors.primary} size={24} />
-                <h2 style={{ margin: 0, fontSize: '18px' }}>LIBRARIES</h2>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <button 
-                    onClick={() => { setSelectedPack(null); fetchSamples(search, null); }}
-                    style={{
-                        textAlign: 'left', padding: '10px 16px', borderRadius: '8px', border: 'none',
-                        background: !selectedPack ? `${colors.primary}15` : 'transparent',
-                        color: !selectedPack ? colors.primary : colors.textSecondary,
-                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
-                    }}
-                >
-                    <Music size={16} /> All Samples
-                </button>
-                {packs.map(pack => (
-                    <button 
-                        key={pack.id}
-                        onClick={() => { setSelectedPack(pack.id); fetchSamples(search, pack.id as any); }}
-                        style={{
-                            textAlign: 'left', padding: '10px 16px', borderRadius: '8px', border: 'none',
-                            background: selectedPack === pack.id ? `${colors.primary}15` : 'transparent',
-                            color: selectedPack === pack.id ? colors.primary : colors.textSecondary,
-                            fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                        }}
-                    >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <FolderPlus size={16} /> {pack.name}
-                        </span>
-                        <span style={{ fontSize: '10px', opacity: 0.6 }}>{pack._count.samples}</span>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 
     return (
-        <DiscoveryLayout 
-            sidebar={sidebar} 
-            search={search} 
-            onSearchChange={handleSearch}
-            searchPlaceholder="Search 808s, Snares, Loops..."
-            activeTab="fuji"
-        >
-            <div style={{ padding: '32px' }}>
-                {/* Header */}
-                <div style={{ marginBottom: '32px' }}>
-                    <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Fuji Studio <span style={{ color: colors.primary, fontSize: '14px', verticalAlign: 'middle', background: `${colors.primary}15`, padding: '4px 8px', borderRadius: '6px', marginLeft: '12px' }}>CLOUD</span></h1>
-                    <p style={{ color: colors.textSecondary, marginTop: '8px' }}>Browse and preview your high-quality sample library from Discord.</p>
+        <div style={{ padding: spacing.xl, color: colors.textPrimary, height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0a0a0a' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ backgroundColor: colors.primary, padding: spacing.sm, borderRadius: borderRadius.md, marginRight: spacing.md }}>
+                        <Music color="white" size={32} />
+                    </div>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>FUJI STUDIO</h1>
+                        <p style={{ margin: 4, color: colors.textSecondary }}>Sound design collective & sample library</p>
+                    </div>
                 </div>
 
-                {/* Samples List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {loading ? (
-                        <p style={{ textAlign: 'center', color: colors.textSecondary, padding: '40px' }}>Loading samples...</p>
-                    ) : samples.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '80px', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                            <Search size={48} color={colors.textSecondary} style={{ marginBottom: '16px', opacity: 0.3 }} />
-                            <h3 style={{ margin: 0 }}>No samples found</h3>
-                            <p style={{ color: colors.textSecondary }}>Try a different search term or check another library.</p>
-                        </div>
-                    ) : (
-                        samples.map(sample => (
+                <div style={{ display: 'flex', gap: spacing.md }}>
+                    <div style={{ backgroundColor: '#151515', borderRadius: '24px', padding: '10px 20px', display: 'flex', alignItems: 'center', border: `1px solid ${colors.border}` }}>
+                        <Search size={18} color={colors.textSecondary} style={{ marginRight: spacing.sm }} />
+                        <input 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search loops, one-shots..."
+                            style={{ background: 'none', border: 'none', outline: 'none', color: 'white', width: '250px' }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            <div style={{ display: 'flex', flex: 1, gap: spacing.xl, overflow: 'hidden' }}>
+                {/* Sidebar Navigation */}
+                <div style={{ width: '200px', flexShrink: 0 }}>
+                    <nav style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                        {[
+                            { id: 'browse', icon: Music, label: 'Browse' },
+                            { id: 'packs', icon: FolderPlus, label: 'Sample Packs' },
+                            { id: 'likes', icon: Heart, label: 'Favorites' }
+                        ].map(item => (
                             <div 
-                                key={sample.id}
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id as any)}
                                 style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '48px 1fr 100px 100px 100px 120px',
+                                    display: 'flex',
                                     alignItems: 'center',
                                     padding: '12px 16px',
-                                    background: playingId === sample.id ? 'rgba(43, 141, 112, 0.1)' : 'rgba(255,255,255,0.03)',
-                                    borderRadius: '12px',
-                                    border: playingId === sample.id ? `1px solid ${colors.primary}33` : '1px solid transparent',
+                                    borderRadius: borderRadius.md,
+                                    cursor: 'pointer',
+                                    backgroundColor: activeTab === item.id ? colors.primary + '20' : 'transparent',
+                                    color: activeTab === item.id ? colors.primary : colors.textSecondary,
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                <button 
-                                    onClick={() => togglePlay(sample)}
-                                    style={{
-                                        width: '32px', height: '32px', borderRadius: '50%', border: 'none',
-                                        background: playingId === sample.id ? colors.primary : 'rgba(255,255,255,0.1)',
-                                        color: playingId === sample.id ? 'white' : colors.textPrimary,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-                                    }}
-                                >
-                                    {playingId === sample.id ? <Pause size={14} fill="white" /> : <Play size={14} fill="currentColor" />}
-                                </button>
-                                
-                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '16px' }}>
-                                    <div style={{ fontWeight: 600 }}>{sample.filename}</div>
-                                    <div style={{ fontSize: '11px', color: colors.textSecondary }}>{sample.pack?.name || 'Unknown Pack'}</div>
-                                </div>
-
-                                <div style={{ color: colors.textSecondary, fontSize: '12px' }}>
-                                    {formatDuration(sample.duration)}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    {sample.bpm && <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>{sample.bpm} BPM</span>}
-                                    {sample.key && <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>{sample.key}</span>}
-                                </div>
-
-                                <div style={{ color: colors.textSecondary, fontSize: '12px', textAlign: 'right' }}>
-                                    {formatSize(sample.filesize)}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                    <button style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><Heart size={18} /></button>
-                                    <a 
-                                        href={`/api/fuji/stream/${sample.attachmentId}?download=true`} 
-                                        download={sample.filename}
-                                        style={{ color: colors.textSecondary }}
-                                    >
-                                        <Download size={18} />
-                                    </a>
-                                </div>
+                                <item.icon size={18} style={{ marginRight: spacing.md }} />
+                                <span style={{ fontWeight: 600 }}>{item.label}</span>
                             </div>
-                        ))
-                    )}
+                        ))}
+                    </nav>
+                </div>
+
+                {/* Main Grid */}
+                <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#111', borderRadius: borderRadius.lg, padding: spacing.lg, border: `1px solid ${colors.border}` }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ color: colors.textSecondary, fontSize: '12px', textAlign: 'left', borderBottom: `1px solid ${colors.border}22` }}>
+                                <th style={{ paddingBottom: spacing.md, width: '40px' }}></th>
+                                <th style={{ paddingBottom: spacing.md }}>NAME</th>
+                                <th style={{ paddingBottom: spacing.md }}>BPM</th>
+                                <th style={{ paddingBottom: spacing.md }}>KEY</th>
+                                <th style={{ paddingBottom: spacing.md, textAlign: 'right' }}>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody style={{ color: '#eee' }}>
+                            {samples.map(sample => (
+                                <tr 
+                                    key={sample.id} 
+                                    style={{ borderBottom: `1px solid ${colors.border}08`, transition: 'background 0.2s', cursor: 'pointer' }}
+                                    onClick={() => handlePlayPause(sample)}
+                                >
+                                    <td style={{ padding: '16px 0' }}>
+                                        <div style={{ color: currentSample?.id === sample.id && isPlaying ? colors.primary : colors.textSecondary }}>
+                                            {currentSample?.id === sample.id && isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style={{ fontWeight: 600 }}>{sample.filename}</div>
+                                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>{sample.isLoop ? 'Loop' : 'One-shot'} {sample.pack?.name ? `• ${sample.pack.name}` : ''}</div>
+                                    </td>
+                                    <td style={{ color: colors.textSecondary }}>{sample.bpm || '--'}</td>
+                                    <td>
+                                        <span style={{ backgroundColor: colors.primary + '15', color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                                            {sample.key || 'N/A'}
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                        <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', color: colors.textSecondary }} onClick={e => e.stopPropagation()}>
+                                            <Heart 
+                                                size={18} 
+                                                onClick={() => toggleLike(sample)}
+                                                fill={sample.isLiked ? colors.error : 'none'} 
+                                                color={sample.isLiked ? colors.error : 'currentColor'}
+                                            />
+                                            <Download size={18} onClick={() => downloadSample(sample)} style={{ cursor: 'pointer' }} />
+                                            <MoreHorizontal size={18} />
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </DiscoveryLayout>
+
+            {/* Bottom Player Bar */}
+            {currentSample && (
+                <div style={{ 
+                    position: 'fixed', 
+                    bottom: 0, 
+                    left: 0, 
+                    right: 0, 
+                    height: '90px', 
+                    backgroundColor: '#111', 
+                    borderTop: `1px solid ${colors.border}`, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: `0 ${spacing.xl}`, 
+                    zIndex: 100 
+                }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `${colors.primary}20` }}>
+                        <div style={{ height: '100%', background: colors.primary, width: `${progress}%`, transition: 'width 0.1s linear' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', width: '30%' }}>
+                        <div style={{ width: '56px', height: '56px', backgroundColor: '#222', borderRadius: borderRadius.md, marginRight: spacing.md, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                           {currentSample.pack?.coverUrl ? <img src={currentSample.pack.coverUrl} style={{ width: '100%', borderRadius: borderRadius.md }} alt="cover" /> : <Music size={24} color={colors.primary} />}
+                        </div>
+                        <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{currentSample.filename}</div>
+                            <div style={{ fontSize: '12px', color: colors.textSecondary }}>{currentSample.pack?.name || 'Fuji Local'}</div>
+                        </div>
+                    </div>
+
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.xl }}>
+                        <SkipBack size={20} color={colors.textSecondary} />
+                        <div 
+                            onClick={() => handlePlayPause(currentSample)}
+                            style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
+                            {isPlaying ? <Pause color="black" fill="black" /> : <Play color="black" fill="black" style={{ marginLeft: '4px' }} />}
+                        </div>
+                        <SkipForward size={20} color={colors.textSecondary} />
+                    </div>
+
+                    <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
+                        <Volume2 size={20} color={colors.textSecondary} />
+                        <div style={{ width: '100px', height: '4px', backgroundColor: `${colors.border}`, borderRadius: '2px' }}>
+                            <div style={{ width: '70%', height: '100%', background: 'white', borderRadius: '2px' }} />
+                        </div>
+                        <Download 
+                            size={20} 
+                            color={colors.primary} 
+                            style={{ cursor: 'pointer', marginLeft: spacing.md }}
+                            onClick={() => downloadSample(currentSample)}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
+
+export default FujiStudio;
