@@ -211,6 +211,14 @@ export class FujiScanner {
 
       this.logger.info(`Indexing new sample: ${attachment.filename}`);
 
+      // Extract BPM and Key from filename
+      const bpmMatch = attachment.filename.match(/(\d{2,3})\s*(?:bpm|BPM)/);
+      const bpm = bpmMatch ? parseInt(bpmMatch[1]) : null;
+
+      // Basic Key detection (A-G followed by optional #/b and maj/min/m)
+      const keyMatch = attachment.filename.match(/(?:\s|_|^)([A-G][#b]?(?:maj|min|maj7|min7|m)?)(?:\s|_|\.|$)/i);
+      const key = keyMatch ? keyMatch[1].toUpperCase() : null;
+
       // Optional: Fetch metadata using a stream. 
       // For large-scale indexing, we might want to do this in batches.
       let duration: number | null = null;
@@ -225,12 +233,14 @@ export class FujiScanner {
       await this.prisma.sampleMetadata.create({
         data: {
           packId,
-          messageId,
+          messageId: messageId,
           attachmentId: attachment.id,
           filename: attachment.filename,
           filesize: attachment.size,
           mimetype: attachment.content_type || 'audio/mpeg',
           duration: duration,
+          bpm: bpm,
+          key: key,
           tags: this.generateTags(attachment.filename)
         }
       });
