@@ -242,17 +242,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
           </div>
 
           {/* Stats Grid */}
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.1)' }}>
-                <UserPlus size={20} color={colors.primary} />
-              </div>
-              <div>
-                <p className="stat-label">People Online</p>
-                <h3 className="stat-value">{stats ? formatNumber(stats.activeMembers) : '-'}</h3>
-              </div>
-            </div>
-
+          <div className="stats-grid" style={{ marginTop: '32px' }}>
             <div className="stat-card">
               <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.1)' }}>
                 <MessageSquare size={20} color={colors.highlight} />
@@ -260,16 +250,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
               <div>
                 <p className="stat-label">Messages 24h</p>
                 <h3 className="stat-value">{formatNumber(stats?.today?.messageCount || 0)}</h3>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(33, 150, 243, 0.1)' }}>
-                <UserPlus size={20} color={colors.info} />
-              </div>
-              <div>
-                <p className="stat-label">Total Users</p>
-                <h3 className="stat-value">{stats ? formatNumber(stats.totalMembers) : '-'}</h3>
               </div>
             </div>
 
@@ -282,6 +262,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 <h3 className="stat-value">
                   {Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h
                 </h3>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.1)' }}>
+                <UserPlus size={20} color={colors.primary} />
+              </div>
+              <div>
+                <p className="stat-label">People Online</p>
+                <h3 className="stat-value">{stats ? formatNumber(stats.activeMembers) : '-'}</h3>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(33, 150, 243, 0.1)' }}>
+                <UserPlus size={20} color={colors.info} />
+              </div>
+              <div>
+                <p className="stat-label">Total Users</p>
+                <h3 className="stat-value">{stats ? formatNumber(stats.totalMembers) : '-'}</h3>
               </div>
             </div>
           </div>

@@ -89,21 +89,13 @@ export const AppStyles = `
     margin-bottom: 32px;
   }
 
-  .dashboard-card-main {
-    background: #252D3E;
-    border-radius: 12px;
-    border: 1px solid #3E455633;
-    padding: 24px;
-  }
-
-  .dashboard-card-activity {
-    background: linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9));
-    border-radius: 12px;
-    border: 1px solid #3E455633;
-    padding: 24px;
-  }
-
   /* Shared Mobile Optimizations */
+  @media (max-width: 1200px) {
+    .dashboard-grid-split {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 1024px) {
     .main-content {
       margin-left: 0 !important;
