@@ -281,22 +281,4 @@ export const FujiStudio: React.FC = () => {
     );
 };
 
-                    <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
-                        <Volume2 size={20} color={colors.textSecondary} />
-                        <div style={{ width: '100px', height: '4px', backgroundColor: `${colors.border}`, borderRadius: '2px' }}>
-                            <div style={{ width: '70%', height: '100%', background: 'white', borderRadius: '2px' }} />
-                        </div>
-                        <Download 
-                            size={20} 
-                            color={colors.primary} 
-                            style={{ cursor: 'pointer', marginLeft: spacing.md }}
-                            onClick={() => downloadSample(currentSample)}
-                        />
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
 export default FujiStudio;
