@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Play, 
@@ -83,12 +84,12 @@ export const FujiStudio: React.FC = () => {
     }, [selectedGuild?.id]);
 
     const fetchInitialData = async () => {
-        if (!selectedGuild?.id) return;
+        // If no guild selected, we might want to fetch global samples or handled by backend
         setLoading(true);
         try {
             const [samplesRes, packsRes] = await Promise.all([
-                axios.get(`/api/fuji/samples/search`, { params: { guildId: selectedGuild.id } }),
-                axios.get(`/api/fuji/libraries`, { params: { guildId: selectedGuild.id } })
+                axios.get(`/api/fuji/samples/search`, { params: { guildId: selectedGuild?.id } }),
+                axios.get(`/api/fuji/libraries`, { params: { guildId: selectedGuild?.id } })
             ]);
             setSamples(samplesRes.data);
             setPacks(packsRes.data);
@@ -134,120 +135,151 @@ export const FujiStudio: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: spacing.xl, color: colors.textPrimary, height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0a0a0a' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ backgroundColor: colors.primary, padding: spacing.sm, borderRadius: borderRadius.md, marginRight: spacing.md }}>
-                        <Music color="white" size={32} />
-                    </div>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>FUJI STUDIO</h1>
-                        <p style={{ margin: 4, color: colors.textSecondary }}>Sound design collective & sample library</p>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: spacing.md }}>
-                    <div style={{ backgroundColor: '#151515', borderRadius: '24px', padding: '10px 20px', display: 'flex', alignItems: 'center', border: `1px solid ${colors.border}` }}>
-                        <Search size={18} color={colors.textSecondary} style={{ marginRight: spacing.sm }} />
-                        <input 
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search loops, one-shots..."
-                            style={{ background: 'none', border: 'none', outline: 'none', color: 'white', width: '250px' }}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Content Area */}
-            <div style={{ display: 'flex', flex: 1, gap: spacing.xl, overflow: 'hidden' }}>
-                {/* Sidebar Navigation */}
-                <div style={{ width: '200px', flexShrink: 0 }}>
-                    <nav style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                        {[
-                            { id: 'browse', icon: Music, label: 'Browse' },
-                            { id: 'packs', icon: FolderPlus, label: 'Sample Packs' },
-                            { id: 'likes', icon: Heart, label: 'Favorites' }
-                        ].map(item => (
-                            <div 
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id as any)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    padding: '12px 16px',
-                                    borderRadius: borderRadius.md,
-                                    cursor: 'pointer',
-                                    backgroundColor: activeTab === item.id ? colors.primary + '20' : 'transparent',
-                                    color: activeTab === item.id ? colors.primary : colors.textSecondary,
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <item.icon size={18} style={{ marginRight: spacing.md }} />
-                                <span style={{ fontWeight: 600 }}>{item.label}</span>
-                            </div>
-                        ))}
-                    </nav>
-                </div>
-
-                {/* Main Grid */}
-                <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#111', borderRadius: borderRadius.lg, padding: spacing.lg, border: `1px solid ${colors.border}` }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ color: colors.textSecondary, fontSize: '12px', textAlign: 'left', borderBottom: `1px solid ${colors.border}22` }}>
-                                <th style={{ paddingBottom: spacing.md, width: '40px' }}></th>
-                                <th style={{ paddingBottom: spacing.md }}>NAME</th>
-                                <th style={{ paddingBottom: spacing.md }}>BPM</th>
-                                <th style={{ paddingBottom: spacing.md }}>KEY</th>
-                                <th style={{ paddingBottom: spacing.md, textAlign: 'right' }}>ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody style={{ color: '#eee' }}>
-                            {samples.map(sample => (
-                                <tr 
-                                    key={sample.id} 
-                                    style={{ borderBottom: `1px solid ${colors.border}08`, transition: 'background 0.2s', cursor: 'pointer' }}
-                                    onClick={() => handlePlayPause(sample)}
+        <DiscoveryLayout activeTab="samples" onSearchChange={setSearch} search={search} searchPlaceholder="Search loops, one-shots...">
+            <div style={{ padding: spacing.xl, color: colors.textPrimary, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                
+                {/* Content Area */}
+                <div style={{ display: 'flex', flex: 1, gap: spacing.xl, overflow: 'hidden' }}>
+                    {/* Sidebar Navigation */}
+                    <div style={{ width: '200px', flexShrink: 0 }}>
+                        <nav style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                            {[
+                                { id: 'browse', icon: Music, label: 'Browse' },
+                                { id: 'packs', icon: FolderPlus, label: 'Sample Packs' },
+                                { id: 'likes', icon: Heart, label: 'Favorites' }
+                            ].map(item => (
+                                <div 
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id as any)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '12px 16px',
+                                        borderRadius: borderRadius.md,
+                                        cursor: 'pointer',
+                                        backgroundColor: activeTab === item.id ? colors.primary + '20' : 'transparent',
+                                        color: activeTab === item.id ? colors.primary : colors.textSecondary,
+                                        transition: 'all 0.2s'
+                                    }}
                                 >
-                                    <td style={{ padding: '16px 0' }}>
-                                        <div style={{ color: currentSample?.id === sample.id && isPlaying ? colors.primary : colors.textSecondary }}>
-                                            {currentSample?.id === sample.id && isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div style={{ fontWeight: 600 }}>{sample.filename}</div>
-                                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>{sample.isLoop ? 'Loop' : 'One-shot'} {sample.pack?.name ? `• ${sample.pack.name}` : ''}</div>
-                                    </td>
-                                    <td style={{ color: colors.textSecondary }}>{sample.bpm || '--'}</td>
-                                    <td>
-                                        <span style={{ backgroundColor: colors.primary + '15', color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
-                                            {sample.key || 'N/A'}
-                                        </span>
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', color: colors.textSecondary }} onClick={e => e.stopPropagation()}>
-                                            <Heart 
-                                                size={18} 
-                                                onClick={() => toggleLike(sample)}
-                                                fill={sample.isLiked ? colors.error : 'none'} 
-                                                color={sample.isLiked ? colors.error : 'currentColor'}
-                                            />
-                                            <Download size={18} onClick={() => downloadSample(sample)} style={{ cursor: 'pointer' }} />
-                                            <MoreHorizontal size={18} />
-                                        </div>
-                                    </td>
-                                </tr>
+                                    <item.icon size={18} style={{ marginRight: spacing.md }} />
+                                    <span style={{ fontWeight: 600 }}>{item.label}</span>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                        </nav>
+                    </div>
 
-            {/* Bottom Player Bar */}
-            {currentSample && (
-                <div style={{ 
-                    position: 'fixed', 
+                    {/* Main Grid */}
+                    <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#111', borderRadius: borderRadius.lg, padding: spacing.lg, border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ color: colors.textSecondary, fontSize: '12px', textAlign: 'left', borderBottom: `1px solid ${colors.border}22` }}>
+                                    <th style={{ paddingBottom: spacing.md, width: '40px' }}></th>
+                                    <th style={{ paddingBottom: spacing.md }}>NAME</th>
+                                    <th style={{ paddingBottom: spacing.md }}>BPM</th>
+                                    <th style={{ paddingBottom: spacing.md }}>KEY</th>
+                                    <th style={{ paddingBottom: spacing.md, textAlign: 'right' }}>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody style={{ color: '#eee' }}>
+                                {samples.map(sample => (
+                                    <tr 
+                                        key={sample.id} 
+                                        style={{ borderBottom: `1px solid ${colors.border}08`, transition: 'background 0.2s', cursor: 'pointer' }}
+                                        onClick={() => handlePlayPause(sample)}
+                                    >
+                                        <td style={{ padding: '16px 0' }}>
+                                            <div style={{ color: currentSample?.id === sample.id && isPlaying ? colors.primary : colors.textSecondary }}>
+                                                {currentSample?.id === sample.id && isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontWeight: 600 }}>{sample.filename}</div>
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary }}>{sample.isLoop ? 'Loop' : 'One-shot'} {sample.pack?.name ? `• ${sample.pack.name}` : ''}</div>
+                                        </td>
+                                        <td style={{ color: colors.textSecondary }}>{sample.bpm || '--'}</td>
+                                        <td>
+                                            <span style={{ backgroundColor: colors.primary + '15', color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                                                {sample.key || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', color: colors.textSecondary }} onClick={e => e.stopPropagation()}>
+                                                <Heart 
+                                                    size={18} 
+                                                    onClick={() => toggleLike(sample)}
+                                                    fill={sample.isLiked ? colors.error : 'none'} 
+                                                    color={sample.isLiked ? colors.error : 'currentColor'}
+                                                />
+                                                <Download size={18} onClick={() => downloadSample(sample)} style={{ cursor: 'pointer' }} />
+                                                <MoreHorizontal size={18} />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Bottom Player Bar */}
+                {currentSample && (
+                    <div style={{ 
+                        position: 'fixed', 
+                        bottom: 0, 
+                        left: 0, 
+                        right: 0, 
+                        height: '90px', 
+                        backgroundColor: '#111', 
+                        borderTop: `1px solid ${colors.border}`, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        padding: `0 ${spacing.xl}`, 
+                        zIndex: 100 
+                    }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `${colors.primary}20` }}>
+                            <div style={{ height: '100%', background: colors.primary, width: `${progress}%`, transition: 'width 0.1s linear' }} />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', width: '30%' }}>
+                            <div style={{ width: '56px', height: '56px', backgroundColor: '#222', borderRadius: borderRadius.md, marginRight: spacing.md, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                               {currentSample.pack?.coverUrl ? <img src={currentSample.pack.coverUrl} style={{ width: '100%', borderRadius: borderRadius.md }} alt="cover" /> : <Music size={24} color={colors.primary} />}
+                            </div>
+                            <div style={{ overflow: 'hidden' }}>
+                                <div style={{ fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{currentSample.filename}</div>
+                                <div style={{ fontSize: '12px', color: colors.textSecondary }}>{currentSample.pack?.name || 'Fuji Local'}</div>
+                            </div>
+                        </div>
+
+                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.xl }}>
+                            <SkipBack size={20} color={colors.textSecondary} />
+                            <div 
+                                onClick={() => handlePlayPause(currentSample)}
+                                style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                                {isPlaying ? <Pause color="black" fill="black" /> : <Play color="black" fill="black" style={{ marginLeft: '4px' }} />}
+                            </div>
+                            <SkipForward size={20} color={colors.textSecondary} />
+                        </div>
+
+                        <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
+                            <Volume2 size={20} color={colors.textSecondary} />
+                            <div style={{ width: '100px', height: '4px', backgroundColor: `${colors.border}`, borderRadius: '2px' }}>
+                                <div style={{ width: '70%', height: '100%', background: 'white', borderRadius: '2px' }} />
+                            </div>
+                            <Download 
+                                size={20} 
+                                color={colors.primary} 
+                                style={{ cursor: 'pointer', marginLeft: spacing.md }}
+                                onClick={() => downloadSample(currentSample)}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </DiscoveryLayout>
+    );
+}; 
                     bottom: 0, 
                     left: 0, 
                     right: 0, 
