@@ -292,7 +292,7 @@ const AdminDashboard: React.FC = () => {
           display: "flex", 
           justifyContent: "space-between", 
           alignItems: "center", 
-          padding: window.innerWidth > 768 ? "12px 24px" : "12px 16px", 
+          padding: window.innerWidth > 768 ? "12px 24px" : "8px 12px", 
           background: "rgb(34,43,61)", 
           borderBottom: "1px solid #1F293A",
           position: "sticky",
@@ -300,7 +300,8 @@ const AdminDashboard: React.FC = () => {
           zIndex: 100,
           margin: "0",
           borderRadius: 0,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          gap: "8px"
         }}>
           <button
             className="mobile-menu-toggle"
@@ -311,16 +312,16 @@ const AdminDashboard: React.FC = () => {
               background: "rgba(255,255,255,0.05)", 
               border: "1px solid rgba(255,255,255,0.1)", 
               color: "white", 
-              padding: "8px", 
+              padding: "6px", 
               borderRadius: "8px",
               cursor: "pointer",
-              marginRight: "12px"
+              marginRight: "4px"
             }} 
           >
-            <span style={{ fontSize: "20px" }}>{sidebarOpen ? '✕' : '☰'}</span>
+            <span style={{ fontSize: "18px" }}>{sidebarOpen ? '✕' : '☰'}</span>
           </button>
           
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
              <UniversalSearch 
                 guildId={selectedGuild.id} 
                 onNavigate={handleNavigate} 
@@ -328,24 +329,17 @@ const AdminDashboard: React.FC = () => {
              />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: window.innerWidth > 768 ? "20px" : "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
               <NotificationMenu guildId={selectedGuild.id} />
               
-              <div style={{ width: "1px", height: "24px", background: "#1F293A", display: window.innerWidth > 768 ? "block" : "none" }} />
-
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                 <div style={{ textAlign: "right", display: window.innerWidth > 768 ? "flex" : "none", flexDirection: "column" }}>
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>{user?.username}</span>
-                    <span style={{ fontSize: "11px", color: colors.textSecondary }}>{permissions.canManagePlugins ? "Administrator" : "Moderator"}</span>
-                 </div>
-                 <div style={{ width: window.innerWidth > 768 ? "38px" : "32px", height: window.innerWidth > 768 ? "38px" : "32px", borderRadius: "8px", background: colors.primary, display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden", border: "2px solid #1F293A" }}>
-                    <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%" }} alt="User" />
-                 </div>
+              <div style={{ width: window.innerWidth > 768 ? "38px" : "28px", height: window.innerWidth > 768 ? "38px" : "28px", borderRadius: "8px", background: colors.primary, display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden", border: "1px solid #1F293A", flexShrink: 0 }}>
+                <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="User" />
               </div>
           </div>
         </div>
         
-        <div style={{ padding: window.innerWidth > 768 ? "0 16px 24px" : "0" }}>
+        <div className="main-content-scroll-container">
+          <div style={{ padding: window.innerWidth > 768 ? "0 16px 24px" : "0" }}>
             <div 
               className="info-banner-hide-mobile"
               style={{ 
@@ -398,6 +392,7 @@ const AdminDashboard: React.FC = () => {
             </div>
 
           {renderContent()}
+          </div>
         </div>
       </main>
       <InternalChat guildId={selectedGuild.id} />

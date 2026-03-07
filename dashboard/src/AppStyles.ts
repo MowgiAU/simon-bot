@@ -26,10 +26,20 @@ export const AppStyles = `
   .main-content {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     background-color: ${colors.background};
     transition: margin-left 0.3s ease;
     z-index: 1; /* Keep content below sidebar popovers */
     position: relative;
+    max-height: 100vh;
+  }
+
+  .main-content-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Only indent content when a sidebar is actually present */
