@@ -37,16 +37,6 @@ export const AppStyles = `
     overflow: hidden;
   }
 
-  .main-content-scroll-container {
-    flex: 1;
-    overflow-y: auto !important;
-    overflow-x: hidden;
-    width: 100%;
-    height: 100%;
-    -webkit-overflow-scrolling: touch;
-    display: block;
-  }
-
   /* Only indent content when a sidebar is actually present */
   .sidebar:not(.collapsed) + .main-content,
   .sidebar:not(.collapsed) ~ .main-content {
@@ -56,6 +46,26 @@ export const AppStyles = `
   .sidebar.collapsed + .main-content,
   .sidebar.collapsed ~ .main-content {
     margin-left: 80px;
+  }
+
+  .sidebar:not(.collapsed) + .main-content,
+  .sidebar:not(.collapsed) ~ .main-content {
+    margin-left: 260px;
+  }
+
+  .sidebar.collapsed + .main-content,
+  .sidebar.collapsed ~ .main-content {
+    margin-left: 80px;
+  }
+
+  .main-content-scroll-container {
+    flex: 1;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    width: 100%;
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
+    display: block;
   }
 
   /* Global scrollbar */
