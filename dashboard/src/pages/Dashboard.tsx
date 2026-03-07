@@ -140,7 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
         <>
           <div className="dashboard-grid-split">
              {/* Main Chart Card */}
-             <div className="dashboard-card-main">
+             <div className="dashboard-card-main" style={{ minHeight: '350px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                    <div>
                       <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Server Growth</h3>
@@ -151,8 +151,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                       <div style={{ fontSize: '12px', color: colors.success }}>+12.5%</div>
                    </div>
                 </div>
-                <div style={{ height: '300px' }}>
-                   <ResponsiveContainer width="100%" height="100%">
+                <div style={{ height: '300px', width: '100%', minWidth: 0 }}>
+                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                       <AreaChart data={historyData}>
                         <defs>
                           <linearGradient id="colorMessages" x1="0" y1="0" x2="0" y2="1">
