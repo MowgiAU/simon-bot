@@ -58,11 +58,11 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {/* Header */}
             <header style={{
                 height: isMobile ? '110px' : '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '12px 16px' : '0 24px', zIndex: 100,
+                display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '12px 12px' : '0 24px', zIndex: 100,
                 flexShrink: 0, gap: isMobile ? '12px' : '0'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => navigate('/')}>
                         <div style={{
                             width: '32px', height: '32px', backgroundColor: colors.primary,
                             borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'

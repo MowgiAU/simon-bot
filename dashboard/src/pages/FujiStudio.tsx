@@ -44,8 +44,16 @@ interface Pack {
 }
 
 export const FujiStudio: React.FC = () => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const { selectedGuild } = useAuth();
     const [samples, setSamples] = useState<Sample[]>([]);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const [packs, setPacks] = useState<Pack[]>([]);
     const [search, setSearch] = useState('');
     const [activeTab, setActiveTab] = useState<'browse' | 'packs' | 'likes'>('browse');
@@ -136,13 +144,13 @@ export const FujiStudio: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="library" onSearchChange={setSearch} search={search} searchPlaceholder="Search loops, one-shots...">
-            <div style={{ padding: spacing.xl, color: colors.textPrimary, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: isMobile ? '12px' : spacing.xl, color: colors.textPrimary, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 
                 {/* Content Area */}
-                <div style={{ display: 'flex', flex: 1, gap: spacing.xl, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', flex: 1, gap: isMobile ? '0px' : spacing.xl, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
                     {/* Sidebar Navigation */}
-                    <div style={{ width: '200px', flexShrink: 0 }}>
-                        <nav style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                    <div style={{ width: isMobile ? '100%' : '200px', flexShrink: 0, marginBottom: isMobile ? '12px' : '0' }}>
+                        <nav style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: spacing.xs, overflowX: isMobile ? 'auto' : 'visible' }}>
                             {[
                                 { id: 'browse', icon: Music, label: 'Browse' },
                                 { id: 'packs', icon: FolderPlus, label: 'Sample Packs' },
@@ -154,29 +162,37 @@ export const FujiStudio: React.FC = () => {
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        padding: '12px 16px',
+                                        padding: isMobile ? '8px 12px' : '12px 16px',
                                         borderRadius: borderRadius.md,
                                         cursor: 'pointer',
                                         backgroundColor: activeTab === item.id ? colors.primary + '20' : 'transparent',
                                         color: activeTab === item.id ? colors.primary : colors.textSecondary,
-                                        transition: 'all 0.2s'
+                                        transition: 'all 0.2s',
+                                        whiteSpace: 'nowrap'
                                     }}
                                 >
-                                    <item.icon size={18} style={{ marginRight: spacing.md }} />
-                                    <span style={{ fontWeight: 600 }}>{item.label}</span>
+                                    <item.icon size={isMobile ? 16 : 18} style={{ marginRight: isMobile ? spacing.sm : spacing.md }} />
+                                    <span style={{ fontWeight: 600, fontSize: isMobile ? '13px' : 'inherit' }}>{item.label}</span>
                                 </div>
                             ))}
                         </nav>
                     </div>
 
                     {/* Main Grid */}
-                    <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#111', borderRadius: borderRadius.lg, padding: spacing.lg, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ 
+                        flex: 1, 
+                        overflowY: 'auto', 
+                        backgroundColor: isMobile ? 'transparent' : '#111', 
+                        borderRadius: isMobile ? '0' : borderRadius.lg, 
+                        padding: isMobile ? '0' : spacing.lg, 
+                        border: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)' 
+                    }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ color: colors.textSecondary, fontSize: '12px', textAlign: 'left', borderBottom: `1px solid ${colors.border}22` }}>
-                                    <th style={{ paddingBottom: spacing.md, width: '40px' }}></th>
+                                    <th style={{ paddingBottom: spacing.md, width: isMobile ? '30px' : '40px' }}></th>
                                     <th style={{ paddingBottom: spacing.md }}>NAME</th>
-                                    <th style={{ paddingBottom: spacing.md }}>BPM</th>
+                                    {!isMobile && <th style={{ paddingBottom: spacing.md }}>BPM</th>}
                                     <th style={{ paddingBottom: spacing.md }}>KEY</th>
                                     <th style={{ paddingBottom: spacing.md, textAlign: 'right' }}>ACTIONS</th>
                                 </tr>
@@ -190,29 +206,28 @@ export const FujiStudio: React.FC = () => {
                                     >
                                         <td style={{ padding: '16px 0' }}>
                                             <div style={{ color: currentSample?.id === sample.id && isPlaying ? colors.primary : colors.textSecondary }}>
-                                                {currentSample?.id === sample.id && isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                                                {currentSample?.id === sample.id && isPlaying ? <Pause size={isMobile ? 16 : 18} /> : <Play size={18} />}
                                             </div>
                                         </td>
-                                        <td>
-                                            <div style={{ fontWeight: 600 }}>{sample.filename}</div>
+                                        <td style={{ maxWidth: isMobile ? '120px' : 'auto', overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 600, fontSize: isMobile ? '13px' : 'inherit', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{sample.filename}</div>
                                             <div style={{ fontSize: '11px', color: colors.textSecondary }}>{sample.isLoop ? 'Loop' : 'One-shot'} {sample.pack?.name ? `• ${sample.pack.name}` : ''}</div>
                                         </td>
-                                        <td style={{ color: colors.textSecondary }}>{sample.bpm || '--'}</td>
+                                        {!isMobile && <td style={{ color: colors.textSecondary }}>{sample.bpm || '--'}</td>}
                                         <td>
-                                            <span style={{ backgroundColor: colors.primary + '15', color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                                            <span style={{ backgroundColor: colors.primary + '15', color: colors.primary, padding: '2px 8px', borderRadius: '4px', fontSize: isMobile ? '10px' : '12px', fontWeight: 700 }}>
                                                 {sample.key || 'N/A'}
                                             </span>
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', color: colors.textSecondary }} onClick={e => e.stopPropagation()}>
+                                            <div style={{ display: 'flex', gap: isMobile ? spacing.sm : spacing.md, justifyContent: 'flex-end', color: colors.textSecondary }} onClick={e => e.stopPropagation()}>
                                                 <Heart 
-                                                    size={18} 
+                                                    size={isMobile ? 16 : 18} 
                                                     onClick={() => toggleLike(sample)}
                                                     fill={sample.isLiked ? colors.error : 'none'} 
                                                     color={sample.isLiked ? colors.error : 'currentColor'}
                                                 />
-                                                <Download size={18} onClick={() => downloadSample(sample)} style={{ cursor: 'pointer' }} />
-                                                <MoreHorizontal size={18} />
+                                                <Download size={isMobile ? 16 : 18} onClick={() => downloadSample(sample)} style={{ cursor: 'pointer' }} />
                                             </div>
                                         </td>
                                     </tr>
@@ -229,53 +244,59 @@ export const FujiStudio: React.FC = () => {
                         bottom: 0, 
                         left: 0, 
                         right: 0, 
-                        height: '90px', 
+                        height: isMobile ? '80px' : '90px', 
                         backgroundColor: '#111', 
                         borderTop: `1px solid ${colors.border}`, 
                         display: 'flex', 
                         alignItems: 'center', 
-                        padding: `0 ${spacing.xl}`, 
+                        padding: `0 ${isMobile ? '12px' : spacing.xl}`, 
                         zIndex: 100 
                     }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: `${colors.primary}20` }}>
                             <div style={{ height: '100%', background: colors.primary, width: `${progress}%`, transition: 'width 0.1s linear' }} />
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', width: '30%' }}>
-                            <div style={{ width: '56px', height: '56px', backgroundColor: '#222', borderRadius: borderRadius.md, marginRight: spacing.md, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                               {currentSample.pack?.coverUrl ? <img src={currentSample.pack.coverUrl} style={{ width: '100%', borderRadius: borderRadius.md }} alt="cover" /> : <Music size={24} color={colors.primary} />}
+                        <div style={{ display: 'flex', alignItems: 'center', width: isMobile ? '70%' : '30%' }}>
+                            <div style={{ width: isMobile ? '40px' : '56px', height: isMobile ? '40px' : '56px', backgroundColor: '#222', borderRadius: borderRadius.md, marginRight: isMobile ? spacing.sm : spacing.md, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                               {currentSample.pack?.coverUrl ? <img src={currentSample.pack.coverUrl} style={{ width: '100%', borderRadius: borderRadius.md }} alt="cover" /> : <Music size={isMobile ? 18 : 24} color={colors.primary} />}
                             </div>
                             <div style={{ overflow: 'hidden' }}>
-                                <div style={{ fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{currentSample.filename}</div>
-                                <div style={{ fontSize: '12px', color: colors.textSecondary }}>{currentSample.pack?.name || 'Fuji Local'}</div>
+                                <div style={{ fontWeight: 700, fontSize: isMobile ? '13px' : 'inherit', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{currentSample.filename}</div>
+                                <div style={{ fontSize: isMobile ? '11px' : '12px', color: colors.textSecondary }}>{currentSample.pack?.name || 'Fuji Local'}</div>
                             </div>
                         </div>
 
-                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: spacing.xl }}>
-                            <SkipBack size={20} color={colors.textSecondary} />
+                        <div style={{ flex: 1, display: 'flex', justifyContent: isMobile ? 'flex-end' : 'center', alignItems: 'center', gap: spacing.lg }}>
+                            {!isMobile && <SkipBack size={20} color={colors.textSecondary} />}
                             <div 
                                 onClick={() => handlePlayPause(currentSample)}
-                                style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                style={{ width: isMobile ? '40px' : '48px', height: isMobile ? '40px' : '48px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
                             >
-                                {isPlaying ? <Pause color="black" fill="black" /> : <Play color="black" fill="black" style={{ marginLeft: '4px' }} />}
+                                {isPlaying ? <Pause color="black" fill="black" size={isMobile ? 20 : 24} /> : <Play color="black" fill="black" size={isMobile ? 20 : 24} style={{ marginLeft: '4px' }} />}
                             </div>
-                            <SkipForward size={20} color={colors.textSecondary} />
+                            {!isMobile && <SkipForward size={20} color={colors.textSecondary} />}
                         </div>
 
-                        <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
-                            <Volume2 size={20} color={colors.textSecondary} />
-                            <div style={{ width: '100px', height: '4px', backgroundColor: `${colors.border}`, borderRadius: '2px' }}>
-                                <div style={{ width: '70%', height: '100%', background: 'white', borderRadius: '2px' }} />
+                        {!isMobile && (
+                            <div style={{ width: '30%', display: 'flex', justifyContent: 'flex-end', gap: spacing.md, alignItems: 'center' }}>
+                                <Volume2 size={20} color={colors.textSecondary} />
+                                <div style={{ width: '100px', height: '4px', backgroundColor: `${colors.border}`, borderRadius: '2px' }}>
+                                    <div style={{ width: '70%', height: '100%', background: 'white', borderRadius: '2px' }} />
+                                </div>
+                                <Download 
+                                    size={20} 
+                                    color={colors.primary} 
+                                    style={{ cursor: 'pointer', marginLeft: spacing.md }}
+                                    onClick={() => downloadSample(currentSample)}
+                                />
                             </div>
-                            <Download 
-                                size={20} 
-                                color={colors.primary} 
-                                style={{ cursor: 'pointer', marginLeft: spacing.md }}
-                                onClick={() => downloadSample(currentSample)}
-                            />
-                        </div>
+                        )}
                     </div>
                 )}
+            </div>
+        </DiscoveryLayout>
+    );
+};
             </div>
         </DiscoveryLayout>
     );
