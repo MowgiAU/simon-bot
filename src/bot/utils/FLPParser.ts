@@ -121,17 +121,25 @@ export class FLPParser {
         const clips: Array<{ id: string; name: string; start: number; length: number; track: number }> = [];
 
         if (playlistBuf) {
-            // Determine item size: 60 bytes for FL 21+ (if divisible by 60), else 32 bytes
-            let itemSize = 32;
-            if (playlistBuf.length % 60 === 0) {
-                itemSize = 60;
-            } else if (playlistBuf.length % 32 === 0) {
-                itemSize = 32;
-            } else {
-                console.log(`[FLP] Warning: playlist data ${playlistBuf.length}b not divisible by 32 or 60`);
-                // Try 60 first, then 32
-                itemSize = playlistBuf.length >= 60 ? 60 : 32;
+            // Detect item size dynamically by scanning for pattern_base (20480 / 0x5000)
+            // at the start of the SECOND item. pattern_base is always at offset 4 within each item.
+            let itemSize = 0;
+            if (playlistBuf.length >= 36) {
+                // Try sizes from 32 to 128 (step 4) — check if second item's pattern_base = 20480
+                for (let trySize = 32; trySize <= 128; trySize += 4) {
+                    if (trySize + 6 <= playlistBuf.length && playlistBuf.readUInt16LE(trySize + 4) === 20480) {
+                        itemSize = trySize;
+                        break;
+                    }
+                }
             }
+            // Fallback: use divisibility check
+            if (itemSize === 0) {
+                if (playlistBuf.length % 60 === 0) itemSize = 60;
+                else if (playlistBuf.length % 32 === 0) itemSize = 32;
+                else itemSize = 60;
+            }
+            console.log(`[FLP] Detected item size: ${itemSize} bytes (data: ${playlistBuf.length}b)`);
 
             const itemCount = Math.floor(playlistBuf.length / itemSize);
             console.log(`[FLP] Playlist: ${itemCount} items, itemSize=${itemSize}b`);
@@ -161,8 +169,8 @@ export class FLPParser {
                 clips.push({
                     id: `clip-${i}`,
                     name: itemLabel,
-                    start: Math.round(position / ppq),
-                    length: Math.max(Math.round(length / ppq), 1),
+                    start: position / ppq,
+                    length: Math.max(length / ppq, 0.25),
                     track: trackIdx,
                 });
 
