@@ -87,6 +87,7 @@ export class FLPParser {
 
         // ── 3. Event loop ──
         let bpm = 0; // Initialize to 0 to check if we detect any tempo event
+        let bpmLocked = false; // Only take the FIRST tempo event (FL Studio writes default 140 later)
         let playlistBuf: Buffer | null = null;
         const trackNames: string[] = [];
 
@@ -143,17 +144,25 @@ export class FLPParser {
             }
 
             // ── BPM (FL 12+): DWORD event 156, value = BPM × 1000 ──
+            // FL Studio can write multiple event 156 entries: first is the actual project tempo,
+            // later ones may be defaults (140). We only take the FIRST valid occurrence.
             if (code === 156 && num > 0) {
                 const tempo = num / 1000;
                 if (tempo > 10 && tempo < 999) {
-                    bpm = Math.round(tempo * 10) / 10;
-                    console.log(`[FLP] Detected Tempo (Event 156): ${bpm} BPM`);
+                    const detectedBpm = Math.round(tempo * 10) / 10;
+                    console.log(`[FLP] Event 156 tempo: ${detectedBpm} BPM (locked=${bpmLocked})`);
+                    if (!bpmLocked) {
+                        bpm = detectedBpm;
+                        bpmLocked = true;
+                        console.log(`[FLP] Set project tempo: ${bpm} BPM`);
+                    }
                 }
             }
 
             // ── BPM (legacy): WORD event 66 ──
-            if (code === 66 && num > 10 && num < 999) {
+            if (code === 66 && num > 10 && num < 999 && !bpmLocked) {
                 bpm = num;
+                bpmLocked = true;
                 console.log(`[FLP] Detected Tempo (Event 66): ${bpm} BPM`);
             }
 
