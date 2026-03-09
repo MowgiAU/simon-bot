@@ -45,13 +45,13 @@ export class FLPParser {
         const clips: any[] = [];
         let projectBpm = 140;
 
+        console.log(`[FLP] Starting parse. Data length: ${dataLen}, End offset: ${endOffset}`);
+
         while (offset < endOffset && offset < buffer.length) {
             const eventCode = buffer[offset++];
-            const eventId = eventCode & 0x3F;
             const eventType = eventCode & 0xC0;
 
-            let value: any;
-            let length = 0;
+            console.log(`[FLP] Event Code: ${eventCode}, Offset: ${offset-1}`);
 
             if (eventType === 0x00) { // Byte
                 value = buffer[offset++];
