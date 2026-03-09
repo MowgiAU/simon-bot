@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -13,6 +13,7 @@ interface Genre {
 interface TrackResult {
     id: string;
     title: string;
+    slug: string;
     artist: string | null;
     coverUrl: string | null;
     playCount: number;
@@ -48,6 +49,11 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     // FLP reprocessing state
     const [reprocessing, setReprocessing] = useState(false);
+
+    // Admin track management state
+    const [adminTrackSearch, setAdminTrackSearch] = useState('');
+    const [adminTracks, setAdminTracks] = useState<TrackResult[]>([]);
+    const [searchingAdminTracks, setSearchingAdminTracks] = useState(false);
 
     useEffect(() => {
         fetchGenres();
@@ -169,6 +175,20 @@ export const MusicianProfileAdmin: React.FC = () => {
             setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
         } finally {
             setReprocessing(false);
+        }
+    };
+
+    const handleSearchAdminTracks = async (query: string) => {
+        setAdminTrackSearch(query);
+        if (query.length < 2) { setAdminTracks([]); return; }
+        setSearchingAdminTracks(true);
+        try {
+            const res = await axios.get('/api/admin/tracks', { params: { search: query }, withCredentials: true });
+            setAdminTracks(res.data);
+        } catch (err) {
+            console.error('Failed to search tracks');
+        } finally {
+            setSearchingAdminTracks(false);
         }
     };
 
@@ -353,6 +373,56 @@ export const MusicianProfileAdmin: React.FC = () => {
                         {reprocessing ? 'Reprocessing...' : 'Re-process all FLP files'}
                     </button>
                 </div>
+            </div>
+
+            {/* Admin Track Management */}
+            <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.xl }}>
+                <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.md }}>
+                    <Edit3 size={20} color={colors.primary} /> Track Management
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>
+                    Search for any track to view or edit it. You can modify metadata, re-upload files, or fix BPM on the track page.
+                </p>
+                <div style={{ position: 'relative', marginBottom: spacing.md }}>
+                    <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                        type="text"
+                        value={adminTrackSearch}
+                        onChange={(e) => handleSearchAdminTracks(e.target.value)}
+                        placeholder="Search tracks by title, artist, or username..."
+                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                </div>
+                {searchingAdminTracks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '8px' }}>Searching...</div>}
+                {adminTracks.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {adminTracks.map(t => (
+                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {t.coverUrl ? (
+                                    <img src={t.coverUrl} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Music size={18} color={colors.textSecondary} />
+                                    </div>
+                                )}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                                    <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>
+                                        by {t.profile?.displayName || t.profile?.username} &bull; {t.playCount} plays
+                                    </div>
+                                </div>
+                                <a
+                                    href={`/track/${t.profile?.username}/${t.slug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.primary, border: `1px solid ${colors.primary}33`, borderRadius: borderRadius.sm, fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                >
+                                    <ExternalLink size={14} /> View & Edit
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xl }}>

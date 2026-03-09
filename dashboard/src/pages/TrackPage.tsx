@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
+import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
-    ArrowLeft, Share2, ExternalLink, Layers, FileAudio
+    ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
+    Edit3, X, Save, Upload
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -84,12 +86,26 @@ interface Track {
 
 export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
+    const { user, mutualAdminGuilds } = useAuth();
     const [track, setTrackData] = useState<Track | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [zoom, setZoom] = useState(1);
     const { player, setTrack, togglePlay } = usePlayer();
+
+    // Edit state
+    const [editing, setEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [editForm, setEditForm] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
+    const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
+    const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+    const [editProjectFile, setEditProjectFile] = useState<File | null>(null);
+
+    const isOwner = user && track?.profile?.userId === user.id;
+    const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
+    const canEdit = isOwner || isAdmin;
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -122,6 +138,63 @@ export const TrackPage: React.FC = () => {
             document.title = `${track.title} by ${track.profile.displayName || track.profile.username} | Fuji Studio`;
         }
     }, [track]);
+
+    const openEditMode = () => {
+        if (!track) return;
+        setEditForm({
+            title: track.title || '',
+            description: track.description || '',
+            artist: track.artist || '',
+            album: track.album || '',
+            year: track.year?.toString() || '',
+            bpm: track.bpm?.toString() || '',
+            key: track.key || '',
+        });
+        setEditAudioFile(null);
+        setEditArtworkFile(null);
+        setEditProjectFile(null);
+        setEditMsg(null);
+        setEditing(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!track) return;
+        setSaving(true);
+        setEditMsg(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('title', editForm.title);
+            formData.append('description', editForm.description);
+            formData.append('artist', editForm.artist);
+            formData.append('album', editForm.album);
+            formData.append('year', editForm.year);
+            formData.append('bpm', editForm.bpm);
+            formData.append('key', editForm.key);
+            if (editAudioFile) formData.append('audio', editAudioFile);
+            if (editArtworkFile) formData.append('artwork', editArtworkFile);
+            if (editProjectFile) formData.append('project', editProjectFile);
+
+            // Use admin endpoint if not owner
+            const endpoint = isOwner 
+                ? `/api/musician/tracks/${track.id}` 
+                : `/api/admin/tracks/${track.id}`;
+
+            const res = await axios.put(endpoint, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+            
+            setTrackData(res.data);
+            setEditing(false);
+            setEditMsg({ type: 'success', text: 'Track updated successfully!' });
+            setTimeout(() => setEditMsg(null), 3000);
+        } catch (e: any) {
+            setEditMsg({ type: 'error', text: e.response?.data?.error || 'Failed to update track' });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (loading) return (
         <DiscoveryLayout activeTab="discovery">
@@ -259,6 +332,14 @@ export const TrackPage: React.FC = () => {
                             >
                                 <Share2 size={18} /> Share Track
                             </button>
+                            {canEdit && (
+                                <button 
+                                    onClick={openEditMode}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    <Edit3 size={18} /> Edit Track
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -279,6 +360,181 @@ export const TrackPage: React.FC = () => {
                     (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
                         <ProjectInfoPanel projectInfo={track.arrangement.projectInfo} />
                     )
+                )}
+
+                {/* Edit Message Banner */}
+                {editMsg && !editing && (
+                    <div style={{
+                        position: 'fixed', top: '20px', right: '20px', zIndex: 10000,
+                        padding: '12px 20px', borderRadius: borderRadius.md,
+                        backgroundColor: editMsg.type === 'success' ? '#059669' : '#DC2626',
+                        color: 'white', fontWeight: 600, fontSize: '0.9rem',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                    }}>
+                        {editMsg.text}
+                    </div>
+                )}
+
+                {/* Edit Modal Overlay */}
+                {editing && (
+                    <div style={{
+                        position: 'fixed', inset: 0, zIndex: 9999,
+                        backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '20px',
+                    }}>
+                        <div style={{
+                            backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto',
+                            padding: '32px',
+                        }}>
+                            {/* Modal Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Edit3 size={24} color={colors.primary} />
+                                    <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Edit Track</h2>
+                                </div>
+                                <button onClick={() => setEditing(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {editMsg && (
+                                <div style={{
+                                    padding: '10px 16px', borderRadius: borderRadius.md, marginBottom: '16px',
+                                    backgroundColor: editMsg.type === 'success' ? 'rgba(5,150,105,0.15)' : 'rgba(220,38,38,0.15)',
+                                    color: editMsg.type === 'success' ? '#34D399' : '#F87171',
+                                    border: `1px solid ${editMsg.type === 'success' ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)'}`,
+                                    fontSize: '0.9rem',
+                                }}>
+                                    {editMsg.text}
+                                </div>
+                            )}
+
+                            {/* Form Fields */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {/* Title */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Title *</label>
+                                    <input
+                                        type="text" value={editForm.title}
+                                        onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+
+                                {/* Artist / Album row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Artist</label>
+                                        <input
+                                            type="text" value={editForm.artist}
+                                            onChange={e => setEditForm(f => ({ ...f, artist: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Album</label>
+                                        <input
+                                            type="text" value={editForm.album}
+                                            onChange={e => setEditForm(f => ({ ...f, album: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Year / BPM / Key row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Year</label>
+                                        <input
+                                            type="number" value={editForm.year}
+                                            onChange={e => setEditForm(f => ({ ...f, year: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>BPM</label>
+                                        <input
+                                            type="number" value={editForm.bpm}
+                                            onChange={e => setEditForm(f => ({ ...f, bpm: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Key</label>
+                                        <input
+                                            type="text" value={editForm.key} placeholder="e.g. C minor"
+                                            onChange={e => setEditForm(f => ({ ...f, key: e.target.value }))}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Description</label>
+                                    <textarea
+                                        value={editForm.description}
+                                        onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                        rows={3}
+                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+
+                                {/* File Uploads */}
+                                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '4px' }}>
+                                    <h3 style={{ margin: '0 0 12px', fontSize: '1rem', color: colors.textSecondary }}>Replace Files (optional)</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {/* Audio upload */}
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem', transition: 'border-color 0.2s' }}>
+                                                <Upload size={16} />
+                                                {editAudioFile ? editAudioFile.name : 'Replace audio file (MP3, WAV, FLAC)'}
+                                                <input type="file" accept=".mp3,.wav,.flac,audio/*" style={{ display: 'none' }} onChange={e => setEditAudioFile(e.target.files?.[0] || null)} />
+                                            </label>
+                                        </div>
+                                        {/* Artwork upload */}
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem', transition: 'border-color 0.2s' }}>
+                                                <Upload size={16} />
+                                                {editArtworkFile ? editArtworkFile.name : 'Replace artwork (JPG, PNG)'}
+                                                <input type="file" accept=".jpg,.jpeg,.png,image/*" style={{ display: 'none' }} onChange={e => setEditArtworkFile(e.target.files?.[0] || null)} />
+                                            </label>
+                                        </div>
+                                        {/* Project file upload */}
+                                        <div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem', transition: 'border-color 0.2s' }}>
+                                                <Upload size={16} />
+                                                {editProjectFile ? editProjectFile.name : 'Replace project file (FLP)'}
+                                                <input type="file" accept=".flp" style={{ display: 'none' }} onChange={e => setEditProjectFile(e.target.files?.[0] || null)} />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                                    <button
+                                        onClick={() => setEditing(false)}
+                                        disabled={saving}
+                                        style={{ padding: '10px 24px', backgroundColor: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSaveEdit}
+                                        disabled={saving || !editForm.title.trim()}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.95rem', opacity: saving || !editForm.title.trim() ? 0.5 : 1 }}
+                                    >
+                                        <Save size={16} />
+                                        {saving ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </DiscoveryLayout>

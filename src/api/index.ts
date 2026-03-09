@@ -3336,6 +3336,259 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
     }
 });
 
+// Edit track with file re-uploads (audio, artwork, project)
+app.put('/api/musician/tracks/:trackId', upload.fields([
+    { name: 'audio', maxCount: 1 },
+    { name: 'artwork', maxCount: 1 },
+    { name: 'project', maxCount: 1 }
+]), async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const { trackId } = req.params;
+
+        // Ownership check
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track || track.profile.userId !== userId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const audioFile = files['audio']?.[0];
+        const artworkFile = files['artwork']?.[0];
+        const projectFile = files['project']?.[0];
+
+        const updateData: any = {};
+
+        // Text field updates
+        const { title, description, artist, album, year, bpm, key: musicKey, genreIds } = req.body;
+        if (title !== undefined) {
+            updateData.title = title;
+            updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        }
+        if (description !== undefined) updateData.description = description || null;
+        if (artist !== undefined) updateData.artist = artist || null;
+        if (album !== undefined) updateData.album = album || null;
+        if (year !== undefined) updateData.year = year ? parseInt(year) : null;
+        if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
+        if (musicKey !== undefined) updateData.key = musicKey || null;
+
+        // Audio file replacement
+        if (audioFile) {
+            // Delete old audio file
+            if (track.url?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.url = `/uploads/tracks/${path.basename(audioFile.path)}`;
+
+            // Extract duration from new audio
+            try {
+                const parsed = await mm.parseFile(audioFile.path);
+                updateData.duration = Math.round(parsed.format.duration || 0);
+            } catch (err) {
+                logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
+            }
+        }
+
+        // Artwork replacement
+        if (artworkFile) {
+            // Delete old artwork
+            if (track.coverUrl?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.coverUrl = `/uploads/artwork/${path.basename(artworkFile.path)}`;
+        }
+
+        // Project file replacement — re-parse FLP
+        if (projectFile) {
+            // Delete old project file
+            if (track.projectFileUrl?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+
+            try {
+                const flpBuffer = fs.readFileSync(projectFile.path);
+                const arrangement = FLPParser.parse(flpBuffer);
+                // Use user-provided BPM if available, otherwise use track's existing BPM
+                const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
+                if (finalBpm) (arrangement as any).bpm = finalBpm;
+                updateData.arrangement = arrangement;
+                logger.info(`Re-parsed FLP for track edit: ${track.title} — arrangement BPM set to ${finalBpm}`);
+            } catch (e) {
+                logger.warn(`Failed to parse replaced FLP file: ${e}`);
+            }
+        }
+
+        // If BPM changed but no new FLP, update arrangement BPM too
+        if (bpm && !projectFile && track.arrangement) {
+            const arr = { ...(track.arrangement as any), bpm: parseInt(bpm) };
+            updateData.arrangement = arr;
+        }
+
+        await db.track.update({ where: { id: trackId }, data: updateData });
+
+        // Sync genre tags if provided
+        if (genreIds) {
+            const ids = typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds;
+            await db.trackGenre.deleteMany({ where: { trackId } });
+            if (Array.isArray(ids) && ids.length > 0) {
+                await db.trackGenre.createMany({
+                    data: ids.map((gid: string) => ({ trackId, genreId: gid })),
+                    skipDuplicates: true
+                });
+            }
+        }
+
+        const fullTrack = await db.track.findUnique({
+            where: { id: trackId },
+            include: { profile: true, genres: { include: { genre: true } } }
+        });
+        res.json(fullTrack);
+    } catch (e: any) {
+        logger.error('Failed to update track', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Edit any user's track (same as PUT but bypasses ownership)
+app.put('/api/admin/tracks/:trackId', upload.fields([
+    { name: 'audio', maxCount: 1 },
+    { name: 'artwork', maxCount: 1 },
+    { name: 'project', maxCount: 1 }
+]), async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        // Admin check: user must have Administrator permission in a mutual guild
+        const isAdmin = req.session.mutualAdminGuilds && req.session.mutualAdminGuilds.length > 0;
+        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const audioFile = files['audio']?.[0];
+        const artworkFile = files['artwork']?.[0];
+        const projectFile = files['project']?.[0];
+
+        const updateData: any = {};
+
+        const { title, description, artist, album, year, bpm, key: musicKey, genreIds } = req.body;
+        if (title !== undefined) {
+            updateData.title = title;
+            updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        }
+        if (description !== undefined) updateData.description = description || null;
+        if (artist !== undefined) updateData.artist = artist || null;
+        if (album !== undefined) updateData.album = album || null;
+        if (year !== undefined) updateData.year = year ? parseInt(year) : null;
+        if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
+        if (musicKey !== undefined) updateData.key = musicKey || null;
+
+        if (audioFile) {
+            if (track.url?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.url = `/uploads/tracks/${path.basename(audioFile.path)}`;
+            try {
+                const parsed = await mm.parseFile(audioFile.path);
+                updateData.duration = Math.round(parsed.format.duration || 0);
+            } catch (err) {
+                logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
+            }
+        }
+
+        if (artworkFile) {
+            if (track.coverUrl?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.coverUrl = `/uploads/artwork/${path.basename(artworkFile.path)}`;
+        }
+
+        if (projectFile) {
+            if (track.projectFileUrl?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+            try {
+                const flpBuffer = fs.readFileSync(projectFile.path);
+                const arrangement = FLPParser.parse(flpBuffer);
+                const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
+                if (finalBpm) (arrangement as any).bpm = finalBpm;
+                updateData.arrangement = arrangement;
+            } catch (e) {
+                logger.warn(`Failed to parse replaced FLP file: ${e}`);
+            }
+        }
+
+        if (bpm && !projectFile && track.arrangement) {
+            const arr = { ...(track.arrangement as any), bpm: parseInt(bpm) };
+            updateData.arrangement = arr;
+        }
+
+        await db.track.update({ where: { id: trackId }, data: updateData });
+
+        if (genreIds) {
+            const ids = typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds;
+            await db.trackGenre.deleteMany({ where: { trackId } });
+            if (Array.isArray(ids) && ids.length > 0) {
+                await db.trackGenre.createMany({
+                    data: ids.map((gid: string) => ({ trackId, genreId: gid })),
+                    skipDuplicates: true
+                });
+            }
+        }
+
+        const fullTrack = await db.track.findUnique({
+            where: { id: trackId },
+            include: { profile: true, genres: { include: { genre: true } } }
+        });
+        
+        logger.info(`Admin edited track: ${track.title} (ID: ${trackId}) by admin ${userId}`);
+        res.json(fullTrack);
+    } catch (e: any) {
+        logger.error('Admin track edit failed', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: List all tracks (for admin track management)
+app.get('/api/admin/tracks', async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const isAdmin = req.session.mutualAdminGuilds && req.session.mutualAdminGuilds.length > 0;
+        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+
+        const search = req.query.search as string || '';
+        const tracks = await db.track.findMany({
+            where: search ? {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { artist: { contains: search, mode: 'insensitive' } },
+                    { profile: { username: { contains: search, mode: 'insensitive' } } },
+                    { profile: { displayName: { contains: search, mode: 'insensitive' } } },
+                ]
+            } : {},
+            include: { profile: true, genres: { include: { genre: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+        res.json(tracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Leaderboard: Top Tracks
 app.get('/api/musician/leaderboards/tracks', async (req, res) => {
     try {
