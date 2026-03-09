@@ -1,141 +1,139 @@
 /**
- * FLPParser: A basic utility to extract "PLItem" arrangement metadata 
- * from FL Studio (FLP) binary files.
- * 
- * Note: Full FLP parsing is complex. This is a simplified implementation 
- * for the Fuji Project Viewer.
+ * FLPParser: Extracts arrangement metadata from FL Studio (.flp) binary files.
+ * Supports FL Studio 12+ (modern event IDs: BPM at code 156, playlist at code 236).
+ *
+ * Binary format overview:
+ *   FLhd (4) | headerLen (4) | format(2) channels(2) ppq(2) | FLdt (4) | dataLen (4) | events...
+ *   Event codes: 0-63 = BYTE (1b data), 64-127 = WORD (2b), 128-191 = DWORD (4b), 192-255 = VAR (VLQ len + data)
  */
 export class FLPParser {
-    // Event IDs based on common FLP specifications
-    static EVENTS = {
-        BYTE: 0x00,
-        WORD: 0x40,
-        DWORD: 0x80,
-        TEXT: 0xC0,
-        
-        // Specific identifiers
-        PROJECT_FILE: 0,
-        BPM_EVENT: 104,
-        TRACK_NAME: 200,
-        PLAY_LIST_ITEM: 213, // This holds clip coordinates
-    };
-
     static parse(buffer: Buffer) {
         let offset = 0;
-        
-        // 1. Verify Header
-        const header = buffer.toString('ascii', 0, 4);
-        if (header !== 'FLhd') throw new Error('Invalid FLP header');
-        
+
+        // ── 1. FLhd header ──
+        if (buffer.toString('ascii', 0, 4) !== 'FLhd') {
+            throw new Error('Invalid FLP: missing FLhd header');
+        }
         offset += 4;
         const headerLen = buffer.readUInt32LE(offset);
-        offset += 4 + headerLen;
-
-        // 2. Read 'FLdt' chunk
-        const dataHeader = buffer.toString('ascii', offset, offset + 4);
-        if (dataHeader !== 'FLdt') throw new Error('Could not find data chunk');
-        
-        offset += 4;
-        const dataLen = buffer.readUInt32LE(offset);
         offset += 4;
 
-        const endOffset = offset + dataLen;
-        
-        // State for arrangement extraction
-        const clips: any[] = [];
-        let projectBpm = 140;
+        // PPQ (pulses per quarter-note) sits at bytes 4-5 of header data
+        const ppq = headerLen >= 6 ? buffer.readUInt16LE(offset + 4) : 96;
+        offset += headerLen;
 
-        console.log(`[FLP] Starting parse. Data length: ${dataLen}, End offset: ${endOffset}`);
+        // ── 2. FLdt data chunk ──
+        if (buffer.toString('ascii', offset, offset + 4) !== 'FLdt') {
+            throw new Error('Invalid FLP: missing FLdt chunk');
+        }
+        offset += 4;
+        offset += 4; // skip dataLen – we scan to EOF for robustness
+
+        // ── 3. Event loop ──
+        let bpm = 140;
+        const clips: Array<{ id: string; name: string; start: number; length: number; track: number }> = [];
+        let playlistTrack = -1; // incremented by track-header events (code 235)
+
+        console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
         while (offset < buffer.length) {
-            const eventCode = buffer[offset++];
-            const eventType = eventCode & 0xC0;
-            const eventId = eventCode & 0x3F;
-            let value: any;
-            let length = 0;
+            const code = buffer[offset++];
+            let num = 0;       // numeric value for BYTE / WORD / DWORD events
+            let buf: Buffer | null = null; // buffer value for VARIABLE events
 
-            if (eventCode === 0) continue; // Skip padding
-
-            if (eventType === 0x00) { // Byte (0-63)
-                value = buffer[offset++];
-                console.log(`[FLP] Byte Code: ${eventCode}, Value: ${value}`);
-            } else if (eventType === 0x40) { // Word (64-127)
+            if (code <= 63) {
+                // ── BYTE event (1 byte of data) ──
+                if (offset >= buffer.length) break;
+                num = buffer[offset++];
+            } else if (code <= 127) {
+                // ── WORD event (2 bytes) ──
                 if (offset + 2 > buffer.length) break;
-                value = buffer.readUInt16LE(offset);
+                num = buffer.readUInt16LE(offset);
                 offset += 2;
-                console.log(`[FLP] Word Code: ${eventCode}, Value: ${value}`);
-            } else if (eventType === 0x80) { // DWord (128-191)
+            } else if (code <= 191) {
+                // ── DWORD event (4 bytes) ──
                 if (offset + 4 > buffer.length) break;
-                value = buffer.readUInt32LE(offset);
+                num = buffer.readUInt32LE(offset);
                 offset += 4;
-                console.log(`[FLP] DWord Code: ${eventCode}, Value: ${value}`);
-            } else if (eventType === 0xC0) { // Text/Variable (192-255)
-                let result = 0;
+            } else {
+                // ── VARIABLE-LENGTH event (VLQ length prefix + data) ──
+                let len = 0;
                 let shift = 0;
-                let b;
-                do {
-                    if (offset >= buffer.length) break;
-                    b = buffer[offset++];
-                    result |= (b & 0x7F) << shift;
+                while (offset < buffer.length) {
+                    const b = buffer[offset++];
+                    len |= (b & 0x7F) << shift;
                     shift += 7;
-                } while (b & 0x80);
-                length = result;
-                if (offset + length > buffer.length) break;
-                value = buffer.slice(offset, offset + length);
-                offset += length;
-                console.log(`[FLP] Variable Code: ${eventCode}, Length: ${length}`);
+                    if (!(b & 0x80)) break;
+                }
+                if (len < 0 || offset + len > buffer.length) break;
+                buf = Buffer.from(buffer.subarray(offset, offset + len));
+                offset += len;
             }
 
-            // Handle specific relevant events
-            if (eventCode === 104 || eventCode === 104 - 64 || eventCode === 104 + 64) { // BPM (Word)
-                projectBpm = value / 10;
-                console.log(`[FLP] Found BPM: ${projectBpm}`);
+            // ── BPM (FL 12+): DWORD event 156, value = BPM × 1000 ──
+            if (code === 156 && num > 0) {
+                const tempo = num / 1000;
+                if (tempo > 10 && tempo < 999) {
+                    bpm = Math.round(tempo * 10) / 10;
+                    console.log(`[FLP] Tempo: ${bpm} BPM`);
+                }
             }
 
-            // Modern FL Studio uses Code 236 for Playlist Items in many cases
-            if (eventCode === 213 || eventCode === 236) { // PLItem (Text/Var)
-                // PLItem data structure (~12-24 bytes)
-                if (value && value.length >= 10) {
-                    try {
-                        const startPos = value.readInt32LE(0);
-                        const clipLen = value.length >= 8 ? value.readInt32LE(4) : 96;
-                        // For Code 236, track index is often later in the buffer
-                        const trackIdx = value.length >= 12 ? value.readInt16LE(10) : (value.length >= 10 ? value.readInt16LE(8) : 0);
-                        
-                        clips.push({
-                            id: Math.random().toString(36).substr(2, 9),
-                            name: `Clip ${clips.length + 1}`,
-                            start: Math.max(0, startPos / 96), 
-                            length: Math.max(clipLen / 96, 1),
-                            track: Math.abs(trackIdx % 500),
-                            type: 'clip' as const
-                        });
-                    } catch (e) {
-                        // Skip corrupted/unusual items
-                    }
+            // ── BPM (legacy): WORD event 66, value = BPM ──
+            if (code === 66 && num > 10 && num < 999) {
+                bpm = num;
+                console.log(`[FLP] Tempo (legacy): ${bpm} BPM`);
+            }
+
+            // ── Playlist track header (Variable event 235) ──
+            // Each 235 event marks a new playlist track block; the 236 that
+            // follows contains the clips belonging to that track.
+            if (code === 235) {
+                playlistTrack++;
+            }
+
+            // ── Playlist items: codes 236 (FL 20+), 228 (FL 12-19), 213 (legacy) ──
+            if ((code === 236 || code === 228 || code === 213) && buf) {
+                const ITEM = 12; // bytes per playlist item in this format
+                const count = Math.floor(buf.length / ITEM);
+                console.log(`[FLP] Playlist event: code=${code}, bytes=${buf.length}, items=${count}, track=${playlistTrack}`);
+
+                for (let i = 0; i < count; i++) {
+                    const o = i * ITEM;
+                    const position = buf.readUInt32LE(o);     // absolute tick position
+                    const lengthVal = buf.readUInt32LE(o + 8); // clip length in ticks
+
+                    // Sanity: ignore items with absurd positions
+                    if (position > 50_000_000) continue;
+
+                    clips.push({
+                        id: `${playlistTrack}-${i}-${clips.length}`,
+                        name: `Clip ${clips.length + 1}`,
+                        start: position / ppq,
+                        length: Math.max(lengthVal > 0 ? lengthVal / ppq : 4, 0.25),
+                        track: playlistTrack >= 0 ? playlistTrack : 0,
+                    });
                 }
             }
         }
 
-        console.log(`[FLP] Finished loop. Clips found: ${clips.length}`);
+        console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
-        // Group clips into tracks
-        const tracksMap = new Map<number, any>();
-        clips.forEach(clip => {
-            if (!tracksMap.has(clip.track)) {
-                tracksMap.set(clip.track, {
-                    id: clip.track,
-                    name: `Track ${clip.track + 1}`,
-                    clips: []
-                });
-            }
-            tracksMap.get(clip.track).clips.push(clip);
-        });
+        // ── 4. Group clips by track ──
+        const trackMap = new Map<number, typeof clips>();
+        for (const clip of clips) {
+            if (!trackMap.has(clip.track)) trackMap.set(clip.track, []);
+            trackMap.get(clip.track)!.push(clip);
+        }
 
         return {
-            bpm: projectBpm,
+            bpm,
             signature: [4, 4],
-            tracks: Array.from(tracksMap.values())
+            tracks: Array.from(trackMap.entries()).map(([id, trackClips]) => ({
+                id,
+                name: `Track ${id + 1}`,
+                clips: trackClips,
+            })),
         };
     }
 }
