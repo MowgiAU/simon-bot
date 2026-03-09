@@ -88,9 +88,9 @@ export class FujiGenerator {
         const existingThreads = await threadManager.fetchActive();
         const archivedThreads = await threadManager.fetchArchived();
         
-        let thread = existingThreads.threads.find(t => t.name.toLowerCase() === threadName.toLowerCase());
+        let thread = existingThreads.threads.find((t: any) => t.name.toLowerCase() === threadName.toLowerCase());
         if (!thread) {
-            thread = archivedThreads.threads.find(t => t.name.toLowerCase() === threadName.toLowerCase());
+            thread = archivedThreads.threads.find((t: any) => t.name.toLowerCase() === threadName.toLowerCase());
         }
 
         if (!thread) {

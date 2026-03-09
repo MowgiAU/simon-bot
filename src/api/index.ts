@@ -3872,7 +3872,6 @@ app.get('/api/fuji/samples/search', async (req, res) => {
         const samples = await db.sampleMetadata.findMany({
             where: {
                 ...(packId ? { packId: packId as string } : {}),
-                ...(projectsOnly === 'true' ? { arrangement: { not: null } } : {}),
                 ...(q ? {
                     OR: [
                         { filename: { contains: q as string, mode: 'insensitive' } },
