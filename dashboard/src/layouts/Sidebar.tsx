@@ -19,6 +19,7 @@ import {
   FileText,
   Music,
   Compass,
+  Layout,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
