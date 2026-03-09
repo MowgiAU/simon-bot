@@ -1615,7 +1615,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'project-viewer'] 
             });
         }
 
@@ -3833,11 +3833,12 @@ app.get('/api/fuji/download/:attachmentId', async (req, res) => {
 // Search Samples
 app.get('/api/fuji/samples/search', async (req, res) => {
     try {
-        const { q, packId, limit = 50 } = req.query;
+        const { q, packId, limit = 100, projectsOnly } = req.query;
         
         const samples = await db.sampleMetadata.findMany({
             where: {
                 ...(packId ? { packId: packId as string } : {}),
+                ...(projectsOnly === 'true' ? { arrangement: { not: null } } : {}),
                 ...(q ? {
                     OR: [
                         { filename: { contains: q as string, mode: 'insensitive' } },
@@ -3847,10 +3848,46 @@ app.get('/api/fuji/samples/search', async (req, res) => {
             },
             take: Number(limit),
             orderBy: { createdAt: 'desc' },
-            include: { pack: true }
+            include: { 
+                pack: true,
+                projectFile: true // From our new relation
+            }
         });
 
         res.json(samples);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get detailed project data
+app.get('/api/projects/:sampleId', async (req, res) => {
+    try {
+        const { sampleId } = req.params;
+        const sample = await db.sampleMetadata.findUnique({
+            where: { id: sampleId },
+            include: { projectFile: true }
+        });
+
+        if (!sample) return res.status(404).json({ error: 'Project not found' });
+        
+        // Ensure it actually has an arrangement
+        if (!sample.arrangement) {
+             return res.status(400).json({ error: 'Selected item is a sample, not a project.' });
+        }
+
+        res.json({
+            id: sample.id,
+            filename: sample.filename,
+            url: sample.url,
+            arrangement: sample.arrangement,
+            projectFile: sample.projectFile,
+            metadata: {
+                bpm: sample.bpm,
+                key: sample.key,
+                duration: sample.duration
+            }
+        });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

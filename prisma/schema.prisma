@@ -823,6 +823,10 @@ model SampleMetadata {
   tags            String[] @default([])
   authorId        String?  // Uploader Discord ID
   
+  // Project Viewer (Splice-style Arrangement)
+  arrangement     Json?    // Array of FLPClip objects for timeline visualization
+  projectFile     ProjectFile?
+
   pack            SamplePack @relation(fields: [packId], references: [id], onDelete: Cascade)
   favoritedBy     UserSampleFavorite[]
   inCollections   SampleCollectionItem[]
@@ -831,6 +835,22 @@ model SampleMetadata {
 
   @@index([packId, filename, bpm, key])
   @@map("fuji_samples")
+}
+
+model ProjectFile {
+  id              String   @id @default(cuid())
+  sampleId        String   @unique
+  sample          SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  
+  filename        String
+  url             String
+  filesize        Int
+  mimetype        String
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("fuji_project_files")
 }
 
 model UserSampleFavorite {

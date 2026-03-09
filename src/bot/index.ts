@@ -24,6 +24,7 @@ import { EmailPlugin } from './plugins/EmailPlugin';
 import { TicketPlugin } from './plugins/TicketPlugin';
 import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
 import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
+import { ProjectViewerPlugin } from './plugins/ProjectViewerPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 
@@ -101,6 +102,7 @@ export class SimonBot {
       this.pluginManager.register(new TicketPlugin());
       this.pluginManager.register(new ChannelRulesPlugin());
       this.pluginManager.register(new MusicianProfilePlugin());
+      this.pluginManager.register(new ProjectViewerPlugin(this.db));
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

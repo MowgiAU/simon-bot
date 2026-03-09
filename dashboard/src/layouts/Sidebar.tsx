@@ -219,6 +219,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('project-viewer') && (
+            <button
+                className={`nav-item ${activeSection === 'project-viewer' ? 'active' : ''}`}
+                onClick={() => onNavigate('project-viewer')}
+                title={collapsed ? "Project Viewer" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Layout} size={20} /></span>
+                <span className="nav-label">Project Viewer</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('production-feedback') && (
             <button
                 className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}

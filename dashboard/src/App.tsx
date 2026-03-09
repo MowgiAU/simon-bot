@@ -24,6 +24,7 @@ import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
 import { FujiStudio } from "./pages/FujiStudio";
+import { ProjectViewer } from "./pages/ProjectViewer";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
@@ -48,6 +49,7 @@ type Section =
   | "musician-profiles-admin"
   | "musician-profiles"
   | "library"
+  | "project-viewer"
   | "docs"
   | "logs"
   | "staging-test"
@@ -244,6 +246,8 @@ const AdminDashboard: React.FC = () => {
         return <MusicianProfilePage />;
       case "library":
         return <FujiStudio />;
+      case "project-viewer":
+        return <ProjectViewer />;
       case "docs":
         return <DocumentationPage 
           initialSection={navigationParams?.docSection} 
