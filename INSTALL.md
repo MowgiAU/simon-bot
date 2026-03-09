@@ -63,7 +63,7 @@ swapon /swapfile
 Run this one-liner from your local machine to update the production server:
 
 ```powershell
-ssh root@simon-bot-main "cd ~/new-simon && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
+ssh root@staging.fujistud.io "cd ~/simon-bot && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
 ```
 
 **What this does:**
@@ -74,8 +74,8 @@ ssh root@simon-bot-main "cd ~/new-simon && git pull && npm install && npm run bu
 5.  Restarts all PM2 services to apply changes.
 
 ### Manual Update (If One-Liner Fails)
-1.  **SSH into server**: `ssh root@simon-bot-main`
-2.  **Pull changes**: `cd ~/new-simon && git pull`
+1.  **SSH into server**: `ssh root@staging.fujistud.io`
+2.  **Pull changes**: `cd ~/simon-bot && git pull`
 3.  **Install deps**: `npm install` (and `cd dashboard && npm install` if frontend changed)
 4.  **Build**: `npm run build`
 5.  **Build Dashboard**: `cd dashboard && npm run build` (Watch out for OOM! Ensure swap is on)
