@@ -5,25 +5,45 @@
  * Binary format reference (from PyFLP):
  *   Event bases: BYTE=0, WORD=64, DWORD=128, TEXT=192, DATA=208
  *   Key events:
- *     156 (DWORD)   = BPM × 1000
- *     233 (DATA+25) = Playlist items (32 or 60 bytes each)
- *     238 (DATA+30) = Track data (properties blob)
- *     239 (TEXT+47)  = Track name
+ *     64  (WORD)     = ChannelID.New   — new channel (value = IID)
+ *     65  (WORD+1)   = PatternID.New   — new pattern (value = IID)
+ *     156 (DWORD+28) = BPM × 1000
+ *     192 (TEXT)      = ChannelID._Name — legacy channel name
+ *     193 (TEXT+1)    = PatternID.Name
+ *     196 (TEXT+4)    = ChannelID.SamplePath
+ *     203 (TEXT+11)   = PluginID.Name — channel/plugin display name
+ *     224 (DATA+16)   = PatternID.Notes — 24 bytes per note
+ *     233 (DATA+25)   = Playlist items (32 or 60 bytes each)
+ *     238 (DATA+30)   = Track data
+ *     239 (TEXT+47)   = Track name
  *
- *   Playlist item struct (per PyFLP):
- *     position:     u32le  @ 0   (PPQ ticks)
- *     pattern_base: u16le  @ 4   (always 20480)
- *     item_index:   u16le  @ 6
- *     length:       u32le  @ 8   (PPQ ticks)
- *     track_rvidx:  u16le  @ 12  (reversed: Track 1 = 499)
- *     group:        u16le  @ 14
- *     _u1:          2 bytes @ 16
- *     item_flags:   u16le  @ 18
- *     _u2:          4 bytes @ 20
- *     start_offset: f32le  @ 24
- *     end_offset:   f32le  @ 28
- *     _u3:          28 bytes @ 32  (FL 21+ only, total = 60 bytes)
+ *   Note struct (24 bytes):
+ *     position: u32le@0, flags: u16le@4, rack_channel: u16le@6,
+ *     length: u32le@8, key: u16le@12, velocity: u8@21
+ *
+ *   Playlist item struct:
+ *     position: u32le@0, pattern_base: u16le@4 (always 20480),
+ *     item_index: u16le@6, length: u32le@8, track_rvidx: u16le@12
  */
+
+interface NoteData {
+    key: number;       // 0-131 (C0=0, C#0=1, ..., B10=131)
+    position: number;  // beats relative to pattern start
+    length: number;    // beats
+    velocity: number;  // 0-128
+}
+
+interface ClipData {
+    id: string;
+    name: string;
+    start: number;     // beats
+    length: number;    // beats
+    track: number;
+    type: 'pattern' | 'audio';
+    notes?: NoteData[];
+    sampleFileName?: string;
+}
+
 export class FLPParser {
     static parse(buffer: Buffer) {
         let offset = 0;
@@ -49,6 +69,16 @@ export class FLPParser {
         let bpm = 140;
         let playlistBuf: Buffer | null = null;
         const trackNames: string[] = [];
+
+        // Pattern tracking: keyed by pattern IID
+        let currentPatternIID = 0;
+        const patternNames = new Map<number, string>();
+        const patternNotes = new Map<number, NoteData[]>();
+
+        // Channel tracking: keyed by channel IID
+        let currentChannelIID = 0;
+        const channelNames = new Map<number, string>();
+        const channelSamplePaths = new Map<number, string>();
 
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
@@ -97,6 +127,74 @@ export class FLPParser {
                 bpm = num;
             }
 
+            // ── Channel New (64): marks start of new channel ──
+            if (code === 64) {
+                currentChannelIID = num;
+            }
+
+            // ── Pattern New (65): marks start of new pattern ──
+            if (code === 65) {
+                currentPatternIID = num;
+            }
+
+            // ── Channel name legacy (192) ──
+            if (code === 192 && buf && currentChannelIID > 0) {
+                const name = FLPParser.readStringBuf(buf);
+                if (name && !channelNames.has(currentChannelIID)) {
+                    channelNames.set(currentChannelIID, name);
+                }
+            }
+
+            // ── Pattern name (193) ──
+            if (code === 193 && buf && currentPatternIID > 0) {
+                const name = FLPParser.readStringBuf(buf);
+                if (name) {
+                    patternNames.set(currentPatternIID, name);
+                }
+            }
+
+            // ── Channel sample path (196) ──
+            if (code === 196 && buf && currentChannelIID > 0) {
+                const samplePath = FLPParser.readStringBuf(buf);
+                if (samplePath) {
+                    channelSamplePaths.set(currentChannelIID, samplePath);
+                }
+            }
+
+            // ── Channel/plugin display name (203) ──
+            if (code === 203 && buf && currentChannelIID > 0) {
+                const name = FLPParser.readStringBuf(buf);
+                if (name) {
+                    channelNames.set(currentChannelIID, name);
+                }
+            }
+
+            // ── Pattern notes (224): 24 bytes per note ──
+            if (code === 224 && buf && currentPatternIID > 0) {
+                const notes: NoteData[] = [];
+                const noteSize = 24;
+                const noteCount = Math.floor(buf.length / noteSize);
+                for (let ni = 0; ni < noteCount; ni++) {
+                    const nb = ni * noteSize;
+                    if (nb + noteSize > buf.length) break;
+                    const position = buf.readUInt32LE(nb + 0);
+                    const length   = buf.readUInt32LE(nb + 8);
+                    const key      = buf.readUInt16LE(nb + 12);
+                    const velocity = buf[nb + 21];
+                    if (key <= 131 && position < 100_000_000) {
+                        notes.push({
+                            key,
+                            position: position / ppq,
+                            length: Math.max(length / ppq, 0.1),
+                            velocity,
+                        });
+                    }
+                }
+                if (notes.length > 0) {
+                    patternNotes.set(currentPatternIID, notes);
+                }
+            }
+
             // ── Playlist items: event 233 (DATA+25) ──
             if (code === 233 && buf) {
                 playlistBuf = buf;
@@ -105,27 +203,20 @@ export class FLPParser {
 
             // ── Track names: event 239 (TEXT+47) ──
             if (code === 239 && buf) {
-                // UTF-16LE or ASCII, null-terminated
-                let name: string;
-                if (buf.length >= 2 && buf[1] === 0) {
-                    // UTF-16LE
-                    name = buf.toString('utf16le').replace(/\0+$/, '');
-                } else {
-                    name = buf.toString('ascii').replace(/\0+$/, '');
-                }
-                trackNames.push(name);
+                trackNames.push(FLPParser.readStringBuf(buf));
             }
         }
 
+        console.log(`[FLP] Patterns: ${patternNames.size} named, ${patternNotes.size} with notes`);
+        console.log(`[FLP] Channels: ${channelNames.size} named, ${channelSamplePaths.size} with samples`);
+
         // ── 4. Parse playlist items from event 233 ──
-        const clips: Array<{ id: string; name: string; start: number; length: number; track: number }> = [];
+        const clips: ClipData[] = [];
 
         if (playlistBuf) {
             // Detect item size dynamically by scanning for pattern_base (20480 / 0x5000)
-            // at the start of the SECOND item. pattern_base is always at offset 4 within each item.
             let itemSize = 0;
             if (playlistBuf.length >= 36) {
-                // Try sizes from 32 to 128 (step 4) — check if second item's pattern_base = 20480
                 for (let trySize = 32; trySize <= 128; trySize += 4) {
                     if (trySize + 6 <= playlistBuf.length && playlistBuf.readUInt16LE(trySize + 4) === 20480) {
                         itemSize = trySize;
@@ -133,7 +224,6 @@ export class FLPParser {
                     }
                 }
             }
-            // Fallback: use divisibility check
             if (itemSize === 0) {
                 if (playlistBuf.length % 60 === 0) itemSize = 60;
                 else if (playlistBuf.length % 32 === 0) itemSize = 32;
@@ -153,18 +243,32 @@ export class FLPParser {
                 const itemIndex   = playlistBuf.readUInt16LE(base + 6);
                 const length      = playlistBuf.readUInt32LE(base + 8);
                 const trackRvIdx  = playlistBuf.readUInt16LE(base + 12); // reversed: Track 1 = 499
+                const trackIdx    = 499 - trackRvIdx;
 
-                // Actual track index (0-based): 499 - trackRvIdx
-                const trackIdx = 499 - trackRvIdx;
-
-                // Determine if it's a channel clip or pattern clip
-                const isChannel = itemIndex <= patternBase;
-                const itemLabel = isChannel
-                    ? `Audio ${itemIndex}`
-                    : `Pattern ${itemIndex - patternBase}`;
-
-                // Skip items with absurd values
                 if (position > 100_000_000 || length > 100_000_000) continue;
+
+                const isChannel = itemIndex <= patternBase;
+                let clipType: 'pattern' | 'audio';
+                let itemLabel: string;
+                let notes: NoteData[] | undefined;
+                let sampleFileName: string | undefined;
+
+                if (isChannel) {
+                    // Audio/automation clip — itemIndex = channel IID
+                    clipType = 'audio';
+                    const channelName = channelNames.get(itemIndex);
+                    const samplePath = channelSamplePaths.get(itemIndex);
+                    itemLabel = channelName || (samplePath ? FLPParser.fileNameFromPath(samplePath) : `Audio ${itemIndex}`);
+                    if (samplePath) {
+                        sampleFileName = FLPParser.fileNameFromPath(samplePath);
+                    }
+                } else {
+                    // Pattern clip — pattern IID = itemIndex - patternBase
+                    clipType = 'pattern';
+                    const patternIID = itemIndex - patternBase;
+                    itemLabel = patternNames.get(patternIID) || `Pattern ${patternIID}`;
+                    notes = patternNotes.get(patternIID);
+                }
 
                 clips.push({
                     id: `clip-${i}`,
@@ -172,9 +276,12 @@ export class FLPParser {
                     start: position / ppq,
                     length: Math.max(length / ppq, 0.25),
                     track: trackIdx,
+                    type: clipType,
+                    notes,
+                    sampleFileName,
                 });
 
-                console.log(`[FLP] Item[${i}]: pos=${position} len=${length} trackRv=${trackRvIdx} track=${trackIdx} patBase=${patternBase} idx=${itemIndex} → ${itemLabel}`);
+                console.log(`[FLP] Item[${i}]: ${clipType} "${itemLabel}" pos=${position} len=${length} track=${trackIdx}`);
             }
         } else {
             console.log(`[FLP] No playlist event (code 233) found!`);
@@ -183,7 +290,7 @@ export class FLPParser {
         console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
         // ── 5. Group clips by track & renumber ──
-        const trackMap = new Map<number, typeof clips>();
+        const trackMap = new Map<number, ClipData[]>();
         for (const clip of clips) {
             if (!trackMap.has(clip.track)) trackMap.set(clip.track, []);
             trackMap.get(clip.track)!.push(clip);
@@ -200,5 +307,19 @@ export class FLPParser {
                 clips: trackMap.get(origId)!,
             })),
         };
+    }
+
+    /** Read a string from a buffer, handling UTF-16LE and ASCII with null terminators */
+    private static readStringBuf(buf: Buffer): string {
+        if (buf.length >= 2 && buf[1] === 0) {
+            return buf.toString('utf16le').replace(/\0+$/, '');
+        }
+        return buf.toString('ascii').replace(/\0+$/, '');
+    }
+
+    /** Extract just the filename from a full path */
+    private static fileNameFromPath(fullPath: string): string {
+        const parts = fullPath.replace(/\\/g, '/').split('/');
+        return parts[parts.length - 1] || fullPath;
     }
 }

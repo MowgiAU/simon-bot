@@ -9,11 +9,21 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
+interface NoteData {
+    key: number;
+    position: number;
+    length: number;
+    velocity: number;
+}
+
 interface ArrangementClip {
     id: number;
     name: string;
     start: number;
     length: number;
+    type?: 'pattern' | 'audio';
+    notes?: NoteData[];
+    sampleFileName?: string;
 }
 
 interface ArrangementTrack {
@@ -305,28 +315,58 @@ const ArrangementViewer: React.FC<{
 
                     {/* Track rows */}
                     {activeTracks.map((t, ti) => (
-                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '32px', marginBottom: '4px' }}>
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
                             <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', fontSize: '0.75rem', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                                 {t.name}
                             </div>
                             <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
-                                {t.clips.map((clip) => (
-                                    <div
-                                        key={clip.id}
-                                        title={clip.name !== `Clip ${clip.id}` ? clip.name : t.name}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${(clip.start / totalBeats) * 100}%`,
-                                            width: `${(clip.length / totalBeats) * 100}%`,
-                                            height: '100%',
-                                            backgroundColor: TRACK_COLORS[ti % TRACK_COLORS.length] + 'CC',
-                                            borderRadius: '3px',
-                                            border: `1px solid ${TRACK_COLORS[ti % TRACK_COLORS.length]}`,
-                                            boxSizing: 'border-box',
-                                            minWidth: '3px',
-                                        }}
-                                    />
-                                ))}
+                                {t.clips.map((clip) => {
+                                    const trackColor = TRACK_COLORS[ti % TRACK_COLORS.length];
+                                    return (
+                                        <div
+                                            key={clip.id}
+                                            title={clip.name}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${(clip.start / totalBeats) * 100}%`,
+                                                width: `${(clip.length / totalBeats) * 100}%`,
+                                                height: '100%',
+                                                backgroundColor: trackColor + '40',
+                                                borderRadius: '3px',
+                                                border: `1px solid ${trackColor}88`,
+                                                boxSizing: 'border-box',
+                                                minWidth: '3px',
+                                                overflow: 'hidden',
+                                            }}
+                                        >
+                                            {/* Clip label */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '1px',
+                                                left: '3px',
+                                                fontSize: '0.55rem',
+                                                color: trackColor,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: 'calc(100% - 6px)',
+                                                lineHeight: 1,
+                                                fontWeight: 600,
+                                                opacity: 0.9,
+                                            }}>
+                                                {clip.name}
+                                            </div>
+                                            {/* Pattern clip: mini piano roll */}
+                                            {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
+                                                <MiniPianoRoll notes={clip.notes} clipLength={clip.length} color={trackColor} />
+                                            )}
+                                            {/* Audio clip: waveform placeholder */}
+                                            {clip.type === 'audio' && (
+                                                <MiniWaveform color={trackColor} clipId={clip.id} />
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
@@ -349,6 +389,71 @@ const ArrangementViewer: React.FC<{
                 </div>
             </div>
         </div>
+    );
+};
+
+/** Mini piano roll: renders note rectangles inside a pattern clip, just like FL Studio's playlist */
+const MiniPianoRoll: React.FC<{ notes: NoteData[]; clipLength: number; color: string }> = ({ notes, clipLength, color }) => {
+    if (!notes.length) return null;
+
+    // Find key range for vertical scaling
+    const keys = notes.map(n => n.key);
+    const minKey = Math.min(...keys);
+    const maxKey = Math.max(...keys);
+    const keyRange = Math.max(maxKey - minKey, 1);
+
+    return (
+        <svg
+            viewBox={`0 0 ${clipLength} ${keyRange + 1}`}
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.85 }}
+        >
+            {notes.map((note, i) => (
+                <rect
+                    key={i}
+                    x={note.position}
+                    y={maxKey - note.key}
+                    width={Math.max(note.length, clipLength * 0.008)}
+                    height={0.7}
+                    fill={color}
+                    opacity={0.5 + (note.velocity / 128) * 0.5}
+                    rx={0.1}
+                />
+            ))}
+        </svg>
+    );
+};
+
+/** Placeholder waveform for audio clips: deterministic pseudo-random bars */
+const MiniWaveform: React.FC<{ color: string; clipId: number | string }> = ({ color, clipId }) => {
+    // Generate a deterministic waveform shape from clipId
+    const bars = 48;
+    const seed = typeof clipId === 'string' ? clipId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : clipId;
+
+    return (
+        <svg
+            viewBox={`0 0 ${bars} 20`}
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.6 }}
+        >
+            {Array.from({ length: bars }, (_, i) => {
+                // Simple hash-like amplitude
+                const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) *
+                            (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
+                const h = Math.max(amp * 18, 1);
+                return (
+                    <rect
+                        key={i}
+                        x={i}
+                        y={10 - h / 2}
+                        width={0.7}
+                        height={h}
+                        fill={color}
+                        opacity={0.7}
+                    />
+                );
+            })}
+        </svg>
     );
 };
 
