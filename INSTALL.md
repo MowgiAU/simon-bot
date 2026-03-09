@@ -94,27 +94,50 @@ ssh root@simon-bot-main "cd ~/new-simon && git pull && npm install && npm run bu
 
 ---
 
-## 5. Nginx Configuration (Vital for Emails)
+## 5. Nginx Configuration
 
-To receive large email attachments (up to 50MB), you must configure Nginx to allow large request bodies.
+Fuji Studio uses a single Express server (port 3001) that serves both the API and the built dashboard SPA. Nginx must proxy **all** traffic to it, including `/uploads/` (user images/audio files).
 
-1.  Edit your site config: `nano /etc/nginx/sites-available/default` (or your specific domain file).
-2.  Add `client_max_body_size 50M;` to the `server` block.
+**Full recommended config** (`/etc/nginx/sites-available/fuji-studio`):
 
-**Example:**
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
-    
-    # ALLOW LARGE UPLOADS FOR EMAILS
-    client_max_body_size 50M; 
+    server_name staging.fujistud.io;
+    return 301 https://$host$request_uri;
+}
 
+server {
+    listen 443 ssl;
+    server_name staging.fujistud.io;
+
+    ssl_certificate     /etc/letsencrypt/live/staging.fujistud.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/staging.fujistud.io/privkey.pem;
+
+    # Allow large uploads (audio, email attachments, etc.)
+    client_max_body_size 50M;
+
+    # IMPORTANT: ALL requests (including /uploads/*) must proxy to Express.
+    # Do NOT add a separate `location /` that serves from dashboard/dist —
+    # Express itself serves the dashboard SPA from the dist folder.
     location / {
-        proxy_pass http://localhost:3001;
-        # ... standard proxy headers ...
+        proxy_pass         http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection 'upgrade';
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
-3.  Reload Nginx: `systemctl reload nginx`
+
+> ⚠️ **If you previously had a `location /` block pointing to `dashboard/dist` as a static root**, that will break `/uploads/*` image serving. Remove it — Express handles all static file serving.
+
+3.  Test and reload Nginx:
+```bash
+nginx -t && systemctl reload nginx
+```
 

@@ -17,21 +17,27 @@ import { EmailService } from '../services/EmailService';
 import { ProfileService } from '../services/ProfileService';
 import { AudioService } from '../services/AudioService';
 import * as mm from 'music-metadata';
+import { FLPParser } from '../bot/utils/FLPParser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Resolve to project root regardless of where PM2/node was started from.
+// __dirname = .../src/api or .../dist/api → two levels up = project root.
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const app = express();
 
 // Configure storage for tracks and artwork
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let dir = path.resolve(process.cwd(), 'public/uploads/tracks');
+    let dir = path.join(PROJECT_ROOT, 'public/uploads/tracks');
     
     if (file.fieldname === 'artwork') {
-      dir = path.resolve(process.cwd(), 'public/uploads/artwork');
+      dir = path.join(PROJECT_ROOT, 'public/uploads/artwork');
     } else if (file.fieldname === 'avatar') {
-      dir = path.resolve(process.cwd(), 'public/uploads/avatars');
+      dir = path.join(PROJECT_ROOT, 'public/uploads/avatars');
+    } else if (file.fieldname === 'project') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/projects');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -63,6 +69,13 @@ const upload = multer({
         cb(null, true);
       } else {
         cb(new Error(`Only image files are allowed for ${file.fieldname}!`));
+      }
+    } else if (file.fieldname === 'project') {
+      // Accept .flp files (binary, often sent as octet-stream)
+      if (file.originalname.endsWith('.flp')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only FL Studio (.flp) project files are allowed!'));
       }
     } else {
       cb(null, true);
@@ -233,10 +246,11 @@ const logAction = async (guildId: string, action: string, executorId: string, ta
 };
 
 // Static files for uploads (Public access) - Served first to avoid SPA/Auth redirects
-const uploadsPath = path.resolve(process.cwd(), 'public', 'uploads');
+const uploadsPath = path.join(PROJECT_ROOT, 'public', 'uploads');
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
+console.log(`[Uploads] Serving static files from: ${uploadsPath}`);
 app.use('/uploads', express.static(uploadsPath));
 
 // Debug middleware
@@ -1615,7 +1629,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             // Return all plugins for admin
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'project-viewer'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio'] 
             });
         }
 
@@ -3126,7 +3140,8 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 // Post new track (Now with file uploads and metadata)
 app.post('/api/musician/tracks', upload.fields([
   { name: 'audio', maxCount: 1 },
-  { name: 'artwork', maxCount: 1 }
+  { name: 'artwork', maxCount: 1 },
+  { name: 'project', maxCount: 1 } // Optional .flp project file
 ]), async (req: any, res) => {
     try {
         const userId = req.session?.user?.id;
@@ -3135,9 +3150,25 @@ app.post('/api/musician/tracks', upload.fields([
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const audioFile = files['audio']?.[0];
         const artworkFile = files['artwork']?.[0];
+        const projectFile = files['project']?.[0];
 
         if (!audioFile) {
             return res.status(400).json({ error: 'Audio file is required' });
+        }
+
+        // Parse .flp if provided
+        let arrangement: object | null = null;
+        let projectFileUrl: string | null = null;
+        if (projectFile) {
+            try {
+                const flpBuffer = fs.readFileSync(projectFile.path);
+                arrangement = FLPParser.parse(flpBuffer);
+                projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                logger.info(`Parsed FLP arrangement: ${projectFile.originalname}`);
+            } catch (e) {
+                logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
+                // Continue without arrangement — don't block the upload
+            }
         }
 
         // 1. Initial metadata extraction
@@ -3186,7 +3217,9 @@ app.post('/api/musician/tracks', upload.fields([
             album: metadata.album,
             year: metadata.year,
             bpm: metadata.bpm,
-            key: metadata.key
+            key: metadata.key,
+            ...(arrangement ? { arrangement } : {}),
+            ...(projectFileUrl ? { projectFileUrl } : {})
         });
 
         // Log track upload
@@ -3281,11 +3314,11 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
 
 // Delete physical files
           if (track.url.startsWith('/uploads/')) {
-              const filePath = path.join(process.cwd(), 'public', track.url);
+              const filePath = path.join(PROJECT_ROOT, 'public', track.url);
               if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
           }
           if (track.coverUrl?.startsWith('/uploads/')) {
-              const filePath = path.join(process.cwd(), 'public', track.coverUrl);
+              const filePath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
 
@@ -3724,14 +3757,14 @@ app.post('/api/admin/musician/profile/:id/wipe', async (req: any, res) => {
         // 1. Gather files to delete
         const filesToDelete: string[] = [];
         if (profile.avatar && profile.avatar.startsWith('/uploads/')) {
-            filesToDelete.push(path.join(process.cwd(), 'public', profile.avatar));
+            filesToDelete.push(path.join(PROJECT_ROOT, 'public', profile.avatar));
         }
         for (const track of profile.tracks) {
             if (track.url.startsWith('/uploads/')) {
-                filesToDelete.push(path.join(process.cwd(), 'public', track.url));
+                filesToDelete.push(path.join(PROJECT_ROOT, 'public', track.url));
             }
             if (track.coverUrl && track.coverUrl.startsWith('/uploads/')) {
-                filesToDelete.push(path.join(process.cwd(), 'public', track.coverUrl));
+                filesToDelete.push(path.join(PROJECT_ROOT, 'public', track.coverUrl));
             }
         }
 
@@ -3908,7 +3941,7 @@ app.get('/api/fuji/libraries', async (req, res) => {
 const PORT = process.env.API_PORT || 3001;
 
 // --- Serve Dashboard Dist in Production ---
-const distPath = path.resolve(process.cwd(), 'dashboard/dist');
+const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
 console.log(`[DEBUG] SPA config: distPath=${distPath}, indexHtml=${indexHtml}, exists=${fs.existsSync(distPath)}`);
