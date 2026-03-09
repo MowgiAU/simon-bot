@@ -5,7 +5,7 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
-    ArrowLeft, Share2, ExternalLink
+    ArrowLeft, Share2, ExternalLink, Layers, FileAudio
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -16,14 +16,21 @@ interface NoteData {
     velocity: number;
 }
 
+interface AutomationPoint {
+    position: number;  // 0-1 normalized
+    value: number;     // 0-1
+    tension: number;   // -1 to 1
+}
+
 interface ArrangementClip {
     id: number;
     name: string;
     start: number;
     length: number;
-    type?: 'pattern' | 'audio';
+    type?: 'pattern' | 'audio' | 'automation';
     notes?: NoteData[];
     sampleFileName?: string;
+    automationPoints?: AutomationPoint[];
 }
 
 interface ArrangementTrack {
@@ -32,9 +39,15 @@ interface ArrangementTrack {
     clips: ArrangementClip[];
 }
 
+interface ProjectInfo {
+    plugins: string[];
+    samples: string[];
+}
+
 interface ArrangementData {
     bpm: number;
     tracks: ArrangementTrack[];
+    projectInfo?: ProjectInfo;
 }
 
 interface Track {
@@ -258,6 +271,12 @@ export const TrackPage: React.FC = () => {
                         projectFileUrl={track.projectFileUrl}
                     />
                 )}
+
+                {track.arrangement?.projectInfo && (
+                    (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
+                        <ProjectInfoPanel projectInfo={track.arrangement.projectInfo} />
+                    )
+                )}
             </div>
         </DiscoveryLayout>
     );
@@ -360,6 +379,10 @@ const ArrangementViewer: React.FC<{
                                             {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
                                                 <MiniPianoRoll notes={clip.notes} clipLength={clip.length} color={trackColor} />
                                             )}
+                                            {/* Automation clip: curve */}
+                                            {clip.type === 'automation' && clip.automationPoints && clip.automationPoints.length > 0 && (
+                                                <MiniAutomation points={clip.automationPoints} color={trackColor} />
+                                            )}
                                             {/* Audio clip: waveform placeholder */}
                                             {clip.type === 'audio' && (
                                                 <MiniWaveform color={trackColor} clipId={clip.id} />
@@ -424,6 +447,59 @@ const MiniPianoRoll: React.FC<{ notes: NoteData[]; clipLength: number; color: st
     );
 };
 
+/** Mini automation curve: renders the actual automation shape like FL Studio */
+const MiniAutomation: React.FC<{ points: AutomationPoint[]; color: string }> = ({ points, color }) => {
+    if (points.length < 2) return null;
+
+    const w = 100;
+    const h = 20;
+    const pad = 0.5; // small padding so the curve isn't clipped at edges
+
+    // Build SVG path through points with tension-based curves
+    const toX = (p: number) => pad + p * (w - pad * 2);
+    const toY = (v: number) => h - pad - v * (h - pad * 2); // invert Y
+
+    let path = `M ${toX(points[0].position)} ${toY(points[0].value)}`;
+
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const x1 = toX(prev.position);
+        const y1 = toY(prev.value);
+        const x2 = toX(curr.position);
+        const y2 = toY(curr.value);
+
+        if (Math.abs(prev.tension) < 0.01) {
+            // Linear segment
+            path += ` L ${x2} ${y2}`;
+        } else {
+            // Tension curve: FL Studio uses a power curve, approximate with cubic bezier
+            // Positive tension = curve stays near start value then jumps
+            // Negative tension = curve jumps then stays near end value
+            const t = prev.tension;
+            const cx1 = x1 + (x2 - x1) * (0.5 + t * 0.4);
+            const cx2 = x2 - (x2 - x1) * (0.5 - t * 0.4);
+            path += ` C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
+        }
+    }
+
+    // Build fill path (close down to bottom)
+    const fillPath = path +
+        ` L ${toX(points[points.length - 1].position)} ${h}` +
+        ` L ${toX(points[0].position)} ${h} Z`;
+
+    return (
+        <svg
+            viewBox={`0 0 ${w} ${h}`}
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.85 }}
+        >
+            <path d={fillPath} fill={color} opacity={0.15} />
+            <path d={path} stroke={color} fill="none" strokeWidth={0.8} opacity={0.9} />
+        </svg>
+    );
+};
+
 /** Placeholder waveform for audio clips: deterministic pseudo-random bars */
 const MiniWaveform: React.FC<{ color: string; clipId: number | string }> = ({ color, clipId }) => {
     // Generate a deterministic waveform shape from clipId
@@ -466,3 +542,85 @@ const InfoItem: React.FC<{ icon: React.ReactNode, label: string, value: string }
         </div>
     </div>
 );
+
+/** Project info panel: shows plugins and samples used in the project */
+const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ projectInfo }) => {
+    return (
+        <div style={{ marginTop: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <Layers size={20} color={colors.primary} />
+                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Details</h2>
+            </div>
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: projectInfo.plugins.length > 0 && projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr',
+                gap: '16px',
+            }}>
+                {projectInfo.plugins.length > 0 && (
+                    <div style={{
+                        backgroundColor: '#0d1117',
+                        borderRadius: borderRadius.md,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        padding: '16px',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <Zap size={16} color={colors.primary} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Plugins ({projectInfo.plugins.length})
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {projectInfo.plugins.map((plugin, i) => (
+                                <span key={i} style={{
+                                    backgroundColor: 'rgba(255,255,255,0.05)',
+                                    color: '#CBD5E1',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                }}>
+                                    {plugin}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {projectInfo.samples.length > 0 && (
+                    <div style={{
+                        backgroundColor: '#0d1117',
+                        borderRadius: borderRadius.md,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        padding: '16px',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <FileAudio size={16} color={colors.primary} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Samples ({projectInfo.samples.length})
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {projectInfo.samples.map((sample, i) => (
+                                <span key={i} style={{
+                                    backgroundColor: 'rgba(255,255,255,0.05)',
+                                    color: '#CBD5E1',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    maxWidth: '300px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    {sample}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};

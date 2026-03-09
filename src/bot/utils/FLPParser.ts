@@ -5,6 +5,7 @@
  * Binary format reference (from PyFLP):
  *   Event bases: BYTE=0, WORD=64, DWORD=128, TEXT=192, DATA=208
  *   Key events:
+ *     21  (BYTE+21)  = ChannelID.Type  — channel type (5 = automation)
  *     64  (WORD)     = ChannelID.New   — new channel (value = IID)
  *     65  (WORD+1)   = PatternID.New   — new pattern (value = IID)
  *     156 (DWORD+28) = BPM × 1000
@@ -14,6 +15,7 @@
  *     203 (TEXT+11)   = PluginID.Name — channel/plugin display name
  *     224 (DATA+16)   = PatternID.Notes — 24 bytes per note
  *     233 (DATA+25)   = Playlist items (32 or 60 bytes each)
+ *     234 (DATA+26)   = ChannelID.Automation — automation point data
  *     238 (DATA+30)   = Track data
  *     239 (TEXT+47)   = Track name
  *
@@ -24,6 +26,12 @@
  *   Playlist item struct:
  *     position: u32le@0, pattern_base: u16le@4 (always 20480),
  *     item_index: u16le@6, length: u32le@8, track_rvidx: u16le@12
+ *
+ *   Automation struct (event 234):
+ *     header: denominator(u32) + lfo_type(u8) + art_speed(u32) +
+ *             art_dir(u8) + art_flip(u8) + art_pulse(u32) = 15 bytes
+ *     point_count: u32
+ *     points: count × 24 bytes: position(f64) + value(f64) + tension(f32) + _u1(4 bytes)
  */
 
 interface NoteData {
@@ -33,15 +41,27 @@ interface NoteData {
     velocity: number;  // 0-128
 }
 
+interface AutomationPoint {
+    position: number;  // normalized 0-1 across the clip
+    value: number;     // 0-1
+    tension: number;   // -1 to 1
+}
+
 interface ClipData {
     id: string;
     name: string;
     start: number;     // beats
     length: number;    // beats
     track: number;
-    type: 'pattern' | 'audio';
+    type: 'pattern' | 'audio' | 'automation';
     notes?: NoteData[];
     sampleFileName?: string;
+    automationPoints?: AutomationPoint[];
+}
+
+interface ProjectInfo {
+    plugins: string[];
+    samples: string[];
 }
 
 export class FLPParser {
@@ -79,6 +99,12 @@ export class FLPParser {
         let currentChannelIID = 0;
         const channelNames = new Map<number, string>();
         const channelSamplePaths = new Map<number, string>();
+        const channelTypes = new Map<number, number>();  // IID → type (5 = automation)
+        const channelAutomationPoints = new Map<number, AutomationPoint[]>();
+
+        // Project-wide collection for plugin/sample list
+        const allPluginNames = new Set<string>();
+        const allSamplePaths = new Set<string>();
 
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
@@ -132,6 +158,11 @@ export class FLPParser {
                 currentChannelIID = num;
             }
 
+            // ── Channel type (21): byte event, 5 = automation ──
+            if (code === 21 && currentChannelIID > 0) {
+                channelTypes.set(currentChannelIID, num);
+            }
+
             // ── Pattern New (65): marks start of new pattern ──
             if (code === 65) {
                 currentPatternIID = num;
@@ -158,6 +189,7 @@ export class FLPParser {
                 const samplePath = FLPParser.readStringBuf(buf);
                 if (samplePath) {
                     channelSamplePaths.set(currentChannelIID, samplePath);
+                    allSamplePaths.add(samplePath);
                 }
             }
 
@@ -166,6 +198,15 @@ export class FLPParser {
                 const name = FLPParser.readStringBuf(buf);
                 if (name) {
                     channelNames.set(currentChannelIID, name);
+                    allPluginNames.add(name);
+                }
+            }
+
+            // ── All plugin names (203) even outside channel context (mixer effects) ──
+            if (code === 203 && buf && currentChannelIID === 0) {
+                const name = FLPParser.readStringBuf(buf);
+                if (name) {
+                    allPluginNames.add(name);
                 }
             }
 
@@ -195,6 +236,40 @@ export class FLPParser {
                 }
             }
 
+            // ── Automation data (234 = DATA+26): points for automation channels ──
+            if (code === 234 && buf && currentChannelIID > 0) {
+                // Header: 15 bytes (denominator:u32, lfo_type:u8, art_speed:u32, art_dir:u8, art_flip:u8, art_pulse:u32)
+                // Then: pointCount:u32, points: count × 24 bytes (position:f64, value:f64, tension:f32, _u1:4b)
+                const headerSize = 15;
+                if (buf.length > headerSize + 4) {
+                    const pointCount = buf.readUInt32LE(headerSize);
+                    const pointStart = headerSize + 4;
+                    const pointSize = 24;
+                    const points: AutomationPoint[] = [];
+
+                    for (let pi = 0; pi < pointCount; pi++) {
+                        const pb = pointStart + pi * pointSize;
+                        if (pb + pointSize > buf.length) break;
+                        const pos = buf.readDoubleLE(pb + 0);
+                        const val = buf.readDoubleLE(pb + 8);
+                        const ten = buf.readFloatLE(pb + 16);
+                        points.push({ position: pos, value: val, tension: ten });
+                    }
+
+                    if (points.length > 0) {
+                        // Normalize positions to 0-1 range
+                        const maxPos = Math.max(...points.map(p => p.position), 1);
+                        if (maxPos > 0) {
+                            for (const p of points) {
+                                p.position = p.position / maxPos;
+                            }
+                        }
+                        channelAutomationPoints.set(currentChannelIID, points);
+                        console.log(`[FLP] Automation ch=${currentChannelIID}: ${points.length} points`);
+                    }
+                }
+            }
+
             // ── Playlist items: event 233 (DATA+25) ──
             if (code === 233 && buf) {
                 playlistBuf = buf;
@@ -208,7 +283,8 @@ export class FLPParser {
         }
 
         console.log(`[FLP] Patterns: ${patternNames.size} named, ${patternNotes.size} with notes`);
-        console.log(`[FLP] Channels: ${channelNames.size} named, ${channelSamplePaths.size} with samples`);
+        console.log(`[FLP] Channels: ${channelNames.size} named, ${channelSamplePaths.size} with samples, ${channelAutomationPoints.size} automation`);
+        console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
 
         // ── 4. Parse playlist items from event 233 ──
         const clips: ClipData[] = [];
@@ -248,19 +324,30 @@ export class FLPParser {
                 if (position > 100_000_000 || length > 100_000_000) continue;
 
                 const isChannel = itemIndex <= patternBase;
-                let clipType: 'pattern' | 'audio';
+                let clipType: 'pattern' | 'audio' | 'automation';
                 let itemLabel: string;
                 let notes: NoteData[] | undefined;
                 let sampleFileName: string | undefined;
+                let automationPoints: AutomationPoint[] | undefined;
 
                 if (isChannel) {
-                    // Audio/automation clip — itemIndex = channel IID
-                    clipType = 'audio';
+                    // Channel clip — check if it's an automation channel
+                    const channelType = channelTypes.get(itemIndex);
                     const channelName = channelNames.get(itemIndex);
                     const samplePath = channelSamplePaths.get(itemIndex);
-                    itemLabel = channelName || (samplePath ? FLPParser.fileNameFromPath(samplePath) : `Audio ${itemIndex}`);
-                    if (samplePath) {
-                        sampleFileName = FLPParser.fileNameFromPath(samplePath);
+
+                    if (channelType === 5) {
+                        // Automation clip
+                        clipType = 'automation';
+                        itemLabel = channelName || `Automation ${itemIndex}`;
+                        automationPoints = channelAutomationPoints.get(itemIndex);
+                    } else {
+                        // Audio/sampler clip
+                        clipType = 'audio';
+                        itemLabel = channelName || (samplePath ? FLPParser.fileNameFromPath(samplePath) : `Audio ${itemIndex}`);
+                        if (samplePath) {
+                            sampleFileName = FLPParser.fileNameFromPath(samplePath);
+                        }
                     }
                 } else {
                     // Pattern clip — pattern IID = itemIndex - patternBase
@@ -279,6 +366,7 @@ export class FLPParser {
                     type: clipType,
                     notes,
                     sampleFileName,
+                    automationPoints,
                 });
 
                 console.log(`[FLP] Item[${i}]: ${clipType} "${itemLabel}" pos=${position} len=${length} track=${trackIdx}`);
@@ -289,7 +377,27 @@ export class FLPParser {
 
         console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
-        // ── 5. Group clips by track & renumber ──
+        // ── 5. Build project info ──
+        // Filter plugins: exclude automation channel names (they're not real plugins)
+        const automationChannelNames = new Set<string>();
+        for (const [iid, type] of channelTypes) {
+            if (type === 5) {
+                const name = channelNames.get(iid);
+                if (name) automationChannelNames.add(name);
+            }
+        }
+
+        const plugins = Array.from(allPluginNames)
+            .filter(n => !automationChannelNames.has(n))
+            .sort();
+
+        const samples = Array.from(allSamplePaths)
+            .map(p => FLPParser.fileNameFromPath(p))
+            .sort();
+
+        const projectInfo: ProjectInfo = { plugins, samples };
+
+        // ── 6. Group clips by track & renumber ──
         const trackMap = new Map<number, ClipData[]>();
         for (const clip of clips) {
             if (!trackMap.has(clip.track)) trackMap.set(clip.track, []);
@@ -301,6 +409,7 @@ export class FLPParser {
         return {
             bpm,
             signature: [4, 4],
+            projectInfo,
             tracks: sortedTrackIds.map((origId, idx) => ({
                 id: idx,
                 name: trackNames[origId] || `Track ${idx + 1}`,
