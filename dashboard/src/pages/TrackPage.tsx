@@ -88,6 +88,7 @@ export const TrackPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [zoom, setZoom] = useState(1);
     const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
@@ -269,6 +270,8 @@ export const TrackPage: React.FC = () => {
                         currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
                         isPlaying={isPlaying}
                         projectFileUrl={track.projectFileUrl}
+                        zoom={zoom}
+                        setZoom={setZoom}
                     />
                 )}
 
@@ -293,16 +296,22 @@ const ArrangementViewer: React.FC<{
     currentTime: number;
     isPlaying: boolean;
     projectFileUrl: string | null;
-}> = ({ arrangement, duration, currentTime, projectFileUrl }) => {
+    zoom: number;
+    setZoom: (v: number) => void;
+}> = ({ arrangement, duration, currentTime, projectFileUrl, zoom, setZoom }) => {
     const totalBeats = arrangement.tracks.reduce((max, t) =>
         Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 32
     );
     const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0;
     const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
 
+    // Zoom controls: 1.0 = full width fits in container (with min-width)
+    // We'll use a base width of 100% and multiply it by zoom.
+    const timelineWidth = `${100 * zoom}%`;
+
     return (
-        <div style={{ marginTop: '40px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <Music size={20} color={colors.primary} />
                     <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Structure</h2>
@@ -310,23 +319,39 @@ const ArrangementViewer: React.FC<{
                         {arrangement.bpm} BPM
                     </span>
                 </div>
-                {projectFileUrl && (
-                    <a
-                        href={projectFileUrl}
-                        download
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, textDecoration: 'none', fontSize: '0.85rem', border: `1px solid ${colors.primary}33`, padding: '6px 12px', borderRadius: borderRadius.sm }}
-                    >
-                        <ExternalLink size={14} /> Download .flp
-                    </a>
-                )}
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    {/* Zoom Controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button 
+                            onClick={() => setZoom(Math.max(1, zoom - 0.5))} 
+                            style={{ background: 'none', border: 'none', color: zoom <= 1 ? colors.textSecondary : colors.textPrimary, cursor: zoom <= 1 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}
+                        >-</button>
+                        <span style={{ fontSize: '0.75rem', color: colors.textSecondary, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                        <button 
+                            onClick={() => setZoom(Math.min(10, zoom + 0.5))} 
+                            style={{ background: 'none', border: 'none', color: zoom >= 10 ? colors.textSecondary : colors.textPrimary, cursor: zoom >= 10 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}
+                        >+</button>
+                    </div>
+
+                    {projectFileUrl && (
+                        <a
+                            href={projectFileUrl}
+                            download
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, textDecoration: 'none', fontSize: '0.85rem', border: `1px solid ${colors.primary}33`, padding: '6px 12px', borderRadius: borderRadius.sm }}
+                        >
+                            <ExternalLink size={14} /> Download .flp
+                        </a>
+                    )}
+                </div>
             </div>
 
             <div style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117' }}>
-                <div style={{ minWidth: '600px', position: 'relative', padding: '16px 16px 16px 0' }}>
+                <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', padding: '16px 0', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
-                    <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
                         {Array.from({ length: Math.ceil(totalBeats / 4) }, (_, i) => (
-                            <div key={i} style={{ flex: '0 0 calc(400% / ' + totalBeats + ')', textAlign: 'left', fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '3px', paddingBottom: '4px' }}>
+                            <div key={i} style={{ flex: `0 0 ${4 / totalBeats * 100}%`, textAlign: 'left', fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '3px', paddingBottom: '4px' }}>
                                 {i * 4 + 1}
                             </div>
                         ))}
@@ -335,7 +360,7 @@ const ArrangementViewer: React.FC<{
                     {/* Track rows */}
                     {activeTracks.map((t, ti) => (
                         <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
-                            <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', fontSize: '0.75rem', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                            <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', fontSize: '0.75rem', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: '#0d1117', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)' }}>
                                 {t.name}
                             </div>
                             <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>

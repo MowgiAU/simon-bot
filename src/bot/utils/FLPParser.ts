@@ -86,7 +86,7 @@ export class FLPParser {
         offset += 4; // skip dataLen
 
         // ── 3. Event loop ──
-        let bpm = 140;
+        let bpm = 0; // Initialize to 0 to check if we detect any tempo event
         let playlistBuf: Buffer | null = null;
         const trackNames: string[] = [];
 
@@ -431,7 +431,7 @@ export class FLPParser {
         const sortedTrackIds = Array.from(trackMap.keys()).sort((a, b) => a - b);
 
         return {
-            bpm,
+            bpm: bpm || 140, // Ensure we have a valid BPM, fallback to 140 if undetected
             signature: [4, 4],
             projectInfo,
             tracks: sortedTrackIds.map((origId, idx) => ({
