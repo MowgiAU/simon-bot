@@ -2108,7 +2108,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                             content: post.content || '',
                             username: user?.username || 'Producer',
                             avatar_url: avatarUrl,
-                            allowed_mentions: {                             cd ~/simon-bot && git pull && npm run build && npm run dashboard:build && pm2 restart apiparse: [] }
+                            allowed_mentions: { parse: [] }
                         }));
                         form.append('files[0]', audioRes.data, filename);
 
