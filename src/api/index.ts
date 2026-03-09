@@ -3164,7 +3164,8 @@ app.post('/api/musician/tracks', upload.fields([
                 const flpBuffer = fs.readFileSync(projectFile.path);
                 arrangement = FLPParser.parse(flpBuffer);
                 projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
-                logger.info(`Parsed FLP arrangement: ${projectFile.originalname}`);
+                const arr = arrangement as any;
+                logger.info(`Parsed FLP arrangement: ${projectFile.originalname} — BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
             } catch (e) {
                 logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
                 // Continue without arrangement — don't block the upload

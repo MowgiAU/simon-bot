@@ -239,7 +239,7 @@ export const TrackPage: React.FC = () => {
                     </div>
                 </div>
 
-                {track.arrangement && (
+                {track.arrangement && track.arrangement.tracks.some(t => t.clips.length > 0) && (
                     <ArrangementViewer
                         arrangement={track.arrangement}
                         duration={track.duration}

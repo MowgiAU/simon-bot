@@ -81,7 +81,8 @@ export class FLPParser {
             // BPM event code is 104 (0x68), PLItem event code is 213 (0xD5).
             // Must check the full eventCode, NOT eventId.
             if (eventCode === 104) { // BPM (word event)
-                projectBpm = value / 1000; // FLP stores BPM as mBPM (milliBPM)
+                // FL Studio stores BPM as BPM * 10 in a WORD event
+                projectBpm = Math.round(value / 10);
             }
 
             if (eventCode === 213) { // PLItem (variable-length event)
@@ -109,7 +110,7 @@ export class FLPParser {
         clips.forEach(clip => {
             if (!tracksMap.has(clip.track)) {
                 tracksMap.set(clip.track, {
-                    id: `track-${clip.track}`,
+                    id: clip.track,
                     name: `Track ${clip.track + 1}`,
                     clips: []
                 });
