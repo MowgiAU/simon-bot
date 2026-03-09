@@ -178,6 +178,3 @@ export class FLPParser {
         return best;
     }
 }
-        };
-    }
-}
