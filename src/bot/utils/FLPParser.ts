@@ -47,65 +47,72 @@ export class FLPParser {
 
         console.log(`[FLP] Starting parse. Data length: ${dataLen}, End offset: ${endOffset}`);
 
-        while (offset < endOffset && offset < buffer.length) {
+        while (offset < buffer.length) {
             const eventCode = buffer[offset++];
             const eventType = eventCode & 0xC0;
+            const eventId = eventCode & 0x3F;
             let value: any;
             let length = 0;
 
-            console.log(`[FLP] Event Code: ${eventCode}, Offset: ${offset-1}`);
+            if (eventCode === 0) continue; // Skip padding
 
-            if (eventType === 0x00) { // Byte
+            if (eventType === 0x00) { // Byte (0-63)
                 value = buffer[offset++];
-            } else if (eventType === 0x40) { // Word
+                // console.log(`[FLP] Byte Event: ${eventCode}, Value: ${value}`);
+            } else if (eventType === 0x40) { // Word (64-127)
+                if (offset + 2 > buffer.length) break;
                 value = buffer.readUInt16LE(offset);
                 offset += 2;
-            } else if (eventType === 0x80) { // DWord
+                // console.log(`[FLP] Word Event: ${eventCode}, Value: ${value}`);
+            } else if (eventType === 0x80) { // DWord (128-191)
+                if (offset + 4 > buffer.length) break;
                 value = buffer.readUInt32LE(offset);
                 offset += 4;
-            } else if (eventType === 0xC0) { // Text/Variable
-                // Variable length integer for text
+                // console.log(`[FLP] DWord Event: ${eventCode}, Value: ${value}`);
+            } else if (eventType === 0xC0) { // Text/Variable (192-255)
                 let result = 0;
                 let shift = 0;
                 let b;
                 do {
+                    if (offset >= buffer.length) break;
                     b = buffer[offset++];
                     result |= (b & 0x7F) << shift;
                     shift += 7;
                 } while (b & 0x80);
                 length = result;
+                if (offset + length > buffer.length) break;
                 value = buffer.slice(offset, offset + length);
                 offset += length;
+                // console.log(`[FLP] Text/Var Event: ${eventCode}, Length: ${length}`);
             }
 
             // Handle specific relevant events
-            // NOTE: eventCode is the full byte (0-255); eventId is eventCode & 0x3F (0-63).
-            // BPM event code is 104 (0x68), PLItem event code is 213 (0xD5).
-            // Must check the full eventCode, NOT eventId.
-            if (eventCode === 104) { // BPM (word event)
-                // FL Studio stores BPM as BPM * 10 in a WORD event
-                projectBpm = Math.round(value / 10);
+            if (eventCode === 104) { // BPM (Word)
+                projectBpm = value / 10;
+                console.log(`[FLP] Found BPM: ${projectBpm}`);
             }
 
-            if (eventCode === 213) { // PLItem (variable-length event)
-                // PLItem data structure:
-                // [4 bytes start position (ticks)] [4 bytes length (ticks)] [2 bytes unknown] [2 bytes track index]
+            if (eventCode === 213) { // PLItem (Text/Var)
+                // PLItem data structure (~24 bytes in modern FL)
                 if (value && value.length >= 12) {
                     const startPos = value.readInt32LE(0);
                     const clipLen = value.readInt32LE(4);
-                    const trackIdx = value.readInt16LE(10);
+                    // In modern FL (20+), track index usually at offset 12-14
+                    const trackIdx = value.readInt16LE(12) || value.readInt16LE(10);
                     
                     clips.push({
                         id: Math.random().toString(36).substr(2, 9),
                         name: `Clip ${clips.length + 1}`,
-                        start: startPos / 96, // Standard FL PPQ = 96
-                        length: Math.max(clipLen / 96, 1), // Ensure minimum length of 1 beat
-                        track: trackIdx,
+                        start: startPos / 96, 
+                        length: Math.max(clipLen / 96, 1),
+                        track: Math.abs(trackIdx % 500), // Safety cap for tracks
                         type: 'clip' as const
                     });
                 }
             }
         }
+
+        console.log(`[FLP] Finished loop. Clips found: ${clips.length}`);
 
         // Group clips into tracks
         const tracksMap = new Map<number, any>();
