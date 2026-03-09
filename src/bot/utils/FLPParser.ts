@@ -77,24 +77,28 @@ export class FLPParser {
             }
 
             // Handle specific relevant events
-            if (eventId === 104) { // BPM
-                projectBpm = value / 1000; // FLP stores BPM as mBPM
+            // NOTE: eventCode is the full byte (0-255); eventId is eventCode & 0x3F (0-63).
+            // BPM event code is 104 (0x68), PLItem event code is 213 (0xD5).
+            // Must check the full eventCode, NOT eventId.
+            if (eventCode === 104) { // BPM (word event)
+                projectBpm = value / 1000; // FLP stores BPM as mBPM (milliBPM)
             }
 
-            if (eventId === 213) { // PLItem (Clip)
-                // PLItem data structure is roughly 12-16 bytes:
-                // [4 bytes bar/position] [4 bytes length] [2-4 bytes track] ...
-                if (eventType === 0xC0 && value.length >= 12) {
+            if (eventCode === 213) { // PLItem (variable-length event)
+                // PLItem data structure:
+                // [4 bytes start position (ticks)] [4 bytes length (ticks)] [2 bytes unknown] [2 bytes track index]
+                if (value && value.length >= 12) {
                     const startPos = value.readInt32LE(0);
                     const clipLen = value.readInt32LE(4);
                     const trackIdx = value.readInt16LE(10);
                     
                     clips.push({
                         id: Math.random().toString(36).substr(2, 9),
-                        start: startPos / 96, // Assumes 96 PPQ (Standard FL)
-                        length: clipLen / 96,
+                        name: `Clip ${clips.length + 1}`,
+                        start: startPos / 96, // Standard FL PPQ = 96
+                        length: Math.max(clipLen / 96, 1), // Ensure minimum length of 1 beat
                         track: trackIdx,
-                        type: 'clip'
+                        type: 'clip' as const
                     });
                 }
             }

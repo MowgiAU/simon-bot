@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
-import { colors, spacing, borderRadius, typography } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Layout, 
     Play, 
     Pause, 
     Search, 
-    ChevronRight, 
-    FileAudio, 
     Box, 
     Clock, 
     Music,
     Zap,
     Download,
-    Maximize2,
     RefreshCw,
-    AlertCircle,
     Info
 } from 'lucide-react';
 
@@ -114,9 +110,15 @@ export const ProjectViewer: React.FC = () => {
     };
 
     // RAF for smooth playhead
+    // currentTimeRef avoids stale closure without triggering re-renders inside animate()
+    const currentTimeRef = useRef(0);
+    const isPlayingRef = useRef(false);
+    isPlayingRef.current = isPlaying;
+
     const animate = () => {
-        if (audioRef.current && isPlaying) {
+        if (audioRef.current && isPlayingRef.current) {
             const time = audioRef.current.currentTime;
+            currentTimeRef.current = time;
             setCurrentTime(time);
             
             // Sync playhead CSS Variable for ultra-smooth movement without re-renders
@@ -133,15 +135,22 @@ export const ProjectViewer: React.FC = () => {
     };
 
     useEffect(() => {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
         if (isPlaying) {
             requestRef.current = requestAnimationFrame(animate);
-        } else if (requestRef.current) {
-            cancelAnimationFrame(requestRef.current);
         }
         return () => {
              if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
     }, [isPlaying]);
+
+    // Cleanup audio on unmount
+    useEffect(() => {
+        return () => {
+            audioRef.current?.pause();
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        };
+    }, []);
 
     const togglePlayback = () => {
         if (!audioRef.current) return;

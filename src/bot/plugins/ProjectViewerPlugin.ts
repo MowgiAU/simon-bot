@@ -58,61 +58,98 @@ export class ProjectViewerPlugin implements IPlugin {
      */
     private async scanProjectGuild(guildId: string) {
         this.logger.info(`Scanning project storage guild: ${guildId}`);
-        // 1. Get all threads/channels
+
+        // 0. Ensure a SamplePack row exists for the project storage guild (required by FK constraint)
+        const storagePack = await this.prisma.samplePack.upsert({
+            where: { channelId: `proj-storage-${guildId}` },
+            update: {},
+            create: {
+                guildId,
+                channelId: `proj-storage-${guildId}`,
+                name: 'Project Storage',
+                description: 'Auto-indexed FL Studio projects from the project storage guild.'
+            }
+        });
+
+        // 1. Get all active threads in the guild
         const threads = await this.request(`https://discord.com/api/v10/guilds/${guildId}/threads/active`);
         
+        if (!threads?.threads?.length) {
+            this.logger.warn(`No active threads found in guild ${guildId}`);
+            return;
+        }
+
         for (const thread of threads.threads) {
-            // 2. Fetch recent messages
-            const messages = await this.request(`https://discord.com/api/v10/channels/${thread.id}/messages`);
+            // 2. Fetch recent messages (up to 100)
+            const messages = await this.request(
+                `https://discord.com/api/v10/channels/${thread.id}/messages?limit=100`
+            );
             
             for (const msg of messages) {
-                const attachments = msg.attachments || [];
-                const audioFile = attachments.find((a: any) => a.filename.endsWith('.mp3') || a.filename.endsWith('.wav'));
-                const projectFile = attachments.find((a: any) => a.filename.endsWith('.flp'));
+                const attachments: any[] = msg.attachments || [];
+                const audioFile = attachments.find((a) =>
+                    a.filename.endsWith('.mp3') || a.filename.endsWith('.wav') || a.filename.endsWith('.ogg')
+                );
+                const projectFile = attachments.find((a) => a.filename.endsWith('.flp'));
 
-                if (audioFile && projectFile) {
-                    this.logger.info(`Found project pair: ${audioFile.filename} + ${projectFile.filename}`);
-                    
-                    // 3. Download and parse FLP for arrangement
-                    let arrangement = {};
-                    try {
-                        const flpBuffer = (await axios.get(projectFile.url, { responseType: 'arraybuffer' })).data;
-                        arrangement = FLPParser.parse(Buffer.from(flpBuffer));
-                        this.logger.info(`Parsed FLP arrangement for ${projectFile.filename}`);
-                    } catch (e) {
-                        this.logger.error(`Failed to parse FLP: ${projectFile.filename}`, e);
-                        continue;
-                    }
+                if (!audioFile || !projectFile) continue;
 
-                    // 4. Update Database
-                    const sample = await this.prisma.sampleMetadata.upsert({
-                        where: { attachmentId: audioFile.id },
-                        update: {
-                            filename: audioFile.filename,
-                            url: audioFile.url,
-                            arrangement: arrangement as any, // JSON blob
-                        },
-                        create: {
-                            attachmentId: audioFile.id,
-                            filename: audioFile.filename,
-                            url: audioFile.url,
-                            filesize: audioFile.size,
-                            mimetype: audioFile.content_type,
-                            arrangement: arrangement as any,
-                            packId: 'proj-storage', 
-                        }
-                    });
-
-                    await this.prisma.projectFile.upsert({
-                        where: { sampleId: sample.id },
-                        update: { url: projectFile.url, filename: projectFile.filename },
-                        create: { 
-                            sampleId: sample.id, 
-                            url: projectFile.url, 
-                            filename: projectFile.filename 
-                        }
-                    });
+                this.logger.info(`Found project pair: ${audioFile.filename} + ${projectFile.filename}`);
+                
+                // 3. Download and parse FLP for arrangement
+                let arrangement = {};
+                try {
+                    const flpBuffer = (await axios.get(projectFile.url, { responseType: 'arraybuffer' })).data;
+                    arrangement = FLPParser.parse(Buffer.from(flpBuffer));
+                    this.logger.info(`Parsed arrangement for ${projectFile.filename}: ${JSON.stringify(arrangement).slice(0, 100)}`);
+                } catch (e) {
+                    this.logger.error(`Failed to parse FLP: ${projectFile.filename}`, e);
+                    // Still index the audio file without arrangement
                 }
+
+                // 4. Upsert the audio render into SampleMetadata
+                // Using `db` cast to bypass stale local Prisma types —
+                // the arrangement and projectFile fields exist in schema.prisma and will
+                // be available after `prisma db push && prisma generate` runs on the server.
+                const db = this.prisma as any;
+                const sample = await db.sampleMetadata.upsert({
+                    where: { attachmentId: audioFile.id },
+                    update: {
+                        filename: audioFile.filename,
+                        url: audioFile.url,
+                        arrangement,
+                    },
+                    create: {
+                        attachmentId: audioFile.id,
+                        filename: audioFile.filename,
+                        url: audioFile.url,
+                        filesize: audioFile.size || 0,
+                        mimetype: audioFile.content_type || 'audio/mpeg',
+                        arrangement,
+                        packId: storagePack.id,
+                    }
+                });
+
+                // 5. Upsert the FLP file into ProjectFile (all required schema fields included)
+                await db.projectFile.upsert({
+                    where: { sampleId: sample.id },
+                    update: {
+                        url: projectFile.url,
+                        filename: projectFile.filename,
+                        filesize: projectFile.size || 0,
+                        mimetype: projectFile.content_type || 'application/octet-stream',
+                    },
+                    create: { 
+                        sampleId: sample.id, 
+                        url: projectFile.url, 
+                        filename: projectFile.filename,
+                        filesize: projectFile.size || 0,
+                        mimetype: projectFile.content_type || 'application/octet-stream',
+                    }
+                });
+
+                // Rate limit guard between messages
+                await new Promise(r => setTimeout(r, 500));
             }
         }
     }
