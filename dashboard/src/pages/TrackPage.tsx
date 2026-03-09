@@ -558,7 +558,10 @@ const ArrangementViewer: React.FC<{
     const totalBeats = arrangement.tracks.reduce((max, t) =>
         Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 32
     );
-    const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+    const bpm = arrangement.bpm || 140;
+    const beatsPerSec = bpm / 60;
+    const currentBeat = currentTime * beatsPerSec;
+    const playheadPct = totalBeats > 0 ? (currentBeat / totalBeats) * 100 : 0;
     const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
 
     // Zoom controls: 1.0 = full width fits in container (with min-width)
