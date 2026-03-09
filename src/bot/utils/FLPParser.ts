@@ -238,34 +238,37 @@ export class FLPParser {
 
             // ── Automation data (234 = DATA+26): points for automation channels ──
             if (code === 234 && buf && currentChannelIID > 0) {
-                // Header: 15 bytes (denominator:u32, lfo_type:u8, art_speed:u32, art_dir:u8, art_flip:u8, art_pulse:u32)
-                // Then: pointCount:u32, points: count × 24 bytes (position:f64, value:f64, tension:f32, _u1:4b)
-                const headerSize = 15;
+                // Header: 17 bytes (_u1:4, lfo.amount:i32, _u2:1, _u3:2, _u4:2, _u5:4)
+                // Then: pointCount:u32 @17, points @21: count × 24 bytes
+                // Each point: _offset:f64 (delta X), value:f64 (0-1 Y), tension:f32, _u1:4b
+                const headerSize = 17;
                 if (buf.length > headerSize + 4) {
                     const pointCount = buf.readUInt32LE(headerSize);
-                    const pointStart = headerSize + 4;
+                    const pointStart = headerSize + 4; // = 21
                     const pointSize = 24;
                     const points: AutomationPoint[] = [];
+                    let cumulativePos = 0;
 
                     for (let pi = 0; pi < pointCount; pi++) {
                         const pb = pointStart + pi * pointSize;
                         if (pb + pointSize > buf.length) break;
-                        const pos = buf.readDoubleLE(pb + 0);
+                        const delta = buf.readDoubleLE(pb + 0); // delta from previous point
                         const val = buf.readDoubleLE(pb + 8);
                         const ten = buf.readFloatLE(pb + 16);
-                        points.push({ position: pos, value: val, tension: ten });
+                        cumulativePos += delta;
+                        points.push({ position: cumulativePos, value: val, tension: ten });
                     }
 
                     if (points.length > 0) {
                         // Normalize positions to 0-1 range
-                        const maxPos = Math.max(...points.map(p => p.position), 1);
+                        const maxPos = points[points.length - 1].position;
                         if (maxPos > 0) {
                             for (const p of points) {
                                 p.position = p.position / maxPos;
                             }
                         }
                         channelAutomationPoints.set(currentChannelIID, points);
-                        console.log(`[FLP] Automation ch=${currentChannelIID}: ${points.length} points`);
+                        console.log(`[FLP] Automation ch=${currentChannelIID}: ${points.length} points, maxPos=${maxPos}`);
                     }
                 }
             }
