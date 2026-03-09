@@ -87,27 +87,32 @@ export class FLPParser {
             }
 
             // Handle specific relevant events
-            if (eventCode === 104) { // BPM (Word)
+            if (eventCode === 104 || eventCode === 104 - 64 || eventCode === 104 + 64) { // BPM (Word)
                 projectBpm = value / 10;
                 console.log(`[FLP] Found BPM: ${projectBpm}`);
             }
 
-            if (eventCode === 213) { // PLItem (Text/Var)
-                // PLItem data structure (~24 bytes in modern FL)
-                if (value && value.length >= 12) {
-                    const startPos = value.readInt32LE(0);
-                    const clipLen = value.readInt32LE(4);
-                    // In modern FL (20+), track index usually at offset 12-14
-                    const trackIdx = value.readInt16LE(12) || value.readInt16LE(10);
-                    
-                    clips.push({
-                        id: Math.random().toString(36).substr(2, 9),
-                        name: `Clip ${clips.length + 1}`,
-                        start: startPos / 96, 
-                        length: Math.max(clipLen / 96, 1),
-                        track: Math.abs(trackIdx % 500), // Safety cap for tracks
-                        type: 'clip' as const
-                    });
+            // Modern FL Studio uses Code 236 for Playlist Items in many cases
+            if (eventCode === 213 || eventCode === 236) { // PLItem (Text/Var)
+                // PLItem data structure (~12-24 bytes)
+                if (value && value.length >= 10) {
+                    try {
+                        const startPos = value.readInt32LE(0);
+                        const clipLen = value.length >= 8 ? value.readInt32LE(4) : 96;
+                        // For Code 236, track index is often later in the buffer
+                        const trackIdx = value.length >= 12 ? value.readInt16LE(10) : (value.length >= 10 ? value.readInt16LE(8) : 0);
+                        
+                        clips.push({
+                            id: Math.random().toString(36).substr(2, 9),
+                            name: `Clip ${clips.length + 1}`,
+                            start: Math.max(0, startPos / 96), 
+                            length: Math.max(clipLen / 96, 1),
+                            track: Math.abs(trackIdx % 500),
+                            type: 'clip' as const
+                        });
+                    } catch (e) {
+                        // Skip corrupted/unusual items
+                    }
                 }
             }
         }
