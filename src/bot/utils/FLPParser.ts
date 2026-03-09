@@ -94,6 +94,17 @@ export class FLPParser {
             //   [12] uint16 track (stored as 500 - actualTrackIndex)
             //   [14+] flags, offsets, padding
             if (code === 225 && buf && buf.length >= 28) {
+                // Dump first 5 items as hex to debug the structure
+                for (let d = 0; d < Math.min(5, Math.floor(buf.length / 32)); d++) {
+                    const hex = buf.subarray(d * 32, d * 32 + 32).toString('hex').match(/.{1,8}/g)?.join(' ');
+                    console.log(`[FLP] Item[${d}] raw (32b): ${hex}`);
+                }
+                // Also try reading at common offsets for first 5 items
+                for (let d = 0; d < Math.min(5, Math.floor(buf.length / 32)); d++) {
+                    const o = d * 32;
+                    console.log(`[FLP] Item[${d}] u32@0=${buf.readUInt32LE(o)} u16@4=${buf.readUInt16LE(o+4)} u16@6=${buf.readUInt16LE(o+6)} u32@8=${buf.readUInt32LE(o+8)} u16@12=${buf.readUInt16LE(o+12)} u16@14=${buf.readUInt16LE(o+14)} u32@16=${buf.readUInt32LE(o+16)} u16@20=${buf.readUInt16LE(o+20)} u16@22=${buf.readUInt16LE(o+22)} u32@24=${buf.readUInt32LE(o+24)} u32@28=${buf.readUInt32LE(o+28)}`);
+                }
+
                 // Auto-detect item size by trying 32 and 28
                 const bestSize = this.detectItemSize(buf);
                 const count = Math.floor(buf.length / bestSize);
