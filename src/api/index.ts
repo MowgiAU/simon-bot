@@ -3668,9 +3668,15 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
                     const flpBuffer = fs.readFileSync(absolutePath);
                     const arrangement = FLPParser.parse(flpBuffer);
                     
+                    // Update main track BPM if detected in FLP, otherwise keep original
+                    const updatedBpm = arrangement.bpm && arrangement.bpm !== 140 ? arrangement.bpm : track.bpm;
+
                     await db.track.update({
                         where: { id: track.id },
-                        data: { arrangement: arrangement as any }
+                        data: { 
+                            arrangement: arrangement as any,
+                            bpm: updatedBpm
+                        }
                     });
                     results.success++;
                 } else {

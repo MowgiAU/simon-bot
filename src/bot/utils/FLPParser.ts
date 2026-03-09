@@ -147,13 +147,14 @@ export class FLPParser {
                 const tempo = num / 1000;
                 if (tempo > 10 && tempo < 999) {
                     bpm = Math.round(tempo * 10) / 10;
-                    console.log(`[FLP] Tempo: ${bpm} BPM`);
+                    console.log(`[FLP] Detected Tempo (Event 156): ${bpm} BPM`);
                 }
             }
 
             // ── BPM (legacy): WORD event 66 ──
             if (code === 66 && num > 10 && num < 999) {
                 bpm = num;
+                console.log(`[FLP] Detected Tempo (Event 66): ${bpm} BPM`);
             }
 
             // ── Channel New (64): marks start of new channel ──
