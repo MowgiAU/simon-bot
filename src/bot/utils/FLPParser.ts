@@ -101,10 +101,13 @@ export class FLPParser {
         const channelSamplePaths = new Map<number, string>();
         const channelTypes = new Map<number, number>();  // IID → type (5 = automation)
         const channelAutomationPoints = new Map<number, AutomationPoint[]>();
+        const channelInternalNames = new Map<number, string>();  // IID → internal name (e.g. "Fruity Wrapper")
 
         // Project-wide collection for plugin/sample list
         const allPluginNames = new Set<string>();
         const allSamplePaths = new Set<string>();
+        // Mixer/effect plugin names (collected outside channel context)
+        const mixerPluginNames = new Set<string>();
 
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
@@ -193,20 +196,27 @@ export class FLPParser {
                 }
             }
 
+            // ── Plugin internal name (201 = TEXT+9): "Fruity Wrapper" for VSTs, native plugin name, or empty ──
+            if (code === 201 && buf && currentChannelIID > 0) {
+                const internalName = FLPParser.readStringBuf(buf);
+                if (internalName) {
+                    channelInternalNames.set(currentChannelIID, internalName);
+                }
+            }
+
             // ── Channel/plugin display name (203) ──
             if (code === 203 && buf && currentChannelIID > 0) {
                 const name = FLPParser.readStringBuf(buf);
                 if (name) {
                     channelNames.set(currentChannelIID, name);
-                    allPluginNames.add(name);
                 }
             }
 
-            // ── All plugin names (203) even outside channel context (mixer effects) ──
+            // ── Plugin names outside channel context (mixer effect slots) ──
             if (code === 203 && buf && currentChannelIID === 0) {
                 const name = FLPParser.readStringBuf(buf);
                 if (name) {
-                    allPluginNames.add(name);
+                    mixerPluginNames.add(name);
                 }
             }
 
@@ -381,18 +391,29 @@ export class FLPParser {
         console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
         // ── 5. Build project info ──
-        // Filter plugins: exclude automation channel names (they're not real plugins)
-        const automationChannelNames = new Set<string>();
-        for (const [iid, type] of channelTypes) {
-            if (type === 5) {
-                const name = channelNames.get(iid);
-                if (name) automationChannelNames.add(name);
+        // Identify real plugins: channels with an internal name are plugins/instruments
+        // "Fruity Wrapper" = VST plugin, other non-empty = native FL plugin
+        // Channels without internal names are plain samplers/audio clips (not plugins)
+        for (const [iid, internalName] of channelInternalNames) {
+            const channelType = channelTypes.get(iid);
+            if (channelType === 5) continue; // skip automation channels
+
+            const displayName = channelNames.get(iid);
+            if (internalName === 'Fruity Wrapper') {
+                // VST plugin — use the display name (the VST's name)
+                if (displayName) allPluginNames.add(displayName);
+            } else {
+                // Native FL plugin (e.g. "BooBass", "3x Osc", "FLEX")
+                allPluginNames.add(displayName || internalName);
             }
         }
 
-        const plugins = Array.from(allPluginNames)
-            .filter(n => !automationChannelNames.has(n))
-            .sort();
+        // Add mixer effect plugin names
+        for (const name of mixerPluginNames) {
+            allPluginNames.add(name);
+        }
+
+        const plugins = Array.from(allPluginNames).sort();
 
         const samples = Array.from(allSamplePaths)
             .map(p => FLPParser.fileNameFromPath(p))
