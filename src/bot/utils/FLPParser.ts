@@ -2,13 +2,27 @@
  * FLPParser: Extracts arrangement metadata from FL Studio (.flp) binary files.
  * Supports FL Studio 12+ / 20+ / 21+ / 25+.
  *
- * Binary format:
- *   FLhd (4) | headerLen (4) | format(2) channels(2) ppq(2) | FLdt (4) | dataLen (4) | events...
- *   Event codes: 0-63 = BYTE (1b), 64-127 = WORD (2b), 128-191 = DWORD (4b), 192-255 = VAR (VLQ + data)
+ * Binary format reference (from PyFLP):
+ *   Event bases: BYTE=0, WORD=64, DWORD=128, TEXT=192, DATA=208
+ *   Key events:
+ *     156 (DWORD)   = BPM × 1000
+ *     233 (DATA+25) = Playlist items (32 or 60 bytes each)
+ *     238 (DATA+30) = Track data (properties blob)
+ *     239 (TEXT+47)  = Track name
  *
- * Key events:
- *   156 (DWORD) = BPM × 1000
- *   228 (VAR)   = Playlist clip items (16 bytes each in FL 20+/25+)
+ *   Playlist item struct (per PyFLP):
+ *     position:     u32le  @ 0   (PPQ ticks)
+ *     pattern_base: u16le  @ 4   (always 20480)
+ *     item_index:   u16le  @ 6
+ *     length:       u32le  @ 8   (PPQ ticks)
+ *     track_rvidx:  u16le  @ 12  (reversed: Track 1 = 499)
+ *     group:        u16le  @ 14
+ *     _u1:          2 bytes @ 16
+ *     item_flags:   u16le  @ 18
+ *     _u2:          4 bytes @ 20
+ *     start_offset: f32le  @ 24
+ *     end_offset:   f32le  @ 28
+ *     _u3:          28 bytes @ 32  (FL 21+ only, total = 60 bytes)
  */
 export class FLPParser {
     static parse(buffer: Buffer) {
@@ -33,7 +47,8 @@ export class FLPParser {
 
         // ── 3. Event loop ──
         let bpm = 140;
-        const allVarEvents: Array<{ code: number; buf: Buffer }> = [];
+        let playlistBuf: Buffer | null = null;
+        const trackNames: string[] = [];
 
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
@@ -54,6 +69,7 @@ export class FLPParser {
                 num = buffer.readUInt32LE(offset);
                 offset += 4;
             } else {
+                // Variable-length: VLQ-encoded length, then data
                 let len = 0;
                 let shift = 0;
                 while (offset < buffer.length) {
@@ -81,88 +97,84 @@ export class FLPParser {
                 bpm = num;
             }
 
-            // Collect all variable-length events for analysis
-            if (buf && (code === 228 || code === 225 || code === 236)) {
-                allVarEvents.push({ code, buf });
+            // ── Playlist items: event 233 (DATA+25) ──
+            if (code === 233 && buf) {
+                playlistBuf = buf;
+                console.log(`[FLP] Found playlist event (code 233), ${buf.length} bytes`);
+            }
+
+            // ── Track names: event 239 (TEXT+47) ──
+            if (code === 239 && buf) {
+                // UTF-16LE or ASCII, null-terminated
+                let name: string;
+                if (buf.length >= 2 && buf[1] === 0) {
+                    // UTF-16LE
+                    name = buf.toString('utf16le').replace(/\0+$/, '');
+                } else {
+                    name = buf.toString('ascii').replace(/\0+$/, '');
+                }
+                trackNames.push(name);
             }
         }
 
-        // ── 4. Analyze collected events ──
-        const event228s = allVarEvents.filter(e => e.code === 228);
-        const event236s = allVarEvents.filter(e => e.code === 236);
-        const event225s = allVarEvents.filter(e => e.code === 225);
-
-        console.log(`[FLP] Variable events: code228=${event228s.length}, code236=${event236s.length}, code225=${event225s.length}`);
-
-        // Dump raw bytes of ALL code 228 events (these are the clip placements)
-        event228s.forEach((e, i) => {
-            const hex = e.buf.toString('hex').match(/.{1,2}/g)?.join(' ');
-            console.log(`[FLP] Event228[${i}] (${e.buf.length}b): ${hex}`);
-            if (e.buf.length >= 16) {
-                console.log(`[FLP] Event228[${i}] fields: pos=${e.buf.readUInt32LE(0)} u16@4=${e.buf.readUInt16LE(4)} u16@6=${e.buf.readUInt16LE(6)} len=${e.buf.readUInt32LE(8)} track=${e.buf.readInt16LE(12)} flags=${e.buf.readUInt16LE(14)}`);
-            }
-        });
-
-        // Also dump first 3 code 236 events
-        event236s.slice(0, 3).forEach((e, i) => {
-            const hex = e.buf.toString('hex').match(/.{1,2}/g)?.join(' ');
-            console.log(`[FLP] Event236[${i}] (${e.buf.length}b): ${hex}`);
-        });
-
-        // ── 5. Extract clips from code 228 events ──
-        // Each code 228 event = one playlist clip (16 bytes in FL 20+/25+)
-        // Layout: position(4) patternBase(2) itemIdx(2) length(4) track(2) flags(2)
+        // ── 4. Parse playlist items from event 233 ──
         const clips: Array<{ id: string; name: string; start: number; length: number; track: number }> = [];
 
-        event228s.forEach((e, i) => {
-            if (e.buf.length < 12) return;
+        if (playlistBuf) {
+            // Determine item size: 60 bytes for FL 21+ (if divisible by 60), else 32 bytes
+            let itemSize = 32;
+            if (playlistBuf.length % 60 === 0) {
+                itemSize = 60;
+            } else if (playlistBuf.length % 32 === 0) {
+                itemSize = 32;
+            } else {
+                console.log(`[FLP] Warning: playlist data ${playlistBuf.length}b not divisible by 32 or 60`);
+                // Try 60 first, then 32
+                itemSize = playlistBuf.length >= 60 ? 60 : 32;
+            }
 
-            const position = e.buf.readUInt32LE(0);
-            const length = e.buf.readUInt32LE(8);
-            const rawTrack = e.buf.length >= 14 ? e.buf.readInt16LE(12) : 0;
+            const itemCount = Math.floor(playlistBuf.length / itemSize);
+            console.log(`[FLP] Playlist: ${itemCount} items, itemSize=${itemSize}b`);
 
-            // Skip empty/garbage
-            if (position > 50_000_000 || length > 50_000_000) return;
+            for (let i = 0; i < itemCount; i++) {
+                const base = i * itemSize;
+                if (base + 16 > playlistBuf.length) break;
 
-            // Track may be 0-indexed directly or use 499-track encoding
-            const track = rawTrack >= 0 && rawTrack < 500 ? rawTrack : (rawTrack < 0 ? 499 + rawTrack : 0);
+                const position    = playlistBuf.readUInt32LE(base + 0);
+                const patternBase = playlistBuf.readUInt16LE(base + 4);  // always 20480
+                const itemIndex   = playlistBuf.readUInt16LE(base + 6);
+                const length      = playlistBuf.readUInt32LE(base + 8);
+                const trackRvIdx  = playlistBuf.readUInt16LE(base + 12); // reversed: Track 1 = 499
 
-            clips.push({
-                id: `clip-${i}`,
-                name: `Clip ${i + 1}`,
-                start: Math.round(position / ppq),
-                length: Math.max(Math.round(length > 0 ? length / ppq : 4), 1),
-                track,
-            });
-        });
+                // Actual track index (0-based): 499 - trackRvIdx
+                const trackIdx = 499 - trackRvIdx;
 
-        console.log(`[FLP] Clips from code228: ${clips.length}`);
+                // Determine if it's a channel clip or pattern clip
+                const isChannel = itemIndex <= patternBase;
+                const itemLabel = isChannel
+                    ? `Audio ${itemIndex}`
+                    : `Pattern ${itemIndex - patternBase}`;
 
-        // If code 228 found nothing, try code 236 (one event per track block)
-        if (clips.length === 0 && event236s.length > 0) {
-            console.log(`[FLP] Falling back to code 236 events...`);
-            event236s.forEach((e, i) => {
-                if (e.buf.length < 8) return;
-                const position = e.buf.readUInt32LE(0);
-                const length = e.buf.length >= 8 ? e.buf.readUInt32LE(4) : 0;
-
-                if (position > 50_000_000 || length > 50_000_000) return;
-                if (position === 0 && length === 0) return;
+                // Skip items with absurd values
+                if (position > 100_000_000 || length > 100_000_000) continue;
 
                 clips.push({
-                    id: `clip236-${i}`,
-                    name: `Clip ${i + 1}`,
+                    id: `clip-${i}`,
+                    name: itemLabel,
                     start: Math.round(position / ppq),
-                    length: Math.max(Math.round(length > 0 ? length / ppq : 4), 1),
-                    track: i,
+                    length: Math.max(Math.round(length / ppq), 1),
+                    track: trackIdx,
                 });
-            });
-            console.log(`[FLP] Clips from code236 fallback: ${clips.length}`);
+
+                console.log(`[FLP] Item[${i}]: pos=${position} len=${length} trackRv=${trackRvIdx} track=${trackIdx} patBase=${patternBase} idx=${itemIndex} → ${itemLabel}`);
+            }
+        } else {
+            console.log(`[FLP] No playlist event (code 233) found!`);
         }
 
         console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
-        // ── 6. Group clips by track & renumber ──
+        // ── 5. Group clips by track & renumber ──
         const trackMap = new Map<number, typeof clips>();
         for (const clip of clips) {
             if (!trackMap.has(clip.track)) trackMap.set(clip.track, []);
@@ -176,7 +188,7 @@ export class FLPParser {
             signature: [4, 4],
             tracks: sortedTrackIds.map((origId, idx) => ({
                 id: idx,
-                name: `Track ${idx + 1}`,
+                name: trackNames[origId] || `Track ${idx + 1}`,
                 clips: trackMap.get(origId)!,
             })),
         };
