@@ -9,6 +9,24 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
+interface ArrangementClip {
+    id: number;
+    name: string;
+    start: number;
+    length: number;
+}
+
+interface ArrangementTrack {
+    id: number;
+    name: string;
+    clips: ArrangementClip[];
+}
+
+interface ArrangementData {
+    bpm: number;
+    tracks: ArrangementTrack[];
+}
+
 interface Track {
     id: string;
     title: string;
@@ -24,6 +42,8 @@ interface Track {
     bpm: number | null;
     key: string | null;
     createdAt: string;
+    arrangement: ArrangementData | null;
+    projectFileUrl: string | null;
     profile: {
         id: string;
         username: string;
@@ -218,8 +238,116 @@ export const TrackPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {track.arrangement && (
+                    <ArrangementViewer
+                        arrangement={track.arrangement}
+                        duration={track.duration}
+                        currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
+                        isPlaying={isPlaying}
+                        projectFileUrl={track.projectFileUrl}
+                    />
+                )}
             </div>
         </DiscoveryLayout>
+    );
+};
+
+const TRACK_COLORS = [
+    '#7C3AED', '#2563EB', '#059669', '#D97706',
+    '#DC2626', '#7C3AED', '#0891B2', '#65A30D',
+];
+
+const ArrangementViewer: React.FC<{
+    arrangement: ArrangementData;
+    duration: number;
+    currentTime: number;
+    isPlaying: boolean;
+    projectFileUrl: string | null;
+}> = ({ arrangement, duration, currentTime, projectFileUrl }) => {
+    const totalBeats = arrangement.tracks.reduce((max, t) =>
+        Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 32
+    );
+    const playheadPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+    const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
+
+    return (
+        <div style={{ marginTop: '40px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Music size={20} color={colors.primary} />
+                    <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Structure</h2>
+                    <span style={{ fontSize: '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {arrangement.bpm} BPM
+                    </span>
+                </div>
+                {projectFileUrl && (
+                    <a
+                        href={projectFileUrl}
+                        download
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, textDecoration: 'none', fontSize: '0.85rem', border: `1px solid ${colors.primary}33`, padding: '6px 12px', borderRadius: borderRadius.sm }}
+                    >
+                        <ExternalLink size={14} /> Download .flp
+                    </a>
+                )}
+            </div>
+
+            <div style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117' }}>
+                <div style={{ minWidth: '600px', position: 'relative', padding: '16px 16px 16px 0' }}>
+                    {/* Beat ruler */}
+                    <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px' }}>
+                        {Array.from({ length: Math.ceil(totalBeats / 4) }, (_, i) => (
+                            <div key={i} style={{ flex: '0 0 calc(400% / ' + totalBeats + ')', textAlign: 'left', fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '3px', paddingBottom: '4px' }}>
+                                {i * 4 + 1}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Track rows */}
+                    {activeTracks.map((t, ti) => (
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '32px', marginBottom: '4px' }}>
+                            <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', fontSize: '0.75rem', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                {t.name}
+                            </div>
+                            <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
+                                {t.clips.map((clip) => (
+                                    <div
+                                        key={clip.id}
+                                        title={clip.name !== `Clip ${clip.id}` ? clip.name : t.name}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${(clip.start / totalBeats) * 100}%`,
+                                            width: `${(clip.length / totalBeats) * 100}%`,
+                                            height: '100%',
+                                            backgroundColor: TRACK_COLORS[ti % TRACK_COLORS.length] + 'CC',
+                                            borderRadius: '3px',
+                                            border: `1px solid ${TRACK_COLORS[ti % TRACK_COLORS.length]}`,
+                                            boxSizing: 'border-box',
+                                            minWidth: '3px',
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Playhead */}
+                    {playheadPct > 0 && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            left: `calc(140px + ${playheadPct}% * (100% - 140px) / 100)`,
+                            width: '2px',
+                            backgroundColor: '#fff',
+                            opacity: 0.6,
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                        }} />
+                    )}
+                </div>
+            </div>
+        </div>
     );
 };
 

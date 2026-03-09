@@ -246,6 +246,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [newTrack, setNewTrack] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
+    const [projectFile, setProjectFile] = useState<File | null>(null);
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
     
     // Avatar state
@@ -265,6 +266,7 @@ export const MusicianProfilePage: React.FC = () => {
         const formData = new FormData();
         formData.append('audio', audioFile);
         if (artworkFile) formData.append('artwork', artworkFile);
+        if (projectFile) formData.append('project', projectFile);
         if (newTrack.title) formData.append('title', newTrack.title);
         if (newTrack.description) formData.append('description', newTrack.description);
         if (newTrack.artist) formData.append('artist', newTrack.artist);
@@ -285,6 +287,7 @@ export const MusicianProfilePage: React.FC = () => {
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
             setAudioFile(null);
             setArtworkFile(null);
+            setProjectFile(null);
             setSelectedTrackGenres([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
@@ -541,6 +544,29 @@ export const MusicianProfilePage: React.FC = () => {
                                     <input 
                                         type="file" accept="image/*"
                                         onChange={e => setArtworkFile(e.target.files?.[0] || null)}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
+
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>FL Studio Project (Optional)</div>
+                                <label style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '10px', 
+                                    padding: '10px 14px', 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', 
+                                    border: `1px solid ${projectFile ? colors.primary : 'rgba(255,255,255,0.1)'}`, 
+                                    borderRadius: borderRadius.sm, 
+                                    cursor: 'pointer',
+                                    color: projectFile ? colors.textPrimary : colors.textSecondary,
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <Music size={18} color={projectFile ? colors.primary : colors.textSecondary} />
+                                    {projectFile ? projectFile.name : 'Attach .flp project file...'}
+                                    <input 
+                                        type="file" accept=".flp"
+                                        onChange={e => setProjectFile(e.target.files?.[0] || null)}
                                         style={{ display: 'none' }}
                                     />
                                 </label>

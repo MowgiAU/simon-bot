@@ -703,6 +703,10 @@ model Track {
   year            Int?
   bpm             Int?
   key             String?  // Musical key, e.g. "Am", "C#"
+
+  // Project Viewer (Splice-style timeline)
+  arrangement     Json?    // Parsed FLP arrangement data: { bpm, tracks, clips }
+  projectFileUrl  String?  // URL to the original .flp download
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
