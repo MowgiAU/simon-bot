@@ -2108,7 +2108,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                             content: post.content || '',
                             username: user?.username || 'Producer',
                             avatar_url: avatarUrl,
-                            allowed_mentions: { parse: [] }
+                            allowed_mentions: {                             cd ~/simon-bot && git pull && npm run build && npm run dashboard:build && pm2 restart apiparse: [] }
                         }));
                         form.append('files[0]', audioRes.data, filename);
 
@@ -3631,6 +3631,56 @@ app.get('/api/discovery/tracks/search', async (req, res) => {
             take: 20
         });
         res.json(tracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Re-process all FLP files (Admin operation)
+app.post('/api/admin/reprocess-flps', async (req, res) => {
+    try {
+        const userId = (req.session as any)?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        
+        // Find all tracks that have a projectFileUrl
+        const tracksWithFlps = await db.track.findMany({
+            where: { projectFileUrl: { not: null } }
+        });
+
+        const results = {
+            total: tracksWithFlps.length,
+            success: 0,
+            failed: 0,
+            errors: [] as string[]
+        };
+
+        for (const track of tracksWithFlps) {
+            try {
+                // projectFileUrl is like /uploads/projects/project-123.flp
+                // We need the absolute disk path
+                const relativePath = track.projectFileUrl!.startsWith('/') ? track.projectFileUrl!.substring(1) : track.projectFileUrl!;
+                const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
+
+                if (fs.existsSync(absolutePath)) {
+                    const flpBuffer = fs.readFileSync(absolutePath);
+                    const arrangement = FLPParser.parse(flpBuffer);
+                    
+                    await db.track.update({
+                        where: { id: track.id },
+                        data: { arrangement: arrangement as any }
+                    });
+                    results.success++;
+                } else {
+                    results.failed++;
+                    results.errors.push(`File not found for track: ${track.title} (${absolutePath})`);
+                }
+            } catch (err: any) {
+                results.failed++;
+                results.errors.push(`Error processing ${track.title}: ${err.message}`);
+            }
+        }
+
+        res.json(results);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

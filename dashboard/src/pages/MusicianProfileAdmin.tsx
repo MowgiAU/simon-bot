@@ -46,6 +46,9 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [searchingProfiles, setSearchingProfiles] = useState(false);
     const [confirmWipe, setConfirmWipe] = useState<string | null>(null);
 
+    // FLP reprocessing state
+    const [reprocessing, setReprocessing] = useState(false);
+
     useEffect(() => {
         fetchGenres();
         fetchDiscoverySettings();
@@ -147,6 +150,25 @@ export const MusicianProfileAdmin: React.FC = () => {
             setMsg({ type: 'error', text: 'Failed to update label' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleReprocessFlps = async () => {
+        if (!window.confirm('This will go through all project files on the server and re-run the arrangement parser. It may take a minute and overwrite existing arrangement data. Proceed?')) return;
+        
+        setReprocessing(true);
+        setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
+        
+        try {
+            const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
+            setMsg({ 
+                type: 'success', 
+                text: `Successfully re-processed ${res.data.success} tracks! ${res.data.failed > 0 ? `(${res.data.failed} failed: ${res.data.errors[0] || 'Check logs'})` : ''}` 
+            });
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
+        } finally {
+            setReprocessing(false);
         }
     };
 
@@ -298,6 +320,38 @@ export const MusicianProfileAdmin: React.FC = () => {
                             Save
                         </button>
                     </div>
+                </div>
+
+                {/* System Maintenance */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.md, fontSize: '1rem', color: colors.textSecondary }}>
+                        <Settings size={18} /> System Maintenance
+                    </h3>
+                    <div className="settings-explanation" style={{ backgroundColor: 'rgba(255,152,0,0.05)', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid #ff9800` }}>
+                        <p style={{ margin: 0, color: colors.textPrimary, fontSize: '0.9rem' }}>
+                            Update logic for <b>FLP arrangements</b> (Automation curves, Plugin listing, etc.) has been improved. 
+                            Click below to re-process all tracks currently in the database without requiring users to re-upload.
+                        </p>
+                    </div>
+                    <button 
+                        onClick={handleReprocessFlps} 
+                        disabled={reprocessing}
+                        style={{ 
+                            backgroundColor: 'transparent', 
+                            color: reprocessing ? colors.textSecondary : '#ff9800', 
+                            border: `1px solid ${reprocessing ? colors.textSecondary : '#ff9800'}`, 
+                            borderRadius: borderRadius.sm, 
+                            padding: `${spacing.sm} ${spacing.lg}`, 
+                            cursor: reprocessing ? 'default' : 'pointer', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        {reprocessing ? 'Reprocessing...' : 'Re-process all FLP files'}
+                    </button>
                 </div>
             </div>
 
