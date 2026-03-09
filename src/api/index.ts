@@ -3657,9 +3657,12 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
         for (const track of tracksWithFlps) {
             try {
                 // projectFileUrl is like /uploads/projects/project-123.flp
-                // We need the absolute disk path
+                // The actual file is stored in public/uploads/projects/project-123.flp
+                // We need to resolve this correctly relative to PROJECT_ROOT
                 const relativePath = track.projectFileUrl!.startsWith('/') ? track.projectFileUrl!.substring(1) : track.projectFileUrl!;
                 const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
+
+                logger.info(`Checking FLP at: ${absolutePath}`);
 
                 if (fs.existsSync(absolutePath)) {
                     const flpBuffer = fs.readFileSync(absolutePath);
@@ -3672,7 +3675,7 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
                     results.success++;
                 } else {
                     results.failed++;
-                    results.errors.push(`File not found for track: ${track.title} (${absolutePath})`);
+                    results.errors.push(`File not found for track: ${track.title} (Expected at: ${absolutePath})`);
                 }
             } catch (err: any) {
                 results.failed++;
