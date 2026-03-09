@@ -50,6 +50,8 @@ export class FLPParser {
         while (offset < endOffset && offset < buffer.length) {
             const eventCode = buffer[offset++];
             const eventType = eventCode & 0xC0;
+            let value: any;
+            let length = 0;
 
             console.log(`[FLP] Event Code: ${eventCode}, Offset: ${offset-1}`);
 
