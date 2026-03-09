@@ -3199,6 +3199,12 @@ app.post('/api/musician/tracks', upload.fields([
         // Override BPM if user provided it
         if (req.body.bpm) metadata.bpm = parseInt(req.body.bpm);
 
+        // If user provided BPM, also override the arrangement's auto-detected BPM
+        // (FL Studio's binary often stores default 140, which is unreliable)
+        if (arrangement && metadata.bpm) {
+            (arrangement as any).bpm = metadata.bpm;
+        }
+
         // 2. Map to public URLs
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
@@ -3668,18 +3674,17 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
                     const flpBuffer = fs.readFileSync(absolutePath);
                     const arrangement = FLPParser.parse(flpBuffer);
                     
-                    // Update main track BPM if detected in FLP, otherwise keep original
-                    // Use arrangement.bpm if it's non-zero and valid
-                    const updatedBpm = (arrangement.bpm && arrangement.bpm > 0) ? arrangement.bpm : track.bpm;
+                    // If the track already has a user-entered BPM, use that for the arrangement display
+                    // The FLP parser's BPM detection is unreliable (FL often stores default 140)
+                    if (track.bpm && track.bpm > 0) {
+                        (arrangement as any).bpm = track.bpm;
+                    }
 
-                    logger.info(`Track: ${track.title} | Current DB BPM: ${track.bpm} | Detected FLP BPM: ${arrangement.bpm} | Setting to: ${updatedBpm}`);
+                    logger.info(`Track: ${track.title} | User BPM: ${track.bpm} | Parser BPM: ${(arrangement as any).bpm} | Final arrangement BPM: ${(arrangement as any).bpm}`);
 
                     await db.track.update({
                         where: { id: track.id },
-                        data: { 
-                            arrangement: arrangement as any,
-                            bpm: updatedBpm
-                        }
+                        data: { arrangement: arrangement as any }
                     });
                     results.success++;
                 } else {
