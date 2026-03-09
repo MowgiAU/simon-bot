@@ -103,14 +103,15 @@ export class FLPParser {
                     const position = buf.readUInt32LE(o);     // absolute tick position
                     const lengthVal = buf.readUInt32LE(o + 8); // clip length in ticks
 
-                    // Sanity: ignore items with absurd positions
+                    // Sanity: ignore items with absurd positions or lengths
                     if (position > 50_000_000) continue;
+                    if (lengthVal > 50_000_000) continue;
 
                     clips.push({
                         id: `${playlistTrack}-${i}-${clips.length}`,
                         name: `Clip ${clips.length + 1}`,
-                        start: position / ppq,
-                        length: Math.max(lengthVal > 0 ? lengthVal / ppq : 4, 0.25),
+                        start: Math.round(position / ppq),
+                        length: Math.max(Math.round(lengthVal > 0 ? lengthVal / ppq : 4), 1),
                         track: playlistTrack >= 0 ? playlistTrack : 0,
                     });
                 }
