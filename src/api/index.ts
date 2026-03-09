@@ -3669,7 +3669,10 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
                     const arrangement = FLPParser.parse(flpBuffer);
                     
                     // Update main track BPM if detected in FLP, otherwise keep original
-                    const updatedBpm = arrangement.bpm && arrangement.bpm !== 140 ? arrangement.bpm : track.bpm;
+                    // Use arrangement.bpm if it's non-zero and valid
+                    const updatedBpm = (arrangement.bpm && arrangement.bpm > 0) ? arrangement.bpm : track.bpm;
+
+                    logger.info(`Track: ${track.title} | Current DB BPM: ${track.bpm} | Detected FLP BPM: ${arrangement.bpm} | Setting to: ${updatedBpm}`);
 
                     await db.track.update({
                         where: { id: track.id },
