@@ -58,17 +58,17 @@ export class FLPParser {
 
             if (eventType === 0x00) { // Byte (0-63)
                 value = buffer[offset++];
-                // console.log(`[FLP] Byte Event: ${eventCode}, Value: ${value}`);
+                console.log(`[FLP] Byte Code: ${eventCode}, Value: ${value}`);
             } else if (eventType === 0x40) { // Word (64-127)
                 if (offset + 2 > buffer.length) break;
                 value = buffer.readUInt16LE(offset);
                 offset += 2;
-                // console.log(`[FLP] Word Event: ${eventCode}, Value: ${value}`);
+                console.log(`[FLP] Word Code: ${eventCode}, Value: ${value}`);
             } else if (eventType === 0x80) { // DWord (128-191)
                 if (offset + 4 > buffer.length) break;
                 value = buffer.readUInt32LE(offset);
                 offset += 4;
-                // console.log(`[FLP] DWord Event: ${eventCode}, Value: ${value}`);
+                console.log(`[FLP] DWord Code: ${eventCode}, Value: ${value}`);
             } else if (eventType === 0xC0) { // Text/Variable (192-255)
                 let result = 0;
                 let shift = 0;
@@ -83,7 +83,7 @@ export class FLPParser {
                 if (offset + length > buffer.length) break;
                 value = buffer.slice(offset, offset + length);
                 offset += length;
-                // console.log(`[FLP] Text/Var Event: ${eventCode}, Length: ${length}`);
+                console.log(`[FLP] Variable Code: ${eventCode}, Length: ${length}`);
             }
 
             // Handle specific relevant events
