@@ -1,10 +1,10 @@
 // src/bot/plugins/ProjectViewerPlugin.ts
-import { IPlugin, CommandContext, PluginConfig } from '../core/PluginManager';
+import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
 import { PrismaClient } from '@prisma/client';
+import { PermissionResolvable } from 'discord.js';
+import { z } from 'zod';
 import axios from 'axios';
-import * as fs from 'fs';
-import * as path from 'path';
 import { FLPParser } from '../utils/FLPParser';
 
 /**
@@ -15,26 +15,31 @@ export class ProjectViewerPlugin implements IPlugin {
     readonly id = 'project-viewer';
     readonly name = 'Fuji Project Viewer';
     readonly description = 'Visualize FL Studio project structures and sync with audio renders.';
+    readonly version = '1.0.0';
+    readonly author = 'Fuji Studio Team';
     readonly defaultEnabled = true;
+
+    requiredPermissions: PermissionResolvable[] = ['Administrator'];
+    commands = ['scanprojects'];
+    events = [];
+    dashboardSections = ['project-viewer'];
 
     private logger = new Logger('ProjectViewer');
     private token = process.env.DISCORD_TOKEN || '';
+    private context: IPluginContext | null = null;
 
-    configSchema = {
-        storageGuildId: {
-            type: 'string',
-            default: process.env.PROJECT_STORAGE_GUILD_ID || '1480389681676816435',
-            description: 'The Discord Guild ID used for storing raw FLPs and renders.'
-        }
-    } as PluginConfig;
+    configSchema = z.object({
+        storageGuildId: z.string().default(process.env.PROJECT_STORAGE_GUILD_ID || '1480389681676816435'),
+    });
 
     constructor(private prisma: PrismaClient) {}
 
-    async onEnable() {
+    async initialize(context: IPluginContext) {
+        this.context = context;
         this.logger.info('Project Viewer initialized.');
     }
 
-    async onDisable() {
+    async shutdown() {
         this.logger.info('Project Viewer disabled.');
     }
 
@@ -112,17 +117,17 @@ export class ProjectViewerPlugin implements IPlugin {
         }
     }
 
-    // Command to manually trigger an indexing of the project storage
+    // For now, let's keep it simple for registration
     async getCommands() {
         return [
             {
                 name: 'scanprojects',
                 description: 'Sync the project storage guild with the database.',
                 permissions: ['Administrator'],
-                execute: async (ctx: CommandContext) => {
+                execute: async (ctx: any) => {
                     await ctx.reply('🔍 Starting project storage scan...');
                     try {
-                        const guildId = this.configSchema.storageGuildId.default as string;
+                        const guildId = process.env.PROJECT_STORAGE_GUILD_ID || '1480389681676816435';
                         await this.scanProjectGuild(guildId);
                         await ctx.followUp('✅ Project scan complete.');
                     } catch (e: any) {
