@@ -94,25 +94,28 @@ export class FLPParser {
 
             // ── Playlist items: codes 236 (FL 20+), 228 (FL 12-19), 213 (legacy) ──
             if ((code === 236 || code === 228 || code === 213) && buf) {
-                const ITEM = 12; // bytes per playlist item in this format
+                // Code 228 uses 16-byte items, 236/213 use 12-byte items
+                const ITEM = code === 228 ? 16 : 12;
                 const count = Math.floor(buf.length / ITEM);
                 console.log(`[FLP] Playlist event: code=${code}, bytes=${buf.length}, items=${count}, track=${playlistTrack}`);
 
                 for (let i = 0; i < count; i++) {
                     const o = i * ITEM;
                     const position = buf.readUInt32LE(o);     // absolute tick position
-                    const lengthVal = buf.readUInt32LE(o + 8); // clip length in ticks
+                    const lengthVal = buf.readUInt32LE(o + 4); // clip length in ticks
 
-                    // Sanity: ignore items with absurd positions or lengths
+                    // Skip empty/garbage items (position=0 and length=0 are empty track slots)
+                    if (position === 0 && lengthVal === 0) continue;
                     if (position > 50_000_000) continue;
                     if (lengthVal > 50_000_000) continue;
+                    if (playlistTrack < 0) continue; // Skip items before any track header
 
                     clips.push({
                         id: `${playlistTrack}-${i}-${clips.length}`,
                         name: `Clip ${clips.length + 1}`,
                         start: Math.round(position / ppq),
                         length: Math.max(Math.round(lengthVal > 0 ? lengthVal / ppq : 4), 1),
-                        track: playlistTrack >= 0 ? playlistTrack : 0,
+                        track: playlistTrack,
                     });
                 }
             }

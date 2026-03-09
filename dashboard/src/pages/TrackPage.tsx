@@ -337,12 +337,13 @@ const ArrangementViewer: React.FC<{
                             position: 'absolute',
                             top: 0,
                             bottom: 0,
-                            left: `calc(140px + ${playheadPct}% * (100% - 140px) / 100)`,
+                            left: `calc(140px + (100% - 140px) * ${playheadPct / 100})`,
                             width: '2px',
                             backgroundColor: '#fff',
-                            opacity: 0.6,
+                            opacity: 0.8,
                             pointerEvents: 'none',
                             zIndex: 10,
+                            transition: 'left 0.25s linear',
                         }} />
                     )}
                 </div>
