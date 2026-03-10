@@ -3645,11 +3645,23 @@ app.get('/api/discovery/tracks', async (req, res) => {
             take: Number(limit)
         });
 
-        // If no tracks found but a genre was specified, try to find the genre name anyway
+        // Find the genre name and its children
         let genreFound = null;
         if (genre) {
             genreFound = await db.genre.findFirst({
-                where: { slug: { equals: genre as string, mode: 'insensitive' } }
+                where: { 
+                    OR: [
+                        { slug: { equals: genre as string, mode: 'insensitive' } },
+                        { name: { equals: genre as string, mode: 'insensitive' } }
+                    ]
+                },
+                include: {
+                    children: {
+                        include: {
+                            _count: { select: { tracks: true } }
+                        }
+                    }
+                }
             });
         }
 
