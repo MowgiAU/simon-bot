@@ -14,7 +14,7 @@ async function main() {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 
-    let currentCategory = null;
+    let currentParent = null;
     let addedCount = 0;
 
     for (let line of lines) {
@@ -25,19 +25,18 @@ async function main() {
         if (line.startsWith('-')) {
             const genreName = line.substring(1).trim();
             if (genreName) {
-                await addGenre(genreName);
+                await addGenre(genreName, currentParent?.id);
             }
         } else {
             // Main category
-            currentCategory = line;
-            await addGenre(line);
+            currentParent = await addGenre(line, null);
         }
     }
 
-    async function addGenre(name) {
+    async function addGenre(name, parentId = null) {
         try {
             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            const existing = await prisma.genre.findFirst({
+            let existing = await prisma.genre.findFirst({
                 where: { 
                     OR: [
                         { name: { equals: name, mode: 'insensitive' } },
@@ -47,16 +46,27 @@ async function main() {
             });
 
             if (!existing) {
-                await prisma.genre.create({
-                    data: { name, slug }
+                existing = await prisma.genre.create({
+                    data: { name, slug, parentId }
                 });
-                console.log(`✅ Added: ${name}`);
+                console.log(`✅ Added: ${name}${parentId ? ' (sub-genre)' : ' (main category)'}`);
                 addedCount++;
             } else {
-                console.log(`⏩ Skipped (exists): ${name}`);
+                // Update parentId if it exists but wasn't set correctly
+                if (parentId && existing.parentId !== parentId) {
+                    existing = await prisma.genre.update({
+                        where: { id: existing.id },
+                        data: { parentId }
+                    });
+                    console.log(`🔧 Updated parent for: ${name}`);
+                } else {
+                    console.log(`⏩ Skipped (exists): ${name}`);
+                }
             }
+            return existing;
         } catch (err) {
             console.error(`❌ Error adding ${name}:`, err.message);
+            return null;
         }
     }
 
