@@ -4,6 +4,7 @@ import { colors } from '../theme/theme';
 import { Search, Music, Zap, User } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
+import { FujiLogo } from '../components/FujiLogo';
 
 interface DiscoveryLayoutProps {
     children: ReactNode;
@@ -67,7 +68,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             width: '32px', height: '32px', backgroundColor: colors.primary,
                             borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                            <Music color="white" size={20} />
+                            <FujiLogo size={20} color="white" />
                         </div>
                         <div>
                             <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>

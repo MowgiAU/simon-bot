@@ -4,6 +4,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
+import { FujiLogo } from '../components/FujiLogo';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
@@ -251,7 +252,7 @@ export const TrackPage: React.FC = () => {
                                 <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
-                                    <Music size={isMobile ? 120 : 80} opacity={0.1} />
+                                    <FujiLogo size={isMobile ? 120 : 160} color={colors.primary} opacity={0.2} />
                                 </div>
                             )}
                             

@@ -8,6 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
+import { FujiLogo } from '../components/FujiLogo';
 
 /** 
  * Modular styles following the Fuji Studio design system (Tailwind-like approach in CSS-in-JS)
@@ -204,7 +205,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <img src={featured.featuredTrack.coverUrl} alt="Featured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <div style={{ width: '100%', height: '100%', backgroundColor: '#242C3D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Music size={60} color="rgba(255,255,255,0.1)" />
+                                            <FujiLogo size={80} color={colors.primary} opacity={0.2} />
                                         </div>
                                     )}
                                 </div>
@@ -259,7 +260,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                                     <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#B9C3CE', width: '16px' }}>{idx + 1}</span>
                                     <div style={{ width: '40px', height: '40px', backgroundColor: '#1A1E2E', borderRadius: '4px', overflow: 'hidden' }}>
-                                        {track.coverUrl ? <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} opacity={0.2}/></div>}
+                                        {track.coverUrl ? (
+                                            <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <FujiLogo size={20} color={colors.primary} opacity={0.2} />
+                                            </div>
+                                        )}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
@@ -355,7 +362,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             {topTracks.map(track => (
                                 <div key={track.id} style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }} onClick={() => navigate(`/track/${track.profile.username}/${track.slug || track.id}`)}>
                                     <div style={{ position: 'relative', aspectRatio: '1/1', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        {track.coverUrl ? <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={32} opacity={0.1}/></div>}
+                                        {track.coverUrl ? (
+                                            <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <FujiLogo size={32} color={colors.primary} opacity={0.2} />
+                                            </div>
+                                        )}
                                         <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'} onClick={(e) => { e.stopPropagation(); setTrack(track, topTracks); }}>
                                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <Play size={24} fill="white" />
