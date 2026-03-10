@@ -8,7 +8,7 @@ import { FujiLogo } from '../components/FujiLogo';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
-    Edit3, X, Save, Upload
+    Edit3, X, Save, Upload, Download
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
