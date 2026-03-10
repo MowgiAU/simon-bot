@@ -99,7 +99,8 @@ export class AudioService {
     async addTrack(userId: string, data: { 
         title: string, url: string, coverUrl?: string, description?: string, duration?: number,
         artist?: string, album?: string, year?: number, bpm?: number, key?: string, slug?: string,
-        arrangement?: object, projectFileUrl?: string
+        arrangement?: object, projectFileUrl?: string,
+        allowAudioDownload?: boolean, allowProjectDownload?: boolean
     }) {
         const profile = await this.prisma.musicianProfile.findUnique({ where: { userId } });
         if (!profile) throw new Error('Profile not found');
@@ -118,6 +119,8 @@ export class AudioService {
                 year: data.year,
                 bpm: data.bpm,
                 key: data.key,
+                allowAudioDownload: data.allowAudioDownload ?? true,
+                allowProjectDownload: data.allowProjectDownload ?? true,
                 arrangement: data.arrangement ?? undefined,
                 projectFileUrl: data.projectFileUrl,
             }

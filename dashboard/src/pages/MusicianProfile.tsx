@@ -243,7 +243,17 @@ export const MusicianProfilePage: React.FC = () => {
     // Track state
     const [tracks, setTracks] = useState<any[]>([]);
     const [isAddingTrack, setIsAddingTrack] = useState(false);
-    const [newTrack, setNewTrack] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
+    const [newTrack, setNewTrack] = useState({ 
+        title: '', 
+        description: '', 
+        artist: '', 
+        album: '', 
+        year: '', 
+        bpm: '', 
+        key: '',
+        allowAudioDownload: true,
+        allowProjectDownload: true
+    });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
     const [projectFile, setProjectFile] = useState<File | null>(null);
@@ -278,6 +288,8 @@ export const MusicianProfilePage: React.FC = () => {
         if (newTrack.year) formData.append('year', newTrack.year);
         if (newTrack.bpm) formData.append('bpm', newTrack.bpm);
         if (newTrack.key) formData.append('key', newTrack.key);
+        formData.append('allowAudioDownload', String(newTrack.allowAudioDownload));
+        formData.append('allowProjectDownload', String(newTrack.allowProjectDownload));
         if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
         setSaving(true);
@@ -328,6 +340,8 @@ export const MusicianProfilePage: React.FC = () => {
             formData.append('year', editingTrack.year || '');
             formData.append('bpm', editingTrack.bpm || '');
             formData.append('key', editingTrack.key || '');
+            formData.append('allowAudioDownload', String(editingTrack.allowAudioDownload ?? true));
+            formData.append('allowProjectDownload', String(editingTrack.allowProjectDownload ?? true));
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
             const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
@@ -632,6 +646,28 @@ export const MusicianProfilePage: React.FC = () => {
                                 </div>
                             </div>
 
+                            <div style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: colors.textSecondary }}>Download Settings</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editingTrack.allowAudioDownload ?? true}
+                                            onChange={e => setEditingTrack({...editingTrack, allowAudioDownload: e.target.checked})}
+                                        />
+                                        Allow users to download audio file
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editingTrack.allowProjectDownload ?? true}
+                                            onChange={e => setEditingTrack({...editingTrack, allowProjectDownload: e.target.checked})}
+                                        />
+                                        Allow users to download .flp project (if attached)
+                                    </label>
+                                </div>
+                            </div>
+
                             <div style={{ marginTop: spacing.sm }}>
                                 <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <Tag size={14} /> Genre Tags
@@ -813,6 +849,28 @@ export const MusicianProfilePage: React.FC = () => {
                                                 <option key={`${note} Minor`} value={`${note} Minor`}>{note} Minor</option>
                                             ])}
                                         </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: colors.textSecondary }}>Download Permissions</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={newTrack.allowAudioDownload}
+                                                onChange={e => setNewTrack({...newTrack, allowAudioDownload: e.target.checked})}
+                                            />
+                                            Public: Allow Audio Download
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={newTrack.allowProjectDownload}
+                                                onChange={e => setNewTrack({...newTrack, allowProjectDownload: e.target.checked})}
+                                            />
+                                            Public: Allow FLP Project Download
+                                        </label>
                                     </div>
                                 </div>
 

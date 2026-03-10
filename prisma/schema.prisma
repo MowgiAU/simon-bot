@@ -696,6 +696,8 @@ model Track {
   duration        Int      @default(0) // In seconds
   playCount       Int      @default(0)
   isPublic        Boolean  @default(true)
+  allowAudioDownload Boolean @default(true)
+  allowProjectDownload Boolean @default(true)
 
   // ID3 Metadata (user-editable)
   artist          String?

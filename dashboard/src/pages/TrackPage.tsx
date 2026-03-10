@@ -99,7 +99,17 @@ export const TrackPage: React.FC = () => {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [editForm, setEditForm] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
+    const [editForm, setEditForm] = useState({ 
+        title: '', 
+        description: '', 
+        artist: '', 
+        album: '', 
+        year: '', 
+        bpm: '', 
+        key: '',
+        allowAudioDownload: true,
+        allowProjectDownload: true
+    });
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
     const [genreSearchTerm, setGenreSearchTerm] = useState('');
     const [allGenres, setAllGenres] = useState<any[]>([]);
@@ -157,6 +167,8 @@ export const TrackPage: React.FC = () => {
             year: track.year?.toString() || '',
             bpm: track.bpm?.toString() || '',
             key: track.key || '',
+            allowAudioDownload: track.allowAudioDownload ?? true,
+            allowProjectDownload: track.allowProjectDownload ?? true,
         });
         setSelectedTrackGenres(track.genres?.map(g => g.genre.id) || []);
         setEditAudioFile(null);
@@ -180,6 +192,8 @@ export const TrackPage: React.FC = () => {
             formData.append('year', editForm.year);
             formData.append('bpm', editForm.bpm);
             formData.append('key', editForm.key);
+            formData.append('allowAudioDownload', String(editForm.allowAudioDownload));
+            formData.append('allowProjectDownload', String(editForm.allowProjectDownload));
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
             if (editAudioFile) formData.append('audio', editAudioFile);
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
@@ -333,6 +347,14 @@ export const TrackPage: React.FC = () => {
                         )}
 
                         <div style={{ marginTop: 'auto', display: 'flex', gap: spacing.md }}>
+                            {track.allowAudioDownload && (
+                                <button 
+                                    onClick={() => window.open(track.url, '_blank')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    <Download size={18} /> Download Audio
+                                </button>
+                            )}
                             <button 
                                 onClick={() => {
                                     navigator.clipboard.writeText(window.location.href);
@@ -542,6 +564,29 @@ export const TrackPage: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* Download Settings */}
+                                <div style={{ marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: colors.textSecondary }}>Download Permissions</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={editForm.allowAudioDownload}
+                                                onChange={e => setEditForm(f => ({ ...f, allowAudioDownload: e.target.checked }))}
+                                            />
+                                            Public: Allow Audio Download
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={editForm.allowProjectDownload}
+                                                onChange={e => setEditForm(f => ({ ...f, allowProjectDownload: e.target.checked }))}
+                                            />
+                                            Public: Allow FLP Project Download
+                                        </label>
+                                    </div>
+                                </div>
+
                                 {/* File Uploads */}
                                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '4px' }}>
                                     <h3 style={{ margin: '0 0 12px', fontSize: '1rem', color: colors.textSecondary }}>Replace Files (optional)</h3>
@@ -682,7 +727,7 @@ const ArrangementViewer: React.FC<{
                         >+</button>
                     </div>
 
-                    {projectFileUrl && (
+                    {projectFileUrl && track.allowProjectDownload && (
                         <a
                             href={projectFileUrl}
                             download

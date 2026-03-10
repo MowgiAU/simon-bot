@@ -3225,6 +3225,8 @@ app.post('/api/musician/tracks', upload.fields([
             year: metadata.year,
             bpm: metadata.bpm,
             key: metadata.key,
+            allowAudioDownload: req.body.allowAudioDownload === 'true',
+            allowProjectDownload: req.body.allowProjectDownload === 'true',
             ...(arrangement ? { arrangement } : {}),
             ...(projectFileUrl ? { projectFileUrl } : {})
         });
@@ -3273,7 +3275,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
-        const { title, description, isPublic, artist, album, year, bpm, key, genreIds } = req.body;
+        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload } = req.body;
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -3292,6 +3294,8 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(year !== undefined && { year: year ? parseInt(year) : null }),
                 ...(bpm !== undefined && { bpm: bpm ? parseInt(bpm) : null }),
                 ...(key !== undefined && { key: key || null }),
+                ...(allowAudioDownload !== undefined && { allowAudioDownload: Boolean(allowAudioDownload) }),
+                ...(allowProjectDownload !== undefined && { allowProjectDownload: Boolean(allowProjectDownload) }),
             }
         });
 
