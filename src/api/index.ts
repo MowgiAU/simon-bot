@@ -22,6 +22,8 @@ import { MediaConverter } from '../services/MediaConverter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const escapeHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 // Resolve to project root regardless of where PM2/node was started from.
 // __dirname = .../src/api or .../dist/api → two levels up = project root.
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -4501,6 +4503,117 @@ app.get('/api/fuji/libraries', async (req, res) => {
 
 const PORT = process.env.API_PORT || 3001;
 
+// ---------------------------------------------------------------------------
+// Embeddable audio player (used by Discord/Reddit embeds via iframe)
+// ---------------------------------------------------------------------------
+app.get('/player/:username/:slug', async (req: any, res) => {
+    const { username, slug } = req.params;
+    try {
+        const profile = await db.musicianProfile.findFirst({
+            where: { username: { equals: username, mode: 'insensitive' } }
+        });
+        if (!profile) return res.status(404).send('Not found');
+
+        const track = await db.track.findFirst({
+            where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
+            include: { profile: true }
+        }) as any;
+        if (!track) return res.status(404).send('Not found');
+
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const audioUrl = track.url ? `${baseUrl}${track.url}` : '';
+        const imageUrl = track.coverUrl ? `${baseUrl}${track.coverUrl}` : '';
+        const artistName = track.profile.displayName || track.profile.username || username;
+
+        const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(track.title)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1A1E2E;font-family:system-ui,sans-serif;color:#fff;display:flex;align-items:center;padding:10px 14px;height:80px;overflow:hidden}
+.cover{width:54px;height:54px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#2a2e3e}
+.info{flex:1;padding:0 12px;min-width:0}
+.title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist{font-size:11px;color:#9a9db0;margin-top:2px}
+audio{width:100%;margin-top:5px;height:24px;accent-color:#7289da}
+a{color:#7289da;text-decoration:none;font-size:11px}
+</style>
+</head><body>
+${imageUrl ? `<img class="cover" src="${escapeHtml(imageUrl)}" alt="">` : '<div class="cover"></div>'}
+<div class="info">
+  <div class="title">${escapeHtml(track.title)}</div>
+  <div class="artist">${escapeHtml(artistName)} &mdash; <a href="${baseUrl}/profile/${escapeHtml(username)}/${escapeHtml(slug)}" target="_blank">Open in Fuji Studio</a></div>
+  ${audioUrl ? `<audio controls src="${escapeHtml(audioUrl)}"></audio>` : '<div style="font-size:11px;color:#666;margin-top:6px">Audio unavailable</div>'}
+</div>
+</body></html>`;
+
+        res.setHeader('X-Frame-Options', 'ALLOWALL');
+        res.setHeader('Content-Security-Policy', "frame-ancestors *");
+        res.send(html);
+    } catch (e: any) {
+        res.status(500).send('Error');
+    }
+});
+
+// oEmbed endpoint (used by Reddit and other platforms supporting oEmbed)
+app.get('/api/oembed', async (req: any, res) => {
+    const { url, format } = req.query as { url: string; format: string };
+    if (!url) return res.status(400).json({ error: 'url parameter required' });
+
+    const match = decodeURIComponent(url).match(/\/profile\/([^/?#]+)\/([^/?#]+)/);
+    if (!match) return res.status(404).json({ error: 'Not a track URL' });
+    const [, username, slug] = match;
+
+    try {
+        const profile = await db.musicianProfile.findFirst({
+            where: { username: { equals: username, mode: 'insensitive' } }
+        });
+        if (!profile) return res.status(404).json({ error: 'Not found' });
+
+        const track = await db.track.findFirst({
+            where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
+            include: { profile: true }
+        }) as any;
+        if (!track) return res.status(404).json({ error: 'Not found' });
+
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const artistName = track.profile.displayName || track.profile.username || username;
+        const playerUrl = `${baseUrl}/player/${username}/${slug}`;
+        const coverUrl = track.coverUrl ? `${baseUrl}${track.coverUrl}` : undefined;
+
+        const payload: any = {
+            type: 'rich',
+            version: '1.0',
+            title: `${track.title} by ${artistName}`,
+            author_name: artistName,
+            author_url: `${baseUrl}/profile/${username}`,
+            provider_name: 'Fuji Studio',
+            provider_url: baseUrl,
+            width: 480,
+            height: 80,
+            html: `<iframe src="${playerUrl}" width="480" height="80" frameborder="0" allowtransparency="true" allow="autoplay"></iframe>`,
+        };
+        if (coverUrl) { payload.thumbnail_url = coverUrl; payload.thumbnail_width = 500; payload.thumbnail_height = 500; }
+
+        if (format === 'xml') {
+            res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+            return res.send(`<?xml version="1.0" encoding="utf-8"?>
+<oembed>
+  <type>rich</type><version>1.0</version>
+  <title>${escapeHtml(payload.title)}</title>
+  <author_name>${escapeHtml(artistName)}</author_name>
+  <width>480</width><height>80</height>
+  <html>${escapeHtml(payload.html)}</html>
+</oembed>`);
+        }
+        res.json(payload);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Serve Dashboard Dist in Production ---
 const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
@@ -4517,10 +4630,72 @@ if (fs.existsSync(distPath)) {
     }, express.static(distPath, { index: false }));
 
     // 2. SPA Catch-all
-    app.get('*', (req, res, next) => {
+    const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
+    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)$/;
+
+    app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
             return next();
+        }
+
+        // Bot request on a track URL → inject OG meta tags
+        const ua = req.headers['user-agent'] || '';
+        const trackMatch = req.path.match(TRACK_PATH);
+        if (BOT_UA.test(ua) && trackMatch) {
+            try {
+                const [, username, slug] = trackMatch;
+                const profile = await db.musicianProfile.findFirst({
+                    where: { username: { equals: username, mode: 'insensitive' } }
+                });
+                if (profile) {
+                    const track = await db.track.findFirst({
+                        where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
+                        include: { profile: true }
+                    }) as any;
+                    if (track) {
+                        const baseUrl = `${req.protocol}://${req.get('host')}`;
+                        const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
+                        const audioUrl = track.url ? `${baseUrl}${track.url}` : '';
+                        const imageUrl = track.coverUrl ? `${baseUrl}${track.coverUrl}` : `${baseUrl}/og-default.png`;
+                        const artistName: string = track.profile.displayName || track.profile.username || username;
+                        const description: string = track.description
+                            ? track.description.slice(0, 200)
+                            : `Listen to ${track.title} by ${artistName} on Fuji Studio`;
+                        const playerUrl = `${baseUrl}/player/${username}/${slug}`;
+                        const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
+
+                        const metaTags = [
+                            `<meta charset="utf-8">`,
+                            `<title>${escapeHtml(track.title)} by ${escapeHtml(artistName)} | Fuji Studio</title>`,
+                            `<meta property="og:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
+                            `<meta property="og:description" content="${escapeHtml(description)}">`,
+                            `<meta property="og:type" content="music.song">`,
+                            `<meta property="og:url" content="${trackUrl}">`,
+                            `<meta property="og:image" content="${imageUrl}">`,
+                            `<meta property="og:image:width" content="500">`,
+                            `<meta property="og:image:height" content="500">`,
+                            `<meta property="og:site_name" content="Fuji Studio">`,
+                            `<meta name="theme-color" content="#5865F2">`,
+                            audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
+                            audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
+                            audioUrl ? `<meta property="og:audio:type" content="audio/mpeg">` : '',
+                            `<meta name="twitter:card" content="player">`,
+                            `<meta name="twitter:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
+                            `<meta name="twitter:description" content="${escapeHtml(description)}">`,
+                            `<meta name="twitter:image" content="${imageUrl}">`,
+                            `<meta name="twitter:player" content="${playerUrl}">`,
+                            `<meta name="twitter:player:width" content="480">`,
+                            `<meta name="twitter:player:height" content="80">`,
+                            `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
+                        ].filter(Boolean).join('\n');
+
+                        return res.send(`<!DOCTYPE html><html><head>\n${metaTags}\n</head><body></body></html>`);
+                    }
+                }
+            } catch (_) {
+                // Fall through to SPA on error
+            }
         }
 
         // Everything else gets index.html
