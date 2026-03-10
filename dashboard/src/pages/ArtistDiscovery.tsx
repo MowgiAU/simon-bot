@@ -3,7 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
-    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, Category, Layout, RadioTower, Award
+    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, RadioTower, Award 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -304,7 +304,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* Genre Exploration */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={styles.headerLabel}><Category size={16} color={colors.primary} /> Genre Exploration</h3>
+                            <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> Genre Exploration</h3>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                             {[
