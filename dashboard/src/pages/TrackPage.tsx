@@ -494,7 +494,7 @@ export const TrackPage: React.FC = () => {
 
                                 {/* Genre Tags */}
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <label style={{ marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <Tag size={14} /> Genre Tags
                                     </label>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
