@@ -680,7 +680,7 @@ const ArrangementViewer: React.FC<{
                                 );
                             }
                             return <div style={{ position: 'relative', width: '100%', height: '1.2rem' }}>{items}</div>;
-                        })()}}
+                        })()}
                     </div>
 
                     {/* Track rows */}
