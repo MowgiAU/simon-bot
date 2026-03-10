@@ -116,7 +116,6 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-    const [sortBy, setSortBy] = useState('newest');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
@@ -142,7 +141,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const fetchArtists = async () => {
         setLoading(true);
         try {
-            const params: any = { sort: sortBy };
+            const params: any = {};
             if (search) params.search = search;
             if (selectedGenre) params.genre = selectedGenre;
             
@@ -162,43 +161,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
     useEffect(() => {
         const timer = setTimeout(fetchArtists, 300);
         return () => clearTimeout(timer);
-    }, [search, selectedGenre, sortBy]);
+    }, [search, selectedGenre]);
 
     const sidebarContent = (
         <>
             <h3 style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '24px' }}>Discovery Filters</h3>
-            
-            <div style={{ marginBottom: '32px' }}>
-                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Sort By</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {[
-                        { id: 'newest', label: 'Recently Joined' },
-                        { id: 'popular', label: 'Most Popular' },
-                        { id: 'alphabetical', label: 'A - Z' },
-                        { id: 'oldest', label: 'OG Members' }
-                    ].map(opt => (
-                        <button
-                            key={opt.id}
-                            onClick={() => setSortBy(opt.id)}
-                            style={{
-                                textAlign: 'left',
-                                padding: '8px 12px',
-                                borderRadius: '4px',
-                                backgroundColor: sortBy === opt.id ? 'rgba(76, 117, 242, 0.1)' : 'transparent',
-                                border: 'none',
-                                color: sortBy === opt.id ? colors.primary : '#B9C3CE',
-                                fontSize: '12px',
-                                fontWeight: sortBy === opt.id ? 'bold' : 'normal',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             <div style={{ marginBottom: '32px' }}>
                 <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Genre</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -319,68 +286,100 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Discover Artists Grid */}
-                    <div style={{ ...styles.widgetCard, gridColumn: 'span 12', padding: '32px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-                            <div>
-                                <h3 style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <UserSearch size={20} color={colors.primary} /> 
-                                    {sortBy === 'popular' ? 'Most Popular Artists' : 
-                                     sortBy === 'alphabetical' ? 'All Artists (A-Z)' : 
-                                     sortBy === 'oldest' ? 'OG Members' : 'Recently Joined Artists'}
-                                </h3>
-                                <p style={{ fontSize: '11px', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>
-                                    {artists.length} artists found {selectedGenre ? `in ${selectedGenre}` : 'in the community'}
-                                </p>
-                            </div>
+                    {/* New Artists */}
+                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
+                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                            <h3 style={styles.headerLabel}><UserSearch size={16} color={colors.primary} /> Discover Artists</h3>
                         </div>
-
-                        {artists.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '32px' }}>
-                                {artists.map(artist => (
-                                    <div 
-                                        key={artist.userId} 
-                                        onClick={() => navigate(`/profile/${artist.username}`)} 
-                                        style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                    >
-                                        <div style={{ 
-                                            aspectRatio: '1/1', 
-                                            borderRadius: '50%', 
-                                            overflow: 'hidden', 
-                                            marginBottom: '12px', 
-                                            border: '3px solid rgba(255,255,255,0.05)', 
-                                            transition: 'border-color 0.2s',
-                                            boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
-                                        }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
-                                            {artist.avatar ? (
-                                                <img src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', backgroundColor: colors.surfaceLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '24px', color: colors.primary }}>
-                                                    {artist.username.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</p>
-                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            {artist.genres?.length > 0 ? artist.genres[0].genre.name : 'Musician'}
-                                        </p>
-                                        {sortBy === 'popular' && (
-                                            <p style={{ fontSize: '10px', color: colors.primary, fontWeight: 'bold', marginTop: '4px' }}>
-                                                {(artist.totalPlays || 0).toLocaleString()} Plays
-                                            </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                            {artists.slice(0, 5).map(artist => (
+                                <div key={artist.userId} onClick={() => navigate(`/profile/${artist.username}`)} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                                    <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
+                                        {artist.avatar ? (
+                                            <img src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{artist.username.charAt(0).toUpperCase()}</div>
                                         )}
                                     </div>
-                                ))}
+                                    <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</p>
+                                </div>
+                            ))}
+                            <div onClick={() => setSelectedGenre(null)} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                                <div style={{ aspectRatio: '1/1', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                                    <Plus size={20} color="#B9C3CE" />
+                                </div>
+                                <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#B9C3CE', margin: 0 }}>Explore</p>
                             </div>
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '60px 0', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '12px' }}>
-                                <UserSearch size={48} color="#B9C3CE" opacity={0.2} style={{ marginBottom: '16px' }} />
-                                <p style={{ color: '#B9C3CE' }}>No artists found matching your criteria.</p>
-                                <button onClick={() => { setSelectedGenre(null); setSearch(''); setSortBy('newest'); }} style={{ marginTop: '16px', color: colors.primary, background: 'none', border: `1px solid ${colors.primary}4D`, padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>Clear Filters</button>
+                        </div>
+                    </div>
+
+                    {/* Genre Exploration */}
+                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                            <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> Genre Exploration</h3>
+                            <button onClick={() => navigate('/genres')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                            {genres.length > 0 ? (
+                                genres.slice(0, 5).map((genre, idx) => (
+                                    <div 
+                                        key={genre.id} 
+                                        onClick={() => navigate(`/category/${genre.slug}`)}
+                                        style={{ 
+                                            ...styles.genreTile, 
+                                            backgroundColor: `${genreColors[idx % genreColors.length]}1A`,
+                                            color: genreColors[idx % genreColors.length],
+                                            border: `1px solid ${genreColors[idx % genreColors.length]}33`
+                                        }} 
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }} 
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                    >
+                                        {genre.name}
+                                    </div>
+                                ))
+                            ) : (
+                                [
+                                    { name: 'Techno', color: '#2B8C71', slug: 'techno' },
+                                    { name: 'Ambient', color: '#F27B13', slug: 'ambient' },
+                                    { name: 'Lofi', color: '#A855F7', slug: 'lofi' },
+                                    { name: 'Trap', color: '#3B82F6', slug: 'trap' },
+                                    { name: 'House', color: '#EF4444', slug: 'house' }
+                                ].map((g, idx) => (
+                                    <div key={idx} onClick={() => navigate(`/category/${g.slug}`)} style={{ ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33`, cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                                        {g.name}
+                                    </div>
+                                ))
+                            )}
+                            <div 
+                                onClick={() => navigate('/genres')} 
+                                style={{ 
+                                    ...styles.genreTile, 
+                                    backgroundColor: 'rgba(255,255,255,0.05)', 
+                                    border: '1px dashed rgba(255,255,255,0.1)',
+                                    color: '#B9C3CE'
+                                }} 
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} 
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                <span style={{ fontSize: '10px' }}>More...</span>
                             </div>
-                        )}
+                        </div>
+                    </div>
+
+                    {/* Live Streams */}
+                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                            <h3 style={styles.headerLabel}><RadioTower size={16} color="#EF4444" /> Live Streams</h3>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontSize: '8px', fontWeight: 'bold', borderRadius: '999px' }}>
+                                <span style={{ width: '4px', height: '4px', backgroundColor: '#EF4444', borderRadius: '50%' }}></span> 0 LIVE
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ padding: '16px', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>No active streams right now.</p>
+                                <p style={{ fontSize: '9px', color: 'rgba(185, 195, 206, 0.5)', marginTop: '4px' }}>Check back later for live sessions!</p>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Latest Releases Grid */}

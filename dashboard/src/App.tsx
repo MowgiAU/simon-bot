@@ -23,6 +23,7 @@ import Logs from "./pages/Logs";
 import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
+import { ArtistsPage } from "./pages/ArtistsPage";
 import { GenresPage } from "./pages/GenresPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
@@ -434,10 +435,16 @@ const AppInternal: React.FC = () => {
     return <TrackPage />;
   }
 
-  // / → Artist Discovery homepage (public, no extra providers needed)
-  if (currentPath === '/library') {
-    return <FujiStudio />;
+  // Artist Discovery homepage
+  if (currentPath === '/') {
+    return <ArtistDiscoveryPage />;
   }
+
+  // /artists → Full artists list
+  if (currentPath === '/artists') {
+    return <ArtistsPage />;
+  }
+
   // /genres → All Genres page
   if (currentPath === '/genres') {
     return <GenresPage />;
