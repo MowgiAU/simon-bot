@@ -101,6 +101,7 @@ export const TrackPage: React.FC = () => {
     const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editForm, setEditForm] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
+    const [genreSearchTerm, setGenreSearchTerm] = useState('');
     const [allGenres, setAllGenres] = useState<any[]>([]);
     const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
     const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
@@ -511,20 +512,34 @@ export const TrackPage: React.FC = () => {
                                             <span style={{ fontSize: '0.85rem', color: colors.textSecondary, fontStyle: 'italic' }}>No genres selected</span>
                                         )}
                                     </div>
-                                    <select
-                                        value=""
-                                        onChange={e => {
-                                            if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
-                                                setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                        <input 
+                                            type="text"
+                                            placeholder="Search genres..."
+                                            value={genreSearchTerm}
+                                            onChange={e => setGenreSearchTerm(e.target.value)}
+                                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, padding: '10px 14px', color: 'white', fontSize: '0.95rem' }}
+                                        />
+                                        <select
+                                            value=""
+                                            onChange={e => {
+                                                if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                                    setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                                    setGenreSearchTerm('');
+                                                }
+                                            }}
+                                            style={{ flex: 1, padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
+                                        >
+                                            <option value="" disabled style={{ backgroundColor: '#1A1E2E', color: 'white' }}>Add genre...</option>
+                                            {allGenres
+                                                .filter(g => !selectedTrackGenres.includes(g.id))
+                                                .filter(g => g.name.toLowerCase().includes(genreSearchTerm.toLowerCase()))
+                                                .map(g => (
+                                                    <option key={g.id} value={g.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{g.name}</option>
+                                                ))
                                             }
-                                        }}
-                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
-                                    >
-                                        <option value="" disabled style={{ backgroundColor: '#1A1E2E', color: 'white' }}>Add a genre tag...</option>
-                                        {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
-                                            <option key={g.id} value={g.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{g.name}</option>
-                                        ))}
-                                    </select>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {/* File Uploads */}

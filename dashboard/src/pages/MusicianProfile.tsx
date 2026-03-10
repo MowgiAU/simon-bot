@@ -248,6 +248,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
     const [projectFile, setProjectFile] = useState<File | null>(null);
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
+    const [genreSearchTerm, setGenreSearchTerm] = useState('');
     
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
@@ -646,20 +647,48 @@ export const MusicianProfilePage: React.FC = () => {
                                         ) : null;
                                     })}
                                 </div>
-                                <select
-                                    value=""
-                                    onChange={e => {
-                                        if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
-                                            setSelectedTrackGenres(prev => [...prev, e.target.value]);
-                                        }
-                                    }}
-                                    style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                >
-                                    <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Add a genre tag...</option>
-                                    {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
-                                        <option key={g.id} value={g.id} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{g.name}</option>
-                                    ))}
-                                </select>
+<div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                        <input 
+                                            type="text"
+                                            placeholder="Search genres..."
+                                            value={genreSearchTerm}
+                                            onChange={e => setGenreSearchTerm(e.target.value)}
+                                            style={{ flex: 1, backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 12px', color: 'white', fontSize: '0.85rem' }}
+                                        />
+                                        <select
+                                            value=""
+                                            onChange={e => {
+                                                if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                                    setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                                    setGenreSearchTerm('');
+                                                }
+                                            }}
+                                            style={{ flex: 1, boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        >
+                                            <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Add a genre tag...</option>
+                                            {allGenres
+                                                .filter(g => !selectedTrackGenres.includes(g.id))
+                                                .filter(g => g.name.toLowerCase().includes(genreSearchTerm.toLowerCase()))
+                                                .map(g => (
+                                                    <option key={g.id} value={g.id} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{g.name}</option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>           setGenreSearchTerm('');
+                                                }
+                                            }}
+                                            style={{ flex: 1, boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        >
+                                            <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Add a genre tag...</option>
+                                            {allGenres
+                                                .filter(g => !selectedTrackGenres.includes(g.id))
+                                                .filter(g => g.name.toLowerCase().includes(genreSearchTerm.toLowerCase()))
+                                                .map(g => (
+                                                    <option key={g.id} value={g.id} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{g.name}</option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
                         </div>
 
                                 <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
