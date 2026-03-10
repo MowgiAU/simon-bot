@@ -23,6 +23,7 @@ import Logs from "./pages/Logs";
 import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
+import { GenresPage } from "./pages/GenresPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
@@ -48,6 +49,7 @@ type Section =
   | "musician-profiles-admin"
   | "musician-profiles"
   | "library"
+  | "genres-list"
   | "docs"
   | "logs"
   | "staging-test"
@@ -262,6 +264,8 @@ const AdminDashboard: React.FC = () => {
         return <StagingTest />;
       case "plugins":
         return <PluginManagementPage />;
+      case "genres-list":
+        return <GenresPage />;
       default:
         return null;
     }
@@ -433,7 +437,10 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/library') {
     return <FujiStudio />;
   }
-
+  // /genres → All Genres page
+  if (currentPath === '/genres') {
+    return <GenresPage />;
+  }
   return <ArtistDiscoveryPage />;
 };
 

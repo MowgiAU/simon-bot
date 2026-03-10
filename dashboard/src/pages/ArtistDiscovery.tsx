@@ -105,6 +105,11 @@ interface FeaturedData {
     } | null;
 }
 
+const genreColors = [
+    '#2B8C71', '#F27B13', '#A855F7', '#3B82F6', '#EF4444', 
+    '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#10B981'
+];
+
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
@@ -312,22 +317,52 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> Genre Exploration</h3>
+                            <button onClick={() => navigate('/genres')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                            {[
-                                { name: 'Techno', color: '#2B8C71' },
-                                { name: 'Ambient', color: '#F27B13' },
-                                { name: 'Lofi', color: '#A855F7' },
-                                { name: 'Phonk', color: '#3B82F6' },
-                                { name: 'House', color: '#7A8C37' },
-                                { name: 'Wave', color: '#EC4899' }
-                            ].map(g => (
-                                <div key={g.name} onClick={() => setSelectedGenre(g.name)} style={{ 
-                                    ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33` 
-                                }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                                    {g.name}
-                                </div>
-                            ))}
+                            {genres.length > 0 ? (
+                                genres.slice(0, 5).map((genre, idx) => (
+                                    <div 
+                                        key={genre.id} 
+                                        onClick={() => setSelectedGenre(genre.name)}
+                                        style={{ 
+                                            ...styles.genreTile, 
+                                            backgroundColor: `${genreColors[idx % genreColors.length]}1A`,
+                                            color: genreColors[idx % genreColors.length],
+                                            border: `1px solid ${genreColors[idx % genreColors.length]}33`
+                                        }} 
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }} 
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                    >
+                                        {genre.name}
+                                    </div>
+                                ))
+                            ) : (
+                                [
+                                    { name: 'Techno', color: '#2B8C71' },
+                                    { name: 'Ambient', color: '#F27B13' },
+                                    { name: 'Lofi', color: '#A855F7' },
+                                    { name: 'Trap', color: '#3B82F6' },
+                                    { name: 'House', color: '#EF4444' }
+                                ].map((g, idx) => (
+                                    <div key={idx} style={{ ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33` }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                                        {g.name}
+                                    </div>
+                                ))
+                            )}
+                            <div 
+                                onClick={() => navigate('/genres')} 
+                                style={{ 
+                                    ...styles.genreTile, 
+                                    backgroundColor: 'rgba(255,255,255,0.05)', 
+                                    border: '1px dashed rgba(255,255,255,0.1)',
+                                    color: '#B9C3CE'
+                                }} 
+                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} 
+                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                <span style={{ fontSize: '10px' }}>More...</span>
+                            </div>
                         </div>
                     </div>
 
