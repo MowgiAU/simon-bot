@@ -649,7 +649,17 @@ const ArrangementViewer: React.FC<{
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
                         {Array.from({ length: Math.ceil(totalBeats / 4) }, (_, i) => (
-                            <div key={i} style={{ flex: `0 0 ${4 / totalBeats * 100}%`, textAlign: 'left', fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '3px', paddingBottom: '4px' }}>
+                            <div key={i} style={{ 
+                                width: `${(4 / totalBeats) * 100}%`, 
+                                flexShrink: 0,
+                                textAlign: 'left', 
+                                fontSize: '0.65rem', 
+                                color: 'rgba(255,255,255,0.25)', 
+                                borderLeft: '1px solid rgba(255,255,255,0.1)', 
+                                paddingLeft: '3px', 
+                                paddingBottom: '4px',
+                                boxSizing: 'border-box'
+                            }}>
                                 {i * 4 + 1}
                             </div>
                         ))}
