@@ -566,11 +566,13 @@ const ArrangementViewer: React.FC<{
     // We strictly use lastClipEnd to trim the "wasted space".
     const totalBeats = lastClipEnd > 0 ? lastClipEnd : 32;
     
+    // Explicitly filter for non-empty tracks to prevent "501 lines" layout
+    const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
+    
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
     const currentBeat = currentTime * beatsPerSec;
     const playheadPct = totalBeats > 0 ? (currentBeat / totalBeats) * 100 : 0;
-    const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
