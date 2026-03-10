@@ -142,7 +142,7 @@ export class FujiScanner {
   /**
    * Core logic to index a single sample attachment.
    */
-  private async indexSample(packId: string, messageId: string, attachment: any, parentTags: string[] = []) {
+  async indexSample(packId: string, messageId: string, attachment: any, parentTags: string[] = []) {
     try {
       this.logger.info(`Starting indexing for sample: ${attachment.filename}`);
       // Skip if already indexed and identical
