@@ -249,6 +249,9 @@ export const MusicianProfilePage: React.FC = () => {
     const [projectFile, setProjectFile] = useState<File | null>(null);
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
     
+    // Edit track state
+    const [editingTrack, setEditingTrack] = useState<any>(null);
+    
     // Avatar state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -305,6 +308,43 @@ export const MusicianProfilePage: React.FC = () => {
             setMessage({ type: 'success', text: 'Track deleted' });
         } catch (e: any) {
             setMessage({ type: 'error', text: 'Failed to delete track' });
+        }
+    };
+
+    const handleUpdateTrack = async () => {
+        if (!editingTrack) return;
+        setSaving(true);
+        try {
+            const formData = new FormData();
+            if (audioFile) formData.append('audio', audioFile);
+            if (artworkFile) formData.append('artwork', artworkFile);
+            if (projectFile) formData.append('project', projectFile);
+            
+            formData.append('title', editingTrack.title || '');
+            formData.append('description', editingTrack.description || '');
+            formData.append('artist', editingTrack.artist || '');
+            formData.append('album', editingTrack.album || '');
+            formData.append('year', editingTrack.year || '');
+            formData.append('bpm', editingTrack.bpm || '');
+            formData.append('key', editingTrack.key || '');
+            formData.append('genreIds', JSON.stringify(selectedTrackGenres));
+
+            const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+            
+            setTracks(tracks.map(t => t.id === editingTrack.id ? res.data : t));
+            setEditingTrack(null);
+            setAudioFile(null);
+            setArtworkFile(null);
+            setProjectFile(null);
+            setSelectedTrackGenres([]);
+            setMessage({ type: 'success', text: 'Track updated successfully!' });
+        } catch (e: any) {
+            setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to update track' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -486,6 +526,17 @@ export const MusicianProfilePage: React.FC = () => {
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <button 
+                                            onClick={() => {
+                                                setEditingTrack(track);
+                                                setIsAddingTrack(false);
+                                                setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []);
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', display: 'flex' }}
+                                            title="Edit Track"
+                                        >
+                                            <Edit3 size={18} />
+                                        </button>
+                                        <button 
                                             onClick={() => handleToggleStream(track)}
                                             style={{ background: 'none', border: 'none', color: track.isPublic ? colors.primary : colors.textSecondary, cursor: 'pointer', display: 'flex' }}
                                             title={track.isPublic ? "Public" : "Private"}
@@ -500,7 +551,129 @@ export const MusicianProfilePage: React.FC = () => {
                             ))}
                         </div>
 
-                        {isAddingTrack ? (
+                        {editingTrack ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Editing: {editingTrack.title}</div>
+                                    <button onClick={() => setEditingTrack(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={18}/></button>
+                                </div>
+
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Replace Audio (Optional)</div>
+                                <label style={{ 
+                                    display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', 
+                                    borderRadius: borderRadius.sm, cursor: 'pointer',
+                                    color: audioFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem'
+                                }}>
+                                    <FileAudio size={18} color={audioFile ? colors.primary : colors.textSecondary} />
+                                    {audioFile ? audioFile.name : 'Keep existing or choose new file...'}
+                                    <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                                </label>
+                                
+                                <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Replace Artwork (Optional)</div>
+                                <label style={{ 
+                                    display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', 
+                                    backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', 
+                                    borderRadius: borderRadius.sm, cursor: 'pointer',
+                                    color: artworkFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem'
+                                }}>
+                                    <ImageIcon size={18} color={artworkFile ? colors.primary : colors.textSecondary} />
+                                    {artworkFile ? artworkFile.name : 'Keep existing or choose new image...'}
+                                    <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                                </label>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Track Title</label>
+                                        <input 
+                                            type="text" value={editingTrack.title || ''}
+                                            onChange={e => setEditingTrack({...editingTrack, title: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Artist</label>
+                                        <input 
+                                            type="text" value={editingTrack.artist || ''}
+                                            onChange={e => setEditingTrack({...editingTrack, artist: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Album</label>
+                                        <input 
+                                            type="text" value={editingTrack.album || ''}
+                                            onChange={e => setEditingTrack({...editingTrack, album: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>BPM</label>
+                                        <input 
+                                            type="number" value={editingTrack.bpm || ''}
+                                            onChange={e => setEditingTrack({...editingTrack, bpm: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Key</label>
+                                        <select 
+                                            value={editingTrack.key || ''}
+                                            onChange={e => setEditingTrack({...editingTrack, key: e.target.value})}
+                                            style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                        >
+                                            <option value="">Select key...</option>
+                                            {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
+                                                <option key={`${note} Major`} value={`${note} Major`}>{note} Major</option>,
+                                                <option key={`${note} Minor`} value={`${note} Minor`}>{note} Minor</option>
+                                            ])}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginTop: spacing.sm }}>
+                                    <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Tag size={14} /> Genre Tags
+                                    </label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', marginBottom: '6px' }}>
+                                        {selectedTrackGenres.map(gId => {
+                                            const genre = allGenres.find(g => g.id === gId);
+                                            return genre ? (
+                                                <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'white' }}>
+                                                    {genre.name}
+                                                    <X size={12} style={{ cursor: 'pointer' }} onClick={() => setSelectedTrackGenres(prev => prev.filter(id => id !== gId))} />
+                                                </span>
+                                            ) : null;
+                                        })}
+                                    </div>
+                                    <select
+                                        value=""
+                                        onChange={e => {
+                                            if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                                setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                            }
+                                        }}
+                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                    >
+                                        <option value="">Add a genre tag...</option>
+                                        {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
+                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
+                                    <button 
+                                        onClick={handleUpdateTrack} 
+                                        disabled={saving}
+                                        style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        {saving ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                    <button onClick={() => { setEditingTrack(null); setSelectedTrackGenres([]); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
+                                </div>
+                            </div>
+                        ) : isAddingTrack ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
                                 <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc) *</div>
                                 <label style={{ 
