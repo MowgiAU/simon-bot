@@ -331,7 +331,7 @@ export const TrackPage: React.FC = () => {
                             {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
                             {track.bpm && <InfoItem icon={<Zap size={16}/>} label="BPM" value={track.bpm.toString()} />}
                             {track.key && <InfoItem icon={<Tag size={16}/>} label="Key" value={track.key} />}
-                            <InfoItem icon={<Clock size={16}/>} label="Released" value={new Date(track.createdAt).toLocaleDateString()} />
+                            <InfoItem icon={<Clock size={16}/>} label="Uploaded" value={new Date(track.createdAt).toLocaleDateString()} />
                         </div>
 
                         {track.genres && track.genres.length > 0 && (

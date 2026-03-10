@@ -20,6 +20,9 @@ import {
   FileText,
   Music,
   Compass,
+  Users,
+  Tag,
+  Library,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -87,14 +90,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
       <div className="sidebar-nav">
         <div className="nav-group">
-          <h3 className="nav-group-title">Discovery</h3>
+          <h3 className="nav-group-title">Public</h3>
           <button
             className={`nav-item ${window.location.pathname === '/' ? 'active' : ''}`}
             onClick={() => navigate('/')}
-            title={collapsed ? "Artist Discovery" : ""}
+            title={collapsed ? "Home" : ""}
           >
             <span className="nav-icon"><AnimatedWrapper icon={Compass} size={20} /></span>
-            <span className="nav-label">Artist Discovery</span>
+            <span className="nav-label">Home</span>
+          </button>
+          <button
+            className={`nav-item ${window.location.pathname === '/artists' ? 'active' : ''}`}
+            onClick={() => navigate('/artists')}
+            title={collapsed ? "Artists" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
+            <span className="nav-label">Artists</span>
+          </button>
+          <button
+            className={`nav-item ${window.location.pathname === '/genres' ? 'active' : ''}`}
+            onClick={() => navigate('/genres')}
+            title={collapsed ? "Genres" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Tag} size={20} /></span>
+            <span className="nav-label">Genres</span>
+          </button>
+          <button
+            className={`nav-item ${window.location.pathname === '/library' ? 'active' : ''}`}
+            onClick={() => navigate('/library')}
+            title={collapsed ? "Library" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Library} size={20} /></span>
+            <span className="nav-label">Library</span>
           </button>
         </div>
 
