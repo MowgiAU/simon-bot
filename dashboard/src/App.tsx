@@ -175,8 +175,8 @@ const AdminDashboard: React.FC = () => {
           <h2>No Admin Communities Found</h2>
           <p style={{ color: colors.textSecondary, marginBottom: "24px" }}>You are not an administrator of any Discord servers where Fuji Studio is present.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <button navigate("/profile")
-              onClick={() => window.location.href = "/profile"} 
+            <button 
+              onClick={() => navigate("/profile")} 
               style={{ background: colors.primary, color: "white", border: "none", padding: "12px", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
             >
               Go to My Musician Profile
