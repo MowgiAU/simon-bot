@@ -603,7 +603,7 @@ const ArrangementViewer: React.FC<{
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <Music size={20} color={colors.primary} />
-                    <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Structure</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Playlist</h2>
                     <span style={{ fontSize: '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                         {arrangement.bpm} BPM
                     </span>
@@ -648,21 +648,42 @@ const ArrangementViewer: React.FC<{
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', padding: '16px 0', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
-                        {Array.from({ length: Math.ceil(totalBeats / 4) }, (_, i) => (
-                            <div key={i} style={{ 
-                                width: `${(4 / totalBeats) * 100}%`, 
-                                flexShrink: 0,
-                                textAlign: 'left', 
-                                fontSize: '0.65rem', 
-                                color: 'rgba(255,255,255,0.25)', 
-                                borderLeft: '1px solid rgba(255,255,255,0.1)', 
-                                paddingLeft: '3px', 
-                                paddingBottom: '4px',
-                                boxSizing: 'border-box'
-                            }}>
-                                {i * 4 + 1}
-                            </div>
-                        ))}
+                        {(() => {
+                            // Calculate step based on zoom. 
+                            // i*4+1 is bar number. 
+                            // At 100% (zoom=1), display every 4 bars (step=1).
+                            // At 50% (zoom=0.5), display every 8 bars (step=2).
+                            // At 1000% (zoom=10), display every bar (step=0.25).
+                            let step = 1; 
+                            if (zoom < 1.5) step = 2; // Every 8 bars
+                            if (zoom < 0.8) step = 4; // Every 16 bars
+                            if (zoom < 0.4) step = 8; // Every 32 bars
+                            if (zoom > 3) step = 0.5; // Every 2 bars
+                            if (zoom > 6) step = 0.25; // Every bar
+                            
+                            const totalBars = Math.ceil(totalBeats / 4);
+                            const items = [];
+                            for (let i = 0; i < totalBars; i += Math.max(0.25, step)) {
+                                const barNum = Math.floor(i + 1);
+                                items.push(
+                                    <div key={i} style={{ 
+                                        width: `${( (Math.max(0.25, step) * 4) / totalBeats) * 100}%`, 
+                                        flexShrink: 0,
+                                        textAlign: 'left', 
+                                        fontSize: '0.65rem', 
+                                        color: 'rgba(255,255,255,0.4)', 
+                                        borderLeft: '1px solid rgba(255,255,255,0.15)', 
+                                        paddingLeft: '4px', 
+                                        paddingBottom: '4px',
+                                        boxSizing: 'border-box',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {barNum}
+                                    </div>
+                                );
+                            }
+                            return items;
+                        })()}
                     </div>
 
                     {/* Track rows */}
