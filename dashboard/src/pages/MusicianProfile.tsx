@@ -5,7 +5,7 @@ import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
     Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle,
-    FileAudio, Image as ImageIcon
+    FileAudio, Image as ImageIcon, Edit3
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
