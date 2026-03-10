@@ -324,7 +324,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 genres.slice(0, 5).map((genre, idx) => (
                                     <div 
                                         key={genre.id} 
-                                        onClick={() => setSelectedGenre(genre.name)}
+                                        onClick={() => navigate(`/category/${genre.slug}`)}
                                         style={{ 
                                             ...styles.genreTile, 
                                             backgroundColor: `${genreColors[idx % genreColors.length]}1A`,
@@ -339,13 +339,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 ))
                             ) : (
                                 [
-                                    { name: 'Techno', color: '#2B8C71' },
-                                    { name: 'Ambient', color: '#F27B13' },
-                                    { name: 'Lofi', color: '#A855F7' },
-                                    { name: 'Trap', color: '#3B82F6' },
-                                    { name: 'House', color: '#EF4444' }
+                                    { name: 'Techno', color: '#2B8C71', slug: 'techno' },
+                                    { name: 'Ambient', color: '#F27B13', slug: 'ambient' },
+                                    { name: 'Lofi', color: '#A855F7', slug: 'lofi' },
+                                    { name: 'Trap', color: '#3B82F6', slug: 'trap' },
+                                    { name: 'House', color: '#EF4444', slug: 'house' }
                                 ].map((g, idx) => (
-                                    <div key={idx} style={{ ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33` }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                                    <div key={idx} onClick={() => navigate(`/category/${g.slug}`)} style={{ ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33`, cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
                                         {g.name}
                                     </div>
                                 ))

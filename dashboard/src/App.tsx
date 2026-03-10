@@ -24,6 +24,7 @@ import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
 import { GenresPage } from "./pages/GenresPage";
+import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
@@ -440,6 +441,10 @@ const AppInternal: React.FC = () => {
   // /genres → All Genres page
   if (currentPath === '/genres') {
     return <GenresPage />;
+  }
+  // /category/:slug → Filtered tracks page
+  if (currentPath.startsWith('/category/')) {
+    return <CategoryResultsPage />;
   }
   return <ArtistDiscoveryPage />;
 };

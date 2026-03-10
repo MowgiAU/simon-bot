@@ -3592,8 +3592,58 @@ app.get('/api/admin/tracks', async (req: any, res) => {
 // Leaderboard: Top Tracks
 app.get('/api/musician/leaderboards/tracks', async (req, res) => {
     try {
-        const topTracks = await audioService.getTrackLeaderboard(10);
+        const topTracks = await audioService.getTrackLeaderboard(12);
         res.json(topTracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Discovery: Filtered Tracks (Genre/Search/Sort)
+app.get('/api/discovery/tracks', async (req, res) => {
+    try {
+        const { genre, search, sort = 'newest', limit = 24 } = req.query;
+        
+        const where: any = { isPublic: true };
+        
+        if (genre) {
+            where.genres = {
+                some: {
+                    genre: {
+                        OR: [
+                            { name: { equals: genre as string, mode: 'insensitive' } },
+                            { slug: { equals: genre as string, mode: 'insensitive' } }
+                        ]
+                    }
+                }
+            };
+        }
+
+        if (search) {
+            where.OR = [
+                { title: { contains: search as string, mode: 'insensitive' } },
+                { artist: { contains: search as string, mode: 'insensitive' } },
+                { profile: { username: { contains: search as string, mode: 'insensitive' } } },
+                { profile: { displayName: { contains: search as string, mode: 'insensitive' } } },
+            ];
+        }
+
+        let orderBy: any = { createdAt: 'desc' };
+        if (sort === 'plays') orderBy = { playCount: 'desc' };
+        if (sort === 'oldest') orderBy = { createdAt: 'asc' };
+        if (sort === 'alphabetical') orderBy = { title: 'asc' };
+
+        const tracks = await db.track.findMany({
+            where,
+            orderBy,
+            include: {
+                profile: true,
+                genres: { include: { genre: true } }
+            },
+            take: Number(limit)
+        });
+
+        res.json(tracks);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

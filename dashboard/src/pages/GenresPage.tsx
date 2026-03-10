@@ -112,7 +112,7 @@ export const GenresPage: React.FC = () => {
                         {genres.length > 0 ? genres.map((genre, idx) => (
                             <div 
                                 key={genre.id}
-                                onClick={() => navigate(`/?genre=${genre.slug}`)}
+                                onClick={() => navigate(`/category/${genre.slug}`)}
                                 style={{ 
                                     backgroundColor: '#1E2333', 
                                     borderRadius: '20px', 
