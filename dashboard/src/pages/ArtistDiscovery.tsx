@@ -304,7 +304,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</p>
                                 </div>
                             ))}
-                            <div onClick={() => setSelectedGenre(null)} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                            <div onClick={() => navigate('/artists')} style={{ textAlign: 'center', cursor: 'pointer' }}>
                                 <div style={{ aspectRatio: '1/1', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
                                     <Plus size={20} color="#B9C3CE" />
                                 </div>

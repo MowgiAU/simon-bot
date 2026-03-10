@@ -98,8 +98,7 @@ export const ArtistsPage: React.FC = () => {
                     {[
                         { id: 'newest', label: 'Recently Joined' },
                         { id: 'popular', label: 'Most Popular' },
-                        { id: 'alphabetical', label: 'A - Z' },
-                        { id: 'oldest', label: 'OG Members' }
+                        { id: 'alphabetical', label: 'A - Z' }
                     ].map(opt => (
                         <button
                             key={opt.id}
@@ -157,8 +156,7 @@ export const ArtistsPage: React.FC = () => {
                             <h3 style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <UserSearch size={20} color={colors.primary} /> 
                                 {sortBy === 'popular' ? 'Most Popular Artists' : 
-                                 sortBy === 'alphabetical' ? 'All Artists (A-Z)' : 
-                                 sortBy === 'oldest' ? 'OG Members' : 'Recently Joined Artists'}
+                                 sortBy === 'alphabetical' ? 'All Artists (A-Z)' : 'Recently Joined Artists'}
                             </h3>
                             <p style={{ fontSize: '11px', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>
                                 {artists.length} artists found {selectedGenre ? `in ${selectedGenre}` : 'in the community'}
