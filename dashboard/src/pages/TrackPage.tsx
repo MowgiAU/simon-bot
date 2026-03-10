@@ -355,6 +355,15 @@ export const TrackPage: React.FC = () => {
                                     <Download size={18} /> Download Audio
                                 </button>
                             )}
+                            {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
+                                <a
+                                    href={track.projectFileUrl}
+                                    download
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, textDecoration: 'none', fontWeight: 600 }}
+                                >
+                                    <Download size={18} /> Download .flp
+                                </a>
+                            )}
                             <button 
                                 onClick={() => {
                                     navigator.clipboard.writeText(window.location.href);
@@ -383,7 +392,6 @@ export const TrackPage: React.FC = () => {
                         currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
                         isPlaying={isPlaying}
                         projectFileUrl={track.projectFileUrl}
-                        allowProjectDownload={track.allowProjectDownload ?? true}
                         zoom={zoom}
                         setZoom={setZoom}
                     />
@@ -657,10 +665,9 @@ const ArrangementViewer: React.FC<{
     currentTime: number;
     isPlaying: boolean;
     projectFileUrl: string | null;
-    allowProjectDownload: boolean;
     zoom: number;
     setZoom: (v: number) => void;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, allowProjectDownload, zoom, setZoom }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom }) => {
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
     const lastClipEnd = arrangement.tracks.reduce((max, t) => {
@@ -729,15 +736,7 @@ const ArrangementViewer: React.FC<{
                         >+</button>
                     </div>
 
-                    {projectFileUrl && allowProjectDownload && (
-                        <a
-                            href={projectFileUrl}
-                            download
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, textDecoration: 'none', fontSize: '0.85rem', border: `1px solid ${colors.primary}33`, padding: '6px 12px', borderRadius: borderRadius.sm }}
-                        >
-                            <ExternalLink size={14} /> Download .flp
-                        </a>
-                    )}
+
                 </div>
             </div>
 
