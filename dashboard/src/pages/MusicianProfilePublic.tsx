@@ -396,14 +396,15 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             profile.tracks.map((track) => {
                                 const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
                                 return (
-                                    <div key={track.id} style={{ cursor: 'pointer' }}>
+                                    <div key={track.id}>
                                         <div 
-                                            onClick={() => window.location.href = `/profile/${profile.username}/${track.slug || track.id}`}
+                                            onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, profile.tracks)}
                                             style={{ 
                                             aspectRatio: '1/1', borderRadius: '12px', backgroundColor: '#1e293b', 
                                             marginBottom: '12px', overflow: 'hidden', position: 'relative',
                                             border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`,
-                                            transition: 'all 0.2s ease'
+                                            transition: 'all 0.2s ease',
+                                            cursor: 'pointer'
                                         }}>
                                             {track.coverUrl ? (
                                                 <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPlaying ? 0.6 : 1 }} />
@@ -424,10 +425,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             }}>
                                                 <div 
                                                     style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, profile.tracks);
-                                                    }}
                                                 >
                                                     {isPlaying ? (
                                                         <Pause size={isMobile ? 32 : 48} color="white" fill="white" />
@@ -441,8 +438,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             )}
                                         </div>
                                         <p 
-                                            onClick={() => window.location.href = `/profile/${profile.username}/${track.slug || track.id}`}
-                                            style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white' }}
+                                            onClick={() => window.location.href = `/track/${profile.username}/${track.slug || track.id}`}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = isPlaying ? colors.primary : 'white'}
+                                            style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white', cursor: 'pointer', transition: 'color 0.2s' }}
                                         >
                                             {track.title}
                                         </p>

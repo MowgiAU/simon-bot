@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { colors, spacing, typography, borderRadius } from '../theme/theme';
 import { SidebarStyles } from './SidebarStyles';
 import { 
@@ -36,6 +37,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, permissions, logout }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -87,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         <div className="nav-group">
           <h3 className="nav-group-title">Discovery</h3>
           <button
-            className="nav-item"
+            className="nav-navigate('/')
             onClick={() => window.location.href = '/'}
             title={collapsed ? "Artist Discovery" : ""}
           >

@@ -23,6 +23,7 @@ interface ArtistProfile {
 interface TrackInfo {
     id: string;
     title: string;
+    slug: string | null;
     url: string;
     coverUrl: string | null;
     playCount: number;
@@ -258,10 +259,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     <div key={track.id} style={{ 
                                         backgroundColor: '#1A1E2E', borderRadius: '12px', padding: isMobile ? '12px' : '16px', 
                                         border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s',
-                                        cursor: 'pointer'
-                                    }} onClick={() => player.currentTrack?.id === track.id ? togglePlay() : playFullQueue(track, topTracks)}>
+                                    }}>
                                         <div style={{ position: 'relative', marginBottom: isMobile ? '12px' : '16px' }}>
-                                            <div style={{ 
+                                            <div 
+                                                onClick={() => player.currentTrack?.id === track.id ? togglePlay() : playFullQueue(track, topTracks)}
+                                                style={{ 
                                                 width: '100%', aspectRatio: '1/1', borderRadius: '8px', 
                                                 backgroundColor: '#242C3D', overflow: 'hidden'
                                             }}>
@@ -273,7 +275,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div style={{ 
+                                            <div 
+                                                onClick={() => player.currentTrack?.id === track.id ? togglePlay() : playFullQueue(track, topTracks)}
+                                                style={{ 
                                                 position: 'absolute', bottom: '8px', right: '8px', 
                                                 backgroundColor: colors.primary, borderRadius: '50%', 
                                                 width: isMobile ? '28px' : '36px', height: isMobile ? '28px' : '36px', display: 'flex', 
@@ -287,8 +291,22 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <h4 style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
-                                        <p style={{ fontSize: isMobile ? '10px' : '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
+                                        <h4 
+                                            onClick={() => navigate(`/track/${track.profile.username}/${track.slug || track.id}`)}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+                                            style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s' }}
+                                        >
+                                            {track.title}
+                                        </h4>
+                                        <p 
+                                            onClick={() => navigate(`/profile/${track.profile.username}`)}
+                                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                                            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                                            style={{ fontSize: isMobile ? '10px' : '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        >
+                                            {track.profile.displayName || track.profile.username}
+                                        </p>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
                                             <span style={{ fontSize: isMobile ? '8px' : '10px', color: colors.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <Zap size={10} /> {track.playCount.toLocaleString()} PLAYS
