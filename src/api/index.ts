@@ -4631,7 +4631,7 @@ if (fs.existsSync(distPath)) {
 
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
-    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)\/?$/;
+    const TRACK_PATH = /^\/(profile|track)\/([^/?#]+)\/([^/?#]+)\/?$/;
 
     app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
@@ -4645,7 +4645,7 @@ if (fs.existsSync(distPath)) {
         logger.info(`[SPA] path=${req.path} ua="${ua.slice(0,80)}" isBot=${BOT_UA.test(ua)} trackMatch=${!!trackMatch}`);
         if (BOT_UA.test(ua) && trackMatch) {
             try {
-                const [, username, slug] = trackMatch;
+                const [, , username, slug] = trackMatch;
                 const profile = await db.musicianProfile.findFirst({
                     where: { username: { equals: username, mode: 'insensitive' } }
                 });
