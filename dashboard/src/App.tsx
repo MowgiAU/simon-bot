@@ -445,6 +445,11 @@ const AppInternal: React.FC = () => {
     return <ArtistsPage />;
   }
 
+  // /library → Browse all tracks
+  if (currentPath === '/library') {
+    return <FujiStudio />;
+  }
+
   // /genres → All Genres page
   if (currentPath === '/genres') {
     return <GenresPage />;
