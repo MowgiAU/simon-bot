@@ -3816,6 +3816,17 @@ app.get('/api/musician/profiles', async (req, res) => {
           orderBy,
           take: Number(limit)
       });
+
+      // Track permission backfill for profile previews
+      profiles.forEach((p: any) => {
+          if (p.tracks) {
+              p.tracks.forEach((t: any) => {
+                  if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+                  if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+              });
+          }
+      });
+
       res.json(profiles);
   } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -3829,14 +3840,32 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         const profile = await profileService.getProfile(userId);
         if (!profile) {
             // Try fetching by username (the :userId param might be a username)
-            const byUsername = await db.musicianProfile.findFirst({
+            const byUsername = (await db.musicianProfile.findFirst({
                 where: { username: { equals: userId, mode: 'insensitive' } },
                 include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } } } } }
-            });
-            if (byUsername) return res.json(byUsername);
+            })) as any;
+            if (byUsername) {
+                if (byUsername.tracks) {
+                    byUsername.tracks.forEach((t: any) => {
+                        if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+                        if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+                    });
+                }
+                return res.json(byUsername);
+            }
             return res.status(404).json({ error: 'Profile not found' });
         }
-        res.json(profile);
+        
+        // Fix for profileService.getProfile missing fields
+        const profileData = profile as any;
+        if (profileData && profileData.tracks) {
+            profileData.tracks.forEach((t: any) => {
+                if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+                if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+            });
+        }
+        
+        res.json(profileData);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -3852,7 +3881,7 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
 
         if (!profile) return res.status(404).json({ error: 'Artist not found' });
 
-        const track = await db.track.findFirst({
+        const track = (await db.track.findFirst({
             where: { 
                 profileId: profile.id,
                 slug: { equals: trackSlug, mode: 'insensitive' }
@@ -3862,17 +3891,24 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
                 genres: { include: { genre: true } },
                 plays: true
             }
-        });
+        })) as any;
 
         if (!track) {
             // Fallback: try by ID if slug doesn't match
-            const byId = await db.track.findFirst({
+            const byId = (await db.track.findFirst({
                 where: { profileId: profile.id, id: trackSlug },
                 include: { profile: true, genres: { include: { genre: true } }, plays: true }
-            });
-            if (byId) return res.json(byId);
+            })) as any;
+            if (byId) {
+                if (byId.allowAudioDownload === undefined) byId.allowAudioDownload = true;
+                if (byId.allowProjectDownload === undefined) byId.allowProjectDownload = true;
+                return res.json(byId);
+            }
             return res.status(404).json({ error: 'Track not found' });
         }
+
+        if (track.allowAudioDownload === undefined) track.allowAudioDownload = true;
+        if (track.allowProjectDownload === undefined) track.allowProjectDownload = true;
 
         res.json(track);
     } catch (e: any) {
