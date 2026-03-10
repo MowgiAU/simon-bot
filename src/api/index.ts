@@ -3610,10 +3610,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
             where.genres = {
                 some: {
                     genre: {
-                        OR: [
-                            { name: { equals: genre as string, mode: 'insensitive' } },
-                            { slug: { equals: genre as string, mode: 'insensitive' } }
-                        ]
+                        slug: { equals: genre as string, mode: 'insensitive' }
                     }
                 }
             };
@@ -3643,7 +3640,18 @@ app.get('/api/discovery/tracks', async (req, res) => {
             take: Number(limit)
         });
 
-        res.json(tracks);
+        // If no tracks found but a genre was specified, try to find the genre name anyway
+        let genreFound = null;
+        if (genre) {
+            genreFound = await db.genre.findFirst({
+                where: { slug: { equals: genre as string, mode: 'insensitive' } }
+            });
+        }
+
+        res.json({
+            tracks,
+            genre: genreFound
+        });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

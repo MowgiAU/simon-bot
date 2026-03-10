@@ -49,12 +49,13 @@ export const CategoryResultsPage: React.FC = () => {
                         limit: 50
                     }
                 });
-                setTracks(res.data);
+                setTracks(res.data.tracks || []);
                 
-                // Try to get the proper genre name if any tracks exist
-                if (res.data.length > 0) {
-                    const match = res.data[0].genres.find((g: any) => g.genre.slug === slug);
-                    if (match) setGenreName(match.genre.name);
+                if (res.data.genre) {
+                    setGenreName(res.data.genre.name);
+                } else if (!res.data.tracks || res.data.tracks.length === 0) {
+                    // Fallback to title-cased slug if nothing returned
+                    setGenreName(slug?.charAt(0).toUpperCase() + (slug?.slice(1) || ''));
                 }
             } catch (err) {
                 console.error('Failed to fetch filtered tracks:', err);
