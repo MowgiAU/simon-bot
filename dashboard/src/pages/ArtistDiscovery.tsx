@@ -375,6 +375,3 @@ export const ArtistDiscoveryPage: React.FC = () => {
         </DiscoveryLayout>
     );
 };
-        </DiscoveryLayout>
-    );
-};
