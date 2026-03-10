@@ -3597,6 +3597,13 @@ app.get('/api/admin/tracks', async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
             take: 50
         });
+
+        // Track permission backfill
+        tracks.forEach((t: any) => {
+            if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+            if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+        });
+
         res.json(tracks);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -3607,6 +3614,13 @@ app.get('/api/admin/tracks', async (req: any, res) => {
 app.get('/api/musician/leaderboards/tracks', async (req, res) => {
     try {
         const topTracks = await audioService.getTrackLeaderboard(12);
+        
+        // Track permission backfill
+        topTracks.forEach((t: any) => {
+            if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+            if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+        });
+
         res.json(topTracks);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -3681,6 +3695,12 @@ app.get('/api/discovery/tracks', async (req, res) => {
                 genres: { include: { genre: true } }
             },
             take: Number(limit)
+        });
+
+        // Ensure new permission fields exist even if migration hasn't run fully or records are old
+        tracks.forEach((t: any) => {
+            if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+            if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
         });
 
         // Find the genre name and its children
@@ -3996,7 +4016,12 @@ app.get('/api/discovery/settings', async (req, res) => {
             featuredTrack = await db.track.findUnique({
                 where: { id: settings.featuredTrackId },
                 include: { profile: true }
-            });
+            }) as any;
+
+            if (featuredTrack) {
+                if (featuredTrack.allowAudioDownload === undefined) featuredTrack.allowAudioDownload = true;
+                if (featuredTrack.allowProjectDownload === undefined) featuredTrack.allowProjectDownload = true;
+            }
         }
         res.json({ ...settings, featuredTrack });
     } catch (e: any) {
