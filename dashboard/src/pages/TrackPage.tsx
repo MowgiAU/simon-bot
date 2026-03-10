@@ -651,14 +651,13 @@ const ArrangementViewer: React.FC<{
                         {(() => {
                             // Unified step calculation
                             // 1 zoom = 100%
-                            // If we want 100% to show every 10 bars:
                             let barStep = 10;
                             
                             if (zoom < 0.3) barStep = 40;
                             else if (zoom < 0.6) barStep = 20;
                             else if (zoom < 1.5) barStep = 10;
-                            else if (zoom < 3) barStep = 5;
-                            else if (zoom < 6) barStep = 2;
+                            else if (zoom < 3) barStep = 4;
+                            else if (zoom < 5) barStep = 2;
                             else barStep = 1;
                             
                             const totalBars = Math.ceil(totalBeats / 4);
@@ -681,7 +680,7 @@ const ArrangementViewer: React.FC<{
                                 );
                             }
                             return <div style={{ position: 'relative', width: '100%', height: '1.2rem' }}>{items}</div>;
-                        })()}
+                        })()}}
                     </div>
 
                     {/* Track rows */}
