@@ -4631,7 +4631,7 @@ if (fs.existsSync(distPath)) {
 
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
-    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)\/?$/
+    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)\/?$/;
 
     app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
