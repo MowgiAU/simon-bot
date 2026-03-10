@@ -45,11 +45,14 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     }, []);
 
     const navItems = [
-        { key: 'discover', label: 'DISCOVER', icon: <Search size={14} />, path: '/' },
+        { key: 'discover', label: 'HOME', icon: <Search size={14} />, path: '/' },
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'library', label: 'LIBRARY', icon: <Music size={14} color={colors.primary} />, path: '/library' },
         { key: 'live', label: 'LIVE', path: null, comingSoon: true },
     ];
+
+    const isHomePage = pathname === '/';
+    const showSidebar = sidebar && (!isHomePage || isMobile && isSidebarOpen);
 
     return (
         <div style={{
@@ -217,7 +220,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
                 {/* Optional Sidebar (Desktop and Mobile Overlay) */}
-                {sidebar && (
+                {showSidebar && (
                     <aside style={{ 
                         width: isMobile ? '100%' : '256px', 
                         backgroundColor: '#1A1E2E', 
