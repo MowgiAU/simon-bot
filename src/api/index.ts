@@ -4631,7 +4631,7 @@ if (fs.existsSync(distPath)) {
 
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
-    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)$/;
+    const TRACK_PATH = /^\/profile\/([^/?#]+)\/([^/?#]+)\/?$/
 
     app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
@@ -4642,6 +4642,7 @@ if (fs.existsSync(distPath)) {
         // Bot request on a track URL → inject OG meta tags
         const ua = req.headers['user-agent'] || '';
         const trackMatch = req.path.match(TRACK_PATH);
+        logger.info(`[SPA] path=${req.path} ua="${ua.slice(0,80)}" isBot=${BOT_UA.test(ua)} trackMatch=${!!trackMatch}`);
         if (BOT_UA.test(ua) && trackMatch) {
             try {
                 const [, username, slug] = trackMatch;
@@ -4693,7 +4694,8 @@ if (fs.existsSync(distPath)) {
                         return res.send(`<!DOCTYPE html><html><head>\n${metaTags}\n</head><body></body></html>`);
                     }
                 }
-            } catch (_) {
+            } catch (err: any) {
+                logger.warn(`[SPA bot-detect] error: ${err.message}`);
                 // Fall through to SPA on error
             }
         }
