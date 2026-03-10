@@ -424,6 +424,11 @@ const AppInternal: React.FC = () => {
     return <MusicianProfilePage />;
   }
 
+  // /track → Direct track link (alias for /profile/:user/:track)
+  if (currentPath.startsWith('/track')) {
+    return <TrackPage />;
+  }
+
   // / → Artist Discovery homepage (public, no extra providers needed)
   if (currentPath === '/library') {
     return <FujiStudio />;

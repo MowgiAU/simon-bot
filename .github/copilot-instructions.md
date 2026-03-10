@@ -1,5 +1,7 @@
 # Fuji Studio – AI Coding Agent & Project Instructions
 
+make sure you give me the full pull command needed
+
 **Project**: Modular Discord bot for 50k-user FL Studio music producer community.
 **Project Name**: Fuji Studio (formerly Simon Bot).
 **Architecture**: Strict plugin-based (TypeScript/Node.js backend, React/Vite dashboard, PostgreSQL/Prisma)
