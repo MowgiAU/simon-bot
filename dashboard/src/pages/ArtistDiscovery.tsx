@@ -30,7 +30,7 @@ const styles: any = {
         borderRadius: '0.75rem',
         display: 'flex',
         alignItems: 'center',
-        justify-content: 'center',
+        justifyContent: 'center',
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: '0.1em',
