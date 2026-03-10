@@ -4205,17 +4205,31 @@ app.post('/api/musician/validate-name', async (req, res) => {
 // ===== Genres used in discovery (from actual user profiles) =====
 app.get('/api/discovery/genres', async (req, res) => {
     try {
-        // Get genres that are actually used by at least one profile
-        const genres = await db.genre.findMany({
+        // Get genres that are actually used by at least one profile, sorted by popularity
+        const usedGenres = await db.genre.findMany({
             where: {
                 profiles: { some: {} }
             },
             include: {
                 _count: { select: { profiles: true } }
             },
-            orderBy: { name: 'asc' }
+            orderBy: { profiles: { _count: 'desc' } }
         });
-        res.json(genres);
+
+        // If fewer than 5 used genres, backfill with top-level genres (parentId == null)
+        if (usedGenres.length < 5) {
+            const usedIds = new Set(usedGenres.map((g: any) => g.id));
+            const topLevel = await db.genre.findMany({
+                where: { parentId: null },
+                include: { _count: { select: { profiles: true } } },
+                orderBy: { name: 'asc' }
+            });
+            const extras = topLevel.filter((g: any) => !usedIds.has(g.id));
+            const merged = [...usedGenres, ...extras].slice(0, 10);
+            return res.json(merged);
+        }
+
+        res.json(usedGenres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

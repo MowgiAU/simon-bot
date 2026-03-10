@@ -320,8 +320,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <button onClick={() => navigate('/genres')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                            {genres.length > 0 ? (
-                                genres.slice(0, 5).map((genre, idx) => (
+                            {(() => {
+                                // Show top 5 genres sorted by profile count; they're already sorted by the API
+                                const displayGenres = genres.slice(0, 5);
+                                return displayGenres.map((genre, idx) => (
                                     <div 
                                         key={genre.id} 
                                         onClick={() => navigate(`/category/${genre.slug}`)}
@@ -336,20 +338,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     >
                                         {genre.name}
                                     </div>
-                                ))
-                            ) : (
-                                [
-                                    { name: 'Techno', color: '#2B8C71', slug: 'techno' },
-                                    { name: 'Ambient', color: '#F27B13', slug: 'ambient' },
-                                    { name: 'Lofi', color: '#A855F7', slug: 'lofi' },
-                                    { name: 'Trap', color: '#3B82F6', slug: 'trap' },
-                                    { name: 'House', color: '#EF4444', slug: 'house' }
-                                ].map((g, idx) => (
-                                    <div key={idx} onClick={() => navigate(`/category/${g.slug}`)} style={{ ...styles.genreTile, backgroundColor: `${g.color}1A`, color: g.color, border: `1px solid ${g.color}33`, cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                                        {g.name}
-                                    </div>
-                                ))
-                            )}
+                                ));
+                            })()}
                             <div 
                                 onClick={() => navigate('/genres')} 
                                 style={{ 
