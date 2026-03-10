@@ -3851,7 +3851,18 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
 // Genre Library for Picker
 app.get('/api/musician/genres', async (req, res) => {
     try {
-        const genres = await profileService.getAllGenres();
+        const genres = await db.genre.findMany({
+            include: {
+                _count: {
+                    select: {
+                        profiles: true,
+                        tracks: true
+                    }
+                },
+                children: true
+            },
+            orderBy: { name: 'asc' }
+        });
         res.json(genres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
