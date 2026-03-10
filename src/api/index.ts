@@ -18,6 +18,7 @@ import { ProfileService } from '../services/ProfileService.js';
 import { AudioService } from '../services/AudioService.js';
 import * as mm from 'music-metadata';
 import { FLPParser } from '../bot/utils/FLPParser.js';
+import { MediaConverter } from '../services/MediaConverter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3205,9 +3206,12 @@ app.post('/api/musician/tracks', upload.fields([
             (arrangement as any).bpm = metadata.bpm;
         }
 
-        // 2. Map to public URLs
-        const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
-        const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
+        // 2. Convert to space-saving formats, then map to public URLs
+        const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
+        const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
+
+        const audioUrl = `/uploads/tracks/${path.basename(finalAudioPath)}`;
+        const coverUrl = finalArtworkPath ? `/uploads/artwork/${path.basename(finalArtworkPath)}` : req.body.coverUrl;
 
         // Create slug from title
         const slug = metadata.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -3389,30 +3393,33 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
 
         // Audio file replacement
         if (audioFile) {
-            // Delete old audio file
-            if (track.url?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.url = `/uploads/tracks/${path.basename(audioFile.path)}`;
-
-            // Extract duration from new audio
+            // Extract duration before conversion (metadata survives in most formats)
             try {
                 const parsed = await mm.parseFile(audioFile.path);
                 updateData.duration = Math.round(parsed.format.duration || 0);
             } catch (err) {
                 logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
             }
+            // Convert to 320kbps MP3
+            const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
+            // Delete old audio file
+            if (track.url?.startsWith('/uploads/')) {
+                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+            updateData.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
         }
 
         // Artwork replacement
         if (artworkFile) {
+            // Convert to WebP
+            const finalArtworkPath = await MediaConverter.optimizeImage(artworkFile.path);
             // Delete old artwork
             if (track.coverUrl?.startsWith('/uploads/')) {
                 const oldPath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
             }
-            updateData.coverUrl = `/uploads/artwork/${path.basename(artworkFile.path)}`;
+            updateData.coverUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
         }
 
         // Project file replacement — re-parse FLP
@@ -4244,7 +4251,9 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
             return res.status(400).json({ error: 'Avatar file is required' });
         }
 
-        const avatarUrl = `/uploads/avatars/${path.basename(file.path)}`;
+        // Convert to WebP before saving
+        const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
+        const avatarUrl = `/uploads/avatars/${path.basename(finalAvatarPath)}`;
 
         // Update profile with the new avatar URL
         const profile = await db.musicianProfile.findFirst({ where: { userId } });
