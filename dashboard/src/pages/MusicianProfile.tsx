@@ -622,45 +622,45 @@ export const MusicianProfilePage: React.FC = () => {
                                             onChange={e => setEditingTrack({...editingTrack, key: e.target.value})}
                                             style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
                                         >
-                                            <option value="">Select key...</option>
-                                            {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
-                                                <option key={`${note} Major`} value={`${note} Major`}>{note} Major</option>,
-                                                <option key={`${note} Minor`} value={`${note} Minor`}>{note} Minor</option>
-                                            ])}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div style={{ marginTop: spacing.sm }}>
-                                    <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <Tag size={14} /> Genre Tags
-                                    </label>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', marginBottom: '6px' }}>
-                                        {selectedTrackGenres.map(gId => {
-                                            const genre = allGenres.find(g => g.id === gId);
-                                            return genre ? (
-                                                <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'white' }}>
-                                                    {genre.name}
-                                                    <X size={12} style={{ cursor: 'pointer' }} onClick={() => setSelectedTrackGenres(prev => prev.filter(id => id !== gId))} />
-                                                </span>
-                                            ) : null;
-                                        })}
-                                    </div>
-                                    <select
-                                        value=""
-                                        onChange={e => {
-                                            if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
-                                                setSelectedTrackGenres(prev => [...prev, e.target.value]);
-                                            }
-                                        }}
-                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                    >
-                                        <option value="">Add a genre tag...</option>
-                                        {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
-                                            <option key={g.id} value={g.id}>{g.name}</option>
-                                        ))}
+                                        <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Select key...</option>
+                                        {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
+                                            <option key={`${note} Major`} value={`${note} Major`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Major</option>,
+                                            <option key={`${note} Minor`} value={`${note} Minor`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Minor</option>
+                                        ])}
                                     </select>
                                 </div>
+                            </div>
+
+                            <div style={{ marginTop: spacing.sm }}>
+                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Tag size={14} /> Genre Tags
+                                </label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', marginBottom: '6px' }}>
+                                    {selectedTrackGenres.map(gId => {
+                                        const genre = allGenres.find(g => g.id === gId);
+                                        return genre ? (
+                                            <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'white' }}>
+                                                {genre.name}
+                                                <X size={12} style={{ cursor: 'pointer' }} onClick={() => setSelectedTrackGenres(prev => prev.filter(id => id !== gId))} />
+                                            </span>
+                                        ) : null;
+                                    })}
+                                </div>
+                                <select
+                                    value=""
+                                    onChange={e => {
+                                        if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                            setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                        }
+                                    }}
+                                    style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
+                                >
+                                    <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Add a genre tag...</option>
+                                    {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
+                                        <option key={g.id} value={g.id} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{g.name}</option>
+                                    ))}
+                                </select>
+                        </div>
 
                                 <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
                                     <button 
@@ -975,17 +975,17 @@ export const MusicianProfilePage: React.FC = () => {
                             style={{ 
                                 width: '100%', 
                                 backgroundColor: 'rgba(255,255,255,0.05)', 
-                                border: 'none', 
+                                border: '1px solid rgba(255,255,255,0.1)', 
                                 borderRadius: borderRadius.sm, 
                                 padding: spacing.sm, 
-                                color: colors.textPrimary,
+                                color: 'white',
                                 outline: 'none',
                                 cursor: 'pointer'
                             }}
                         >
-                            <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>No featured track</option>
+                            <option value="" style={{ backgroundColor: '#1A1E2E', color: 'white' }}>No featured track</option>
                             {tracks.map(t => (
-                                <option key={t.id} value={t.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>
+                                <option key={t.id} value={t.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>
                                     {t.title}
                                 </option>
                             ))}
