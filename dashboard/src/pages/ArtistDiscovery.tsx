@@ -198,7 +198,19 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         {featured.featuredLabel || 'Featured Track'}
                                     </span>
                                 </div>
-                                <h2 style={{ fontSize: isMobile ? '36px' : '56px', fontWeight: '900', margin: '0 0 8px 0', letterSpacing: '-0.03em' }}>
+                                <h2 
+                                    onClick={() => navigate(`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`)}
+                                    style={{ 
+                                        fontSize: isMobile ? '36px' : '56px', 
+                                        fontWeight: '900', 
+                                        margin: '0 0 8px 0', 
+                                        letterSpacing: '-0.03em',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+                                    onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+                                >
                                     {featured.featuredTrack.title}
                                 </h2>
                                 <p style={{ fontSize: isMobile ? '18px' : '22px', color: '#B9C3CE', marginBottom: '32px' }}>
