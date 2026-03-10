@@ -3612,7 +3612,9 @@ app.get('/api/discovery/tracks', async (req, res) => {
                     genre: {
                         OR: [
                             { slug: { equals: genre as string, mode: 'insensitive' } },
-                            { parent: { slug: { equals: genre as string, mode: 'insensitive' } } }
+                            { name: { equals: genre as string, mode: 'insensitive' } },
+                            { parent: { slug: { equals: genre as string, mode: 'insensitive' } } },
+                            { parent: { name: { equals: genre as string, mode: 'insensitive' } } }
                         ]
                     }
                 }
@@ -3863,6 +3865,10 @@ app.get('/api/musician/genres', async (req, res) => {
             },
             orderBy: { name: 'asc' }
         });
+        
+        // Debug logging for the issue reported
+        logger.info(`[API] Fetched ${genres.length} genres. First genre track count: ${genres[0]?._count?.tracks || 0}`);
+        
         res.json(genres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
