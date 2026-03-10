@@ -3380,6 +3380,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
 
         // Text field updates
         const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload } = req.body;
+        logger.info(`[PUT track ${trackId}] allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             updateData.title = title;
             updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -3392,6 +3393,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         if (musicKey !== undefined) updateData.key = musicKey || null;
         if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
         if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
+        logger.info(`[PUT track ${trackId}] updateData.allowAudioDownload=${updateData.allowAudioDownload}`);
 
         // Audio file replacement
         if (audioFile) {
