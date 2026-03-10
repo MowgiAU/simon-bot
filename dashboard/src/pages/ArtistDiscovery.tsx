@@ -293,11 +293,21 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         </div>
                                         <h4 
                                             onClick={() => navigate(`/track/${track.profile.username}/${track.slug || track.id}`)}
+                                            style={{ 
+                                                fontSize: isMobile ? '12px' : '14px', 
+                                                fontWeight: 'bold', 
+                                                margin: '0 0 4px', 
+                                                whiteSpace: 'nowrap', 
+                                                overflow: 'hidden', 
+                                                textOverflow: 'ellipsis', 
+                                                transition: 'color 0.2s',
+                                                cursor: 'pointer'
+                                            }}
                                             onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
                                             onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
-                                            style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', margin: '0 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.2s' }}
                                         >
                                             {track.title}
+                                        </h4>
                                         </h4>
                                         <p 
                                             onClick={() => navigate(`/profile/${track.profile.username}`)}

@@ -3,11 +3,13 @@ import React from 'react';
 import { 
     Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
 import { colors } from '../theme/theme';
 
 export const GlobalPlayer: React.FC = () => {
     const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode } = usePlayer();
+    const navigate = useNavigate();
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
 
     React.useEffect(() => {
@@ -51,8 +53,41 @@ export const GlobalPlayer: React.FC = () => {
                     )}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ fontSize: isMobile ? '13px' : '13px', fontWeight: 'bold', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'white' }}>{player.currentTrack.title}</p>
-                    <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.currentTrack.artist}</p>
+                    <p 
+                        onClick={() => navigate(`/track/${player.currentTrack!.artist}/${player.currentTrack!.slug || player.currentTrack!.id}`)}
+                        onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+                        style={{ 
+                            fontSize: isMobile ? '13px' : '13px', 
+                            fontWeight: 'bold', 
+                            margin: '0 0 2px 0', 
+                            whiteSpace: 'nowrap', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'color 0.2s'
+                        }}
+                    >
+                        {player.currentTrack.title}
+                    </p>
+                    <p 
+                        onClick={() => navigate(`/profile/${player.currentTrack!.artist}`)}
+                        onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+                        onMouseLeave={(e) => e.currentTarget.style.color = '#B9C3CE'}
+                        style={{ 
+                            fontSize: '11px', 
+                            color: '#B9C3CE', 
+                            margin: 0, 
+                            whiteSpace: 'nowrap', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis',
+                            cursor: 'pointer',
+                            transition: 'color 0.2s'
+                        }}
+                    >
+                        {player.currentTrack.artist}
+                    </p>
                 </div>
             </div>
 
