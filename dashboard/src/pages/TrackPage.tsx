@@ -100,6 +100,8 @@ export const TrackPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [editForm, setEditForm] = useState({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '' });
+    const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
+    const [allGenres, setAllGenres] = useState<any[]>([]);
     const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
     const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
     const [editProjectFile, setEditProjectFile] = useState<File | null>(null);
@@ -123,8 +125,12 @@ export const TrackPage: React.FC = () => {
 
             setLoading(true);
             try {
-                const res = await axios.get(`/api/musician/tracks/${username}/${trackSlug}`, { withCredentials: true });
+                const [res, genresRes] = await Promise.all([
+                    axios.get(`/api/musician/tracks/${username}/${trackSlug}`, { withCredentials: true }),
+                    axios.get('/api/musician/genres', { withCredentials: true })
+                ]);
                 setTrackData(res.data);
+                setAllGenres(genresRes.data);
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Track not found' : 'Failed to load track');
             } finally {
@@ -151,6 +157,7 @@ export const TrackPage: React.FC = () => {
             bpm: track.bpm?.toString() || '',
             key: track.key || '',
         });
+        setSelectedTrackGenres(track.genres?.map(g => g.genre.id) || []);
         setEditAudioFile(null);
         setEditArtworkFile(null);
         setEditProjectFile(null);
@@ -172,6 +179,7 @@ export const TrackPage: React.FC = () => {
             formData.append('year', editForm.year);
             formData.append('bpm', editForm.bpm);
             formData.append('key', editForm.key);
+            formData.append('genreIds', JSON.stringify(selectedTrackGenres));
             if (editAudioFile) formData.append('audio', editAudioFile);
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
             if (editProjectFile) formData.append('project', editProjectFile);
@@ -482,6 +490,41 @@ export const TrackPage: React.FC = () => {
                                         rows={3}
                                         style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                     />
+                                </div>
+
+                                {/* Genre Tags */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Tag size={14} /> Genre Tags
+                                    </label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                                        {selectedTrackGenres.map(gid => {
+                                            const g = allGenres.find(ag => ag.id === gid);
+                                            return g ? (
+                                                <span key={gid} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, color: 'white', padding: '4px 10px', borderRadius: '14px', fontSize: '0.8rem', fontWeight: 600 }}>
+                                                    {g.name}
+                                                    <X size={14} style={{ cursor: 'pointer', opacity: 0.8 }} onClick={() => setSelectedTrackGenres(prev => prev.filter(id => id !== gid))} />
+                                                </span>
+                                            ) : null;
+                                        })}
+                                        {selectedTrackGenres.length === 0 && (
+                                            <span style={{ fontSize: '0.85rem', color: colors.textSecondary, fontStyle: 'italic' }}>No genres selected</span>
+                                        )}
+                                    </div>
+                                    <select
+                                        value=""
+                                        onChange={e => {
+                                            if (e.target.value && !selectedTrackGenres.includes(e.target.value)) {
+                                                setSelectedTrackGenres(prev => [...prev, e.target.value]);
+                                            }
+                                        }}
+                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="" disabled>Add a genre tag...</option>
+                                        {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
+                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 {/* File Uploads */}
