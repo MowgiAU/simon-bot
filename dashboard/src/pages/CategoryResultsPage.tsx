@@ -25,8 +25,9 @@ interface TrackInfo {
     genres: { genre: { name: string, slug: string } }[];
 }
 
-export const CategoryResultsPage: React.FC = () => {
-    const { slug } = useParams<{ slug: string }>();
+export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlug }) => {
+    const params = useParams<{ slug: string }>();
+    const slug = propSlug || params.slug;
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const { setTrack, player } = usePlayer();
@@ -35,9 +36,11 @@ export const CategoryResultsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-    const [genreName, setGenreName] = useState(slug?.charAt(0).toUpperCase() + (slug?.slice(1) || ''));
+    const [genreName, setGenreName] = useState(slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Genre');
 
     useEffect(() => {
+        if (!slug) return;
+        
         const fetchTracks = async () => {
             setLoading(true);
             try {
@@ -53,9 +56,9 @@ export const CategoryResultsPage: React.FC = () => {
                 
                 if (res.data.genre) {
                     setGenreName(res.data.genre.name);
-                } else if (!res.data.tracks || res.data.tracks.length === 0) {
+                } else {
                     // Fallback to title-cased slug if nothing returned
-                    setGenreName(slug?.charAt(0).toUpperCase() + (slug?.slice(1) || ''));
+                    setGenreName(slug.charAt(0).toUpperCase() + slug.slice(1));
                 }
             } catch (err) {
                 console.error('Failed to fetch filtered tracks:', err);

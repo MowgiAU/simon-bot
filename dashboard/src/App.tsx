@@ -444,7 +444,8 @@ const AppInternal: React.FC = () => {
   }
   // /category/:slug → Filtered tracks page
   if (currentPath.startsWith('/category/')) {
-    return <CategoryResultsPage />;
+    const slug = currentPath.split('/category/')[1];
+    return <CategoryResultsPage slug={slug} />;
   }
   return <ArtistDiscoveryPage />;
 };
