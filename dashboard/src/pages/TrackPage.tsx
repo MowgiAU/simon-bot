@@ -649,27 +649,25 @@ const ArrangementViewer: React.FC<{
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
                         {(() => {
-                            // Calculate step based on zoom. 
-                            // i*4+1 is bar number. 
-                            // At 100% (zoom=1), display every 4 bars (step=1).
-                            // At 50% (zoom=0.5), display every 8 bars (step=2).
-                            // At 1000% (zoom=10), display every bar (step=0.25).
-                            let step = 1; 
-                            if (zoom < 1.5) step = 2; // Every 8 bars
-                            if (zoom < 0.8) step = 4; // Every 16 bars
-                            if (zoom < 0.4) step = 8; // Every 32 bars
-                            if (zoom > 3) step = 0.5; // Every 2 bars
-                            if (zoom > 6) step = 0.25; // Every bar
+                            // Unified step calculation
+                            // 1 zoom = 100%
+                            // If we want 100% to show every 10 bars:
+                            let barStep = 10;
+                            
+                            if (zoom < 0.3) barStep = 40;
+                            else if (zoom < 0.6) barStep = 20;
+                            else if (zoom < 1.5) barStep = 10;
+                            else if (zoom < 3) barStep = 5;
+                            else if (zoom < 6) barStep = 2;
+                            else barStep = 1;
                             
                             const totalBars = Math.ceil(totalBeats / 4);
                             const items = [];
-                            for (let i = 0; i < totalBars; i += Math.max(0.25, step)) {
-                                const barNum = Math.floor(i + 1);
+                            for (let bar = 1; bar <= totalBars; bar += barStep) {
                                 items.push(
-                                    <div key={i} style={{ 
-                                        width: `${( (Math.max(0.25, step) * 4) / totalBeats) * 100}%`, 
-                                        flexShrink: 0,
-                                        textAlign: 'left', 
+                                    <div key={bar} style={{ 
+                                        position: 'absolute',
+                                        left: `${((bar - 1) * 4 / totalBeats) * 100}%`,
                                         fontSize: '0.65rem', 
                                         color: 'rgba(255,255,255,0.4)', 
                                         borderLeft: '1px solid rgba(255,255,255,0.15)', 
@@ -678,11 +676,11 @@ const ArrangementViewer: React.FC<{
                                         boxSizing: 'border-box',
                                         whiteSpace: 'nowrap'
                                     }}>
-                                        {barNum}
+                                        {bar}
                                     </div>
                                 );
                             }
-                            return items;
+                            return <div style={{ position: 'relative', width: '100%', height: '1.2rem' }}>{items}</div>;
                         })()}
                     </div>
 
