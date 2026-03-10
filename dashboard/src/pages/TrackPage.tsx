@@ -520,9 +520,9 @@ export const TrackPage: React.FC = () => {
                                         }}
                                         style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
                                     >
-                                        <option value="" disabled>Add a genre tag...</option>
+                                        <option value="" disabled style={{ backgroundColor: '#1A1E2E', color: 'white' }}>Add a genre tag...</option>
                                         {allGenres.filter(g => !selectedTrackGenres.includes(g.id)).map(g => (
-                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                            <option key={g.id} value={g.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{g.name}</option>
                                         ))}
                                     </select>
                                 </div>
