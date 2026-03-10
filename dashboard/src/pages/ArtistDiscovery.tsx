@@ -278,7 +278,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}>{track.profile.displayName || track.profile.username}</p>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{(track.playCount / 1000).toFixed(1)}K</p>
+                                        <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}</p>
                                         <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>Plays</p>
                                     </div>
                                 </div>

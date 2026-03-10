@@ -277,7 +277,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                                         alignItems: 'center',
                                         gap: '4px'
                                     }}>
-                                        <Play size={8} fill="white" /> {(track.playCount / 1000).toFixed(1)}K
+                                        <Play size={8} fill="white" /> {track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}
                                     </div>
                                 </div>
                                 <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
