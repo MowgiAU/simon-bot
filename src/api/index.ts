@@ -3745,26 +3745,52 @@ app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
 // Discovery (List all profiles)
 app.get('/api/musician/profiles', async (req, res) => {
   try {
-      const search = req.query.search as string;
-      const genre = req.query.genre as string;
-      const profiles = await db.musicianProfile.findMany({
-          where: {
-              OR: search ? [
-                  { username: { contains: search, mode: 'insensitive' } },
-                  { displayName: { contains: search, mode: 'insensitive' } },
-                  { bio: { contains: search, mode: 'insensitive' } },
-                  { hardware: { hasSome: [search] } }
-              ] : undefined,
-              genres: genre ? {
-                  some: {
-                      genre: { name: { contains: genre, mode: 'insensitive' } }
+      const { search, genre, sort = 'newest', limit = 50 } = req.query;
+      
+      const where: any = {};
+      
+      if (search) {
+          where.OR = [
+              { username: { contains: search as string, mode: 'insensitive' } },
+              { displayName: { contains: search as string, mode: 'insensitive' } },
+              { bio: { contains: search as string, mode: 'insensitive' } },
+              { hardware: { hasSome: [search as string] } }
+          ];
+      }
+      
+      if (genre) {
+          where.genres = {
+              some: {
+                  genre: { 
+                      OR: [
+                          { name: { equals: genre as string, mode: 'insensitive' } },
+                          { slug: { equals: genre as string, mode: 'insensitive' } }
+                      ]
                   }
-              } : undefined
-          },
+              }
+          };
+      }
+
+      let orderBy: any = { createdAt: 'desc' };
+      if (sort === 'popular') orderBy = { playCount: 'desc' }; // Note: Schema might need total play count field or aggregation
+      if (sort === 'oldest') orderBy = { createdAt: 'asc' };
+      if (sort === 'alphabetical') orderBy = { username: 'asc' };
+
+      const profiles = await db.musicianProfile.findMany({
+          where,
           include: {
-              genres: { include: { genre: true } }
+              genres: { include: { genre: true } },
+              tracks: { 
+                  where: { isPublic: true },
+                  take: 1,
+                  orderBy: { playCount: 'desc' }
+              },
+              _count: {
+                  select: { tracks: true }
+              }
           },
-          take: 50
+          orderBy,
+          take: Number(limit)
       });
       res.json(profiles);
   } catch (e: any) {
