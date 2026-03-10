@@ -554,15 +554,42 @@ const ArrangementViewer: React.FC<{
     projectFileUrl: string | null;
     zoom: number;
     setZoom: (v: number) => void;
-}> = ({ arrangement, duration, currentTime, projectFileUrl, zoom, setZoom }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom }) => {
     const totalBeats = arrangement.tracks.reduce((max, t) =>
-        Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 32
-    );
+        Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 0
+    ) || 32;
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
     const currentBeat = currentTime * beatsPerSec;
     const playheadPct = totalBeats > 0 ? (currentBeat / totalBeats) * 100 : 0;
     const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
+
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    // Auto-scroll when playhead moves out of view
+    useEffect(() => {
+        if (isPlaying && scrollContainerRef.current) {
+            const container = scrollContainerRef.current;
+            const playheadX = (playheadPct / 100) * (container.scrollWidth - 140) + 140;
+            const scrollLeft = container.scrollLeft;
+            const viewportWidth = container.clientWidth;
+
+            // If playhead is beyond the right edge (with some padding), scroll it into view
+            if (playheadX > (scrollLeft + viewportWidth - 100)) {
+                container.scrollTo({
+                    left: playheadX - (viewportWidth / 3),
+                    behavior: 'smooth'
+                });
+            } 
+            // Also reset to start if we jump back
+            else if (playheadX < scrollLeft) {
+                container.scrollTo({
+                    left: Math.max(0, playheadX - 140),
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }, [playheadPct, isPlaying]);
 
     // Zoom controls: 1.0 = full width fits in container (with min-width)
     // We'll use a base width of 100% and multiply it by zoom.
@@ -605,7 +632,16 @@ const ArrangementViewer: React.FC<{
                 </div>
             </div>
 
-            <div style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117' }}>
+            <div 
+                ref={scrollContainerRef}
+                style={{ 
+                    overflowX: 'auto', 
+                    borderRadius: borderRadius.md, 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    backgroundColor: '#0d1117',
+                    scrollBehavior: 'smooth'
+                }}
+            >
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', padding: '16px 0', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
