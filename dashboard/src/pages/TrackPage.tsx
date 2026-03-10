@@ -555,9 +555,17 @@ const ArrangementViewer: React.FC<{
     zoom: number;
     setZoom: (v: number) => void;
 }> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom }) => {
-    const totalBeats = arrangement.tracks.reduce((max, t) =>
-        Math.max(max, ...t.clips.map(c => c.start + c.length), 0), 0
-    ) || 32;
+    // Find the actual project length based ONLY on the clips provided.
+    // If the FLP parser included empty tracks up to 501, we filter those out here.
+    const lastClipEnd = arrangement.tracks.reduce((max, t) => {
+        const trackMax = t.clips.reduce((tm, c) => Math.max(tm, c.start + c.length), 0);
+        return Math.max(max, trackMax);
+    }, 0);
+
+    // If for some reason lastClipEnd is 0 (unlikely for a valid song), fallback to 32.
+    // We strictly use lastClipEnd to trim the "wasted space".
+    const totalBeats = lastClipEnd > 0 ? lastClipEnd : 32;
+    
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
     const currentBeat = currentTime * beatsPerSec;
@@ -566,27 +574,20 @@ const ArrangementViewer: React.FC<{
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    // Auto-scroll when playhead moves out of view
+    // Auto-scroll logic: keep the playhead in the center once it crosses the center point
     useEffect(() => {
         if (isPlaying && scrollContainerRef.current) {
             const container = scrollContainerRef.current;
-            const playheadX = (playheadPct / 100) * (container.scrollWidth - 140) + 140;
-            const scrollLeft = container.scrollLeft;
+            const timelineContainerWidth = container.scrollWidth - 140;
+            const playheadX = (playheadPct / 100) * timelineContainerWidth + 140;
             const viewportWidth = container.clientWidth;
 
-            // If playhead is beyond the right edge (with some padding), scroll it into view
-            if (playheadX > (scrollLeft + viewportWidth - 100)) {
-                container.scrollTo({
-                    left: playheadX - (viewportWidth / 3),
-                    behavior: 'smooth'
-                });
-            } 
-            // Also reset to start if we jump back
-            else if (playheadX < scrollLeft) {
-                container.scrollTo({
-                    left: Math.max(0, playheadX - 140),
-                    behavior: 'smooth'
-                });
+            // Target scroll position: make playheadX appear at (viewportWidth / 2)
+            const targetScrollLeft = playheadX - (viewportWidth / 2);
+
+            // Only scroll if we are zoomed in enough to have horizontal scrolling
+            if (container.scrollWidth > viewportWidth) {
+                container.scrollLeft = targetScrollLeft;
             }
         }
     }, [playheadPct, isPlaying]);
