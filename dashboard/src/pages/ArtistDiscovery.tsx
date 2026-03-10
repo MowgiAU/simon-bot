@@ -308,10 +308,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         >
                                             {track.title}
                                         </h4>
-                                        </h4>
                                         <p 
                                             onClick={() => navigate(`/profile/${track.profile.username}`)}
-                                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}>,oldString:
                                             onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
                                             style={{ fontSize: isMobile ? '10px' : '12px', color: '#B9C3CE', margin: '0 0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                                         >
