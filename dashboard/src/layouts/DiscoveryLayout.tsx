@@ -63,13 +63,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 flexShrink: 0, gap: isMobile ? '12px' : '0'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => navigate('/')}>
-                        <div style={{
-                            width: '32px', height: '32px', backgroundColor: colors.primary,
-                            borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <FujiLogo size={20} color="white" />
-                        </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
+                        <FujiLogo size={isMobile ? 32 : 40} color={colors.primary} />
                         <div>
                             <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
                         </div>
