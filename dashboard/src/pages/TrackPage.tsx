@@ -383,6 +383,7 @@ export const TrackPage: React.FC = () => {
                         currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
                         isPlaying={isPlaying}
                         projectFileUrl={track.projectFileUrl}
+                        allowProjectDownload={track.allowProjectDownload ?? true}
                         zoom={zoom}
                         setZoom={setZoom}
                     />
@@ -656,9 +657,10 @@ const ArrangementViewer: React.FC<{
     currentTime: number;
     isPlaying: boolean;
     projectFileUrl: string | null;
+    allowProjectDownload: boolean;
     zoom: number;
     setZoom: (v: number) => void;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, allowProjectDownload, zoom, setZoom }) => {
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
     const lastClipEnd = arrangement.tracks.reduce((max, t) => {
@@ -727,7 +729,7 @@ const ArrangementViewer: React.FC<{
                         >+</button>
                     </div>
 
-                    {projectFileUrl && track.allowProjectDownload && (
+                    {projectFileUrl && allowProjectDownload && (
                         <a
                             href={projectFileUrl}
                             download
