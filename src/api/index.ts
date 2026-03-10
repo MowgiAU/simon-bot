@@ -3298,8 +3298,8 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(year !== undefined && { year: year ? parseInt(year) : null }),
                 ...(bpm !== undefined && { bpm: bpm ? parseInt(bpm) : null }),
                 ...(key !== undefined && { key: key || null }),
-                ...(allowAudioDownload !== undefined && { allowAudioDownload: Boolean(allowAudioDownload) }),
-                ...(allowProjectDownload !== undefined && { allowProjectDownload: Boolean(allowProjectDownload) }),
+                ...(allowAudioDownload !== undefined && { allowAudioDownload: allowAudioDownload === 'true' || allowAudioDownload === true }),
+                ...(allowProjectDownload !== undefined && { allowProjectDownload: allowProjectDownload === 'true' || allowProjectDownload === true }),
             }
         });
 
@@ -3379,7 +3379,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         const updateData: any = {};
 
         // Text field updates
-        const { title, description, artist, album, year, bpm, key: musicKey, genreIds } = req.body;
+        const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload } = req.body;
         if (title !== undefined) {
             updateData.title = title;
             updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -3390,6 +3390,8 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         if (year !== undefined) updateData.year = year ? parseInt(year) : null;
         if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
         if (musicKey !== undefined) updateData.key = musicKey || null;
+        if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
+        if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
 
         // Audio file replacement
         if (audioFile) {
