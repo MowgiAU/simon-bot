@@ -3956,8 +3956,7 @@ app.post('/api/musician/profile/:userId', async (req, res) => {
             { platform: 'soundcloud', url: data.soundcloudUrl },
             { platform: 'youtube', url: data.youtubeUrl },
             { platform: 'instagram', url: data.instagramUrl },
-            { platform: 'twitter', url: data.twitterUrl },
-            { platform: 'website', url: data.websiteUrl }
+            { platform: 'discord', url: data.discordUrl }
         ].filter(s => !!s.url);
 
         // Basic check for common structure

@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
-    Twitter, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle,
+    MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, Tag, AlertCircle,
     FileAudio, Image as ImageIcon, Edit3
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
@@ -21,8 +21,7 @@ interface MusicianProfile {
     soundcloudUrl: string | null;
     youtubeUrl: string | null;
     instagramUrl: string | null;
-    twitterUrl: string | null;
-    websiteUrl: string | null;
+    discordUrl: string | null;
     gearList: string[];
     genres: { id: string; name: string }[];
     featuredTrackId?: string | null;
@@ -104,8 +103,7 @@ export const MusicianProfilePage: React.FC = () => {
                         if (s.platform === 'soundcloud') data.soundcloudUrl = s.url;
                         if (s.platform === 'youtube') data.youtubeUrl = s.url;
                         if (s.platform === 'instagram') data.instagramUrl = s.url;
-                        if (s.platform === 'twitter') data.twitterUrl = s.url;
-                        if (s.platform === 'website') data.websiteUrl = s.url;
+                        if (s.platform === 'discord') data.discordUrl = s.url;
                     });
                 }
                 
@@ -130,8 +128,7 @@ export const MusicianProfilePage: React.FC = () => {
                         soundcloudUrl: '',
                         youtubeUrl: '',
                         instagramUrl: '',
-                        twitterUrl: '',
-                        websiteUrl: '',
+                        discordUrl: '',
                         gearList: [],
                         genres: []
                     });
@@ -410,8 +407,7 @@ export const MusicianProfilePage: React.FC = () => {
         { key: 'soundcloudUrl', label: 'Soundcloud', icon: <Music size={16}/> },
         { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/> },
         { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/> },
-        { key: 'twitterUrl', label: 'Twitter', icon: <Twitter size={16}/> },
-        { key: 'websiteUrl', label: 'External Portfolio', icon: <Globe size={16}/> },
+        { key: 'discordUrl', label: 'Discord Username', icon: <MessageCircle size={16}/>, placeholder: 'e.g. username or user#1234' },
     ];
 
     if (mode === 'view') {
@@ -1044,7 +1040,7 @@ export const MusicianProfilePage: React.FC = () => {
                                         type="text" 
                                         value={(profile as any)?.[social.key] || ''}
                                         onChange={(e) => setProfile(p => p ? {...p, [social.key]: e.target.value} : null)}
-                                        placeholder="https://..."
+                                        placeholder={(social as any).placeholder || 'https://...'}
                                         style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
                                     />
                                 </div>

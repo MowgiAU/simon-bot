@@ -38,7 +38,9 @@ export class ProfileService {
         featuredTrackId?: string | null;
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
+        // Discord handles are not URLs so they bypass URL validation
         const validatedSocials = (data.socials || []).filter(s => {
+            if (s.platform === 'discord') return !!s.url && s.url.length <= 100;
             try {
                 const domain = new URL(s.url).hostname.replace('www.', '');
                 return ProfileService.ALLOWED_SOCIAL_DOMAINS.some(d => domain.includes(d));

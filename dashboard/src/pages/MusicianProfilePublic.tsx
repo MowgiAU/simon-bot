@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import axios from 'axios';
 import { 
-    Music, Share2, Hammer, Globe, Instagram, Youtube, Twitter, Radio, 
+    Music, Share2, Hammer, Globe, Instagram, Youtube, MessageCircle, Radio, 
     ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
     Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play
 } from 'lucide-react';
@@ -20,8 +20,7 @@ interface MusicianProfile {
     soundcloudUrl: string | null;
     youtubeUrl: string | null;
     instagramUrl: string | null;
-    twitterUrl: string | null;
-    websiteUrl: string | null;
+    discordUrl: string | null;
     hardware: string[];
     gearList: string[];
     genres: { genre: { name: string } }[];
@@ -77,7 +76,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             setLoading(true);
             try {
                 const res = await axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true });
-                setProfile(res.data);
+                const data = res.data;
+                // Map socials JSON array to flat fields for display
+                if (data && data.socials && Array.isArray(data.socials)) {
+                    data.socials.forEach((s: any) => {
+                        if (s.platform === 'spotify') data.spotifyUrl = s.url;
+                        if (s.platform === 'soundcloud') data.soundcloudUrl = s.url;
+                        if (s.platform === 'youtube') data.youtubeUrl = s.url;
+                        if (s.platform === 'instagram') data.instagramUrl = s.url;
+                        if (s.platform === 'discord') data.discordUrl = s.url;
+                    });
+                }
+                setProfile(data);
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
             } finally {
@@ -111,9 +121,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     ];
 
     const socials = [
-        { key: 'twitterUrl', label: 'Twitter', icon: <Twitter size={16}/>, color: '#1DA1F2' },
-        { key: 'soundcloudUrl', label: 'Soundcloud', icon: <Music size={16}/>, color: '#ff5500' },
-        { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, color: '#1DB954' },
+        { key: 'soundcloudUrl', label: 'Soundcloud', icon: <Music size={16}/>, color: '#ff5500', isHandle: false },
+        { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, color: '#1DB954', isHandle: false },
+        { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/>, color: '#FF0000', isHandle: false },
+        { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, color: '#E1306C', isHandle: false },
+        { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, color: '#5865F2', isHandle: true },
     ];
 
     const featuredTrack = profile.featuredTrack || (profile.tracks && profile.tracks.length > 0 ? profile.tracks[0] : null);
@@ -333,22 +345,32 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {socials.map(s => {
                             const url = (profile as any)[s.key];
-                            return (
-                                <a key={s.key} href={url || '#'} target="_blank" rel="noopener noreferrer" style={{ 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                            if (!url) return null;
+                            const inner = (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
                                     padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.2)',
-                                    border: '1px solid rgba(255,255,255,0.05)', textDecoration: 'none', color: 'white'
-                                }}>
+                                    border: '1px solid rgba(255,255,255,0.05)', color: 'white' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: `${s.color}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {React.cloneElement(s.icon as React.ReactElement, { color: s.color })}
                                         </div>
-                                        <span style={{ fontSize: '12px', fontWeight: '500' }}>{s.label}</span>
+                                        <div>
+                                            <span style={{ fontSize: '12px', fontWeight: '500', display: 'block' }}>{s.label}</span>
+                                            {s.isHandle && <span style={{ fontSize: '11px', color: '#94a3b8' }}>{url}</span>}
+                                        </div>
                                     </div>
-                                    <ExternalLink size={14} color="#475569" />
-                                </a>
+                                    {!s.isHandle && <ExternalLink size={14} color="#475569" />}
+                                </div>
+                            );
+                            return s.isHandle ? (
+                                <div key={s.key} style={{ textDecoration: 'none' }}>{inner}</div>
+                            ) : (
+                                <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>
                             );
                         })}
+                        {!socials.some(s => !!(profile as any)[s.key]) && (
+                            <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>No links added yet.</p>
+                        )}
                     </div>
                 </div>
 
