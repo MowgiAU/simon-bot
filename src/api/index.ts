@@ -3610,7 +3610,10 @@ app.get('/api/discovery/tracks', async (req, res) => {
             where.genres = {
                 some: {
                     genre: {
-                        slug: { equals: genre as string, mode: 'insensitive' }
+                        OR: [
+                            { slug: { equals: genre as string, mode: 'insensitive' } },
+                            { parent: { slug: { equals: genre as string, mode: 'insensitive' } } }
+                        ]
                     }
                 }
             };
