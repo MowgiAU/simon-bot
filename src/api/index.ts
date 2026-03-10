@@ -83,11 +83,6 @@ const upload = multer({
   }
 });
 
-const emailService = new EmailService();
-const prismaInstance = new PrismaClient();
-const profileService = new ProfileService(prismaInstance);
-const audioService = new AudioService(prismaInstance);
-
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 
@@ -161,10 +156,15 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
 
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
-const db = globalForPrisma.prisma || new PrismaClient({
-    log: ['error', 'warn'],
+export const db = globalForPrisma.prisma || new PrismaClient({
+  log: ['error', 'warn'],
 });
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+
+const emailService = new EmailService();
+const profileService = new ProfileService(db);
+const audioService = new AudioService(db);
+
 
 // DEBUG: Log Database Connection Info
 (async () => {
@@ -3234,11 +3234,21 @@ app.post('/api/musician/tracks', upload.fields([
 
         // 4. Handle genre tags for this track
         const genreIds = req.body.genreIds;
+        logger.info(`[Upload] Processing genreIds for track ${track.id}: ${genreIds} (type: ${typeof genreIds})`);
         if (genreIds) {
-            const ids = typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds;
+            let ids: string[] = [];
+            try {
+                ids = typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds;
+            } catch (e) {
+                logger.warn(`[Upload] Failed to parse genreIds as JSON: ${genreIds}`);
+                if (typeof genreIds === 'string') ids = [genreIds];
+            }
+            
             if (Array.isArray(ids) && ids.length > 0) {
+                const validIds = ids.filter(id => typeof id === 'string' && id.length > 0);
+                logger.info(`[Upload] Creating ${validIds.length} track-genre links for track ${track.id}`);
                 await db.trackGenre.createMany({
-                    data: ids.map((gid: string) => ({ trackId: track.id, genreId: gid })),
+                    data: validIds.map((gid: string) => ({ trackId: track.id, genreId: gid })),
                     skipDuplicates: true
                 });
             }
@@ -3607,18 +3617,42 @@ app.get('/api/discovery/tracks', async (req, res) => {
         const where: any = { isPublic: true };
         
         if (genre) {
-            where.genres = {
-                some: {
-                    genre: {
-                        OR: [
-                            { slug: { equals: genre as string, mode: 'insensitive' } },
-                            { name: { equals: genre as string, mode: 'insensitive' } },
-                            { parent: { slug: { equals: genre as string, mode: 'insensitive' } } },
-                            { parent: { name: { equals: genre as string, mode: 'insensitive' } } }
-                        ]
+            // Get all sub-genres of this parent genre to include them in results
+            const parentGenre = await db.genre.findFirst({
+                where: { 
+                    OR: [
+                        { slug: { equals: genre as string, mode: 'insensitive' } },
+                        { name: { equals: genre as string, mode: 'insensitive' } }
+                    ]
+                },
+                include: { children: true }
+            });
+
+            const genreIdsToMatch = parentGenre 
+                ? [parentGenre.id, ...parentGenre.children.map(c => c.id)] 
+                : [];
+
+            if (genreIdsToMatch.length > 0) {
+                where.genres = {
+                    some: {
+                        genreId: { in: genreIdsToMatch }
                     }
-                }
-            };
+                };
+            } else {
+                // Fallback for when slug lookup fails, keep existing name-based matching
+                where.genres = {
+                    some: {
+                        genre: {
+                            OR: [
+                                { slug: { equals: genre as string, mode: 'insensitive' } },
+                                { name: { equals: genre as string, mode: 'insensitive' } },
+                                { parent: { slug: { equals: genre as string, mode: 'insensitive' } } },
+                                { parent: { name: { equals: genre as string, mode: 'insensitive' } } }
+                            ]
+                        }
+                    }
+                };
+            }
         }
 
         if (search) {
