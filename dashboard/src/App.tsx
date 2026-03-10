@@ -454,6 +454,13 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/genres') {
     return <GenresPage />;
   }
+
+  // /genres/:parentSlug → Sub-genres page
+  if (currentPath.startsWith('/genres/')) {
+    const parentSlug = currentPath.split('/genres/')[1];
+    return <GenresPage parentSlug={parentSlug} />;
+  }
+  
   // /category/:slug → Filtered tracks page
   if (currentPath.startsWith('/category/')) {
     const slug = currentPath.split('/category/')[1];

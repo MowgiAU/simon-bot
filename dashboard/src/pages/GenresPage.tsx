@@ -11,6 +11,8 @@ interface Genre {
     name: string;
     slug: string;
     description?: string | null;
+    parentId?: string | null;
+    children?: Genre[];
     _count?: {
         profiles: number;
         tracks: number;
@@ -22,8 +24,9 @@ const genreColors = [
     '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#10B981'
 ];
 
-export const GenresPage: React.FC = () => {
+export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) => {
     const [genres, setGenres] = useState<Genre[]>([]);
+    const [selectedParent, setSelectedParent] = useState<Genre | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
@@ -35,6 +38,16 @@ export const GenresPage: React.FC = () => {
                 if (response.ok) {
                     const data = await response.json();
                     setGenres(data);
+                    
+                    // If we have a parentSlug in URL, find that genre and set it as selected
+                    if (parentSlug) {
+                        const parent = data.find((g: Genre) => g.slug === parentSlug);
+                        if (parent) {
+                            setSelectedParent(parent);
+                        }
+                    } else {
+                        setSelectedParent(null);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to fetch genres:', err);
@@ -44,7 +57,12 @@ export const GenresPage: React.FC = () => {
         };
 
         fetchGenres();
-    }, []);
+    }, [parentSlug]);
+
+    const mainGenres = genres.filter(g => !g.parentId);
+    const displayedGenres = selectedParent 
+        ? genres.filter(g => g.parentId === selectedParent.id)
+        : mainGenres;
 
     return (
         <DiscoveryLayout>
@@ -63,12 +81,18 @@ export const GenresPage: React.FC = () => {
                             <LayoutGrid size={32} color={colors.primary} />
                         </div>
                         <div>
-                            <h1 style={{ margin: 0, fontSize: '32px', fontWeight: 800 }}>Genre Exploration</h1>
-                            <p style={{ margin: '4px 0 0', color: '#B9C3CE' }}>Explore tracks and artists by their signature sounds</p>
+                            <h1 style={{ margin: 0, fontSize: '32px', fontWeight: 800 }}>
+                                {selectedParent ? selectedParent.name : 'Genre Exploration'}
+                            </h1>
+                            <p style={{ margin: '4px 0 0', color: '#B9C3CE' }}>
+                                {selectedParent 
+                                    ? `Exploring sub-genres of ${selectedParent.name}` 
+                                    : 'Explore tracks and artists by their signature sounds'}
+                            </p>
                         </div>
                     </div>
                     <button 
-                        onClick={() => navigate('/')} 
+                        onClick={() => selectedParent ? navigate('/genres') : navigate('/')} 
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -92,7 +116,7 @@ export const GenresPage: React.FC = () => {
                             e.currentTarget.style.transform = 'translateX(0)';
                         }}
                     >
-                        <ArrowLeft size={18} /> Back to Discovery
+                        <ArrowLeft size={18} /> {selectedParent ? 'Back to All Genres' : 'Back to Discovery'}
                     </button>
                 </div>
 
@@ -109,10 +133,17 @@ export const GenresPage: React.FC = () => {
                         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
                         gap: '24px' 
                     }}>
-                        {genres.length > 0 ? genres.map((genre, idx) => (
+                        {displayedGenres.length > 0 ? displayedGenres.map((genre, idx) => (
                             <div 
                                 key={genre.id}
-                                onClick={() => navigate(`/category/${genre.slug}`)}
+                                onClick={() => {
+                                    const hasChildren = genres.some(g => g.parentId === genre.id);
+                                    if (hasChildren && !selectedParent) {
+                                        navigate(`/genres/${genre.slug}`);
+                                    } else {
+                                        navigate(`/category/${genre.slug}`);
+                                    }
+                                }}
                                 style={{ 
                                     backgroundColor: '#1E2333', 
                                     borderRadius: '20px', 
@@ -168,7 +199,13 @@ export const GenresPage: React.FC = () => {
                                         {genre.description}
                                     </p>
                                 ) : (
-                                    <div style={{ height: '56px' }} />
+                                    <div style={{ height: '56px' }}>
+                                        {genres.some(g => g.parentId === genre.id) && (
+                                            <span style={{ fontSize: '11px', color: colors.primary, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                                {genres.filter(g => g.parentId === genre.id).length} Sub-genres
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
 
                                 <div style={{ 
