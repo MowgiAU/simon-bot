@@ -92,7 +92,8 @@ export class FLPParser {
 
         // Track events: collected in order, then remapped after the loop
         const trackEvents238: Array<{ rvIdx: number; enabled: boolean; group: number }> = [];
-        const trackNames239: string[] = [];
+        const trackNamesByRvIdx = new Map<number, string>();
+        let lastTrack238RvIdx = -1;
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -315,11 +316,16 @@ export class FLPParser {
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
                 trackEvents238.push({ rvIdx, enabled, group });
+                lastTrack238RvIdx = rvIdx;
             }
 
-            // ── Track names: event 239 (TEXT+47) ──
+            // ── Track names: event 239 (TEXT+47) — pair with preceding 238 event ──
             if (code === 239 && buf) {
-                trackNames239.push(FLPParser.readStringBuf(buf));
+                const name = FLPParser.readStringBuf(buf);
+                if (lastTrack238RvIdx >= 0) {
+                    trackNamesByRvIdx.set(lastTrack238RvIdx, name);
+                }
+                lastTrack238RvIdx = -1;
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -358,27 +364,23 @@ export class FLPParser {
         // Auto-detect the track count base from the max rvIdx (FL 20+ = 499, FL 12-19 = 198)
         const maxRvIdx = trackEvents238.reduce((max, e) => Math.max(max, e.rvIdx), 0);
         const trackBase = maxRvIdx; // rvIdx 0 = last track, rvIdx maxRvIdx = first track (track 0)
-        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNames239.length} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
+        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNamesByRvIdx.size} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
 
         const trackNameMap = new Map<number, string>();
-        for (let i = 0; i < trackEvents238.length; i++) {
-            const ev = trackEvents238[i];
+        for (const ev of trackEvents238) {
             const tIdx = trackBase - ev.rvIdx;
             trackDataMap.set(tIdx, { enabled: ev.enabled, group: ev.group });
-            if (i < trackNames239.length) {
-                trackNameMap.set(tIdx, trackNames239[i]);
-            }
+            const name = trackNamesByRvIdx.get(ev.rvIdx);
+            if (name) trackNameMap.set(tIdx, name);
         }
 
-        // Fallback: if no 238 events but we have 239 names, just index sequentially
-        if (trackEvents238.length === 0 && trackNames239.length > 0) {
-            console.log(`[FLP] No event 238 found — using sequential track name indexing`);
-            for (let i = 0; i < trackNames239.length; i++) {
-                trackNameMap.set(i, trackNames239[i]);
-            }
+        // Log pairing info for debugging
+        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by rvIdx)`);
+        // Show first few pairings
+        for (const ev of trackEvents238.slice(0, 10)) {
+            const tIdx = trackBase - ev.rvIdx;
+            console.log(`[FLP]   rvIdx=${ev.rvIdx} → tIdx=${tIdx}, name="${trackNamesByRvIdx.get(ev.rvIdx) || '(none)'}", group=${ev.group}`);
         }
-
-        console.log(`[FLP] Track name map: ${trackNameMap.size} entries`);
 
         // ── 4. Parse playlist items from event 233 ──
         const clips: ClipData[] = [];
@@ -502,7 +504,7 @@ export class FLPParser {
 
         const projectInfo: ProjectInfo = { plugins, samples };
 
-        // ── 6. Build track list — include ALL tracks from 0 to lastUsed ──
+        // ── 6. Build track list — include tracks from first used to last used ──
         // Collect clips by track index
         const trackMap = new Map<number, ClipData[]>();
         for (const clip of clips) {
@@ -510,24 +512,43 @@ export class FLPParser {
             trackMap.get(clip.track)!.push(clip);
         }
 
-        // Find the last track index that has any content (clips)
+        // Find first and last track indices that have content
+        let firstUsedTrack = Infinity;
         let lastUsedTrack = 0;
         for (const tIdx of trackMap.keys()) {
+            if (tIdx < firstUsedTrack) firstUsedTrack = tIdx;
             if (tIdx > lastUsedTrack) lastUsedTrack = tIdx;
         }
+        if (firstUsedTrack === Infinity) firstUsedTrack = 0;
 
-        console.log(`[FLP] Track names mapped: ${trackNameMap.size}, trackData entries: ${trackDataMap.size}, lastUsedTrack: ${lastUsedTrack}`);
+        // Also include any track that is a group parent of a used track
+        const groupParentIndices = new Set<number>();
+        for (let i = firstUsedTrack; i <= lastUsedTrack; i++) {
+            const td = trackDataMap.get(i);
+            if (td && td.group > 0) {
+                const parentIdx = td.group - 1; // group is 1-based
+                if (parentIdx < firstUsedTrack) {
+                    groupParentIndices.add(parentIdx);
+                }
+            }
+        }
+        // Expand firstUsedTrack to include group parents above it
+        for (const pIdx of groupParentIndices) {
+            if (pIdx < firstUsedTrack) firstUsedTrack = pIdx;
+        }
+
+        console.log(`[FLP] Track names mapped: ${trackNameMap.size}, trackData entries: ${trackDataMap.size}, firstUsedTrack: ${firstUsedTrack}, lastUsedTrack: ${lastUsedTrack}`);
         // Log track mapping for debugging
-        for (let i = 0; i <= Math.min(lastUsedTrack, 25); i++) {
+        for (let i = firstUsedTrack; i <= Math.min(lastUsedTrack, firstUsedTrack + 25); i++) {
             const name = trackNameMap.get(i) || `(unnamed)`;
             const td = trackDataMap.get(i);
             const clipCount = trackMap.get(i)?.length ?? 0;
             console.log(`[FLP]   Track ${i}: "${name}" clips=${clipCount} enabled=${td?.enabled ?? true} group=${td?.group ?? 0}`);
         }
 
-        // Include all tracks from 0 to lastUsedTrack (contiguous, like FL Studio)
+        // Include tracks from firstUsedTrack to lastUsedTrack (contiguous range)
         const outputTracks = [];
-        for (let origId = 0; origId <= lastUsedTrack; origId++) {
+        for (let origId = firstUsedTrack; origId <= lastUsedTrack; origId++) {
             const td = trackDataMap.get(origId);
             outputTracks.push({
                 id: origId,
