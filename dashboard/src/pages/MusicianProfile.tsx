@@ -282,6 +282,11 @@ export const MusicianProfilePage: React.FC = () => {
             return;
         }
 
+        if (audioFile.size > 300 * 1024 * 1024) {
+            setMessage({ type: 'error', text: `File "${audioFile.name}" is ${(audioFile.size / 1024 / 1024).toFixed(1)}MB — max allowed is 300MB. Try exporting as MP3 or at a lower bitrate.` });
+            return;
+        }
+
         const formData = new FormData();
         formData.append('audio', audioFile);
         if (artworkFile) formData.append('artwork', artworkFile);
@@ -312,7 +317,7 @@ export const MusicianProfilePage: React.FC = () => {
             setSelectedTrackGenres([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
-            setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to add track' });
+            setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track. Please try again.' });
         } finally {
             setSaving(false);
         }
@@ -731,13 +736,14 @@ export const MusicianProfilePage: React.FC = () => {
                                     transition: 'all 0.2s'
                                 }}>
                                     <FileAudio size={18} color={audioFile ? colors.primary : colors.textSecondary} />
-                                    {audioFile ? audioFile.name : 'Choose audio file...'}
+                                    {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : 'Choose audio file...'}
                                     <input 
                                         type="file" accept="audio/*"
                                         onChange={e => setAudioFile(e.target.files?.[0] || null)}
                                         style={{ display: 'none' }}
                                     />
                                 </label>
+                                <div style={{ fontSize: '0.75rem', color: colors.textSecondary, paddingLeft: '2px' }}>Supported: MP3, WAV, FLAC, OGG, AAC &mdash; max 300MB. Large WAV files will be auto-converted to 320kbps MP3.</div>
                                 
                                 <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Artwork (Optional)</div>
                                 <label style={{ 
