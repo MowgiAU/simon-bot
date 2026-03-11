@@ -474,28 +474,73 @@ export class FLPParser {
 
         const projectInfo: ProjectInfo = { plugins, samples };
 
-        // ── 6. Group clips by track & renumber ──
+        // ── 6. Build track list with proper grouping ──
+        // Collect clips by track index
         const trackMap = new Map<number, ClipData[]>();
         for (const clip of clips) {
             if (!trackMap.has(clip.track)) trackMap.set(clip.track, []);
             trackMap.get(clip.track)!.push(clip);
         }
 
-        const sortedTrackIds = Array.from(trackMap.keys()).sort((a, b) => a - b);
+        // Collect all track indices that matter:
+        //  - tracks that have clips
+        //  - tracks that are group parents of any included track
+        const relevantTracks = new Set<number>(trackMap.keys());
+        
+        // Also include any track referenced as a group parent
+        for (const [tIdx, td] of trackDataMap) {
+            if (td.group > 0) {
+                // group is 1-based track number; convert to 0-based index
+                const parentIdx = td.group - 1;
+                if (relevantTracks.has(tIdx)) {
+                    relevantTracks.add(parentIdx);
+                }
+            }
+        }
+
+        // Recursively add parent chains (a group parent might itself be grouped)
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const tIdx of relevantTracks) {
+                const td = trackDataMap.get(tIdx);
+                if (td && td.group > 0) {
+                    const parentIdx = td.group - 1;
+                    if (!relevantTracks.has(parentIdx)) {
+                        relevantTracks.add(parentIdx);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        const sortedTrackIds = Array.from(relevantTracks).sort((a, b) => a - b);
+        
+        // Build a mapping from original FL track index (0-based) to output index
+        const origToNewIdx = new Map<number, number>();
+        sortedTrackIds.forEach((origId, newIdx) => origToNewIdx.set(origId, newIdx));
 
         return {
-            bpm: bpm || 140, // Ensure we have a valid BPM, fallback to 140 if undetected
+            bpm: bpm || 140,
             signature: [4, 4],
             projectInfo,
             markers,
             tracks: sortedTrackIds.map((origId, idx) => {
                 const td = trackDataMap.get(origId);
+                // Map the group parent from original 1-based track number to new output index
+                let mappedGroup = 0;
+                if (td && td.group > 0) {
+                    const parentOrigIdx = td.group - 1;
+                    const parentNewIdx = origToNewIdx.get(parentOrigIdx);
+                    // Store as 1-based in output to match FL convention (0 = no group)
+                    mappedGroup = parentNewIdx !== undefined ? parentNewIdx + 1 : 0;
+                }
                 return {
                     id: idx,
-                    name: trackNames[origId] || `Track ${idx + 1}`,
-                    clips: trackMap.get(origId)!,
+                    name: trackNames[origId] || `Track ${origId + 1}`,
+                    clips: trackMap.get(origId) || [],
                     enabled: td?.enabled ?? true,
-                    group: td?.group ?? 0,
+                    group: mappedGroup,
                 };
             }),
         };

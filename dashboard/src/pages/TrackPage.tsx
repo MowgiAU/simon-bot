@@ -685,8 +685,8 @@ const ArrangementViewer: React.FC<{
     // We strictly use lastClipEnd to trim the "wasted space".
     const totalBeats = lastClipEnd > 0 ? lastClipEnd : 32;
     
-    // Explicitly filter for non-empty tracks to prevent "501 lines" layout
-    const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
+    // Include all tracks from the parser (it already filters to relevant ones)
+    const activeTracks = arrangement.tracks;
     const markers = arrangement.markers ?? [];
     
     const bpm = arrangement.bpm || 140;
@@ -813,23 +813,35 @@ const ArrangementViewer: React.FC<{
                     {/* Track rows */}
                     {activeTracks.map((t, ti) => {
                         const isMuted = t.enabled === false;
-                        const isGroupChild = (t.group ?? 0) > 0;
+                        const isEmpty = t.clips.length === 0;
+                        // Calculate group nesting depth
+                        let depth = 0;
+                        let current = t;
+                        while ((current.group ?? 0) > 0) {
+                            depth++;
+                            const parentIdx = current.group! - 1;
+                            const parent = activeTracks.find(tr => tr.id === parentIdx);
+                            if (!parent || parent === current) break;
+                            current = parent;
+                        }
                         const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
+                        const indentPx = depth * 12;
                         return (
-                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px', opacity: isMuted ? 0.45 : 1 }}>
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '24px' : '36px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
                             <div style={{ 
                                 width: '140px', flexShrink: 0,
                                 paddingRight: '12px',
-                                paddingLeft: isGroupChild ? '20px' : '0',
-                                fontSize: '0.75rem', color: isMuted ? '#6b7280' : colors.textSecondary,
+                                paddingLeft: `${indentPx}px`,
+                                fontSize: isEmpty ? '0.65rem' : '0.75rem', 
+                                color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary),
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 textAlign: 'right', position: 'sticky', left: 0,
                                 backgroundColor: '#0d1117', zIndex: 5,
                                 borderRight: '1px solid rgba(255,255,255,0.05)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px'
                             }}>
-                                {isGroupChild && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
+                                {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
                                 {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
                             </div>
                             <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
