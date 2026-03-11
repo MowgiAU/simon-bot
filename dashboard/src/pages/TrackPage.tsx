@@ -825,7 +825,8 @@ const ArrangementViewer: React.FC<{
                             if (seen.has(current.id)) break; // prevent cycles
                             seen.add(current.id);
                             depth++;
-                            const parentIdx = current.group! - 1;
+                            // group is 1-based track number from FL Studio
+                            const parentIdx = current.group! - 1; // convert to 0-based
                             const parent = trackById.get(parentIdx);
                             if (!parent) break;
                             current = parent;

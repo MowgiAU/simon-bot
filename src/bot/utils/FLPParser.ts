@@ -311,12 +311,21 @@ export class FLPParser {
             }
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
-            // Layout: u32@0=reversedIdx, u32@4=color, i32@8=icon, u8@12=enabled, ... u16@30=group
+            // Layout: u32@0=number, u32@4=color, i32@8=icon, u8@12=enabled, ...
             if (code === 238 && buf && buf.length >= 13) {
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
-                lastTrack238Index = trackEvents238.length; // sequential 0-based index
+                const trackNum = trackEvents238.length;
+                lastTrack238Index = trackNum;
                 trackEvents238.push({ enabled, group });
+                // Diagnostic: dump raw bytes for first few tracks to find correct group offset
+                if (trackNum < 10) {
+                    const hexBytes = [];
+                    for (let b = 0; b < Math.min(buf.length, 40); b++) {
+                        hexBytes.push(buf[b].toString(16).padStart(2, '0'));
+                    }
+                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} enabled=${enabled} group_@30=${group} bytes: ${hexBytes.join(' ')}`);
+                }
             }
 
             // ── Track names: event 239 — only emitted for renamed tracks, pairs with preceding 238 ──
@@ -327,11 +336,15 @@ export class FLPParser {
                 }
             }
 
-            // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
+            // ── Timeline marker: event 148 (DWORD+20) = position + action type ──
+            // Upper byte (bits 24-31) = marker action: 0=none, 1=loop, 2=skip, 8=time_sig, 12=key_sig
+            // Lower 24 bits = position in PPQ ticks
             if (code === 148) {
-                currentMarkerBeat = num / ppq;
+                const markerAction = (num >>> 24) & 0xFF;
+                const tickPos = num & 0x00FFFFFF;
+                currentMarkerBeat = tickPos / ppq;
                 markerContextActive = true;
-                console.log(`[FLP] Marker position event (148): beat=${currentMarkerBeat.toFixed(2)}`);
+                console.log(`[FLP] Marker position event (148): action=${markerAction} tickPos=${tickPos} beat=${currentMarkerBeat.toFixed(2)}`);
             }
 
             // ── Fallback marker name: any unhandled TEXT event (192-207) while in marker context ──
@@ -520,7 +533,8 @@ export class FLPParser {
         for (let i = firstUsedTrack; i <= lastUsedTrack; i++) {
             const td = trackDataMap.get(i);
             if (td && td.group > 0) {
-                const parentIdx = td.group - 1; // group is 1-based
+                // group value is 1-based track number from FL Studio
+                const parentIdx = td.group - 1; // convert to 0-based
                 if (parentIdx < firstUsedTrack) {
                     groupParentIndices.add(parentIdx);
                 }
