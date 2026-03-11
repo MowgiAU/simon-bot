@@ -696,6 +696,21 @@ const ArrangementViewer: React.FC<{
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
+    // Alt + scroll wheel zoom
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const handleWheel = (e: WheelEvent) => {
+            if (e.altKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.5 : 0.5;
+                setZoom(z => Math.min(10, Math.max(1, z + delta)));
+            }
+        };
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => container.removeEventListener('wheel', handleWheel);
+    }, [setZoom]);
+
     // Auto-scroll logic: keep the playhead in the center once it crosses the center point
     useEffect(() => {
         if (isPlaying && scrollContainerRef.current) {
@@ -757,7 +772,7 @@ const ArrangementViewer: React.FC<{
                     scrollBehavior: 'smooth'
                 }}
             >
-                <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', padding: '16px 0', boxSizing: 'border-box' }}>
+                <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
                         {(() => {
@@ -901,10 +916,10 @@ const ArrangementViewer: React.FC<{
                                 pointerEvents: 'none',
                                 zIndex: 8,
                             }}>
-                                {/* Triangle + label in the ruler area */}
+                                {/* Triangle in the ruler area */}
                                 <div style={{
                                     position: 'absolute',
-                                    top: '-2px',
+                                    top: '0px',
                                     left: '-4px',
                                     width: 0,
                                     height: 0,
@@ -912,16 +927,18 @@ const ArrangementViewer: React.FC<{
                                     borderRight: '4px solid transparent',
                                     borderTop: '6px solid #f59e0b',
                                 }} />
+                                {/* Marker name label */}
                                 <div style={{
                                     position: 'absolute',
-                                    top: '-18px',
+                                    top: '-16px',
                                     left: '4px',
-                                    fontSize: '0.55rem',
+                                    fontSize: '0.6rem',
                                     color: '#f59e0b',
                                     whiteSpace: 'nowrap',
                                     fontWeight: 600,
                                     pointerEvents: 'none',
-                                    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                                    textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                                    letterSpacing: '0.02em',
                                 }}>{marker.name}</div>
                             </div>
                         );
