@@ -92,7 +92,7 @@ export class FLPParser {
 
         // Track events: 238 = track data (one per track, sequential), 239 = track name (only for renamed tracks)
         // 239 appears immediately after the 238 for the track it names. Tracks with default names have no 239.
-        const trackEvents238: Array<{ enabled: boolean; group: number }> = [];
+        const trackEvents238: Array<{ enabled: boolean; grouped: number }> = [];
         const trackNameMap = new Map<number, string>(); // trackIndex → name
         let lastTrack238Index = -1; // sequential index of the most recent 238 event
 
@@ -120,8 +120,8 @@ export class FLPParser {
         let markerContextActive = false;
         let currentMarkerBeat = 0;
 
-        // Track data (event 238): mute state + group ID, keyed by actual track index (0-based)
-        const trackDataMap = new Map<number, { enabled: boolean; group: number }>();
+        // Track data (event 238): mute state + grouped flag, keyed by actual track index (0-based)
+        const trackDataMap = new Map<number, { enabled: boolean; grouped: number }>();
 
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
@@ -311,20 +311,25 @@ export class FLPParser {
             }
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
-            // Layout: u32@0=number, u32@4=color, i32@8=icon, u8@12=enabled, ...
+            // Layout (40-byte PyFLP): u32@0=number, u32@4=color, i32@8=icon, u8@12=enabled,
+            //   f32@13=height, i32@17=locked_height, u8@21=locked_to_content,
+            //   u32@22=motion, u32@26=press, u16@30=trigger_sync, u8@32=queued,
+            //   u8@33=tolerant, u32@34=position_sync, i8@38=grouped, u8@39=locked
+            // Note: FL 25+ has 70-byte events with additional fields after offset 40.
             if (code === 238 && buf && buf.length >= 13) {
                 const enabled = buf[12] !== 0;
-                const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
+                // Try i8 at offset 38 (PyFLP's "grouped" = grouped with track above)
+                const groupedByte38 = buf.length >= 39 ? buf.readInt8(38) : 0;
                 const trackNum = trackEvents238.length;
                 lastTrack238Index = trackNum;
-                trackEvents238.push({ enabled, group });
-                // Diagnostic: dump raw bytes for first few tracks to find correct group offset
-                if (trackNum < 10) {
+                trackEvents238.push({ enabled, grouped: groupedByte38 });
+                // Diagnostic: dump ALL bytes for first few tracks
+                if (trackNum < 5) {
                     const hexBytes = [];
-                    for (let b = 0; b < Math.min(buf.length, 40); b++) {
+                    for (let b = 0; b < buf.length; b++) {
                         hexBytes.push(buf[b].toString(16).padStart(2, '0'));
                     }
-                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} enabled=${enabled} group_@30=${group} bytes: ${hexBytes.join(' ')}`);
+                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} enabled=${enabled} grouped@38=${groupedByte38} ALL: ${hexBytes.join(' ')}`);
                 }
             }
 
@@ -379,14 +384,14 @@ export class FLPParser {
 
         for (let i = 0; i < trackEvents238.length; i++) {
             const ev = trackEvents238[i];
-            trackDataMap.set(i, { enabled: ev.enabled, group: ev.group });
+            trackDataMap.set(i, { enabled: ev.enabled, grouped: ev.grouped });
         }
 
         // Log named tracks
         console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by interleaved 238→239)`);
         for (const [tIdx, name] of [...trackNameMap.entries()].sort((a, b) => a[0] - b[0]).slice(0, 15)) {
             const td = trackDataMap.get(tIdx);
-            console.log(`[FLP]   Track ${tIdx}: "${name}" group=${td?.group ?? 0}`);
+            console.log(`[FLP]   Track ${tIdx}: "${name}" grouped=${td?.grouped ?? 0}`);
         }
 
         // ── 4. Parse playlist items from event 233 ──
@@ -529,21 +534,7 @@ export class FLPParser {
         if (firstUsedTrack === Infinity) firstUsedTrack = 0;
 
         // Also include any track that is a group parent of a used track
-        const groupParentIndices = new Set<number>();
-        for (let i = firstUsedTrack; i <= lastUsedTrack; i++) {
-            const td = trackDataMap.get(i);
-            if (td && td.group > 0) {
-                // group value is 1-based track number from FL Studio
-                const parentIdx = td.group - 1; // convert to 0-based
-                if (parentIdx < firstUsedTrack) {
-                    groupParentIndices.add(parentIdx);
-                }
-            }
-        }
-        // Expand firstUsedTrack to include group parents above it
-        for (const pIdx of groupParentIndices) {
-            if (pIdx < firstUsedTrack) firstUsedTrack = pIdx;
-        }
+        // (Skip group parent expansion for now until we confirm the correct group byte offset)
 
         console.log(`[FLP] Track names mapped: ${trackNameMap.size}, trackData entries: ${trackDataMap.size}, firstUsedTrack: ${firstUsedTrack}, lastUsedTrack: ${lastUsedTrack}`);
         // Log track mapping for debugging
@@ -551,7 +542,28 @@ export class FLPParser {
             const name = trackNameMap.get(i) || `(unnamed)`;
             const td = trackDataMap.get(i);
             const clipCount = trackMap.get(i)?.length ?? 0;
-            console.log(`[FLP]   Track ${i}: "${name}" clips=${clipCount} enabled=${td?.enabled ?? true} group=${td?.group ?? 0}`);
+            console.log(`[FLP]   Track ${i}: "${name}" clips=${clipCount} enabled=${td?.enabled ?? true} grouped=${td?.grouped ?? 0}`);
+        }
+
+        // Compute group parent for each track from the "grouped" boolean flag
+        // In FL Studio: grouped=1 means "this track is grouped with the track above it"
+        // grouped=0 means "this track starts a new section / is not grouped"
+        // The parent of a grouped track is the nearest track above with grouped=0
+        const trackGroupParent = new Map<number, number>(); // trackIdx → parent trackIdx (0 = no parent)
+        for (let i = firstUsedTrack; i <= lastUsedTrack; i++) {
+            const td = trackDataMap.get(i);
+            if (td && td.grouped) {
+                // Walk up to find the nearest non-grouped track
+                let parent = i - 1;
+                while (parent >= 0) {
+                    const ptd = trackDataMap.get(parent);
+                    if (!ptd || !ptd.grouped) break;
+                    parent--;
+                }
+                if (parent >= 0) {
+                    trackGroupParent.set(i, parent + 1); // store as 1-based for frontend compat (0 = no group)
+                }
+            }
         }
 
         // Include tracks from firstUsedTrack to lastUsedTrack (contiguous range)
@@ -563,7 +575,7 @@ export class FLPParser {
                 name: trackNameMap.get(origId) || `Track ${origId + 1}`,
                 clips: trackMap.get(origId) || [],
                 enabled: td?.enabled ?? true,
-                group: td?.group ?? 0, // Keep original 1-based group parent (0 = no group)
+                group: trackGroupParent.get(origId) ?? 0, // 1-based parent track number, 0 = no group
             });
         }
 
