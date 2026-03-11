@@ -4131,6 +4131,9 @@ app.post('/api/admin/reprocess-flps', async (req, res) => {
     try {
         const userId = (req.session as any)?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
+        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
         
         // Find all tracks that have a projectFileUrl
         const tracksWithFlps = await db.track.findMany({
