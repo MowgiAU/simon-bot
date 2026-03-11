@@ -110,6 +110,14 @@ export class FLPParser {
         // Mixer/effect plugin names (collected outside channel context)
         const mixerPluginNames = new Set<string>();
 
+        // Markers (event 148 = position, event 203 in marker context = name)
+        const markers: Array<{ position: number; name: string }> = [];
+        let markerContextActive = false;
+        let currentMarkerBeat = 0;
+
+        // Track data (event 238): mute state + group ID, keyed by actual track index (0-based)
+        const trackDataMap = new Map<number, { enabled: boolean; group: number }>();
+
         console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
 
         while (offset < buffer.length) {
@@ -214,19 +222,17 @@ export class FLPParser {
                 }
             }
 
-            // ── Channel/plugin display name (203) ──
-            if (code === 203 && buf && currentChannelIID > 0) {
+            // ── Channel/plugin display name (203) — also used as marker name when in marker context ──
+            if (code === 203 && buf) {
                 const name = FLPParser.readStringBuf(buf);
-                if (name) {
-                    channelNames.set(currentChannelIID, name);
-                }
-            }
-
-            // ── Plugin names outside channel context (mixer effect slots) ──
-            if (code === 203 && buf && currentChannelIID === 0) {
-                const name = FLPParser.readStringBuf(buf);
-                if (name) {
-                    mixerPluginNames.add(name);
+                if (markerContextActive) {
+                    // This 203 event belongs to the active marker, not a channel
+                    markers.push({ position: currentMarkerBeat, name: name || `Marker ${markers.length + 1}` });
+                    markerContextActive = false;
+                } else if (currentChannelIID > 0) {
+                    if (name) channelNames.set(currentChannelIID, name);
+                } else {
+                    if (name) mixerPluginNames.add(name);
                 }
             }
 
@@ -302,6 +308,22 @@ export class FLPParser {
             // ── Track names: event 239 (TEXT+47) ──
             if (code === 239 && buf) {
                 trackNames.push(FLPParser.readStringBuf(buf));
+            }
+
+            // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
+            // Layout: u32@0=reversedIdx, u32@4=color, i32@8=icon, u8@12=enabled, ... u16@30=group
+            if (code === 238 && buf && buf.length >= 13) {
+                const rvIdx = buf.readUInt32LE(0);
+                const tIdx = 499 - rvIdx;
+                const enabled = buf[12] !== 0;
+                const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
+                trackDataMap.set(tIdx, { enabled, group });
+            }
+
+            // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
+            if (code === 148) {
+                currentMarkerBeat = num / ppq;
+                markerContextActive = true;
             }
         }
 
@@ -444,11 +466,17 @@ export class FLPParser {
             bpm: bpm || 140, // Ensure we have a valid BPM, fallback to 140 if undetected
             signature: [4, 4],
             projectInfo,
-            tracks: sortedTrackIds.map((origId, idx) => ({
-                id: idx,
-                name: trackNames[origId] || `Track ${idx + 1}`,
-                clips: trackMap.get(origId)!,
-            })),
+            markers,
+            tracks: sortedTrackIds.map((origId, idx) => {
+                const td = trackDataMap.get(origId);
+                return {
+                    id: idx,
+                    name: trackNames[origId] || `Track ${idx + 1}`,
+                    clips: trackMap.get(origId)!,
+                    enabled: td?.enabled ?? true,
+                    group: td?.group ?? 0,
+                };
+            }),
         };
     }
 

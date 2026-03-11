@@ -40,6 +40,8 @@ interface ArrangementTrack {
     id: number;
     name: string;
     clips: ArrangementClip[];
+    enabled?: boolean;
+    group?: number;
 }
 
 interface ProjectInfo {
@@ -51,6 +53,7 @@ interface ArrangementData {
     bpm: number;
     tracks: ArrangementTrack[];
     projectInfo?: ProjectInfo;
+    markers?: Array<{ position: number; name: string }>;
 }
 
 interface Track {
@@ -682,6 +685,7 @@ const ArrangementViewer: React.FC<{
     
     // Explicitly filter for non-empty tracks to prevent "501 lines" layout
     const activeTracks = arrangement.tracks.filter(t => t.clips.length > 0);
+    const markers = arrangement.markers ?? [];
     
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
@@ -790,14 +794,29 @@ const ArrangementViewer: React.FC<{
                     </div>
 
                     {/* Track rows */}
-                    {activeTracks.map((t, ti) => (
-                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px' }}>
-                            <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', fontSize: '0.75rem', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: '#0d1117', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-                                {t.name}
+                    {activeTracks.map((t, ti) => {
+                        const isMuted = t.enabled === false;
+                        const isGroupChild = (t.group ?? 0) > 0;
+                        const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
+                        return (
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: '36px', marginBottom: '4px', opacity: isMuted ? 0.45 : 1 }}>
+                            <div style={{ 
+                                width: '140px', flexShrink: 0,
+                                paddingRight: '12px',
+                                paddingLeft: isGroupChild ? '20px' : '0',
+                                fontSize: '0.75rem', color: isMuted ? '#6b7280' : colors.textSecondary,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                textAlign: 'right', position: 'sticky', left: 0,
+                                backgroundColor: '#0d1117', zIndex: 5,
+                                borderRight: '1px solid rgba(255,255,255,0.05)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px'
+                            }}>
+                                {isGroupChild && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
+                                {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
                             </div>
                             <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
                                 {t.clips.map((clip) => {
-                                    const trackColor = TRACK_COLORS[ti % TRACK_COLORS.length];
                                     return (
                                         <div
                                             key={clip.id}
@@ -807,9 +826,9 @@ const ArrangementViewer: React.FC<{
                                                 left: `${(clip.start / totalBeats) * 100}%`,
                                                 width: `${(clip.length / totalBeats) * 100}%`,
                                                 height: '100%',
-                                                backgroundColor: trackColor + '40',
+                                                backgroundColor: trackColor + (isMuted ? '20' : '40'),
                                                 borderRadius: '3px',
-                                                border: `1px solid ${trackColor}88`,
+                                                border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`,
                                                 boxSizing: 'border-box',
                                                 minWidth: '3px',
                                                 overflow: 'hidden',
@@ -832,15 +851,12 @@ const ArrangementViewer: React.FC<{
                                             }}>
                                                 {clip.name}
                                             </div>
-                                            {/* Pattern clip: mini piano roll */}
                                             {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
                                                 <MiniPianoRoll notes={clip.notes} clipLength={clip.length} color={trackColor} />
                                             )}
-                                            {/* Automation clip: curve */}
                                             {clip.type === 'automation' && clip.automationPoints && clip.automationPoints.length > 0 && (
                                                 <MiniAutomation points={clip.automationPoints} color={trackColor} />
                                             )}
-                                            {/* Audio clip: waveform placeholder */}
                                             {clip.type === 'audio' && (
                                                 <MiniWaveform color={trackColor} clipId={clip.id} />
                                             )}
@@ -849,7 +865,8 @@ const ArrangementViewer: React.FC<{
                                 })}
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Playhead */}
                     {playheadPct > 0 && (
@@ -866,6 +883,47 @@ const ArrangementViewer: React.FC<{
                             transition: 'left 0.25s linear',
                         }} />
                     )}
+
+                    {/* Timeline markers */}
+                    {markers.map((marker, mi) => {
+                        const pct = (marker.position / totalBeats) * 100;
+                        return (
+                            <div key={mi} style={{
+                                position: 'absolute',
+                                top: 0,
+                                bottom: 0,
+                                left: `calc(140px + (100% - 140px) * ${pct / 100})`,
+                                width: '1px',
+                                backgroundColor: '#f59e0b',
+                                opacity: 0.7,
+                                pointerEvents: 'none',
+                                zIndex: 8,
+                            }}>
+                                {/* Triangle + label in the ruler area */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-2px',
+                                    left: '-4px',
+                                    width: 0,
+                                    height: 0,
+                                    borderLeft: '4px solid transparent',
+                                    borderRight: '4px solid transparent',
+                                    borderTop: '6px solid #f59e0b',
+                                }} />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-18px',
+                                    left: '4px',
+                                    fontSize: '0.55rem',
+                                    color: '#f59e0b',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 600,
+                                    pointerEvents: 'none',
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                                }}>{marker.name}</div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
