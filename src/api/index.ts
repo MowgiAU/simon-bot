@@ -4126,6 +4126,98 @@ app.get('/api/discovery/tracks/search', async (req, res) => {
     }
 });
 
+// Debug: inspect arrangement data for a specific track (Admin only)
+app.get('/api/admin/debug-arrangement/:trackId', async (req, res) => {
+    try {
+        const userId = (req.session as any)?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
+        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+
+        const track = await db.track.findUnique({ where: { id: req.params.trackId } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        const arrangement = track.arrangement as any;
+        const result: any = {
+            trackId: track.id,
+            title: track.title,
+            projectFileUrl: track.projectFileUrl,
+            hasArrangement: !!arrangement,
+            arrangementKeys: arrangement ? Object.keys(arrangement) : [],
+            markers: arrangement?.markers ?? 'NO_MARKERS_KEY',
+            markerCount: arrangement?.markers?.length ?? 0,
+            trackCount: arrangement?.tracks?.length ?? 0,
+            bpm: arrangement?.bpm ?? null,
+            sampleTrack: arrangement?.tracks?.[0] ?? null,
+        };
+
+        // Check if FLP file exists on disk
+        if (track.projectFileUrl) {
+            const relativePath = track.projectFileUrl.startsWith('/') ? track.projectFileUrl.substring(1) : track.projectFileUrl;
+            const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
+            result.flpFileExists = fs.existsSync(absolutePath);
+            result.flpAbsolutePath = absolutePath;
+
+            // Re-parse live and compare
+            if (result.flpFileExists) {
+                try {
+                    const flpBuffer = fs.readFileSync(absolutePath);
+                    const freshParse = FLPParser.parse(flpBuffer) as any;
+                    result.freshParseMarkers = freshParse.markers;
+                    result.freshParseMarkerCount = freshParse.markers?.length ?? 0;
+                    result.freshParseTrackCount = freshParse.tracks?.length ?? 0;
+                    result.freshParseBpm = freshParse.bpm;
+                    // Show first track's group info
+                    result.freshParseSampleTrack = freshParse.tracks?.[0] ?? null;
+                } catch (e: any) {
+                    result.freshParseError = e.message;
+                }
+            }
+        } else {
+            result.flpFileExists = false;
+            result.note = 'No projectFileUrl — track has no FLP file';
+        }
+
+        res.json(result);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Debug: list all tracks with their arrangement summary (Admin only)
+app.get('/api/admin/debug-tracks-summary', async (req, res) => {
+    try {
+        const userId = (req.session as any)?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
+        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+
+        const tracks = await db.track.findMany({
+            select: { id: true, title: true, projectFileUrl: true, arrangement: true },
+            orderBy: { createdAt: 'desc' },
+            take: 20
+        });
+
+        const summary = tracks.map(t => {
+            const arr = t.arrangement as any;
+            return {
+                id: t.id,
+                title: t.title,
+                hasFlp: !!t.projectFileUrl,
+                hasArrangement: !!arr,
+                markers: arr?.markers?.length ?? 0,
+                tracks: arr?.tracks?.length ?? 0,
+                bpm: arr?.bpm ?? null,
+                groupedTracks: arr?.tracks?.filter((tr: any) => (tr.group ?? 0) > 0).length ?? 0,
+            };
+        });
+
+        res.json(summary);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Re-process all FLP files (Admin operation)
 app.post('/api/admin/reprocess-flps', async (req, res) => {
     try {
