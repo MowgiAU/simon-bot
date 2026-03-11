@@ -474,7 +474,7 @@ export class FLPParser {
 
         const projectInfo: ProjectInfo = { plugins, samples };
 
-        // ── 6. Build track list with proper grouping ──
+        // ── 6. Build track list — include ALL tracks from 0 to lastUsed ──
         // Collect clips by track index
         const trackMap = new Map<number, ClipData[]>();
         for (const clip of clips) {
@@ -482,67 +482,31 @@ export class FLPParser {
             trackMap.get(clip.track)!.push(clip);
         }
 
-        // Collect all track indices that matter:
-        //  - tracks that have clips
-        //  - tracks that are group parents of any included track
-        const relevantTracks = new Set<number>(trackMap.keys());
-        
-        // Also include any track referenced as a group parent
-        for (const [tIdx, td] of trackDataMap) {
-            if (td.group > 0) {
-                // group is 1-based track number; convert to 0-based index
-                const parentIdx = td.group - 1;
-                if (relevantTracks.has(tIdx)) {
-                    relevantTracks.add(parentIdx);
-                }
-            }
+        // Find the last track index that has any content (clips)
+        let lastUsedTrack = 0;
+        for (const tIdx of trackMap.keys()) {
+            if (tIdx > lastUsedTrack) lastUsedTrack = tIdx;
         }
 
-        // Recursively add parent chains (a group parent might itself be grouped)
-        let changed = true;
-        while (changed) {
-            changed = false;
-            for (const tIdx of relevantTracks) {
-                const td = trackDataMap.get(tIdx);
-                if (td && td.group > 0) {
-                    const parentIdx = td.group - 1;
-                    if (!relevantTracks.has(parentIdx)) {
-                        relevantTracks.add(parentIdx);
-                        changed = true;
-                    }
-                }
-            }
+        // Include all tracks from 0 to lastUsedTrack (contiguous, like FL Studio)
+        const outputTracks = [];
+        for (let origId = 0; origId <= lastUsedTrack; origId++) {
+            const td = trackDataMap.get(origId);
+            outputTracks.push({
+                id: origId,
+                name: trackNames[origId] || `Track ${origId + 1}`,
+                clips: trackMap.get(origId) || [],
+                enabled: td?.enabled ?? true,
+                group: td?.group ?? 0, // Keep original 1-based group parent (0 = no group)
+            });
         }
-
-        const sortedTrackIds = Array.from(relevantTracks).sort((a, b) => a - b);
-        
-        // Build a mapping from original FL track index (0-based) to output index
-        const origToNewIdx = new Map<number, number>();
-        sortedTrackIds.forEach((origId, newIdx) => origToNewIdx.set(origId, newIdx));
 
         return {
             bpm: bpm || 140,
             signature: [4, 4],
             projectInfo,
             markers,
-            tracks: sortedTrackIds.map((origId, idx) => {
-                const td = trackDataMap.get(origId);
-                // Map the group parent from original 1-based track number to new output index
-                let mappedGroup = 0;
-                if (td && td.group > 0) {
-                    const parentOrigIdx = td.group - 1;
-                    const parentNewIdx = origToNewIdx.get(parentOrigIdx);
-                    // Store as 1-based in output to match FL convention (0 = no group)
-                    mappedGroup = parentNewIdx !== undefined ? parentNewIdx + 1 : 0;
-                }
-                return {
-                    id: idx,
-                    name: trackNames[origId] || `Track ${origId + 1}`,
-                    clips: trackMap.get(origId) || [],
-                    enabled: td?.enabled ?? true,
-                    group: mappedGroup,
-                };
-            }),
+            tracks: outputTracks,
         };
     }
 

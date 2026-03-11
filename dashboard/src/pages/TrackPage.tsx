@@ -689,6 +689,9 @@ const ArrangementViewer: React.FC<{
     const activeTracks = arrangement.tracks;
     const markers = arrangement.markers ?? [];
     
+    // Build lookup for group depth calculation
+    const trackById = new Map(activeTracks.map(t => [t.id, t]));
+    
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
     const currentBeat = currentTime * beatsPerSec;
@@ -817,11 +820,14 @@ const ArrangementViewer: React.FC<{
                         // Calculate group nesting depth
                         let depth = 0;
                         let current = t;
+                        const seen = new Set<number>();
                         while ((current.group ?? 0) > 0) {
+                            if (seen.has(current.id)) break; // prevent cycles
+                            seen.add(current.id);
                             depth++;
                             const parentIdx = current.group! - 1;
-                            const parent = activeTracks.find(tr => tr.id === parentIdx);
-                            if (!parent || parent === current) break;
+                            const parent = trackById.get(parentIdx);
+                            if (!parent) break;
                             current = parent;
                         }
                         const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
