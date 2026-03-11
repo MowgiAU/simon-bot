@@ -261,7 +261,7 @@ export const TrackPage: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', gap: isMobile ? '24px' : '40px' }}>
                     {/* Left: Artwork & Main Action */}
-                    <div>
+                    <div style={isMobile ? { display: 'flex', gap: '16px', alignItems: 'flex-start' } : {}}>
                         <div style={{ 
                             aspectRatio: '1/1', 
                             borderRadius: borderRadius.lg, 
@@ -269,7 +269,8 @@ export const TrackPage: React.FC = () => {
                             boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
                             border: '1px solid rgba(255,255,255,0.05)',
                             position: 'relative',
-                            width: isMobile ? '100%' : 'auto'
+                            width: isMobile ? '120px' : '100%',
+                            flexShrink: 0
                         }}>
                             {track.coverUrl ? (
                                 <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -297,7 +298,7 @@ export const TrackPage: React.FC = () => {
                         </div>
 
                         {/* Quick Stats Banner */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spacing.xl, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: isMobile ? 0 : spacing.xl, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)', flex: isMobile ? 1 : undefined }}>
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Plays</div>
                                 <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{track.playCount.toLocaleString()}</div>
@@ -346,7 +347,7 @@ export const TrackPage: React.FC = () => {
                             </div>
                         )}
 
-                        <div style={{ marginTop: 'auto', display: 'flex', gap: spacing.md }}>
+                        <div style={{ marginTop: 'auto', display: 'flex', gap: spacing.md, flexWrap: 'wrap' }}>
                             {track.allowAudioDownload && (
                                 <button 
                                     onClick={() => window.open(track.url, '_blank')}

@@ -6,7 +6,7 @@ import axios from 'axios';
 import { 
     Music, Share2, Hammer, Globe, Instagram, Youtube, MessageCircle, Radio, 
     ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
-    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play
+    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check
 } from 'lucide-react';
 
 interface MusicianProfile {
@@ -49,9 +49,17 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    
+    const [copied, setCopied] = useState(false);
+
     // Player Context
     const { player, setTrack, togglePlay } = usePlayer();
+
+    const handleCopyProfileLink = () => {
+        if (!profile?.username) return;
+        navigator.clipboard.writeText(`${window.location.origin}/profile/${profile.username}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -310,7 +318,24 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             )}
                         </div>
                         <div>
-                            <h2 style={{ fontSize: isMobile ? '26px' : '30px', fontWeight: '700', margin: 0, letterSpacing: '-0.02em' }}>{profile.displayName || profile.username}</h2>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <h2 style={{ fontSize: isMobile ? '26px' : '30px', fontWeight: '700', margin: 0, letterSpacing: '-0.02em' }}>{profile.displayName || profile.username}</h2>
+                                <button
+                                    onClick={handleCopyProfileLink}
+                                    title="Share Profile"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.05)',
+                                        color: copied ? '#4caf50' : colors.textSecondary,
+                                        border: `1px solid ${copied ? 'rgba(76,175,80,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                        borderRadius: '6px', padding: '5px 10px',
+                                        cursor: 'pointer', fontSize: '11px', fontWeight: 'bold',
+                                        transition: 'all 0.2s', whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
+                                </button>
+                            </div>
                             <p style={{ color: '#B9C3CE', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>Electronic Artist & Sonic Architect</p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', gap: '8px' }}>
                                 {profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
