@@ -31,6 +31,7 @@ export class Logger {
       },
     }).child({ context });
     }
+  }
 
   debug(msg: string, data?: any) {
     this.logger.debug(data, msg);
