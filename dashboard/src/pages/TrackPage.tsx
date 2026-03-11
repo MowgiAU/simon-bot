@@ -916,10 +916,10 @@ const ArrangementViewer: React.FC<{
                                 pointerEvents: 'none',
                                 zIndex: 8,
                             }}>
-                                {/* Triangle in the ruler area */}
+                                {/* Triangle at top */}
                                 <div style={{
                                     position: 'absolute',
-                                    top: '0px',
+                                    top: '6px',
                                     left: '-4px',
                                     width: 0,
                                     height: 0,
@@ -930,15 +930,18 @@ const ArrangementViewer: React.FC<{
                                 {/* Marker name label */}
                                 <div style={{
                                     position: 'absolute',
-                                    top: '-16px',
-                                    left: '4px',
+                                    top: '2px',
+                                    left: '6px',
                                     fontSize: '0.6rem',
                                     color: '#f59e0b',
                                     whiteSpace: 'nowrap',
                                     fontWeight: 600,
                                     pointerEvents: 'none',
-                                    textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                                    textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)',
                                     letterSpacing: '0.02em',
+                                    backgroundColor: 'rgba(13,17,23,0.85)',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px',
                                 }}>{marker.name}</div>
                             </div>
                         );
