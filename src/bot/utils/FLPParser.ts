@@ -90,11 +90,12 @@ export class FLPParser {
         let bpmLocked = false; // Only take the FIRST tempo event (FL Studio writes default 140 later)
         let playlistBuf: Buffer | null = null;
 
-        // Track events: interleaved — each 239 follows its 238
-        const trackEvents238: Array<{ rvIdx: number; enabled: boolean; group: number }> = [];
-        const trackNamesByRvIdx = new Map<number, string>();
-        let lastTrack238RvIdx = -1;
-        let eventOrderLog: string[] = []; // diagnostic: shows 238/239 interleaving
+        // Track events: 238 = track data (sequential, one per track), 239 = track name (only for renamed tracks)
+        // FL Studio emits all 238 events first (one per playlist track), then 239 events in same order.
+        // The u32@0 in event 238 is a 1-based display number, NOT a reversed index.
+        // Track index = sequential position of the 238 event (0-based).
+        const trackEvents238: Array<{ enabled: boolean; group: number }> = [];
+        const trackNames239: string[] = [];
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -313,24 +314,14 @@ export class FLPParser {
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
             // Layout: u32@0=reversedIdx, u32@4=color, i32@8=icon, u8@12=enabled, ... u16@30=group
             if (code === 238 && buf && buf.length >= 13) {
-                const rvIdx = buf.readUInt32LE(0);
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
-                trackEvents238.push({ rvIdx, enabled, group });
-                lastTrack238RvIdx = rvIdx;
-                if (eventOrderLog.length < 30) eventOrderLog.push(`238(rv${rvIdx})`);
+                trackEvents238.push({ enabled, group });
             }
 
-            // ── Track names: event 239 (TEXT+47) — pair with preceding 238 ──
+            // ── Track names: event 239 — collected in order, paired by array index with 238 events ──
             if (code === 239 && buf) {
-                const name = FLPParser.readStringBuf(buf);
-                if (lastTrack238RvIdx >= 0) {
-                    trackNamesByRvIdx.set(lastTrack238RvIdx, name);
-                    if (eventOrderLog.length < 30) eventOrderLog.push(`239(rv${lastTrack238RvIdx},"${name.slice(0, 20)}")`);
-                } else {
-                    if (eventOrderLog.length < 30) eventOrderLog.push(`239(ORPHAN,"${name.slice(0, 20)}")`);
-                }
-                // Don't reset lastTrack238RvIdx — next 238 will overwrite it
+                trackNames239.push(FLPParser.readStringBuf(buf));
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -365,23 +356,24 @@ export class FLPParser {
         console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
         console.log(`[FLP] Timeline markers: ${markers.length}${markers.length > 0 ? ' — ' + markers.map(m => `"${m.name}"@${m.position.toFixed(1)}`).join(', ') : ' (none)'}`);
 
-        // ── 3b. Remap track events 238/239 into trackDataMap/trackNameMap ──
-        // Auto-detect the track count base from the max rvIdx (FL 20+ = 499, FL 12-19 = 198)
-        const maxRvIdx = trackEvents238.reduce((max, e) => Math.max(max, e.rvIdx), 0);
-        const trackBase = maxRvIdx; // rvIdx 0 = last track, rvIdx maxRvIdx = first track (track 0)
-        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNamesByRvIdx.size} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
-        console.log(`[FLP] Event order (first 30): ${eventOrderLog.join(' → ')}`);
+        // ── 3b. Map track events 238/239 by sequential index ──
+        // 238 events are sequential: 238[0] = track 0, 238[1] = track 1, etc.
+        // 239 events pair by array index: 239[i] = name for 238[i] = track i.
+        // Playlist items use 0-based reversed index: trackBase = numTracks - 1.
+        const trackBase = trackEvents238.length > 0 ? trackEvents238.length - 1 : 499;
+        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNames239.length} names (239), trackBase=${trackBase}`);
 
         const trackNameMap = new Map<number, string>();
-        for (const ev of trackEvents238) {
-            const tIdx = trackBase - ev.rvIdx;
-            trackDataMap.set(tIdx, { enabled: ev.enabled, group: ev.group });
-            const name = trackNamesByRvIdx.get(ev.rvIdx);
-            if (name) trackNameMap.set(tIdx, name);
+        for (let i = 0; i < trackEvents238.length; i++) {
+            const ev = trackEvents238[i];
+            trackDataMap.set(i, { enabled: ev.enabled, group: ev.group });
+            if (i < trackNames239.length && trackNames239[i]) {
+                trackNameMap.set(i, trackNames239[i]);
+            }
         }
 
-        // Log pairing results for named tracks
-        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by interleaved 238→239)`);
+        // Log pairing results
+        console.log(`[FLP] Track name map: ${trackNameMap.size} entries`);
         for (const [tIdx, name] of [...trackNameMap.entries()].sort((a, b) => a[0] - b[0]).slice(0, 15)) {
             const td = trackDataMap.get(tIdx);
             console.log(`[FLP]   Track ${tIdx}: "${name}" group=${td?.group ?? 0}`);
