@@ -1,4 +1,6 @@
 import pino from 'pino';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Logger factory - creates consistent loggers for bot and plugins
@@ -6,8 +8,17 @@ import pino from 'pino';
 export class Logger {
   private logger: pino.Logger;
 
-  constructor(context: string) {
-    this.logger = pino({
+  constructor(context: string, options?: { logFile?: string }) {
+    if (options?.logFile) {
+      // Write to a dedicated log file only — keeps it out of the main pm2 log stream
+      const dir = path.dirname(options.logFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      this.logger = pino(
+        { level: process.env.LOG_LEVEL || 'info' },
+        pino.destination({ dest: options.logFile, sync: false, append: true })
+      ).child({ context });
+    } else {
+      this.logger = pino({
       level: process.env.LOG_LEVEL || 'info',
       transport: {
         target: 'pino-pretty',
@@ -19,7 +30,7 @@ export class Logger {
         },
       },
     }).child({ context });
-  }
+    }
 
   debug(msg: string, data?: any) {
     this.logger.debug(data, msg);

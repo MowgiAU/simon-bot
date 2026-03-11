@@ -2,13 +2,16 @@ import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import { Logger } from '../utils/logger';
 import * as mm from 'music-metadata';
+import path from 'path';
+
+const LOG_FILE = path.join(process.cwd(), 'logs', 'fujiscanner.log');
 
 /**
  * FujiScanner: Indexes audio files from the secondary Storage Guild into our metadata database.
  */
 export class FujiScanner {
   private prisma: PrismaClient;
-  private logger = new Logger('FujiScanner');
+  private logger = new Logger('FujiScanner', { logFile: LOG_FILE });
   private token: string;
 
   constructor(prisma: PrismaClient) {
