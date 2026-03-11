@@ -42,6 +42,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [mode, setMode] = useState<'view' | 'edit'>('view');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     // Get the identifier from URL (if any)
     const pathParts = window.location.pathname.split('/');
@@ -58,6 +59,12 @@ export const MusicianProfilePage: React.FC = () => {
             setMode('view');
         }
     }, [user?.id, urlIdentifier, authLoading]);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     const profileUrl = profile?.username ? `${window.location.origin}/profile/${profile.username}` : '';
 
@@ -435,54 +442,40 @@ export const MusicianProfilePage: React.FC = () => {
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Customize how you appear in the community networking lists.</p>
                 </div>
                 {profile?.id && (
-                    <div style={{ display: 'flex', gap: spacing.sm }}>
-                        <a 
-                            href={profileUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px', 
-                                backgroundColor: 'rgba(255,255,255,0.05)', 
-                                padding: '8px 16px', 
-                                borderRadius: borderRadius.md, 
-                                color: colors.textPrimary, 
-                                textDecoration: 'none', 
-                                fontSize: '0.9rem',
-                                border: '1px solid rgba(255,255,255,0.1)'
+                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <a
+                            href={profileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View Profile"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                padding: isMobile ? '8px' : '8px 16px',
+                                borderRadius: borderRadius.md,
+                                color: colors.textPrimary, textDecoration: 'none',
+                                fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.1)',
+                                whiteSpace: 'nowrap'
                             }}
                         >
-                            <ExternalLink size={16} /> View Profile
+                            <ExternalLink size={16} />{!isMobile && ' View Profile'}
                         </a>
-                        <button 
+                        <button
                             onClick={handleCopyLink}
-                            style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px', 
-                                backgroundColor: colors.primary, 
-                                padding: '8px 16px', 
-                                borderRadius: borderRadius.md, 
-                                color: 'white', 
-                                border: 'none', 
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s'
+                            title="Share Profile"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                backgroundColor: colors.primary,
+                                padding: isMobile ? '8px' : '8px 16px',
+                                borderRadius: borderRadius.md,
+                                color: 'white', border: 'none', cursor: 'pointer',
+                                fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap'
                             }}
                         >
-                            {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Share Profile</>}
+                            {copied ? <Check size={16} /> : <Copy size={16} />}{!isMobile && (copied ? ' Copied!' : ' Share Profile')}
                         </button>
                     </div>
                 )}
-            </div>
-
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary }}>
-                    Your profile is visible to other members using the <code>/profile view</code> command. 
-                    Link your socials and list your gear to find collaborators!
-                </p>
             </div>
 
             {message && (
