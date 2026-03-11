@@ -324,12 +324,33 @@ export class FLPParser {
             if (code === 148) {
                 currentMarkerBeat = num / ppq;
                 markerContextActive = true;
+                console.log(`[FLP] Marker position event (148): beat=${currentMarkerBeat.toFixed(2)}`);
+            }
+
+            // ── Fallback marker name: any unhandled TEXT event (192-207) while in marker context ──
+            // FL Studio versions differ on which TEXT event carries the marker name:
+            //   - FL Studio 12-20: event 203 (handled above in the PluginID.Name block)
+            //   - FL Studio 21+:   event 200 (TEXT+8) or others in this range
+            // Timeline markers always appear at the end of the FLP after channel/track data,
+            // so any unhandled TEXT event here is safe to treat as a marker name.
+            if (markerContextActive && buf && code >= 192 && code <= 207
+                && code !== 192   // ChannelID._Name
+                && code !== 193   // PatternID.Name
+                && code !== 196   // ChannelID.SamplePath
+                && code !== 201   // PluginID internal name
+                && code !== 203   // PluginID display name (handled above)
+            ) {
+                const name = FLPParser.readStringBuf(buf);
+                console.log(`[FLP] Marker name via event ${code}: "${name}" at beat ${currentMarkerBeat.toFixed(2)}`);
+                markers.push({ position: currentMarkerBeat, name: name || `Marker ${markers.length + 1}` });
+                markerContextActive = false;
             }
         }
 
         console.log(`[FLP] Patterns: ${patternNames.size} named, ${patternNotes.size} with notes`);
         console.log(`[FLP] Channels: ${channelNames.size} named, ${channelSamplePaths.size} with samples, ${channelAutomationPoints.size} automation`);
         console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
+        console.log(`[FLP] Timeline markers: ${markers.length}${markers.length > 0 ? ' — ' + markers.map(m => `"${m.name}"@${m.position.toFixed(1)}`).join(', ') : ' (none)'}`);
 
         // ── 4. Parse playlist items from event 233 ──
         const clips: ClipData[] = [];
