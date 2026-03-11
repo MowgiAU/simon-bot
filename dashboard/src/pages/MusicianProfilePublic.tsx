@@ -313,7 +313,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <h2 style={{ fontSize: isMobile ? '26px' : '30px', fontWeight: '700', margin: 0, letterSpacing: '-0.02em' }}>{profile.displayName || profile.username}</h2>
                             <p style={{ color: '#B9C3CE', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>Electronic Artist & Sonic Architect</p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', gap: '8px' }}>
-                                {profile.genres.map((g, i) => (
+                                {profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
                                     <span key={i} style={{ 
                                         backgroundColor: `${colors.primary}1A`, 
                                         border: `1px solid ${colors.primary}4D`,
