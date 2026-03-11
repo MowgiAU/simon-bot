@@ -318,18 +318,19 @@ export class FLPParser {
             // Note: FL 25+ has 70-byte events with additional fields after offset 40.
             if (code === 238 && buf && buf.length >= 13) {
                 const enabled = buf[12] !== 0;
-                // Try i8 at offset 38 (PyFLP's "grouped" = grouped with track above)
-                const groupedByte38 = buf.length >= 39 ? buf.readInt8(38) : 0;
+                // Note: group/grouped offset is unknown for 70-byte FL 25+ events.
+                // Byte 38 (PyFLP's "grouped" for 40-byte events) reads 1 for ALL tracks in FL 25+.
+                // Disabling grouping until we can identify the correct offset from a project with known groups.
                 const trackNum = trackEvents238.length;
                 lastTrack238Index = trackNum;
-                trackEvents238.push({ enabled, grouped: groupedByte38 });
+                trackEvents238.push({ enabled, grouped: 0 });
                 // Diagnostic: dump ALL bytes for first few tracks
                 if (trackNum < 5) {
                     const hexBytes = [];
                     for (let b = 0; b < buf.length; b++) {
                         hexBytes.push(buf[b].toString(16).padStart(2, '0'));
                     }
-                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} enabled=${enabled} grouped@38=${groupedByte38} ALL: ${hexBytes.join(' ')}`);
+                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} ALL: ${hexBytes.join(' ')}`);
                 }
             }
 
