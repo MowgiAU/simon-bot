@@ -89,8 +89,10 @@ export class FLPParser {
         let bpm = 0; // Initialize to 0 to check if we detect any tempo event
         let bpmLocked = false; // Only take the FIRST tempo event (FL Studio writes default 140 later)
         let playlistBuf: Buffer | null = null;
-        const trackNameMap = new Map<number, string>(); // keyed by actual track index
-        let currentTrackIdx = -1; // set by event 238, consumed by event 239
+
+        // Track events: collected in order, then remapped after the loop
+        const trackEvents238: Array<{ rvIdx: number; enabled: boolean; group: number }> = [];
+        const trackNames239: string[] = [];
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -308,23 +310,16 @@ export class FLPParser {
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
             // Layout: u32@0=reversedIdx, u32@4=color, i32@8=icon, u8@12=enabled, ... u16@30=group
-            // This event comes BEFORE event 239 (name) for each track.
             if (code === 238 && buf && buf.length >= 13) {
                 const rvIdx = buf.readUInt32LE(0);
-                const tIdx = 499 - rvIdx;
-                currentTrackIdx = tIdx;
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
-                trackDataMap.set(tIdx, { enabled, group });
+                trackEvents238.push({ rvIdx, enabled, group });
             }
 
             // ── Track names: event 239 (TEXT+47) ──
-            // Follows event 238 for the same track — use currentTrackIdx to store by actual index
             if (code === 239 && buf) {
-                const name = FLPParser.readStringBuf(buf);
-                if (currentTrackIdx >= 0) {
-                    trackNameMap.set(currentTrackIdx, name);
-                }
+                trackNames239.push(FLPParser.readStringBuf(buf));
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -359,6 +354,32 @@ export class FLPParser {
         console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
         console.log(`[FLP] Timeline markers: ${markers.length}${markers.length > 0 ? ' — ' + markers.map(m => `"${m.name}"@${m.position.toFixed(1)}`).join(', ') : ' (none)'}`);
 
+        // ── 3b. Remap track events 238/239 into trackDataMap/trackNameMap ──
+        // Auto-detect the track count base from the max rvIdx (FL 20+ = 499, FL 12-19 = 198)
+        const maxRvIdx = trackEvents238.reduce((max, e) => Math.max(max, e.rvIdx), 0);
+        const trackBase = maxRvIdx; // rvIdx 0 = last track, rvIdx maxRvIdx = first track (track 0)
+        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNames239.length} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
+
+        const trackNameMap = new Map<number, string>();
+        for (let i = 0; i < trackEvents238.length; i++) {
+            const ev = trackEvents238[i];
+            const tIdx = trackBase - ev.rvIdx;
+            trackDataMap.set(tIdx, { enabled: ev.enabled, group: ev.group });
+            if (i < trackNames239.length) {
+                trackNameMap.set(tIdx, trackNames239[i]);
+            }
+        }
+
+        // Fallback: if no 238 events but we have 239 names, just index sequentially
+        if (trackEvents238.length === 0 && trackNames239.length > 0) {
+            console.log(`[FLP] No event 238 found — using sequential track name indexing`);
+            for (let i = 0; i < trackNames239.length; i++) {
+                trackNameMap.set(i, trackNames239[i]);
+            }
+        }
+
+        console.log(`[FLP] Track name map: ${trackNameMap.size} entries`);
+
         // ── 4. Parse playlist items from event 233 ──
         const clips: ClipData[] = [];
 
@@ -391,8 +412,8 @@ export class FLPParser {
                 const patternBase = playlistBuf.readUInt16LE(base + 4);  // always 20480
                 const itemIndex   = playlistBuf.readUInt16LE(base + 6);
                 const length      = playlistBuf.readUInt32LE(base + 8);
-                const trackRvIdx  = playlistBuf.readUInt16LE(base + 12); // reversed: Track 1 = 499
-                const trackIdx    = 499 - trackRvIdx;
+                const trackRvIdx  = playlistBuf.readUInt16LE(base + 12); // reversed index
+                const trackIdx    = trackBase - trackRvIdx; // use auto-detected base
 
                 if (position > 100_000_000 || length > 100_000_000) continue;
 
