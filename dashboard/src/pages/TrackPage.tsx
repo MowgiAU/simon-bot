@@ -711,23 +711,23 @@ const ArrangementViewer: React.FC<{
         return () => container.removeEventListener('wheel', handleWheel);
     }, [setZoom]);
 
-    // Auto-scroll logic: keep the playhead in the center once it crosses the center point
+    // Auto-scroll logic: keep the playhead visible when zoomed in
     useEffect(() => {
-        if (isPlaying && scrollContainerRef.current) {
+        if (isPlaying && scrollContainerRef.current && zoom > 1) {
             const container = scrollContainerRef.current;
             const timelineContainerWidth = container.scrollWidth - 140;
             const playheadX = (playheadPct / 100) * timelineContainerWidth + 140;
             const viewportWidth = container.clientWidth;
 
-            // Target scroll position: make playheadX appear at (viewportWidth / 2)
-            const targetScrollLeft = playheadX - (viewportWidth / 2);
-
-            // Only scroll if we are zoomed in enough to have horizontal scrolling
-            if (container.scrollWidth > viewportWidth) {
-                container.scrollLeft = targetScrollLeft;
+            // Only auto-scroll when zoomed in enough to have real horizontal scrolling
+            if (container.scrollWidth > viewportWidth + 10) {
+                const targetScrollLeft = playheadX - (viewportWidth / 2);
+                // Clamp to valid range
+                const maxScroll = container.scrollWidth - viewportWidth;
+                container.scrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScroll));
             }
         }
-    }, [playheadPct, isPlaying]);
+    }, [playheadPct, isPlaying, zoom]);
 
     // Zoom controls: 1.0 = full width fits in container (with min-width)
     // We'll use a base width of 100% and multiply it by zoom.
