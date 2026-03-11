@@ -89,7 +89,8 @@ export class FLPParser {
         let bpm = 0; // Initialize to 0 to check if we detect any tempo event
         let bpmLocked = false; // Only take the FIRST tempo event (FL Studio writes default 140 later)
         let playlistBuf: Buffer | null = null;
-        const trackNames: string[] = [];
+        const trackNameMap = new Map<number, string>(); // keyed by actual track index
+        let currentTrackIdx = -1; // set by event 238, consumed by event 239
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -305,19 +306,25 @@ export class FLPParser {
                 console.log(`[FLP] Found playlist event (code 233), ${buf.length} bytes`);
             }
 
-            // ── Track names: event 239 (TEXT+47) ──
-            if (code === 239 && buf) {
-                trackNames.push(FLPParser.readStringBuf(buf));
-            }
-
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
             // Layout: u32@0=reversedIdx, u32@4=color, i32@8=icon, u8@12=enabled, ... u16@30=group
+            // This event comes BEFORE event 239 (name) for each track.
             if (code === 238 && buf && buf.length >= 13) {
                 const rvIdx = buf.readUInt32LE(0);
                 const tIdx = 499 - rvIdx;
+                currentTrackIdx = tIdx;
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
                 trackDataMap.set(tIdx, { enabled, group });
+            }
+
+            // ── Track names: event 239 (TEXT+47) ──
+            // Follows event 238 for the same track — use currentTrackIdx to store by actual index
+            if (code === 239 && buf) {
+                const name = FLPParser.readStringBuf(buf);
+                if (currentTrackIdx >= 0) {
+                    trackNameMap.set(currentTrackIdx, name);
+                }
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -488,13 +495,22 @@ export class FLPParser {
             if (tIdx > lastUsedTrack) lastUsedTrack = tIdx;
         }
 
+        console.log(`[FLP] Track names mapped: ${trackNameMap.size}, trackData entries: ${trackDataMap.size}, lastUsedTrack: ${lastUsedTrack}`);
+        // Log track mapping for debugging
+        for (let i = 0; i <= Math.min(lastUsedTrack, 25); i++) {
+            const name = trackNameMap.get(i) || `(unnamed)`;
+            const td = trackDataMap.get(i);
+            const clipCount = trackMap.get(i)?.length ?? 0;
+            console.log(`[FLP]   Track ${i}: "${name}" clips=${clipCount} enabled=${td?.enabled ?? true} group=${td?.group ?? 0}`);
+        }
+
         // Include all tracks from 0 to lastUsedTrack (contiguous, like FL Studio)
         const outputTracks = [];
         for (let origId = 0; origId <= lastUsedTrack; origId++) {
             const td = trackDataMap.get(origId);
             outputTracks.push({
                 id: origId,
-                name: trackNames[origId] || `Track ${origId + 1}`,
+                name: trackNameMap.get(origId) || `Track ${origId + 1}`,
                 clips: trackMap.get(origId) || [],
                 enabled: td?.enabled ?? true,
                 group: td?.group ?? 0, // Keep original 1-based group parent (0 = no group)
