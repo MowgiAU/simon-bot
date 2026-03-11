@@ -90,12 +90,11 @@ export class FLPParser {
         let bpmLocked = false; // Only take the FIRST tempo event (FL Studio writes default 140 later)
         let playlistBuf: Buffer | null = null;
 
-        // Track events: 238 = track data (sequential, one per track), 239 = track name (only for renamed tracks)
-        // FL Studio emits all 238 events first (one per playlist track), then 239 events in same order.
-        // The u32@0 in event 238 is a 1-based display number, NOT a reversed index.
-        // Track index = sequential position of the 238 event (0-based).
+        // Track events: 238 = track data (one per track, sequential), 239 = track name (only for renamed tracks)
+        // 239 appears immediately after the 238 for the track it names. Tracks with default names have no 239.
         const trackEvents238: Array<{ enabled: boolean; group: number }> = [];
-        const trackNames239: string[] = [];
+        const trackNameMap = new Map<number, string>(); // trackIndex → name
+        let lastTrack238Index = -1; // sequential index of the most recent 238 event
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -316,12 +315,16 @@ export class FLPParser {
             if (code === 238 && buf && buf.length >= 13) {
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
+                lastTrack238Index = trackEvents238.length; // sequential 0-based index
                 trackEvents238.push({ enabled, group });
             }
 
-            // ── Track names: event 239 — collected in order, paired by array index with 238 events ──
+            // ── Track names: event 239 — only emitted for renamed tracks, pairs with preceding 238 ──
             if (code === 239 && buf) {
-                trackNames239.push(FLPParser.readStringBuf(buf));
+                const name = FLPParser.readStringBuf(buf);
+                if (lastTrack238Index >= 0) {
+                    trackNameMap.set(lastTrack238Index, name);
+                }
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -356,24 +359,18 @@ export class FLPParser {
         console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
         console.log(`[FLP] Timeline markers: ${markers.length}${markers.length > 0 ? ' — ' + markers.map(m => `"${m.name}"@${m.position.toFixed(1)}`).join(', ') : ' (none)'}`);
 
-        // ── 3b. Map track events 238/239 by sequential index ──
-        // 238 events are sequential: 238[0] = track 0, 238[1] = track 1, etc.
-        // 239 events pair by array index: 239[i] = name for 238[i] = track i.
+        // ── 3b. Map track data from 238 events by sequential index ──
         // Playlist items use 0-based reversed index: trackBase = numTracks - 1.
         const trackBase = trackEvents238.length > 0 ? trackEvents238.length - 1 : 499;
-        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNames239.length} names (239), trackBase=${trackBase}`);
+        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNameMap.size} names (239), trackBase=${trackBase}`);
 
-        const trackNameMap = new Map<number, string>();
         for (let i = 0; i < trackEvents238.length; i++) {
             const ev = trackEvents238[i];
             trackDataMap.set(i, { enabled: ev.enabled, group: ev.group });
-            if (i < trackNames239.length && trackNames239[i]) {
-                trackNameMap.set(i, trackNames239[i]);
-            }
         }
 
-        // Log pairing results
-        console.log(`[FLP] Track name map: ${trackNameMap.size} entries`);
+        // Log named tracks
+        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by interleaved 238→239)`);
         for (const [tIdx, name] of [...trackNameMap.entries()].sort((a, b) => a[0] - b[0]).slice(0, 15)) {
             const td = trackDataMap.get(tIdx);
             console.log(`[FLP]   Track ${tIdx}: "${name}" group=${td?.group ?? 0}`);
