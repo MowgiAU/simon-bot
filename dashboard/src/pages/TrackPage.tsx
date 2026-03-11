@@ -73,6 +73,8 @@ interface Track {
     createdAt: string;
     arrangement: ArrangementData | null;
     projectFileUrl: string | null;
+    allowAudioDownload: boolean;
+    allowProjectDownload: boolean;
     profile: {
         id: string;
         username: string;
