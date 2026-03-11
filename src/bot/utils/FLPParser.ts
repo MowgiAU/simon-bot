@@ -92,8 +92,7 @@ export class FLPParser {
 
         // Track events: collected in order, then remapped after the loop
         const trackEvents238: Array<{ rvIdx: number; enabled: boolean; group: number }> = [];
-        const trackNamesByRvIdx = new Map<number, string>();
-        let lastTrack238RvIdx = -1;
+        const trackNames239: string[] = [];
 
         // Pattern tracking: keyed by pattern IID
         let currentPatternIID = 0;
@@ -316,16 +315,11 @@ export class FLPParser {
                 const enabled = buf[12] !== 0;
                 const group = buf.length >= 32 ? buf.readUInt16LE(30) : 0;
                 trackEvents238.push({ rvIdx, enabled, group });
-                lastTrack238RvIdx = rvIdx;
             }
 
-            // ── Track names: event 239 (TEXT+47) — pair with preceding 238 event ──
+            // ── Track names: event 239 (TEXT+47) ──
             if (code === 239 && buf) {
-                const name = FLPParser.readStringBuf(buf);
-                if (lastTrack238RvIdx >= 0) {
-                    trackNamesByRvIdx.set(lastTrack238RvIdx, name);
-                }
-                lastTrack238RvIdx = -1;
+                trackNames239.push(FLPParser.readStringBuf(buf));
             }
 
             // ── Timeline marker: event 148 (DWORD+20) = position in PPQ ticks ──
@@ -364,22 +358,25 @@ export class FLPParser {
         // Auto-detect the track count base from the max rvIdx (FL 20+ = 499, FL 12-19 = 198)
         const maxRvIdx = trackEvents238.reduce((max, e) => Math.max(max, e.rvIdx), 0);
         const trackBase = maxRvIdx; // rvIdx 0 = last track, rvIdx maxRvIdx = first track (track 0)
-        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNamesByRvIdx.size} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
+        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNames239.length} names (239), maxRvIdx=${maxRvIdx}, trackBase=${trackBase}`);
 
         const trackNameMap = new Map<number, string>();
-        for (const ev of trackEvents238) {
+        for (let i = 0; i < trackEvents238.length; i++) {
+            const ev = trackEvents238[i];
             const tIdx = trackBase - ev.rvIdx;
             trackDataMap.set(tIdx, { enabled: ev.enabled, group: ev.group });
-            const name = trackNamesByRvIdx.get(ev.rvIdx);
-            if (name) trackNameMap.set(tIdx, name);
+            if (i < trackNames239.length && trackNames239[i]) {
+                trackNameMap.set(tIdx, trackNames239[i]);
+            }
         }
 
         // Log pairing info for debugging
-        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by rvIdx)`);
-        // Show first few pairings
-        for (const ev of trackEvents238.slice(0, 10)) {
+        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by array index)`);
+        for (let i = 0; i < Math.min(trackEvents238.length, 10); i++) {
+            const ev = trackEvents238[i];
             const tIdx = trackBase - ev.rvIdx;
-            console.log(`[FLP]   rvIdx=${ev.rvIdx} → tIdx=${tIdx}, name="${trackNamesByRvIdx.get(ev.rvIdx) || '(none)'}", group=${ev.group}`);
+            const name = i < trackNames239.length ? trackNames239[i] : '(no 239)';
+            console.log(`[FLP]   [${i}] rvIdx=${ev.rvIdx} → tIdx=${tIdx}, name="${name}", group=${ev.group}`);
         }
 
         // ── 4. Parse playlist items from event 233 ──
