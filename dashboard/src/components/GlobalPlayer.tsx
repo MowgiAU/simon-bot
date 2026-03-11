@@ -37,9 +37,9 @@ export const GlobalPlayer: React.FC = () => {
 
     return (
         <footer style={{ 
-            height: isMobile ? '80px' : '80px', backgroundColor: '#1A1E2E', borderTop: '1px solid rgba(255,255,255,0.05)',
+            height: isMobile ? '96px' : '80px', backgroundColor: '#1A1E2E', borderTop: '1px solid rgba(255,255,255,0.05)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 16px' : '0 24px', 
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+            position: 'fixed', bottom: isMobile ? '60px' : 0, left: 0, right: 0, zIndex: 1000,
             boxShadow: '0 -10px 25px rgba(0,0,0,0.3)'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px', width: isMobile ? '45%' : '30%', minWidth: 0 }}>
@@ -147,28 +147,26 @@ export const GlobalPlayer: React.FC = () => {
                         </div>
                     )}
                 </div>
-                {!isMobile && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: '400px' }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px', textAlign: 'right' }}>{formatTime(player.currentTime)}</span>
-                        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <input 
-                                type="range"
-                                min="0"
-                                max={player.duration || 100}
-                                value={player.currentTime}
-                                onChange={handleSeek}
-                                style={{ 
-                                    width: '100%', 
-                                    cursor: 'pointer',
-                                    accentColor: colors.primary,
-                                    height: '4px',
-                                    outline: 'none'
-                                }}
-                            />
-                        </div>
-                        <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px' }}>{formatTime(player.duration)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', maxWidth: isMobile ? '100%' : '400px' }}>
+                    {!isMobile && <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px', textAlign: 'right' }}>{formatTime(player.currentTime)}</span>}
+                    <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input 
+                            type="range"
+                            min="0"
+                            max={player.duration || 100}
+                            value={player.currentTime}
+                            onChange={handleSeek}
+                            style={{ 
+                                width: '100%', 
+                                cursor: 'pointer',
+                                accentColor: colors.primary,
+                                height: '4px',
+                                outline: 'none'
+                            }}
+                        />
                     </div>
-                )}
+                    {!isMobile && <span style={{ fontSize: '10px', color: 'rgba(185, 195, 206, 0.6)', width: '35px' }}>{formatTime(player.duration)}</span>}
+                </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '24px', width: isMobile ? '10%' : '30%' }}>
