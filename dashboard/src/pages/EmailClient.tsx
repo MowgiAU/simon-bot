@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
+import { showToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip, 
     MoreHorizontal, X, Plus, Bold, Italic, Underline, List, Link as LinkIcon 
@@ -44,6 +46,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const [settings, setSettings] = useState<EmailSettings>({});
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [trashConfirm, setTrashConfirm] = useState<Email | null>(null);
     
     // Compose / Reply State
     const [composing, setComposing] = useState(false);
@@ -193,10 +196,10 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const saveSettings = async () => {
         try {
             await axios.post('/api/email/settings', settings, { withCredentials: true });
-            alert('Settings saved!');
+            showToast('Settings saved!', 'success');
         } catch (e) {
             console.error(e);
-            alert('Failed to save settings');
+            showToast('Failed to save settings', 'error');
         }
     };
 
@@ -258,7 +261,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
-            alert('Sent!');
+            showToast('Email sent!', 'success');
             setComposing(false);
             setComposeData({ to: '', subject: '', body: '', attachments: [] });
             
@@ -269,7 +272,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
             }
             fetchEmails(view);
         } catch (e) {
-            alert('Failed to send');
+            showToast('Failed to send email', 'error');
             console.error(e);
         }
     };
@@ -277,13 +280,17 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const normalizeSubject = (s: string) => s.replace(/^(Re|Fwd|FW):\s*/i, '').trim().toLowerCase();
 
     const handleDelete = async (email: Email) => {
-        if (!confirm('Move to trash?')) return;
+        setTrashConfirm(email);
+    };
+
+    const confirmTrash = async (email: Email) => {
+        setTrashConfirm(null);
         try {
              await axios.patch(`/api/email/${email.threadId}`, { updates: { category: 'trash' } }, { withCredentials: true });
              fetchEmails(view);
              setSelectedEmail(null);
         } catch (e) {
-            alert('Error');
+            showToast('Failed to move email to trash', 'error');
         }
     };
 
@@ -759,6 +766,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     );
 
     return (
+        <>
         <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
              {/* Header */}
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', marginBottom: '24px', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between' }}>
@@ -828,5 +836,15 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 </div>
             </div>
         </div>
+        <ConfirmModal
+            open={!!trashConfirm}
+            title="Move to Trash"
+            message="Move this email to trash?"
+            confirmLabel="Move to Trash"
+            danger
+            onConfirm={() => trashConfirm && confirmTrash(trashConfirm)}
+            onCancel={() => setTrashConfirm(null)}
+        />
+        </>
     );
 };

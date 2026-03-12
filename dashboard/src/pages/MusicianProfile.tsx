@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 interface MusicianProfile {
     id?: string;
@@ -44,6 +45,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [mode, setMode] = useState<'view' | 'edit'>('view');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ trackId: string; title: string } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     // Get the identifier from URL (if any)
@@ -326,7 +328,12 @@ export const MusicianProfilePage: React.FC = () => {
     };
 
     const handleDeleteTrack = async (trackId: string) => {
-        if (!window.confirm('Are you sure you want to delete this track?')) return;
+        const track = tracks.find(t => t.id === trackId);
+        setDeleteConfirm({ trackId, title: track?.title || 'this track' });
+    };
+
+    const confirmDeleteTrack = async (trackId: string) => {
+        setDeleteConfirm(null);
         try {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
@@ -439,6 +446,7 @@ export const MusicianProfilePage: React.FC = () => {
     }
 
     return (
+        <>
         <DiscoveryLayout activeTab="profile">
         <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
@@ -1151,5 +1159,15 @@ export const MusicianProfilePage: React.FC = () => {
             </div>
         </div>
         </DiscoveryLayout>
+        <ConfirmModal
+            open={!!deleteConfirm}
+            title="Delete Track"
+            message={`Are you sure you want to delete "${deleteConfirm?.title}"? This cannot be undone.`}
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => deleteConfirm && confirmDeleteTrack(deleteConfirm.trackId)}
+            onCancel={() => setDeleteConfirm(null)}
+        />
+        </>
     );
 };

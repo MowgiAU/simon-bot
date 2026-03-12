@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
+import { showToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X } from 'lucide-react';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { useMobile } from '../hooks/useMobile';
@@ -57,10 +59,10 @@ export const EconomyPluginPage: React.FC = () => {
         try {
             await axios.post(`/api/economy/settings/${selectedGuild.id}`, newData, { withCredentials: true });
             setSettings(newData);
-            alert('Settings saved!');
+            showToast('Settings saved!', 'success');
         } catch (e) {
             console.error(e);
-            alert('Failed to save settings.');
+            showToast('Failed to save settings.', 'error');
         }
     };
 
@@ -280,9 +282,14 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
 // --- Inventory Tab ---
 const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: any[], refresh: () => void, guildId: string, currency: string, isMobile: boolean }) => {
     const [editing, setEditing] = useState<any | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure?')) return;
+        setDeleteConfirm(id);
+    };
+
+    const confirmDelete = async (id: string) => {
+        setDeleteConfirm(null);
         await axios.delete(`/api/economy/items/${guildId}/${id}`, { withCredentials: true });
         refresh();
     };
@@ -294,6 +301,7 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
     };
 
     return (
+        <>
         <div>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '20px', gap: isMobile ? '10px' : '0' }}>
                 <h3 style={{ margin: 0 }}>Shop Items</h3>
@@ -345,10 +353,18 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
                 ))}
             </div>
         </div>
+        <ConfirmModal
+            open={!!deleteConfirm}
+            title="Delete Item"
+            message="Are you sure you want to delete this shop item?"
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => deleteConfirm && confirmDelete(deleteConfirm)}
+            onCancel={() => setDeleteConfirm(null)}
+        />
+        </>
     );
 };
-
-// --- Vault Tab ---
 const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: string, isMobile: boolean }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -378,11 +394,11 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
         if (!selectedUser) return;
         try {
             await axios.post(`/api/economy/vault/${guildId}`, { userId: selectedUser.user ? selectedUser.user.id : selectedUser.id, amount, mode }, { withCredentials: true });
-            alert('Balance Updated');
+            showToast('Balance updated', 'success');
             setSelectedUser(null);
             setAmount(0);
         } catch (e) {
-            alert('Failed');
+            showToast('Failed to update balance', 'error');
         }
     };
 

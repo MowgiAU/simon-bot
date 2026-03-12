@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink } from 'lucide-react';
 
 interface Genre {
@@ -33,6 +34,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [newGenreParent, setNewGenreParent] = useState<string>('');
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
     // Discovery settings state
     const [discoveryConfig, setDiscoveryConfig] = useState<DiscoveryConfig>({ featuredTrackId: null, featuredLabel: null, featuredTrack: null });
@@ -159,23 +161,27 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    const handleReprocessFlps = async () => {
-        if (!window.confirm('This will go through all project files on the server and re-run the arrangement parser. It may take a minute and overwrite existing arrangement data. Proceed?')) return;
-        
-        setReprocessing(true);
-        setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
-        
-        try {
-            const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
-            setMsg({ 
-                type: 'success', 
-                text: `Successfully re-processed ${res.data.success} tracks! ${res.data.failed > 0 ? `(${res.data.failed} failed: ${res.data.errors[0] || 'Check logs'})` : ''}` 
-            });
-        } catch (err: any) {
-            setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
-        } finally {
-            setReprocessing(false);
-        }
+    const handleReprocessFlps = () => {
+        setConfirmDialog({
+            title: 'Re-process All Project Files',
+            message: 'This will go through all project files on the server and re-run the arrangement parser. It may take a minute and overwrite existing arrangement data. Proceed?',
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setReprocessing(true);
+                setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
+                try {
+                    const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
+                    setMsg({ 
+                        type: 'success', 
+                        text: `Successfully re-processed ${res.data.success} tracks! ${res.data.failed > 0 ? `(${res.data.failed} failed: ${res.data.errors[0] || 'Check logs'})` : ''}` 
+                    });
+                } catch (err: any) {
+                    setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
+                } finally {
+                    setReprocessing(false);
+                }
+            }
+        });
     };
 
     const handleSearchAdminTracks = async (query: string) => {
@@ -211,15 +217,22 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    const handleDeleteGenre = async (id: string) => {
-        if (!window.confirm('Are you sure? This will affect all users with this genre!')) return;
-        try {
-            await axios.delete(`/api/musician/genres/${id}`, { withCredentials: true });
-            setMsg({ type: 'success', text: 'Genre deleted.' });
-            fetchGenres();
-        } catch (err) {
-            setMsg({ type: 'error', text: 'Failed to delete genre' });
-        }
+    const handleDeleteGenre = (id: string) => {
+        const genre = genres.find(g => g.id === id);
+        setConfirmDialog({
+            title: 'Delete Genre',
+            message: `Are you sure you want to delete "${genre?.name || 'this genre'}"? This will affect all users with this genre!`,
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                try {
+                    await axios.delete(`/api/musician/genres/${id}`, { withCredentials: true });
+                    setMsg({ type: 'success', text: 'Genre deleted.' });
+                    fetchGenres();
+                } catch (err) {
+                    setMsg({ type: 'error', text: 'Failed to delete genre' });
+                }
+            }
+        });
     };
 
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading admin settings...</div>;
@@ -230,6 +243,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     const allSubGenres = genres.filter(g => !!g.parentId);
 
     return (
+        <>
         <div style={{ padding: spacing.lg, maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Settings size={32} color={colors.primary} style={{ marginRight: '16px' }} />
@@ -603,5 +617,14 @@ export const MusicianProfileAdmin: React.FC = () => {
                 </div>
             </div>
         </div>
+        <ConfirmModal
+            open={!!confirmDialog}
+            title={confirmDialog?.title}
+            message={confirmDialog?.message || ''}
+            confirmLabel="Confirm"
+            onConfirm={() => confirmDialog?.onConfirm()}
+            onCancel={() => setConfirmDialog(null)}
+        />
+        </>
     );
 };

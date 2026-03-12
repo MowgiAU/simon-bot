@@ -3,6 +3,7 @@ import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { showToast } from '../components/Toast';
 import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
@@ -51,16 +52,16 @@ export const FeedbackPluginPage: React.FC = () => {
             await axios.post(`/api/feedback/action/${selectedGuild?.id}/${postId}`, { action }, { withCredentials: true });
             setQueue(prev => prev.filter(p => p.id !== postId)); // Optimistic update
         } catch (e) {
-            alert('Action failed');
+            showToast('Action failed', 'error');
         }
     };
 
     const saveSettings = async () => {
         try {
             await axios.post(`/api/feedback/settings/${selectedGuild?.id}`, settings, { withCredentials: true });
-            alert('Saved');
+            showToast('Settings saved', 'success');
         } catch (e) {
-            alert('Failed to save');
+            showToast('Failed to save settings', 'error');
         }
     };
 

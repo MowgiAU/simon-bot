@@ -5,6 +5,8 @@ import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { FujiLogo } from '../components/FujiLogo';
+import { showToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
@@ -121,6 +123,7 @@ export const TrackPage: React.FC = () => {
     const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
     const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
     const [editProjectFile, setEditProjectFile] = useState<File | null>(null);
+    const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -362,22 +365,27 @@ export const TrackPage: React.FC = () => {
                                 </button>
                             )}
                             {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
-                                <button
-                                    onClick={() => {
-                                        const confirmed = window.confirm(
-                                            'This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?'
-                                        );
-                                        if (confirmed) window.open(track.projectFileUrl!, '_blank');
-                                    }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                    <Download size={18} /> Download .flp
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => setFlpConfirmOpen(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
+                                    >
+                                        <Download size={18} /> Download .flp
+                                    </button>
+                                    <ConfirmModal
+                                        open={flpConfirmOpen}
+                                        title="Project File Download"
+                                        message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?`}
+                                        confirmLabel="Download"
+                                        onConfirm={() => { setFlpConfirmOpen(false); window.open(track.projectFileUrl!, '_blank'); }}
+                                        onCancel={() => setFlpConfirmOpen(false)}
+                                    />
+                                </>
                             )}
                             <button 
                                 onClick={() => {
                                     navigator.clipboard.writeText(window.location.href);
-                                    alert('Link copied to clipboard!');
+                                    showToast('Link copied to clipboard!', 'success');
                                 }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
                             >

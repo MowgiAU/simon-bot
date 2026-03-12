@@ -14,6 +14,8 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { colors, spacing, typography } from '../theme/theme';
+import { showToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import { PendingReviews } from '../components/PendingReviews';
@@ -53,6 +55,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
     const [editingRule, setEditingRule] = useState<Partial<Rule> | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<'rules' | 'queue'>('rules');
+    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -94,11 +97,11 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
 
     const saveRule = async (rule: Partial<Rule>) => {
         if (!rule.name?.trim()) {
-            alert('Rule name is required');
+            showToast('Rule name is required', 'warning');
             return;
         }
         if (!rule.targetChannelId) {
-            alert('Target channel is required');
+            showToast('Target channel is required', 'warning');
             return;
         }
 
@@ -123,14 +126,18 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             await fetchSettings();
             setEditingRule(null);
         } catch (e: any) {
-            alert('Error: ' + e.message);
+            showToast('Error: ' + e.message, 'error');
         } finally {
             setIsSaving(false);
         }
     };
 
     const deleteRule = async (ruleId: string) => {
-        if (!confirm('Are you sure you want to delete this rule?')) return;
+        setDeleteConfirm(ruleId);
+    };
+
+    const confirmDeleteRule = async (ruleId: string) => {
+        setDeleteConfirm(null);
         try {
             await fetch(`/api/guilds/${guildId}/channel-rules/${ruleId}`, {
                 method: 'DELETE',
@@ -138,7 +145,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             });
             await fetchSettings();
         } catch (e) {
-            alert('Failed to delete rule');
+            showToast('Failed to delete rule', 'error');
         }
     };
 
@@ -206,6 +213,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
     };
 
     return (
+        <>
         <div style={{ padding: spacing.lg, maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -425,6 +433,16 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                 </div>
             )}
         </div>
+        <ConfirmModal
+            open={!!deleteConfirm}
+            title="Delete Rule"
+            message="Are you sure you want to delete this rule? This cannot be undone."
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => deleteConfirm && confirmDeleteRule(deleteConfirm)}
+            onCancel={() => setDeleteConfirm(null)}
+        />
+        </>
     );
 };
 

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
+import { showToast } from '../components/Toast';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Ticket, MessageSquare, Send, CheckCircle, XCircle, AlertTriangle, 
     MoreHorizontal, RefreshCw, Filter, User, ArrowLeft, Settings, List, Save, Shield, Info, History
@@ -71,6 +73,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
         ticketMessage: "Click the button below to open a ticket"
     });
     const [savingSettings, setSavingSettings] = useState(false);
+    const [statusConfirm, setStatusConfirm] = useState<'open' | 'closed' | null>(null);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -190,9 +193,9 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
         setSavingSettings(true);
         try {
             await axios.post(`/api/tickets/settings/${activeGuildId}`, settings, { withCredentials: true });
-            alert('Settings saved successfully!');
+            showToast('Settings saved successfully!', 'success');
         } catch (e) {
-            alert('Failed to save settings');
+            showToast('Failed to save settings', 'error');
         } finally {
             setSavingSettings(false);
         }
@@ -207,19 +210,24 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             setReplyContent('');
             fetchMessages(selectedTicket.id);
         } catch(e) {
-            alert('Failed to send reply');
+            showToast('Failed to send reply', 'error');
         }
     };
 
     const handleUpdateStatus = async (status: 'open' | 'closed') => {
         if (!selectedTicket) return;
-        if (!confirm(`Mark ticket as ${status}?`)) return;
+        setStatusConfirm(status);
+    };
+
+    const confirmUpdateStatus = async (status: 'open' | 'closed') => {
+        setStatusConfirm(null);
+        if (!selectedTicket) return;
         try {
             await axios.patch(`/api/tickets/${selectedTicket.id}`, { status }, { withCredentials: true });
             fetchTickets();
             setSelectedTicket(prev => prev ? ({ ...prev, status }) : null);
         } catch (e) {
-            alert('Failed to update status');
+            showToast('Failed to update status', 'error');
         }
     };
 
@@ -230,7 +238,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             fetchTickets();
             setSelectedTicket(prev => prev ? ({ ...prev, priority }) : null);
         } catch (e) {
-            alert('Failed to update priority');
+            showToast('Failed to update priority', 'error');
         }
     };
 
@@ -255,6 +263,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
     const formatDate = (d: string) => new Date(d).toLocaleString();
 
     return (
+        <>
         <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '24px' }}>
              {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -573,6 +582,15 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                 </div>
             )}
         </div>
+        <ConfirmModal
+            open={!!statusConfirm}
+            title={`Mark ticket as ${statusConfirm}?`}
+            message={`This will change the ticket status to ${statusConfirm}.`}
+            confirmLabel="Confirm"
+            onConfirm={() => statusConfirm && confirmUpdateStatus(statusConfirm)}
+            onCancel={() => setStatusConfirm(null)}
+        />
+        </>
     );
 };
 

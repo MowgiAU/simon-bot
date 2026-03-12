@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
+import { showToast } from '../components/Toast';
 import { User, Save, Image, Activity } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
@@ -34,9 +35,9 @@ export const BotIdentityPage: React.FC = () => {
     const handleSave = async () => {
         try {
             await axios.post(`/api/bot/identity`, settings, { withCredentials: true });
-            alert('Settings saved! \n\n• status updates: ~30 seconds\n• Username/Avatar: May take minutes to appear (Discord caches these heavily). Reload Discord (Ctrl+R) to force check.');
+            showToast('Settings saved! Status updates take ~30 seconds. Username/Avatar may take minutes to appear in Discord — reload Discord (Ctrl+R) to check.', 'success');
         } catch (e) {
-            alert('Failed to save settings');
+            showToast('Failed to save settings', 'error');
         }
     };
 

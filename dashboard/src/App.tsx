@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { ResourceProvider } from "./components/ResourceProvider";
 import { PlayerProvider } from "./components/PlayerProvider";
 import { GlobalPlayer } from "./components/GlobalPlayer";
+import { ToastContainer } from "./components/Toast";
 import { Sidebar } from "./layouts/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
 import { WordFilterSettings } from "./pages/WordFilterSettings";
@@ -480,6 +481,7 @@ export const App: React.FC = () => {
         <PlayerProvider>
           <AppInternal />
           <GlobalPlayer />
+          <ToastContainer />
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>

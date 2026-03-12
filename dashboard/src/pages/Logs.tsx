@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing } from '../theme/theme';
 import { useMobile } from '../hooks/useMobile';
+import { showToast } from '../components/Toast';
 import { 
   ShieldAlert, 
   Bot, 
@@ -227,11 +228,11 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
             // Optional: Show toast success
         } else {
             const err = await res.json();
-            alert(`Failed to track user: ${err.error || 'Unknown error'}`);
+            showToast(`Failed to track user: ${err.error || 'Unknown error'}`, 'error');
         }
     } catch (e) {
         console.error("Failed to track user", e);
-        alert('Failed to track user. Check console.');
+        showToast('Failed to track user. Check console.', 'error');
     } finally {
         setTrackingLoading(false);
     }

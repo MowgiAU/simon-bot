@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Clock, File, Image as ImageIcon } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { showToast } from './Toast';
 
 interface PendingReview {
     id: string;
@@ -46,7 +47,7 @@ export const PendingReviews: React.FC<{ guildId: string }> = ({ guildId }) => {
             if (res.ok) {
                 setReviews(prev => prev.filter(r => r.id !== id));
             } else {
-                alert('Action failed');
+                showToast('Action failed', 'error');
             }
         } catch (e) {
             console.error(e);
