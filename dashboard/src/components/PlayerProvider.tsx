@@ -87,6 +87,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   React.useEffect(() => {
     if (player.isPlaying) {
+      // Only call play() here when resuming a paused track (togglePlay).
+      // New track loading calls play() directly in setTrack.
       audio.play().catch(err => console.error("Playback failed", err));
     } else {
       audio.pause();
@@ -106,7 +108,10 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (newTrack.url) {
       // Reset play recording flag for the new track
       hasRecordedPlay.current = null;
+      // Set src and call play() directly — cannot rely on the isPlaying effect
+      // because if isPlaying is already true the effect won't re-run for the new src.
       audio.src = newTrack.url;
+      audio.play().catch(err => console.error('Playback failed', err));
       
       setPlayer(prev => {
         const queue = newQueue || prev.queue;
