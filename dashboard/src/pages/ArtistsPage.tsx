@@ -4,7 +4,7 @@ import { colors, borderRadius } from '../theme/theme';
 import { 
     Search, UserSearch
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 /** 
@@ -55,7 +55,6 @@ export const ArtistsPage: React.FC = () => {
     const [sortBy, setSortBy] = useState('newest');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
-    const navigate = useNavigate();
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -169,10 +168,10 @@ export const ArtistsPage: React.FC = () => {
                     ) : artists.length > 0 ? (
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '32px' }}>
                             {artists.map(artist => (
-                                <div 
+                                <Link 
                                     key={artist.userId} 
-                                    onClick={() => navigate(`/profile/${artist.username}`)} 
-                                    style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}
+                                    to={`/profile/${artist.username}`} 
+                                    style={{ textAlign: 'center', cursor: 'pointer', transition: 'transform 0.2s', textDecoration: 'none', color: 'inherit', display: 'block' }}
                                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                                 >
@@ -202,7 +201,7 @@ export const ArtistsPage: React.FC = () => {
                                             {(artist.totalPlays || 0).toLocaleString()} Plays
                                         </p>
                                     )}
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     ) : (

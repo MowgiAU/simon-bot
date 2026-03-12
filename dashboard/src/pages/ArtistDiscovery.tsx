@@ -5,7 +5,7 @@ import {
     Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
     Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, RadioTower, Award 
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
@@ -202,10 +202,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {featured?.featuredTrack ? (
                         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: '32px', height: '100%' }}>
                             <div style={{ position: 'relative', flexShrink: 0 }}>
-                                <div style={{ 
+                                <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ 
                                     width: isMobile ? '200px' : '240px', height: isMobile ? '200px' : '240px', borderRadius: '12px', overflow: 'hidden',
-                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer'
-                                }} onClick={() => navigate(`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`)}>
+                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                                    display: 'block', textDecoration: 'none'
+                                }}>
                                     {featured.featuredTrack.coverUrl ? (
                                         <img src={featured.featuredTrack.coverUrl} alt="Featured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
@@ -213,7 +214,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <FujiLogo size={80} color={colors.primary} opacity={0.2} />
                                         </div>
                                     )}
-                                </div>
+                                </Link>
                             </div>
                             <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
                                 <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -224,9 +225,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <Zap size={14} /> NOW PLAYING
                                     </span>
                                 </div>
-                                <h2 style={{ fontSize: isMobile ? '28px' : '48px', fontWeight: '900', margin: '0 0 8px 0', lineHeight: 1.1, cursor: 'pointer' }} onClick={() => navigate(`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`)}>
+                                <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                <h2 style={{ fontSize: isMobile ? '28px' : '48px', fontWeight: '900', margin: '0 0 8px 0', lineHeight: 1.1, cursor: 'pointer' }}>
                                     {featured.featuredTrack.title}
                                 </h2>
+                                </Link>
                                 <p style={{ fontSize: '16px', color: '#B9C3CE', marginBottom: '24px' }}>
                                     {featured.featuredTrack.profile.displayName || featured.featuredTrack.profile.username} • {featured.featuredTrack.description || 'New Sound Release'}
                                 </p>
@@ -239,10 +242,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? <Pause size={16} /> : <Play size={16} fill="white" />}
                                         {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? 'Pause' : 'Play Now'}
                                     </button>
-                                    <button onClick={() => navigate(`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`)} style={{ 
+                                    <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ 
                                         backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', padding: '12px 28px', borderRadius: '8px', 
-                                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer' 
-                                    }}>Track Info</button>
+                                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer',
+                                        textDecoration: 'none'
+                                    }}>Track Info</Link>
                                 </div>
                             </div>
                         </div>
@@ -258,7 +262,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <h3 style={styles.headerLabel}><TrendingUp size={16} color={colors.accentOrange} /> Trending Songs</h3>
-                            <button onClick={() => navigate('/library')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
+                            <Link to="/library" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {topTracks.slice(0, 5).map((track, idx) => (
@@ -293,7 +297,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
                             {artists.slice(0, 9).map(artist => (
-                                <div key={artist.userId} onClick={() => navigate(`/profile/${artist.username}`)} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                                <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                     <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
                                         {artist.avatar ? (
                                             <img src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -302,14 +306,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         )}
                                     </div>
                                     <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</p>
-                                </div>
+                                </Link>
                             ))}
-                            <div onClick={() => navigate('/artists')} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                            <Link to="/artists" style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                 <div style={{ aspectRatio: '1/1', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
                                     <Plus size={20} color="#B9C3CE" />
                                 </div>
                                 <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#B9C3CE', margin: 0 }}>Explore</p>
-                            </div>
+                            </Link>
                         </div>
                     </div>
 
@@ -317,42 +321,44 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> Genre Exploration</h3>
-                            <button onClick={() => navigate('/genres')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
+                            <Link to="/genres" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                             {(() => {
                                 // Show top genres sorted by profile count; they're already sorted by the API
                                 const displayGenres = genres.slice(0, 7);
                                 return displayGenres.map((genre, idx) => (
-                                    <div 
+                                    <Link 
                                         key={genre.id} 
-                                        onClick={() => navigate(`/category/${genre.slug}`)}
+                                        to={`/category/${genre.slug}`}
                                         style={{ 
                                             ...styles.genreTile, 
                                             backgroundColor: `${genreColors[idx % genreColors.length]}1A`,
                                             color: genreColors[idx % genreColors.length],
-                                            border: `1px solid ${genreColors[idx % genreColors.length]}33`
+                                            border: `1px solid ${genreColors[idx % genreColors.length]}33`,
+                                            textDecoration: 'none',
                                         }} 
                                         onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }} 
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
                                     >
                                         {genre.name}
-                                    </div>
+                                    </Link>
                                 ));
                             })()}
-                            <div 
-                                onClick={() => navigate('/genres')} 
+                            <Link 
+                                to="/genres"
                                 style={{ 
                                     ...styles.genreTile, 
                                     backgroundColor: 'rgba(255,255,255,0.05)', 
                                     border: '1px dashed rgba(255,255,255,0.1)',
-                                    color: '#B9C3CE'
+                                    color: '#B9C3CE',
+                                    textDecoration: 'none',
                                 }} 
                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} 
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 <span style={{ fontSize: '10px' }}>More...</span>
-                            </div>
+                            </Link>
                         </div>
                     </div>
 
@@ -385,7 +391,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '24px', alignItems: 'start' }}>
                             {topTracks.map(track => (
-                                <div key={track.id} style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', minWidth: 0 }} onClick={() => navigate(`/track/${track.profile.username}/${track.slug || track.id}`)}>
+                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.2s', flexShrink: 0 }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                                         {track.coverUrl ? (
                                             <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -394,7 +400,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 <FujiLogo size={32} color={colors.primary} opacity={0.2} />
                                             </div>
                                         )}
-                                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'} onClick={(e) => { e.stopPropagation(); setTrack(track, topTracks); }}>
+                                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}>
                                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <Play size={24} fill="white" />
                                             </div>
@@ -402,8 +408,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     </div>
                                     <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
                                     <p style={{ fontSize: '10px', color: '#B9C3CE', margin: '2px 0 12px' }}>{track.profile.displayName || track.profile.username}</p>
-                                    <button onClick={(e) => { e.stopPropagation(); navigate(`/track/${track.profile.username}/${track.slug || track.id}`); }} style={{ width: '100%', padding: '6px', border: `1px solid ${colors.primary}4D`, color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '6px', background: 'none', cursor: 'pointer' }}>Listen Now</button>
-                                </div>
+                                    <button style={{ width: '100%', padding: '6px', border: `1px solid ${colors.primary}4D`, color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '6px', background: 'none', cursor: 'pointer' }}>Listen Now</button>
+                                </Link>
                             ))}
                         </div>
                     </div>

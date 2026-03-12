@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, Library } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
@@ -68,12 +68,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 flexShrink: 0, gap: isMobile ? '12px' : '0'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
+                    <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
                         <FujiLogo size={isMobile ? 32 : 40} color={colors.primary} />
                         <div>
                             <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
                         </div>
-                    </div>
+                    </Link>
                     {isMobile && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {sidebar && (
@@ -90,51 +90,49 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 </button>
                             )}
                             {hasDashboardAccess && (
-                                <button onClick={() => navigate('/dashboard')} style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, border: 'none', padding: '7px', borderRadius: '6px', display: 'flex' }}>
+                                <Link to="/dashboard" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, padding: '7px', borderRadius: '6px', display: 'flex', textDecoration: 'none' }}>
                                     <Zap size={18} fill={colors.primary} />
-                                </button>
+                                </Link>
                             )}
                             {user ? (
-                                <button onClick={() => navigate('/profile')} style={{ backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold' }}>
+                                <Link to="/profile" style={{ backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
                                     <User size={15} /> PROFILE
-                                </button>
+                                </Link>
                             ) : (
-                                <button
-                                    onClick={() => window.location.href = '/api/auth/discord/login'}
-                                    style={{ backgroundColor: colors.primary, color: 'white', border: 'none', padding: '7px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 'bold' }}
+                                <a
+                                    href="/api/auth/discord/login"
+                                    style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 'bold', textDecoration: 'none' }}
                                 >
                                     <LogIn size={16} /> LOG IN
-                                </button>
+                                </a>
                             )}
                         </div>
                     )}
                     {!isMobile && (
                         <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            {navItems.map(item => (
-                                <button
-                                    key={item.key}
-                                    onClick={() => item.path && navigate(item.path)}
-                                    title={item.comingSoon ? 'Coming Soon' : undefined}
-                                    style={{
-                                        padding: '6px 16px', borderRadius: '4px',
-                                        backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
-                                        color: activeTab === item.key ? colors.primary : '#B9C3CE',
-                                        border: 'none', fontSize: '10px', fontWeight: 'bold',
-                                        display: 'flex', alignItems: 'center', gap: '8px', cursor: item.comingSoon ? 'not-allowed' : 'pointer',
-                                        textDecoration: item.comingSoon ? 'line-through' : 'none',
-                                        opacity: item.comingSoon ? 0.6 : 1
-                                    }}
-                                >
-                                    {item.icon} {item.label}
-                                </button>
-                            ))}
+                            {navItems.map(item => {
+                                const navStyle: React.CSSProperties = {
+                                    padding: '6px 16px', borderRadius: '4px',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : '#B9C3CE',
+                                    fontSize: '10px', fontWeight: 'bold',
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    opacity: item.comingSoon ? 0.6 : 1,
+                                };
+                                if (item.comingSoon || !item.path) {
+                                    return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
+                                }
+                                return (
+                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
+                                );
+                            })}
                         </nav>
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: isMobile ? '100%' : 'auto' }}>
                     {!isMobile && hasDashboardAccess ? (
-                        <button
-                            onClick={() => navigate('/dashboard')}
+                        <Link
+                            to="/dashboard"
                             style={{
                                 backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`,
                                 color: colors.primary,
@@ -143,31 +141,23 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 borderRadius: '8px',
                                 fontSize: '11px',
                                 fontWeight: '700',
-                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
                                 transition: 'all 0.2s',
-                                letterSpacing: '0.05em'
-                            }}
-                            onMouseOver={(e) => {
-                                e.currentTarget.style.backgroundColor = `${colors.primary}25`;
-                                e.currentTarget.style.transform = 'translateY(-1px)';
-                            }}
-                            onMouseOut={(e) => {
-                                e.currentTarget.style.backgroundColor = pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`;
-                                e.currentTarget.style.transform = 'translateY(0)';
+                                letterSpacing: '0.05em',
+                                textDecoration: 'none',
                             }}
                             title="Admin Dashboard"
                         >
                             <Zap size={14} fill={colors.primary} />
                             DASHBOARD
-                        </button>
+                        </Link>
                     ) : null}
 
                     {!isMobile && user ? (
-                        <button
-                            onClick={() => navigate('/profile')}
+                        <Link
+                            to="/profile"
                             style={{
                                 backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
                                 color: 'white',
@@ -176,40 +166,39 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 borderRadius: '8px',
                                 fontSize: '11px',
                                 fontWeight: '700',
-                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
                                 transition: 'all 0.2s',
-                                letterSpacing: '0.05em'
+                                letterSpacing: '0.05em',
+                                textDecoration: 'none',
                             }}
                         >
                             <User size={14} />
                             MY PROFILE
-                        </button>
+                        </Link>
                     ) : null}
                     {!user && !isMobile ? (
-                        <button
-                            onClick={() => window.location.href = '/api/auth/discord/login'}
+                        <a
+                            href="/api/auth/discord/login"
                             style={{
                                 backgroundColor: colors.primary,
                                 color: 'white',
-                                border: 'none',
                                 padding: '8px 20px',
                                 borderRadius: '8px',
                                 fontSize: '11px',
                                 fontWeight: '700',
-                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
                                 transition: 'all 0.2s',
-                                letterSpacing: '0.05em'
+                                letterSpacing: '0.05em',
+                                textDecoration: 'none',
                             }}
                         >
                             <LogIn size={14} />
                             LOG IN
-                        </button>
+                        </a>
                     ) : null}
                     {onSearchChange && (
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: isMobile ? 1 : 'none' }}>
@@ -290,21 +279,25 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
+                        const itemStyle: React.CSSProperties = {
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+                            color: isActive ? colors.primary : '#6B7280',
+                            fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.05em',
+                            padding: '6px 12px', minWidth: '60px', textDecoration: 'none',
+                        };
+                        if (item.action) {
+                            return (
+                                <a key={item.key} href="/api/auth/discord/login" style={itemStyle}>
+                                    {item.icon}
+                                    {item.label}
+                                </a>
+                            );
+                        }
                         return (
-                            <button
-                                key={item.key}
-                                onClick={() => item.action ? item.action() : item.path && navigate(item.path)}
-                                style={{
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-                                    background: 'none', border: 'none', cursor: 'pointer',
-                                    color: isActive ? colors.primary : '#6B7280',
-                                    fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.05em',
-                                    padding: '6px 12px', minWidth: '60px'
-                                }}
-                            >
+                            <Link key={item.key} to={item.path!} style={itemStyle}>
                                 {item.icon}
                                 {item.label}
-                            </button>
+                            </Link>
                         );
                     })}
                 </nav>
