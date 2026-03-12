@@ -4758,14 +4758,9 @@ app.get('/api/oembed', async (req: any, res) => {
 const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
-console.log(`[DEBUG] SPA config: distPath=${distPath}, indexHtml=${indexHtml}, exists=${fs.existsSync(distPath)}`);
-
 if (fs.existsSync(distPath)) {
-    // 1. Serve static files with logging (but no index)
+    // 1. Serve static files (no index)
     app.use((req, res, next) => {
-        if (!req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
-            console.log(`[Static] Request: ${req.path}`);
-        }
         next();
     }, express.static(distPath, { index: false }));
 

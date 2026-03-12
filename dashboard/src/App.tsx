@@ -223,7 +223,6 @@ const AdminDashboard: React.FC = () => {
   };
 
   const renderContent = () => {
-    console.log('[App] Rendering Dashboard Content, section:', activeSection);
     switch (activeSection) {
       case "word-filter-settings":
         return <WordFilterSettings guildId={selectedGuild.id} />;

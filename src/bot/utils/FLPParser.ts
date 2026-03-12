@@ -123,8 +123,6 @@ export class FLPParser {
         // Track data (event 238): mute state + grouped flag, keyed by actual track index (0-based)
         const trackDataMap = new Map<number, { enabled: boolean; grouped: number }>();
 
-        console.log(`[FLP] Parse started. PPQ=${ppq}, size=${buffer.length} bytes`);
-
         while (offset < buffer.length) {
             const code = buffer[offset++];
             let num = 0;
@@ -163,11 +161,9 @@ export class FLPParser {
                 const tempo = num / 1000;
                 if (tempo > 10 && tempo < 999) {
                     const detectedBpm = Math.round(tempo * 10) / 10;
-                    console.log(`[FLP] Event 156 tempo: ${detectedBpm} BPM (locked=${bpmLocked})`);
                     if (!bpmLocked) {
                         bpm = detectedBpm;
                         bpmLocked = true;
-                        console.log(`[FLP] Set project tempo: ${bpm} BPM`);
                     }
                 }
             }
@@ -176,7 +172,6 @@ export class FLPParser {
             if (code === 66 && num > 10 && num < 999 && !bpmLocked) {
                 bpm = num;
                 bpmLocked = true;
-                console.log(`[FLP] Detected Tempo (Event 66): ${bpm} BPM`);
             }
 
             // ── Channel New (64): marks start of new channel ──
@@ -299,7 +294,6 @@ export class FLPParser {
                             }
                         }
                         channelAutomationPoints.set(currentChannelIID, points);
-                        console.log(`[FLP] Automation ch=${currentChannelIID}: ${points.length} points, maxPos=${maxPos}`);
                     }
                 }
             }
@@ -307,7 +301,6 @@ export class FLPParser {
             // ── Playlist items: event 233 (DATA+25) ──
             if (code === 233 && buf) {
                 playlistBuf = buf;
-                console.log(`[FLP] Found playlist event (code 233), ${buf.length} bytes`);
             }
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
@@ -324,14 +317,6 @@ export class FLPParser {
                 const trackNum = trackEvents238.length;
                 lastTrack238Index = trackNum;
                 trackEvents238.push({ enabled, grouped: 0 });
-                // Diagnostic: dump ALL bytes for first few tracks
-                if (trackNum < 5) {
-                    const hexBytes = [];
-                    for (let b = 0; b < buf.length; b++) {
-                        hexBytes.push(buf[b].toString(16).padStart(2, '0'));
-                    }
-                    console.log(`[FLP] Track238[${trackNum}] len=${buf.length} ALL: ${hexBytes.join(' ')}`);
-                }
             }
 
             // ── Track names: event 239 — only emitted for renamed tracks, pairs with preceding 238 ──
@@ -350,7 +335,6 @@ export class FLPParser {
                 const tickPos = num & 0x00FFFFFF;
                 currentMarkerBeat = tickPos / ppq;
                 markerContextActive = true;
-                console.log(`[FLP] Marker position event (148): action=${markerAction} tickPos=${tickPos} beat=${currentMarkerBeat.toFixed(2)}`);
             }
 
             // ── Fallback marker name: any unhandled TEXT event (192-207) while in marker context ──
@@ -367,32 +351,18 @@ export class FLPParser {
                 && code !== 203   // PluginID display name (handled above)
             ) {
                 const name = FLPParser.readStringBuf(buf);
-                console.log(`[FLP] Marker name via event ${code}: "${name}" at beat ${currentMarkerBeat.toFixed(2)}`);
                 markers.push({ position: currentMarkerBeat, name: name || `Marker ${markers.length + 1}` });
                 markerContextActive = false;
             }
         }
 
-        console.log(`[FLP] Patterns: ${patternNames.size} named, ${patternNotes.size} with notes`);
-        console.log(`[FLP] Channels: ${channelNames.size} named, ${channelSamplePaths.size} with samples, ${channelAutomationPoints.size} automation`);
-        console.log(`[FLP] Project: ${allPluginNames.size} plugins, ${allSamplePaths.size} samples`);
-        console.log(`[FLP] Timeline markers: ${markers.length}${markers.length > 0 ? ' — ' + markers.map(m => `"${m.name}"@${m.position.toFixed(1)}`).join(', ') : ' (none)'}`);
-
         // ── 3b. Map track data from 238 events by sequential index ──
         // Playlist items use 0-based reversed index: trackBase = numTracks - 1.
         const trackBase = trackEvents238.length > 0 ? trackEvents238.length - 1 : 499;
-        console.log(`[FLP] Track events: ${trackEvents238.length} data (238), ${trackNameMap.size} names (239), trackBase=${trackBase}`);
 
         for (let i = 0; i < trackEvents238.length; i++) {
             const ev = trackEvents238[i];
             trackDataMap.set(i, { enabled: ev.enabled, grouped: ev.grouped });
-        }
-
-        // Log named tracks
-        console.log(`[FLP] Track name map: ${trackNameMap.size} entries (paired by interleaved 238→239)`);
-        for (const [tIdx, name] of [...trackNameMap.entries()].sort((a, b) => a[0] - b[0]).slice(0, 15)) {
-            const td = trackDataMap.get(tIdx);
-            console.log(`[FLP]   Track ${tIdx}: "${name}" grouped=${td?.grouped ?? 0}`);
         }
 
         // ── 4. Parse playlist items from event 233 ──
@@ -414,10 +384,7 @@ export class FLPParser {
                 else if (playlistBuf.length % 32 === 0) itemSize = 32;
                 else itemSize = 60;
             }
-            console.log(`[FLP] Detected item size: ${itemSize} bytes (data: ${playlistBuf.length}b)`);
-
             const itemCount = Math.floor(playlistBuf.length / itemSize);
-            console.log(`[FLP] Playlist: ${itemCount} items, itemSize=${itemSize}b`);
 
             for (let i = 0; i < itemCount; i++) {
                 const base = i * itemSize;
@@ -477,14 +444,8 @@ export class FLPParser {
                     sampleFileName,
                     automationPoints,
                 });
-
-                console.log(`[FLP] Item[${i}]: ${clipType} "${itemLabel}" pos=${position} len=${length} track=${trackIdx}`);
             }
-        } else {
-            console.log(`[FLP] No playlist event (code 233) found!`);
         }
-
-        console.log(`[FLP] Done. BPM=${bpm}, clips=${clips.length}, uniqueTracks=${new Set(clips.map(c => c.track)).size}`);
 
         // ── 5. Build project info ──
         // Identify real plugins: channels with an internal name are plugins/instruments
@@ -536,15 +497,6 @@ export class FLPParser {
 
         // Also include any track that is a group parent of a used track
         // (Skip group parent expansion for now until we confirm the correct group byte offset)
-
-        console.log(`[FLP] Track names mapped: ${trackNameMap.size}, trackData entries: ${trackDataMap.size}, firstUsedTrack: ${firstUsedTrack}, lastUsedTrack: ${lastUsedTrack}`);
-        // Log track mapping for debugging
-        for (let i = firstUsedTrack; i <= Math.min(lastUsedTrack, firstUsedTrack + 25); i++) {
-            const name = trackNameMap.get(i) || `(unnamed)`;
-            const td = trackDataMap.get(i);
-            const clipCount = trackMap.get(i)?.length ?? 0;
-            console.log(`[FLP]   Track ${i}: "${name}" clips=${clipCount} enabled=${td?.enabled ?? true} grouped=${td?.grouped ?? 0}`);
-        }
 
         // Compute group parent for each track from the "grouped" boolean flag
         // In FL Studio: grouped=1 means "this track is grouped with the track above it"

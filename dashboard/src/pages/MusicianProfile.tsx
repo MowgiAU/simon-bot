@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Globe, Instagram, Youtube, 
@@ -35,6 +36,7 @@ interface Genre {
 
 export const MusicianProfilePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
+    const { pathname } = useLocation();
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export const MusicianProfilePage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     // Get the identifier from URL (if any)
-    const pathParts = window.location.pathname.split('/');
+    const pathParts = pathname.split('/');
     const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
 
     useEffect(() => {
