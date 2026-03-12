@@ -6,6 +6,8 @@ interface PlayerState {
     id?: string;
     title: string;
     artist: string;
+    username?: string;
+    slug?: string;
     cover: string;
     url?: string;
   } | null;
@@ -101,6 +103,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       id: trackData.id,
       title: trackData.title,
       artist: trackData.artist || trackData.profile?.displayName || trackData.profile?.username || 'Unknown Artist',
+      username: trackData.profile?.username || trackData.username || '',
+      slug: trackData.slug || '',
       cover: trackData.coverUrl || trackData.cover || '',
       url: trackData.url
     };
@@ -154,7 +158,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const nextT = prev.queue[nextIndex];
       hasRecordedPlay.current = null;
-      audio.src = nextT.url || nextT.coverUrl; // Standardizing source
+      audio.src = nextT.url || nextT.coverUrl;
       audio.play().catch(() => {});
       
       return {
@@ -163,6 +167,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           id: nextT.id,
           title: nextT.title,
           artist: nextT.artist || nextT.profile?.displayName || nextT.profile?.username || 'Unknown Artist',
+          username: nextT.profile?.username || nextT.username || '',
+          slug: nextT.slug || '',
           cover: nextT.coverUrl || nextT.cover || '',
           url: nextT.url
         },
@@ -203,6 +209,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           id: prevT.id,
           title: prevT.title,
           artist: prevT.artist || prevT.profile?.displayName || prevT.profile?.username || 'Unknown Artist',
+          username: prevT.profile?.username || prevT.username || '',
+          slug: prevT.slug || '',
           cover: prevT.coverUrl || prevT.cover || '',
           url: prevT.url
         },

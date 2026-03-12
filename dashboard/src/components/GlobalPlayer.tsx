@@ -54,7 +54,7 @@ export const GlobalPlayer: React.FC = () => {
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                     <p 
-                        onClick={() => navigate(`/track/${player.currentTrack!.artist}/${player.currentTrack!.slug || player.currentTrack!.id}`)}
+                        onClick={() => { const t = player.currentTrack!; if (t.username && t.slug) navigate(`/track/${t.username}/${t.slug}`); }}
                         onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
                         onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
                         style={{ 
