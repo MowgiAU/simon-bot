@@ -61,6 +61,20 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             backgroundColor: '#161925', color: '#F8FAFC', overflow: 'hidden',
             fontFamily: 'Inter, system-ui, sans-serif'
         }}>
+            {/* A11Y-07: Skip to main content */}
+            <a
+                href="#main-content"
+                style={{
+                    position: 'absolute', top: '-48px', left: '16px', zIndex: 9999,
+                    backgroundColor: '#3BA886', color: 'white', padding: '8px 16px',
+                    borderRadius: '4px', fontWeight: 600, textDecoration: 'none',
+                    transition: 'top 0.15s',
+                }}
+                onFocus={(e) => { e.currentTarget.style.top = '16px'; }}
+                onBlur={(e) => { e.currentTarget.style.top = '-48px'; }}
+            >
+                Skip to main content
+            </a>
             {/* Header */}
             <header style={{
                 height: isMobile ? '110px' : '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -208,9 +222,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 placeholder={searchPlaceholder}
                                 value={search}
                                 onChange={(e) => onSearchChange(e.target.value)}
+                                aria-label="Search"
                                 style={{
                                     width: isMobile ? '100%' : '300px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
-                                    borderRadius: '999px', padding: '8px 48px', fontSize: '12px', color: 'white', outline: 'none'
+                                    borderRadius: '999px', padding: '8px 48px', fontSize: '12px', color: 'white'
                                 }}
                             />
                         </div>
@@ -250,14 +265,17 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 )}
 
                 {/* Main Content */}
-                <main style={{ 
-                    flex: 1, 
-                    overflowY: 'auto', 
-                    backgroundColor: '#161925', 
-                    paddingBottom: isMobile ? (player.currentTrack ? '168px' : '72px') : (player.currentTrack ? '100px' : '24px'),
-                    opacity: isMobile && isSidebarOpen ? 0.3 : 1,
-                    filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
-                }}>
+                <main
+                    id="main-content"
+                    tabIndex={-1}
+                    style={{ 
+                        flex: 1, 
+                        overflowY: 'auto', 
+                        backgroundColor: '#161925', 
+                        paddingBottom: isMobile ? (player.currentTrack ? '168px' : '72px') : (player.currentTrack ? '100px' : '24px'),
+                        opacity: isMobile && isSidebarOpen ? 0.3 : 1,
+                        filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
+                    }}>
                     {children}
                 </main>
             </div>
@@ -281,7 +299,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
                         const itemStyle: React.CSSProperties = {
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-                            color: isActive ? colors.primary : '#6B7280',
+                            color: isActive ? colors.primary : '#9CA3AF',
                             fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.05em',
                             padding: '6px 12px', minWidth: '60px', textDecoration: 'none',
                         };

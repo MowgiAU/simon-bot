@@ -80,6 +80,38 @@ body {
   }
 }
 
+/* ============================================================
+   A11Y: Global focus-visible ring (A11Y-01)
+   We use :focus-visible so mouse users never see the ring
+   while keyboard/switch-access users always get one.
+   Inline `outline: 'none'` on inputs is intentionally
+   overridden here — browsers give :focus-visible higher
+   specificity than inline styles only in some engines, so
+   we use a stronger selector `:focus-visible`.
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid #3BA886 !important;
+  outline-offset: 2px;
+  /* Remove the box-shadow fallback if the host sets its own */
+}
+
+/* Range inputs need a box-shadow ring because outline leaves gaps */
+input[type="range"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #3BA886;
+  border-radius: 4px;
+}
+
+/* A11Y-16: Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Global scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

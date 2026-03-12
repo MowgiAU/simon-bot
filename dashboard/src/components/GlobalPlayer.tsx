@@ -45,7 +45,7 @@ export const GlobalPlayer: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px', width: isMobile ? '45%' : '30%', minWidth: 0 }}>
                 <div style={{ width: isMobile ? '44px' : '48px', height: isMobile ? '44px' : '48px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
                     {player.currentTrack.cover ? (
-                        <img src={player.currentTrack.cover} alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={player.currentTrack.cover} alt={`${player.currentTrack.title} by ${player.currentTrack.artist}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Play size={20} color="rgba(255,255,255,0.2)" />
@@ -115,21 +115,25 @@ export const GlobalPlayer: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: isMobile ? '40%' : '40%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px' }}>
                     {!isMobile && (
-                        <Shuffle 
-                            size={18} 
-                            color={player.isShuffle ? colors.primary : "#B9C3CE"} 
-                            style={{ cursor: 'pointer' }} 
+                        <button
                             onClick={toggleShuffle}
-                        />
+                            aria-label={player.isShuffle ? 'Shuffle on' : 'Shuffle off'}
+                            aria-pressed={player.isShuffle}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '4px', color: player.isShuffle ? colors.primary : '#B9C3CE' }}
+                        >
+                            <Shuffle size={18} />
+                        </button>
                     )}
-                    <SkipBack 
-                        size={isMobile ? 22 : 20} 
-                        color="white" 
-                        style={{ cursor: 'pointer' }} 
+                    <button
                         onClick={prevTrack}
-                    />
+                        aria-label="Previous track"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '4px', color: 'white' }}
+                    >
+                        <SkipBack size={isMobile ? 22 : 20} />
+                    </button>
                     <button 
                         onClick={togglePlay}
+                        aria-label={player.isPlaying ? 'Pause' : 'Play'}
                         style={{ 
                             width: isMobile ? '40px' : '40px', height: isMobile ? '40px' : '40px', borderRadius: '50%', backgroundColor: 'white', 
                             display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer',
@@ -140,31 +144,37 @@ export const GlobalPlayer: React.FC = () => {
                     >
                         {player.isPlaying ? <Pause fill="#1A1E2E" size={isMobile ? 22 : 20} /> : <Play fill="#1A1E2E" size={isMobile ? 22 : 20} style={{ marginLeft: '2px' }} />}
                     </button>
-                    <SkipForward 
-                        size={isMobile ? 22 : 20} 
-                        color="white" 
-                        style={{ cursor: 'pointer' }} 
+                    <button
                         onClick={nextTrack}
-                    />
+                        aria-label="Next track"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '4px', color: 'white' }}
+                    >
+                        <SkipForward size={isMobile ? 22 : 20} />
+                    </button>
                     {!isMobile && (
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Repeat 
-                                size={18} 
-                                color={player.repeatMode !== 'none' ? colors.primary : "#B9C3CE"} 
-                                style={{ cursor: 'pointer' }} 
+                            <button
                                 onClick={() => {
                                     if (player.repeatMode === 'none') setRepeatMode('all');
                                     else if (player.repeatMode === 'all') setRepeatMode('one');
                                     else setRepeatMode('none');
                                 }}
-                            />
-                            {player.repeatMode === 'one' && (
-                                <span style={{ 
-                                    position: 'absolute', fontSize: '8px', top: '50%', left: '50%', 
-                                    transform: 'translate(-50%, -50%)', fontWeight: 'bold', pointerEvents: 'none',
-                                    color: colors.primary
-                                }}>1</span>
-                            )}
+                                aria-label={
+                                    player.repeatMode === 'none' ? 'Repeat off' :
+                                    player.repeatMode === 'all' ? 'Repeat all' : 'Repeat one'
+                                }
+                                aria-pressed={player.repeatMode !== 'none'}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '4px', color: player.repeatMode !== 'none' ? colors.primary : '#B9C3CE', position: 'relative' }}
+                            >
+                                <Repeat size={18} />
+                                {player.repeatMode === 'one' && (
+                                    <span style={{ 
+                                        position: 'absolute', fontSize: '8px', top: '50%', left: '50%', 
+                                        transform: 'translate(-50%, -50%)', fontWeight: 'bold', pointerEvents: 'none',
+                                        color: colors.primary
+                                    }} aria-hidden="true">1</span>
+                                )}
+                            </button>
                         </div>
                     )}
                 </div>
@@ -177,12 +187,13 @@ export const GlobalPlayer: React.FC = () => {
                             max={player.duration || 100}
                             value={player.currentTime}
                             onChange={handleSeek}
+                            aria-label="Seek"
+                            aria-valuetext={`${formatTime(player.currentTime)} of ${formatTime(player.duration)}`}
                             style={{ 
                                 width: '100%', 
                                 cursor: 'pointer',
                                 accentColor: colors.primary,
                                 height: '4px',
-                                outline: 'none'
                             }}
                         />
                     </div>
@@ -193,7 +204,7 @@ export const GlobalPlayer: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '24px', width: isMobile ? '10%' : '30%' }}>
                 {!isMobile ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Volume2 size={18} color="#B9C3CE" />
+                        <Volume2 size={18} color="#B9C3CE" aria-hidden="true" />
                         <input 
                             type="range"
                             min="0"
@@ -201,6 +212,8 @@ export const GlobalPlayer: React.FC = () => {
                             step="0.01"
                             value={player.volume}
                             onChange={handleVolumeChange}
+                            aria-label="Volume"
+                            aria-valuetext={`${Math.round(player.volume * 100)}%`}
                             style={{ 
                                 width: '96px', 
                                 height: '4px', 
@@ -210,12 +223,14 @@ export const GlobalPlayer: React.FC = () => {
                         />
                     </div>
                 ) : (
-                    <Shuffle 
-                        size={18} 
-                        color={player.isShuffle ? colors.primary : "#B9C3CE"} 
-                        style={{ cursor: 'pointer' }} 
+                    <button
                         onClick={toggleShuffle}
-                    />
+                        aria-label={player.isShuffle ? 'Shuffle on' : 'Shuffle off'}
+                        aria-pressed={player.isShuffle}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '4px', color: player.isShuffle ? colors.primary : '#B9C3CE' }}
+                    >
+                        <Shuffle size={18} />
+                    </button>
                 )}
             </div>
         </footer>

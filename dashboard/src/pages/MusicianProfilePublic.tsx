@@ -190,7 +190,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
                         }}>
                             {trackCoverUrl ? (
-                                <img src={trackCoverUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Music size={isMobile ? 80 : 64} color={colors.primary} />
@@ -310,7 +310,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             border: `4px solid ${colors.primary}33`, padding: '4px', flexShrink: 0
                         }}>
                             {avatarUrl ? (
-                                <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
                                     {profile.username.charAt(0).toUpperCase()}
@@ -384,7 +384,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             {s.isHandle && <span style={{ fontSize: '11px', color: '#94a3b8' }}>{url}</span>}
                                         </div>
                                     </div>
-                                    {!s.isHandle && <ExternalLink size={14} color="#475569" />}
+                                    {!s.isHandle && <ExternalLink size={14} color="#B9C3CE" />}
                                 </div>
                             );
                             return s.isHandle ? (

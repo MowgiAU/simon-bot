@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LayoutGrid, ArrowLeft, ArrowRight, Disc, Music } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -91,8 +91,8 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                             </p>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => selectedParent ? navigate('/genres') : navigate('/')} 
+                    <Link
+                        to={selectedParent ? '/genres' : '/'}
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -105,19 +105,12 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                             cursor: 'pointer',
                             fontSize: '14px',
                             fontWeight: 600,
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                            e.currentTarget.style.transform = 'translateX(-4px)';
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-                            e.currentTarget.style.transform = 'translateX(0)';
+                            transition: 'all 0.2s',
+                            textDecoration: 'none',
                         }}
                     >
                         <ArrowLeft size={18} /> {selectedParent ? 'Back to All Genres' : 'Back to Discovery'}
-                    </button>
+                    </Link>
                 </div>
 
                 {loading ? (
@@ -134,7 +127,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                         gap: '24px' 
                     }}>
                         {displayedGenres.length > 0 ? displayedGenres.map((genre, idx) => (
-                            <div 
+                            <button 
                                 key={genre.id}
                                 onClick={() => {
                                     const hasChildren = genres.some(g => g.parentId === genre.id);
@@ -152,7 +145,11 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                                     cursor: 'pointer',
                                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                     position: 'relative',
-                                    overflow: 'hidden'
+                                    overflow: 'hidden',
+                                    textAlign: 'left',
+                                    color: 'inherit',
+                                    width: '100%',
+                                    fontFamily: 'inherit',
                                 }}
                                 onMouseOver={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-8px)';
@@ -224,7 +221,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                                         <strong>{genre._count?.profiles || 0}</strong> Artists
                                     </div>
                                 </div>
-                            </div>
+                            </button>
                         )) : (
                             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '80px 0', color: '#B9C3CE' }}>
                                 <FujiLogo size={64} opacity={0.1} />

@@ -555,7 +555,7 @@ export const MusicianProfilePage: React.FC = () => {
                                         >
                                             <Globe size={18} />
                                         </button>
-                                        <button onClick={() => handleDeleteTrack(track.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', display: 'flex' }}>
+                                        <button onClick={() => handleDeleteTrack(track.id)} aria-label={`Delete track: ${track.title}`} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', display: 'flex' }}>
                                             <X size={18} />
                                         </button>
                                     </div>
