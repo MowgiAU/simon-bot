@@ -362,13 +362,17 @@ export const TrackPage: React.FC = () => {
                                 </button>
                             )}
                             {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
-                                <a
-                                    href={track.projectFileUrl}
-                                    download
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, textDecoration: 'none', fontWeight: 600 }}
+                                <button
+                                    onClick={() => {
+                                        const confirmed = window.confirm(
+                                            'This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?'
+                                        );
+                                        if (confirmed) window.open(track.projectFileUrl!, '_blank');
+                                    }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
                                 >
                                     <Download size={18} /> Download .flp
-                                </a>
+                                </button>
                             )}
                             <button 
                                 onClick={() => {
