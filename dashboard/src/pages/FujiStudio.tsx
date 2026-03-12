@@ -136,10 +136,10 @@ export const FujiStudio: React.FC = () => {
         // Optimistic UI
         setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: !s.isLiked } : s));
         try {
-            await axios.post(`/api/fuji/samples/${sample.id}/like`, { guildId: selectedGuild?.id });
+            await axios.post(`/api/fuji/samples/${sample.id}/like`);
         } catch (err) {
             // Revert on error
-            setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: s.isLiked } : s));
+            setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: sample.isLiked } : s));
         }
     };
 
@@ -217,7 +217,7 @@ export const FujiStudio: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody style={{ color: '#eee' }}>
-                                {samples.map(sample => (
+                                {(activeTab === 'likes' ? samples.filter(s => s.isLiked) : samples).map(sample => (
                                     <tr 
                                         key={sample.id} 
                                         style={{ borderBottom: `1px solid ${colors.border}08`, transition: 'background 0.2s', cursor: 'pointer' }}

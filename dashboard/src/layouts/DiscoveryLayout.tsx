@@ -48,6 +48,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         { key: 'discover', label: 'HOME', icon: <Search size={14} />, path: '/' },
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'library', label: 'LIBRARY', icon: <Music size={14} color={colors.primary} />, path: '/library' },
+        { key: 'genres', label: 'DISCOVER', icon: <Zap size={14} />, path: '/genres' },
         { key: 'live', label: 'LIVE', path: null, comingSoon: true },
     ];
 
@@ -164,29 +165,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </button>
                     ) : null}
 
-                    {user && !isMobile ? (
-                        <button
-                            onClick={() => navigate('/profile')}
-                            style={{
-                                backgroundColor: pathname === '/profile' ? `${colors.primary}33` : 'rgba(255,255,255,0.05)',
-                                color: pathname === '/profile' ? colors.primary : '#B9C3CE',
-                                border: pathname === '/profile' ? `1px solid ${colors.primary}33` : '1px solid rgba(255,255,255,0.05)',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                letterSpacing: '0.05em'
-                            }}
-                        >
-                            <User size={14} />
-                            EDIT PROFILE
-                        </button>
-                    ) : !user && !isMobile ? (
+                    {!user && !isMobile ? (
                         <button
                             onClick={() => window.location.href = '/api/auth/discord/login'}
                             style={{
@@ -205,7 +184,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 letterSpacing: '0.05em'
                             }}
                         >
-                            <User size={14} />
+                            <LogIn size={14} />
                             LOG IN
                         </button>
                     ) : null}
@@ -284,6 +263,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'discover', label: 'Home', icon: <Home size={20} />, path: '/' },
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'library', label: 'Library', icon: <Library size={20} />, path: '/library' },
+                        { key: 'genres', label: 'Discover', icon: <Zap size={20} />, path: '/genres' },
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;

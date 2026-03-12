@@ -3815,7 +3815,6 @@ app.get('/api/musician/profiles', async (req, res) => {
       let orderBy: any = { createdAt: 'desc' };
       if (sort === 'popular') orderBy = { playCount: 'desc' }; // Note: Schema might need total play count field or aggregation
       if (sort === 'oldest') orderBy = { createdAt: 'asc' };
-      if (sort === 'alphabetical') orderBy = { username: 'asc' };
 
       const profiles = await db.musicianProfile.findMany({
           where,
@@ -3833,6 +3832,15 @@ app.get('/api/musician/profiles', async (req, res) => {
           orderBy,
           take: Number(limit)
       });
+
+      // Sort alphabetically by display name (falling back to username) when requested
+      if (sort === 'alphabetical') {
+          profiles.sort((a: any, b: any) => {
+              const nameA = (a.displayName || a.username).toLowerCase();
+              const nameB = (b.displayName || b.username).toLowerCase();
+              return nameA.localeCompare(nameB);
+          });
+      }
 
       // Track permission backfill for profile previews
       profiles.forEach((p: any) => {
@@ -4527,9 +4535,10 @@ app.get('/api/fuji/download/:attachmentId', async (req, res) => {
 });
 
 // Search Samples
-app.get('/api/fuji/samples/search', async (req, res) => {
+app.get('/api/fuji/samples/search', async (req: any, res) => {
     try {
         const { q, packId, limit = 100, projectsOnly } = req.query;
+        const userId = req.session?.user?.id as string | undefined;
         
         const samples = await db.sampleMetadata.findMany({
             where: {
@@ -4545,11 +4554,43 @@ app.get('/api/fuji/samples/search', async (req, res) => {
             orderBy: { createdAt: 'desc' },
             include: { 
                 pack: true,
-                projectFile: true // From our new relation
+                projectFile: true,
+                favoritedBy: userId ? { where: { userId } } : false
             }
         });
 
-        res.json(samples);
+        const result = samples.map((s: any) => ({
+            ...s,
+            isLiked: userId ? (s.favoritedBy?.length ?? 0) > 0 : false,
+            favoritedBy: undefined
+        }));
+
+        res.json(result);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Toggle sample like/unlike
+app.post('/api/fuji/samples/:id/like', async (req: any, res) => {
+    if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+    try {
+        const { id } = req.params;
+        const userId = req.session.user.id as string;
+
+        const existing = await db.userSampleFavorite.findUnique({
+            where: { userId_sampleId: { userId, sampleId: id } }
+        });
+
+        if (existing) {
+            await db.userSampleFavorite.delete({
+                where: { userId_sampleId: { userId, sampleId: id } }
+            });
+            res.json({ liked: false });
+        } else {
+            await db.userSampleFavorite.create({ data: { userId, sampleId: id } });
+            res.json({ liked: true });
+        }
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

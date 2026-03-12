@@ -291,8 +291,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <h3 style={styles.headerLabel}><UserSearch size={16} color={colors.primary} /> Discover Artists</h3>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                            {artists.slice(0, 5).map(artist => (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                            {artists.slice(0, 9).map(artist => (
                                 <div key={artist.userId} onClick={() => navigate(`/profile/${artist.username}`)} style={{ textAlign: 'center', cursor: 'pointer' }}>
                                     <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
                                         {artist.avatar ? (
@@ -319,10 +319,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> Genre Exploration</h3>
                             <button onClick={() => navigate('/genres')} style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                             {(() => {
-                                // Show top 5 genres sorted by profile count; they're already sorted by the API
-                                const displayGenres = genres.slice(0, 5);
+                                // Show top genres sorted by profile count; they're already sorted by the API
+                                const displayGenres = genres.slice(0, 7);
                                 return displayGenres.map((genre, idx) => (
                                     <div 
                                         key={genre.id} 
