@@ -95,8 +95,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 </button>
                             )}
                             {user ? (
-                                <button onClick={() => navigate('/profile')} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', padding: '7px', borderRadius: '6px', display: 'flex' }}>
-                                    <User size={18} />
+                                <button onClick={() => navigate('/profile')} style={{ backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold' }}>
+                                    <User size={15} /> PROFILE
                                 </button>
                             ) : (
                                 <button
@@ -165,6 +165,29 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </button>
                     ) : null}
 
+                    {!isMobile && user ? (
+                        <button
+                            onClick={() => navigate('/profile')}
+                            style={{
+                                backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                                color: 'white',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s',
+                                letterSpacing: '0.05em'
+                            }}
+                        >
+                            <User size={14} />
+                            MY PROFILE
+                        </button>
+                    ) : null}
                     {!user && !isMobile ? (
                         <button
                             onClick={() => window.location.href = '/api/auth/discord/login'}
