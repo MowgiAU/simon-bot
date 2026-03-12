@@ -1,8 +1,11 @@
 
 import 'dotenv/config';
 import express from 'express';
+import type { RequestHandler } from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -433,6 +436,21 @@ app.use(cors({
   origin: process.env.DASHBOARD_ORIGIN || true,
   credentials: true
 }));
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            mediaSrc: ["'self'", 'blob:', 'https:'],
+            connectSrc: ["'self'", 'https:'],
+            fontSrc: ["'self'", 'https:', 'data:'],
+        },
+    },
+    // Disabled: breaks SharedArrayBuffer used by audio worklets
+    crossOriginEmbedderPolicy: false,
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(session({
@@ -444,6 +462,44 @@ app.use(session({
     sameSite: 'lax'
   }
 }));
+
+// --- Rate Limiting ---
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts, please try again later.' },
+});
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api/auth', authLimiter);
+app.use('/api/', apiLimiter);
+
+// --- Auth Middleware ---
+const requireAuth: RequestHandler = (req, res, next) => {
+    if (!req.session.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    next();
+};
+const requireAdmin: RequestHandler = (req, res, next) => {
+    if (!req.session.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    if (!(req.session.mutualAdminGuilds as any)?.length) {
+        res.status(403).json({ error: 'Admin access required' });
+        return;
+    }
+    next();
+};
 
 
 // Discord OAuth2 config
@@ -3486,18 +3542,13 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
 });
 
 // Admin: Edit any user's track (same as PUT but bypasses ownership)
-app.put('/api/admin/tracks/:trackId', upload.fields([
+app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'artwork', maxCount: 1 },
     { name: 'project', maxCount: 1 }
 ]), async (req: any, res) => {
     try {
-        const userId = req.session?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        // Admin check: user must have Administrator permission in a mutual guild
-        const isAdmin = req.session.mutualAdminGuilds && req.session.mutualAdminGuilds.length > 0;
-        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+        const userId = req.session.user.id;
 
         const { trackId } = req.params;
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -3593,13 +3644,8 @@ app.put('/api/admin/tracks/:trackId', upload.fields([
 });
 
 // Admin: List all tracks (for admin track management)
-app.get('/api/admin/tracks', async (req: any, res) => {
+app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
     try {
-        const userId = req.session?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        const isAdmin = req.session.mutualAdminGuilds && req.session.mutualAdminGuilds.length > 0;
-        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
-
         const search = req.query.search as string || '';
         const tracks = await db.track.findMany({
             where: search ? {
@@ -4090,11 +4136,8 @@ app.get('/api/discovery/settings', async (req, res) => {
 });
 
 // Update discovery settings (admin only)
-app.post('/api/discovery/settings', async (req, res) => {
+app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
     try {
-        const userId = (req.session as any)?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
         const { featuredTrackId, featuredLabel } = req.body;
 
         const settings = await db.discoverySettings.upsert({
@@ -4135,13 +4178,8 @@ app.get('/api/discovery/tracks/search', async (req, res) => {
 });
 
 // Debug: inspect arrangement data for a specific track (Admin only)
-app.get('/api/admin/debug-arrangement/:trackId', async (req, res) => {
+app.get('/api/admin/debug-arrangement/:trackId', requireAdmin, async (req, res) => {
     try {
-        const userId = (req.session as any)?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
-        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
-
         const track = await db.track.findUnique({ where: { id: req.params.trackId } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
 
@@ -4193,13 +4231,8 @@ app.get('/api/admin/debug-arrangement/:trackId', async (req, res) => {
 });
 
 // Debug: list all tracks with their arrangement summary (Admin only)
-app.get('/api/admin/debug-tracks-summary', async (req, res) => {
+app.get('/api/admin/debug-tracks-summary', requireAdmin, async (req, res) => {
     try {
-        const userId = (req.session as any)?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
-        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
-
         const tracks = await db.track.findMany({
             select: { id: true, title: true, projectFileUrl: true, arrangement: true },
             orderBy: { createdAt: 'desc' },
@@ -4227,14 +4260,8 @@ app.get('/api/admin/debug-tracks-summary', async (req, res) => {
 });
 
 // Re-process all FLP files (Admin operation)
-app.post('/api/admin/reprocess-flps', async (req, res) => {
+app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
     try {
-        const userId = (req.session as any)?.user?.id;
-        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-        const isAdmin = (req.session as any)?.mutualAdminGuilds?.length > 0;
-        if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
-        
         // Find all tracks that have a projectFileUrl
         const tracksWithFlps = await db.track.findMany({
             where: { projectFileUrl: { not: null } }
@@ -4412,11 +4439,10 @@ app.get('/api/admin/musician/profiles/search', async (req: any, res) => {
 });
 
 // Admin: Wipe Profile
-app.post('/api/admin/musician/profile/:id/wipe', async (req: any, res) => {
+app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, res) => {
     try {
         const { id } = req.params;
-        const executorId = req.session?.user?.id;
-        if (!executorId) return res.status(401).json({ error: 'Unauthorized' });
+        const executorId = req.session.user.id;
 
         const profile = await db.musicianProfile.findUnique({
             where: { id },

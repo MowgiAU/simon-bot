@@ -56,9 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [selectedGuild]);
 
   useEffect(() => {
-    // DEV MODE BYPASS: If on localhost, simulate successful login
-    if (window.location.hostname === 'localhost') {
-        process.env.NODE_ENV === 'development' && console.log('[AuthProvider] Dev mode: Simulating login');
+    // DEV MODE BYPASS: Only active during local `npm run dev` (Vite development server).
+    // import.meta.env.DEV is injected at build time; it is false in all production builds.
+    if (import.meta.env.DEV) {
         setUser({
             id: 'dev_user_id',
             username: 'DevMode',
