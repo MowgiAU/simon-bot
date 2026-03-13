@@ -266,9 +266,13 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
         <>
         <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '24px' }}>
              {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    
+                    <Ticket size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Ticket System</h1>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage support tickets and configure categories.</p>
+                    </div>
                 </div>
                 
                 <div style={{ display: 'flex', gap: '8px', background: colors.surface, padding: '4px', borderRadius: '8px', border: `1px solid ${colors.border}` }}>
@@ -300,8 +304,8 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
             </div>
 
             {/* Explanation patterns */}
-            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, border: '1px solid #3E455633' }}>
-                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.5' }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`, border: '1px solid #3E455633' }}>
+                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
                     {view === 'tickets' 
                         ? 'View and manage active support tickets. Deep-link directly to a ticket by searching for its ID or owner.' 
                         : 'Configure staff roles to be pinged, ticket categories, and transcript logging behavior.'}

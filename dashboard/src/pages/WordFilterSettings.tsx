@@ -364,7 +364,7 @@ export const WordFilterSettings: React.FC<Props> = ({ guildId }) => {
         <p style={{ color: '#8a8d93', padding: '32px', textAlign: 'center' }}>Loading settings...</p>
       ) : (
         <>
-          <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+          <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
              <p style={{ margin: 0, color: colors.textPrimary }}>Automatically detect and manage inappropriate language in your server. You can create groups of words (like "Slurs", "Scams") and define custom replacements that include emojis. Messages containing these words will be deleted and optionally reposted with the bad words censored.</p>
           </div>
 

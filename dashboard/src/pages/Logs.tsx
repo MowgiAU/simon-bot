@@ -387,12 +387,32 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
   return (
     <div style={{ 
         padding: isMobile ? spacing.md : spacing.xl, 
+        height: 'calc(100vh - 80px)',
+        display: 'flex',
+        flexDirection: 'column'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '16px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+          <ShieldAlert size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Audit Logs</h1>
+        </div>
+        {!isMobile && (
+          <div style={{ marginLeft: '16px' }}>
+            <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Review moderation actions, tracked users, and system events.</p>
+          </div>
+        )}
+      </div>
+      {isMobile && <p style={{ margin: '0 0 12px', color: colors.textSecondary, flexShrink: 0 }}>Review moderation actions, tracked users, and system events.</p>}
+
+      <div style={{ 
         display: 'flex', 
         gap: spacing.lg, 
-        height: 'calc(100vh - 80px)',
+        flex: 1,
         flexDirection: isMobile ? 'column' : 'row',
-        position: 'relative'
-    }}>
+        position: 'relative',
+        minHeight: 0
+      }}>
       {/* Mobile Filter Toggle */}
       {isMobile && activeTab === 'logs' && (
         <button 
@@ -510,8 +530,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
         {activeTab === 'logs' ? (
         <>
             <div style={{ marginBottom: spacing.md }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
-                <h2 style={{ color: colors.textPrimary, margin: 0, fontSize: isMobile ? '1.2rem' : '1.5rem' }}>Audit Logs</h2>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: spacing.sm }}>
                 <div style={{ position: 'relative', width: isMobile ? '160px' : 'auto' }}>
                     <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: colors.textTertiary }} />
                     <input 
@@ -1066,6 +1085,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
             </div>
         )}
 
+      </div>
       </div>
     </div>
   );

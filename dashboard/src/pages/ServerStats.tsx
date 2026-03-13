@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
-import { colors, spacing, typography } from '../theme/theme';
+import { colors, spacing, typography, borderRadius } from '../theme/theme';
+import { BarChart3 } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
 interface ServerStatsData {
@@ -76,7 +77,22 @@ export const ServerStats: React.FC<Props> = ({ guildId }) => {
 
   return (
     <div style={{ padding: isMobile ? spacing.md : spacing.xl, maxWidth: '1200px', margin: '0 auto' }}>
-      <h2 style={{ ...typography.h2, color: colors.textPrimary, marginBottom: spacing.xl }}>Server Statistics</h2>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+          <BarChart3 size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Server Statistics</h1>
+        </div>
+        {!isMobile && (
+          <div style={{ marginLeft: '16px' }}>
+            <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>View activity, engagement, and growth metrics.</p>
+          </div>
+        )}
+      </div>
+      {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>View activity, engagement, and growth metrics.</p>}
+
+      <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+        <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Track message volume, voice activity, member growth, and channel usage over the past 30 days.</p>
+      </div>
 
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: spacing.lg, marginBottom: spacing.xl }}>

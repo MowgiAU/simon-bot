@@ -98,10 +98,10 @@ export const FeedbackPluginPage: React.FC = () => {
                 )}
             </div>
             
-            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>AI-assisted moderation queue for music production.</p>}
+            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>AI-assisted moderation queue.</p>}
 
             <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`, border: '1px solid #3E455633' }}>
-                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>AI-assisted moderation queue for music production feedback. This system automatically scans feedback for quality and queues audio uploads for manual review.</p>
+                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Configure quality thresholds, manage the review queue, and adjust settings for automatic audio upload scanning. Tracks that pass quality checks are sent to the feedback channel.</p>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexDirection: isMobile ? 'column' : 'row' }}>

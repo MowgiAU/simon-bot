@@ -13,12 +13,13 @@ import {
     Settings,
     RefreshCw
 } from 'lucide-react';
-import { colors, spacing, typography } from '../theme/theme';
+import { colors, spacing, typography, borderRadius } from '../theme/theme';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import { PendingReviews } from '../components/PendingReviews';
+import { useMobile } from '../hooks/useMobile';
 
 interface Rule {
     id: string;
@@ -50,6 +51,7 @@ const RULE_TYPES = [
 ];
 
 export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
+    const isMobile = useMobile();
     const [settings, setSettings] = useState<RuleSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [editingRule, setEditingRule] = useState<Partial<Rule> | null>(null);
@@ -214,15 +216,22 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
 
     return (
         <>
-        <div style={{ padding: spacing.lg, maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <FileText size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: '32px', color: colors.textPrimary }}>Channel Gatekeeper</h1>
+        <div style={{ padding: isMobile ? '16px' : spacing.lg, maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
+                    <FileText size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Channel Gatekeeper</h1>
                 </div>
-                <div style={{ marginLeft: '16px' }}>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure automated moderation rules per channel.</p>
-                </div>
+                {!isMobile && (
+                    <div style={{ marginLeft: '16px' }}>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Configure automated moderation rules per channel.</p>
+                    </div>
+                )}
+            </div>
+            {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Configure automated moderation rules per channel.</p>}
+
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Set up per-channel rules to automatically moderate content — block file types, enforce message length, restrict domains, and more. Rules can be configured with exempt roles.</p>
             </div>
 
             {/* Tab Navigation */}

@@ -32,6 +32,7 @@ import { GenresPage } from "./pages/GenresPage";
 import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
+import { LibrarySettings } from "./pages/LibrarySettings";
 import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
@@ -252,7 +253,7 @@ const AdminDashboard: React.FC = () => {
       case "musician-profiles":
         return <MusicianProfilePage />;
       case "library":
-        return <FujiStudio />;
+        return <LibrarySettings />;
       case "docs":
         return <DocumentationPage 
           initialSection={navigationParams?.docSection} 

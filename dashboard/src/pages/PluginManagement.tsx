@@ -142,7 +142,7 @@ export const PluginManagementPage: React.FC = () => {
         <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1000px', margin: '0 auto' }}>
              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Settings size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '12px' }} />
+                    <Settings size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
                     <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Plugin Management </h1>
                 </div>
                 <div>
