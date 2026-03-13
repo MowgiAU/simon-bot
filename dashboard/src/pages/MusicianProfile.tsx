@@ -251,6 +251,7 @@ export const MusicianProfilePage: React.FC = () => {
     // Track state
     const [tracks, setTracks] = useState<any[]>([]);
     const [isAddingTrack, setIsAddingTrack] = useState(false);
+    const [tosAgreed, setTosAgreed] = useState(false);
     const [newTrack, setNewTrack] = useState({ 
         title: '', 
         description: '', 
@@ -319,6 +320,7 @@ export const MusicianProfilePage: React.FC = () => {
             setArtworkFile(null);
             setProjectFile(null);
             setSelectedTrackGenres([]);
+            setTosAgreed(false);
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track. Please try again.' });
@@ -935,15 +937,31 @@ export const MusicianProfilePage: React.FC = () => {
                                     </div>
                                 </div>
 
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.07)', marginTop: spacing.sm }}>
+                                    <input
+                                        type="checkbox"
+                                        id="tos-agree"
+                                        checked={tosAgreed}
+                                        onChange={e => setTosAgreed(e.target.checked)}
+                                        style={{ marginTop: '2px', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer', accentColor: colors.primary }}
+                                    />
+                                    <label htmlFor="tos-agree" style={{ fontSize: '13px', color: colors.textSecondary, cursor: 'pointer', lineHeight: 1.5 }}>
+                                        I confirm I own or have the rights to all audio and content in this upload, and I agree to the{' '}
+                                        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
+                                            Terms of Service &amp; Privacy Policy
+                                        </a>.
+                                    </label>
+                                </div>
+
                                 <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
                                     <button 
                                         onClick={handleAddTrack} 
-                                        disabled={saving || !audioFile}
-                                        style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile) ? 0.7 : 1 }}
+                                        disabled={saving || !audioFile || !tosAgreed}
+                                        style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile || !tosAgreed) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile || !tosAgreed) ? 0.7 : 1 }}
                                     >
                                         {saving ? 'Uploading...' : 'Upload Track'}
                                     </button>
-                                    <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
+                                    <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); }} style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
                                 </div>
                             </div>
                         ) : (

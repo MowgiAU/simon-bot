@@ -26,6 +26,7 @@ import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
 import { ArtistsPage } from "./pages/ArtistsPage";
 import { GenresPage } from "./pages/GenresPage";
+import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { UniversalSearch } from "./components/UniversalSearch";
@@ -466,6 +467,12 @@ const AppInternal: React.FC = () => {
     const slug = currentPath.split('/category/')[1];
     return <CategoryResultsPage slug={slug} />;
   }
+
+  // /terms → Terms of Service & Privacy Policy
+  if (currentPath === '/terms') {
+    return <TermsPage />;
+  }
+
   return <ArtistDiscoveryPage />;
 };
 
