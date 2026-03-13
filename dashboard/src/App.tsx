@@ -18,6 +18,9 @@ import { TicketSystemPage } from "./pages/TicketSystem";
 import { ChannelRules } from "./pages/ChannelRules";
 import { MusicianProfileAdmin } from "./pages/MusicianProfileAdmin";
 import { MusicianProfilePage } from "./pages/MusicianProfile";
+import { ProfileEditPage } from "./pages/ProfileEditPage";
+import { MyTracksPage } from "./pages/MyTracksPage";
+import { ProfileSetupWizard } from "./pages/ProfileSetupWizard";
 import { TrackPage } from "./pages/TrackPage";
 import { DocumentationPage } from "./pages/Documentation";
 import Logs from "./pages/Logs";
@@ -421,7 +424,22 @@ const AppInternal: React.FC = () => {
     );
   }
 
-  // /profile → Musician profile (edit or public view)
+  // /profile/edit → Profile editing page
+  if (currentPath === '/profile/edit') {
+    return <ProfileEditPage />;
+  }
+
+  // /profile/setup → First-time setup wizard
+  if (currentPath === '/profile/setup') {
+    return <ProfileSetupWizard />;
+  }
+
+  // /my-tracks → Track management page
+  if (currentPath === '/my-tracks') {
+    return <MyTracksPage />;
+  }
+
+  // /profile → Musician profile (hub or public view)
   if (currentPath.startsWith('/profile')) {
     // Check if it's /profile/:username/:trackSlug
     const parts = currentPath.split('/').filter(Boolean); // [profile, username, trackSlug?]
