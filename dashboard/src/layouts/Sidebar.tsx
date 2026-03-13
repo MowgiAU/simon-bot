@@ -115,14 +115,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><AnimatedWrapper icon={Tag} size={20} /></span>
             <span className="nav-label">Genres</span>
           </button>
-          <button
-            className={`nav-item ${window.location.pathname === '/library' ? 'active' : ''}`}
-            onClick={() => navigate('/library')}
-            title={collapsed ? "Library" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={Library} size={20} /></span>
-            <span className="nav-label">Library</span>
-          </button>
         </div>
 
         <div className="nav-group">

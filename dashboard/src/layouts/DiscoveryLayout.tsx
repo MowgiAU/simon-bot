@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, Library } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -47,7 +47,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const navItems = [
         { key: 'discover', label: 'HOME', icon: <Search size={14} />, path: '/' },
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
-        { key: 'library', label: 'LIBRARY', icon: <Music size={14} color={colors.primary} />, path: '/library' },
         { key: 'genres', label: 'DISCOVER', icon: <Zap size={14} />, path: '/genres' },
         { key: 'live', label: 'LIVE', path: null, comingSoon: true },
     ];
@@ -292,7 +291,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {[
                         { key: 'discover', label: 'Home', icon: <Home size={20} />, path: '/' },
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
-                        { key: 'library', label: 'Library', icon: <Library size={20} />, path: '/library' },
                         { key: 'genres', label: 'Discover', icon: <Zap size={20} />, path: '/genres' },
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
