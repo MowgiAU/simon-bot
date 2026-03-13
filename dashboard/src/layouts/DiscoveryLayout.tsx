@@ -31,6 +31,15 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+    const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const openAccountMenu = () => {
+        if (accountMenuTimeout.current) clearTimeout(accountMenuTimeout.current);
+        setAccountMenuOpen(true);
+    };
+    const closeAccountMenu = () => {
+        accountMenuTimeout.current = setTimeout(() => setAccountMenuOpen(false), 150);
+    };
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { user, permissions, mutualAdminGuilds } = useAuth();
@@ -172,8 +181,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {!isMobile && user ? (
                         <div
                             style={{ position: 'relative' }}
-                            onMouseEnter={() => setAccountMenuOpen(true)}
-                            onMouseLeave={() => setAccountMenuOpen(false)}
+                            onMouseEnter={openAccountMenu}
+                            onMouseLeave={closeAccountMenu}
                         >
                             <Link
                                 to="/profile/edit"
@@ -204,7 +213,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                     borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000,
                                     boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
                                     display: 'flex', flexDirection: 'column', gap: '2px'
-                                }}>
+                                }}
+                                    onMouseEnter={openAccountMenu}
+                                    onMouseLeave={closeAccountMenu}
+                                >
                                     {[user.username].map(uname => (
                                         <React.Fragment key="menu">
                                             <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
