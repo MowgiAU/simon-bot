@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import DOMPurify from 'dompurify';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -428,7 +429,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             </div>
                         )}
 
-                        <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: mainBody }} />
+                        <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mainBody) }} />
                         
                         {quotedBody && (
                                 <div style={{ marginTop: '16px' }}>
@@ -439,7 +440,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                         <MoreHorizontal size={14} />
                                     </button>
                                     {showQuoted && (
-                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: `1px solid ${colors.border}`, paddingLeft: '8px', color: colors.textSecondary }} dangerouslySetInnerHTML={{ __html: quotedBody }} />
+                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: `1px solid ${colors.border}`, paddingLeft: '8px', color: colors.textSecondary }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(quotedBody) }} />
                                     )}
                                 </div>
                         )}

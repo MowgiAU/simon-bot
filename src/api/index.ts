@@ -7,6 +7,7 @@ import session from 'express-session';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import axios, { AxiosError } from 'axios';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -319,9 +320,10 @@ app.post('/api/guilds/:guildId/notifications/read', async (req: any, res) => {
 });
 
 // Get recent chat messages
-app.get('/api/guilds/:guildId/chat-messages', async (req, res) => {
+app.get('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
     try {
         const { guildId } = req.params;
+        if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
         
         // Wrap in error handler to catch missing table errors
         let messages = [];
@@ -404,6 +406,7 @@ app.post('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
 app.get('/api/guilds/:guildId/staff', async (req: any, res) => {
     try {
         const { guildId } = req.params;
+        if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
         
         // Use individual REST call to skip bot instance attachment
         const response = await discordReq('GET', `/guilds/${guildId}/members?limit=1000`);
@@ -433,14 +436,14 @@ app.get('/api/version', (req, res) => res.json({ version: '1.0.1', timestamp: ne
 
 // Middleware
 app.use(cors({
-  origin: process.env.DASHBOARD_ORIGIN || true,
+  origin: process.env.DASHBOARD_ORIGIN || false,
   credentials: true
 }));
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", 'data:', 'https:'],
             mediaSrc: ["'self'", 'blob:', 'https:'],
@@ -453,8 +456,11 @@ app.use(helmet({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required');
+}
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'supersecret',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -2370,7 +2376,8 @@ app.post('/api/bot/identity', async (req, res) => {
 // ==========================================
 
 // Serve Attachments
-app.get('/api/email/attachment/:filename', (req, res) => {
+app.get('/api/email/attachment/:filename', (req: any, res) => {
+    if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
     // Basic security: ensure no traversal
     const filename = path.basename(req.params.filename);
     const filepath = path.join(process.cwd(), 'data', 'attachments', filename);
@@ -2391,7 +2398,9 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
         const settings = await emailService.getSettings();
         const token = req.headers['x-auth-token'];
         
-        if (!settings.webhookSecret || token !== settings.webhookSecret) {
+        if (!settings.webhookSecret || typeof token !== 'string' ||
+            token.length !== settings.webhookSecret.length ||
+            !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(settings.webhookSecret))) {
              logger.warn(`[Email Webhook] Unauthorized attempt from ${req.ip}`);
              return res.status(401).json({ error: 'Unauthorized' });
         }
