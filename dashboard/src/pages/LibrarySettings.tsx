@@ -28,8 +28,8 @@ export const LibrarySettings: React.FC = () => {
                     axios.get('/api/fuji/samples/search', { params: { guildId: selectedGuild?.id } }),
                     axios.get('/api/fuji/libraries', { params: { guildId: selectedGuild?.id } })
                 ]);
-                setSampleCount(samplesRes.data?.length || 0);
-                setPacks(packsRes.data || []);
+                setSampleCount(samplesRes.data?.total ?? samplesRes.data?.items?.length ?? (Array.isArray(samplesRes.data) ? samplesRes.data.length : 0));
+                setPacks((packsRes.data || []).map((p: Pack) => ({ ...p, tags: p.tags ?? [] })));
             } catch (err) {
                 console.error('Failed to fetch library data:', err);
             } finally {
@@ -114,9 +114,9 @@ export const LibrarySettings: React.FC = () => {
                                             <div style={{ fontWeight: 'bold', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pack.name}</div>
                                             <div style={{ fontSize: '12px', color: colors.textSecondary }}>by {pack.author} &bull; {pack.sampleCount} samples</div>
                                         </div>
-                                        {pack.tags.length > 0 && (
+                                        {(pack.tags ?? []).length > 0 && (
                                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                                {pack.tags.slice(0, 3).map(tag => (
+                                                {(pack.tags ?? []).slice(0, 3).map(tag => (
                                                     <span key={tag} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', backgroundColor: colors.primary + '15', color: colors.primary, fontWeight: 600 }}>{tag}</span>
                                                 ))}
                                             </div>
