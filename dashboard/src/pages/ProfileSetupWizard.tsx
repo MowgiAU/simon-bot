@@ -35,6 +35,13 @@ export const ProfileSetupWizard: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     // Profile fields
     const [displayName, setDisplayName] = useState(user?.username || '');
@@ -311,7 +318,7 @@ export const ProfileSetupWizard: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="profile">
-            <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 20px' }}>
+            <div style={{ maxWidth: '700px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 20px' }}>
                 {/* Progress Bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '32px' }}>
                     {STEPS.map((s, i) => (
@@ -331,7 +338,7 @@ export const ProfileSetupWizard: React.FC = () => {
                                 <div style={{ color: i <= step ? colors.primary : colors.textSecondary, display: 'flex' }}>
                                     {i < step ? <Check size={16} /> : s.icon}
                                 </div>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: i <= step ? 'white' : colors.textSecondary, display: window.innerWidth > 600 ? 'inline' : 'none' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: i <= step ? 'white' : colors.textSecondary, display: isMobile ? 'none' : 'inline' }}>
                                     {s.title}
                                 </span>
                             </div>

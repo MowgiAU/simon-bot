@@ -104,7 +104,7 @@ export const BotIdentityPage: React.FC = () => {
                     <option value="invisible">Invisible</option>
                 </select>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '16px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Activity Type</label>
                         <select 

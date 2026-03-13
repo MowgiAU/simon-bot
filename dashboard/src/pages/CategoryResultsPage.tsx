@@ -37,6 +37,13 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
     const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const [genreName, setGenreName] = useState(slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Genre');
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     useEffect(() => {
         if (!slug) return;
@@ -77,13 +84,13 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
 
     return (
         <DiscoveryLayout>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
                 {/* Header Section */}
-                <div style={{ display: 'flex', flexDirection: window.innerWidth < 768 ? 'column' : 'row', alignItems: window.innerWidth < 768 ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '40px', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '40px', gap: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div style={{ 
-                            width: '64px', 
-                            height: '64px', 
+                            width: '56px', 
+                            height: '56px', 
                             backgroundColor: colors.primary + '15', 
                             borderRadius: '16px', 
                             display: 'flex', 
@@ -91,7 +98,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                             justifyContent: 'center',
                             color: colors.primary
                         }}>
-                            <Disc size={36} />
+                            <Disc size={32} />
                         </div>
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.primary, fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>
@@ -124,7 +131,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                 {/* Filters Row */}
                 <div style={{ 
                     display: 'flex', 
-                    flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+                    flexDirection: isMobile ? 'column' : 'row',
                     alignItems: 'center', 
                     gap: '16px', 
                     marginBottom: '32px',
@@ -155,7 +162,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                         />
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', width: window.innerWidth < 768 ? '100%' : 'auto' }}>
+                    <div style={{ display: 'flex', gap: '8px', width: isMobile ? '100%' : 'auto' }}>
                         {[
                             { id: 'newest', label: 'Newest', icon: <Clock size={14} /> },
                             { id: 'plays', label: 'Most Popular', icon: <TrendingUp size={14} /> },

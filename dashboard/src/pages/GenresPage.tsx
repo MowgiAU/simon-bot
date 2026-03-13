@@ -28,7 +28,14 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
     const [genres, setGenres] = useState<Genre[]>([]);
     const [selectedParent, setSelectedParent] = useState<Genre | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     useEffect(() => {
         const fetchGenres = async () => {
@@ -66,8 +73,8 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
 
     return (
         <DiscoveryLayout>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
+                <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '16px', marginBottom: '40px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div style={{ 
                             width: '56px', 
@@ -123,7 +130,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                 ) : (
                     <div style={{ 
                         display: 'grid', 
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                        gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(160px, 1fr))' : 'repeat(auto-fill, minmax(280px, 1fr))', 
                         gap: '24px' 
                     }}>
                         {displayedGenres.length > 0 ? displayedGenres.map((genre, idx) => (

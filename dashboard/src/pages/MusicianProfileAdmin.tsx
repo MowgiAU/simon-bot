@@ -35,6 +35,13 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     // Discovery settings state
     const [discoveryConfig, setDiscoveryConfig] = useState<DiscoveryConfig>({ featuredTrackId: null, featuredLabel: null, featuredTrack: null });
@@ -244,7 +251,7 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     return (
         <>
-        <div style={{ padding: spacing.lg, maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '24px 16px' : spacing.lg, maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Settings size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
@@ -439,7 +446,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                 )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xl }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: spacing.xl }}>
                 {/* Genre Library */}
                 <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
                     <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>

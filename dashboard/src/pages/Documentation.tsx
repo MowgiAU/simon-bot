@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Book, 
   Shield, 
@@ -83,6 +83,14 @@ const docSections: DocSection[] = [
 export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?: (section: any) => void }> = ({ initialSection, onNavigate }) => {
   const [activeSection, setActiveSection] = useState(initialSection || docSections[0].id);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [showSidebar, setShowSidebar] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const handleOpenSettings = () => {
     if (!onNavigate) return;
@@ -117,31 +125,46 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
   );
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '24px 16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
         <div style={{ 
-          width: '48px', 
-          height: '48px', 
+          width: '56px', 
+          height: '56px', 
           background: 'rgba(40, 123, 102, 0.1)', 
-          borderRadius: '12px', 
+          borderRadius: '16px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
           marginRight: '16px',
           border: '1px solid rgba(40, 123, 102, 0.2)'
         }}>
-          <Book size={28} color={colors.primary} />
+          <Book size={32} color={colors.primary} />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#FFFFFF' }}>Documentation</h1>
+          <h1 style={{ margin: 0, fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: '#FFFFFF' }}>Documentation</h1>
           <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>Learn how to configure and use Fuji Studio's powerful plugins.</p>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '32px' }}>
+      {isMobile && (
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '10px 16px', borderRadius: '10px',
+            backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+            color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+            marginBottom: '16px', width: '100%', justifyContent: 'center'
+          }}
+        >
+          <Search size={16} /> {showSidebar ? 'Hide Navigation' : 'Show Navigation'}
+        </button>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '300px 1fr', gap: '32px' }}>
         {/* Sidebar */}
-        <div>
+        <div style={{ display: isMobile && !showSidebar ? 'none' : 'block' }}>
           <div style={{ 
             position: 'relative',
             marginBottom: '20px'
@@ -251,7 +274,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
              <p style={{ margin: 0, color: '#E0E0E0', fontSize: '16px', lineHeight: '1.6' }}>{currentSection.content}</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '32px' }}>
             {currentSection.commands && (
               <div>
                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FFFFFF', marginBottom: '16px' }}>

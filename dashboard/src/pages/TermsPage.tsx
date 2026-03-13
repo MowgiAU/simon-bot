@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Shield } from 'lucide-react';
@@ -24,12 +24,32 @@ const Bullet: React.FC<{ label?: string; children: React.ReactNode }> = ({ label
 );
 
 export const TermsPage: React.FC = () => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
     return (
         <DiscoveryLayout activeTab="discover">
-            <div style={{ maxWidth: '800px', margin: '0 auto', padding: `${spacing.xl} ${spacing.lg}` }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
-                    <Shield size={40} color={colors.primary} style={{ marginRight: '16px', flexShrink: 0 }} />
+                    <div style={{ 
+                        width: '56px', 
+                        height: '56px', 
+                        backgroundColor: colors.primary + '15', 
+                        borderRadius: '16px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        marginRight: '16px',
+                        flexShrink: 0
+                    }}>
+                        <Shield size={32} color={colors.primary} />
+                    </div>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: colors.textPrimary }}>
                             Terms of Service & Privacy Policy
