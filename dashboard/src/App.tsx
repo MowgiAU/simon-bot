@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { ResourceProvider } from "./components/ResourceProvider";
@@ -414,6 +414,31 @@ const AdminDashboard: React.FC = () => {
  */
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
+
+  useEffect(() => {
+    const titles: { test: (p: string) => boolean; title: string }[] = [
+      { test: p => p.startsWith('/dashboard'), title: 'Fuji Studio | Dashboard' },
+      { test: p => p === '/profile/edit',      title: 'Fuji Studio | Edit Profile' },
+      { test: p => p === '/profile/setup',     title: 'Fuji Studio | Profile Setup' },
+      { test: p => p === '/my-tracks',         title: 'Fuji Studio | My Tracks' },
+      { test: p => p === '/artists',           title: 'Fuji Studio | Artists' },
+      { test: p => p === '/library',           title: 'Fuji Studio | Library' },
+      { test: p => p === '/genres',            title: 'Fuji Studio | Genres' },
+      { test: p => p.startsWith('/genres/'),   title: 'Fuji Studio | Genre' },
+      { test: p => p.startsWith('/category/'), title: 'Fuji Studio | Category' },
+      { test: p => p === '/terms',             title: 'Fuji Studio | Terms & Privacy' },
+      { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
+    ];
+    const match = titles.find(t => t.test(currentPath));
+    // Only set a default title if the page component won't set its own dynamic title
+    // (profile/:username and track pages set their own via document.title in effects)
+    const isDynamic = currentPath.startsWith('/profile/') && currentPath !== '/profile/edit' && currentPath !== '/profile/setup';
+    if (match && !isDynamic) {
+      document.title = match.title;
+    } else if (!match && !isDynamic) {
+      document.title = 'Fuji Studio';
+    }
+  }, [currentPath]);
 
   // /dashboard → Full admin dashboard
   if (currentPath.startsWith('/dashboard')) {
