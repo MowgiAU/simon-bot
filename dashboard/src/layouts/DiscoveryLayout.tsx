@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2 } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -30,6 +30,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 }) => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { user, permissions, mutualAdminGuilds } = useAuth();
@@ -169,27 +170,63 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     ) : null}
 
                     {!isMobile && user ? (
-                        <Link
-                            to="/profile"
-                            style={{
-                                backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
-                                color: 'white',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                letterSpacing: '0.05em',
-                                textDecoration: 'none',
-                            }}
+                        <div
+                            style={{ position: 'relative' }}
+                            onMouseEnter={() => setAccountMenuOpen(true)}
+                            onMouseLeave={() => setAccountMenuOpen(false)}
                         >
-                            <User size={14} />
-                            MY PROFILE
-                        </Link>
+                            <Link
+                                to="/profile/edit"
+                                style={{
+                                    backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                                    color: 'white',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s',
+                                    letterSpacing: '0.05em',
+                                    textDecoration: 'none',
+                                }}
+                            >
+                                <User size={14} />
+                                ACCOUNT
+                                <ChevronDown size={12} />
+                            </Link>
+                            {accountMenuOpen && (
+                                <div style={{
+                                    position: 'absolute', top: '100%', right: 0, marginTop: '4px',
+                                    backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000,
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                                    display: 'flex', flexDirection: 'column', gap: '2px'
+                                }}>
+                                    {[user.username].map(uname => (
+                                        <React.Fragment key="menu">
+                                            <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
+                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
+                                                <ExternalLink size={13} /> View Profile
+                                            </Link>
+                                            <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
+                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
+                                                <Edit3 size={13} /> Edit Profile
+                                            </Link>
+                                            <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
+                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
+                                                <Upload size={13} /> Upload Tracks
+                                            </Link>
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     ) : null}
                     {!user && !isMobile ? (
                         <a

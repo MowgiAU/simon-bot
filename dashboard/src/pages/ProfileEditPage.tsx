@@ -9,6 +9,11 @@ import {
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link } from 'react-router-dom';
 
+const GEAR_CATEGORIES = [
+    'DAW', 'VST / Plugin', 'Monitor', 'Synth', 'Keyboard / Controller',
+    'Audio Interface', 'Microphone', 'Hardware', 'Headphones', 'Other'
+];
+
 interface MusicianProfile {
     id?: string;
     userId?: string;
@@ -21,7 +26,7 @@ interface MusicianProfile {
     youtubeUrl: string | null;
     instagramUrl: string | null;
     discordUrl: string | null;
-    gearList: string[];
+    gearList: Array<{name: string; category: string}>;
     genres: { id: string; name: string }[];
     featuredTrackId?: string | null;
 }
@@ -73,7 +78,8 @@ export const ProfileEditPage: React.FC = () => {
                 ]);
                 
                 const data = profileRes.data;
-                if (data && !data.gearList && data.hardware) data.gearList = data.hardware;
+                const rawGear = (data?.hardware || data?.gearList || []) as string[];
+                if (data) data.gearList = rawGear.map((item: string) => { try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; } });
                 if (data && data.tracks) setTracks(data.tracks);
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
@@ -129,6 +135,7 @@ export const ProfileEditPage: React.FC = () => {
         try {
             const payload = { 
                 ...profile, 
+                gearList: (profile.gearList || []).map(g => JSON.stringify(g)),
                 genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || []
             };
             await axios.post(`/api/musician/profile/${user.id}`, payload, { withCredentials: true });
@@ -184,13 +191,13 @@ export const ProfileEditPage: React.FC = () => {
     const addGear = (e: React.MouseEvent) => {
         e.preventDefault(); e.stopPropagation();
         if (!profile) return;
-        setProfile({ ...profile, gearList: [...(profile.gearList || []), ''] });
+        setProfile({ ...profile, gearList: [...(profile.gearList || []), { name: '', category: 'Other' }] });
     };
 
-    const updateGear = (index: number, value: string) => {
+    const updateGear = (index: number, field: 'name' | 'category', value: string) => {
         if (!profile) return;
         const newGear = [...(profile.gearList || [])];
-        newGear[index] = value;
+        newGear[index] = { ...newGear[index], [field]: value };
         setProfile({ ...profile, gearList: newGear });
     };
 
@@ -426,11 +433,17 @@ export const ProfileEditPage: React.FC = () => {
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                         {profile?.gearList?.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                                <input type="text" value={item} onChange={(e) => updateGear(idx, e.target.value)}
-                                    placeholder="FL Studio 21, Serum, DT 990 Pro..."
+                            <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input type="text" value={item.name} onChange={(e) => updateGear(idx, 'name', e.target.value)}
+                                    placeholder="e.g. FL Studio 21, Serum, DT 990 Pro..."
                                     style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
                                 />
+                                <select value={item.category} onChange={(e) => updateGear(idx, 'category', e.target.value)}
+                                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, cursor: 'pointer', flexShrink: 0 }}>
+                                    {GEAR_CATEGORIES.map(cat => (
+                                        <option key={cat} value={cat} style={{ backgroundColor: '#1A1E2E', color: colors.textPrimary }}>{cat}</option>
+                                    ))}
+                                </select>
                                 <button onClick={(e) => removeGear(idx, e)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
                                     <X size={18}/>
                                 </button>

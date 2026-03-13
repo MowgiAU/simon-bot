@@ -23,6 +23,11 @@ const STEPS = [
     { title: 'Gear', icon: <Hammer size={20} /> },
 ];
 
+const GEAR_CATEGORIES = [
+    'DAW', 'VST / Plugin', 'Monitor', 'Synth', 'Keyboard / Controller',
+    'Audio Interface', 'Microphone', 'Hardware', 'Headphones', 'Other'
+];
+
 export const ProfileSetupWizard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -42,7 +47,7 @@ export const ProfileSetupWizard: React.FC = () => {
     const [youtubeUrl, setYoutubeUrl] = useState('');
     const [instagramUrl, setInstagramUrl] = useState('');
     const [discordUrl, setDiscordUrl] = useState('');
-    const [gearList, setGearList] = useState<string[]>([]);
+    const [gearList, setGearList] = useState<Array<{name: string; category: string}>>([]);
     const [nameError, setNameError] = useState<string | null>(null);
     const [validatingName, setValidatingName] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -72,7 +77,7 @@ export const ProfileSetupWizard: React.FC = () => {
                 displayName: displayName || user.username,
                 bio,
                 spotifyUrl, soundcloudUrl, youtubeUrl, instagramUrl, discordUrl,
-                gearList: gearList.filter(g => g.trim()),
+                gearList: gearList.filter(g => g.name.trim()).map(g => JSON.stringify(g)),
                 genres: selectedGenres.map(g => g.id)
             };
             await axios.post(`/api/musician/profile/${user.id}`, payload, { withCredentials: true });
@@ -271,22 +276,28 @@ export const ProfileSetupWizard: React.FC = () => {
                 return (
                     <div style={cardStyle}>
                         <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 700 }}>Your Gear Rack</h2>
-                        <p style={{ color: colors.textSecondary, fontSize: '14px', marginBottom: '28px' }}>What do you use to make music? List your DAW, plugins, hardware, etc. This is optional.</p>
+                        <p style={{ color: colors.textSecondary, fontSize: '14px', marginBottom: '28px' }}>Add each piece of equipment you use and choose its category. This is optional.</p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {gearList.map((item, idx) => (
-                                <div key={idx} style={{ display: 'flex', gap: '8px' }}>
-                                    <input type="text" value={item} onChange={e => { const n = [...gearList]; n[idx] = e.target.value; setGearList(n); }}
-                                        placeholder="FL Studio 21, Serum, DT 990 Pro..."
+                                <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <input type="text" value={item.name} onChange={e => { const n = [...gearList]; n[idx] = { ...n[idx], name: e.target.value }; setGearList(n); }}
+                                        placeholder="e.g. FL Studio 21, Serum, DT 990 Pro..."
                                         style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '12px', color: colors.textPrimary, fontSize: '14px' }}
                                     />
+                                    <select value={item.category} onChange={e => { const n = [...gearList]; n[idx] = { ...n[idx], category: e.target.value }; setGearList(n); }}
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '12px', color: colors.textPrimary, cursor: 'pointer', flexShrink: 0 }}>
+                                        {GEAR_CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat} style={{ backgroundColor: '#1A1E2E', color: colors.textPrimary }}>{cat}</option>
+                                        ))}
+                                    </select>
                                     <button onClick={() => setGearList(gearList.filter((_, i) => i !== idx))}
                                         style={{ backgroundColor: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
                                         <X size={18} />
                                     </button>
                                 </div>
                             ))}
-                            <button onClick={() => setGearList([...gearList, ''])}
+                            <button onClick={() => setGearList([...gearList, { name: '', category: 'Other' }])}
                                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '10px', padding: '12px', color: colors.textSecondary, cursor: 'pointer', fontSize: '13px' }}>
                                 <Plus size={16} /> Add Equipment
                             </button>

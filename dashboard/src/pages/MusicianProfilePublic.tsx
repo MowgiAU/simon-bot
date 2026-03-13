@@ -121,7 +121,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         </div>
     );
 
-    const gear = profile.gearList || profile.hardware || [];
+    const gear = (profile.gearList || profile.hardware || []).map((item: string | any) => {
+        if (typeof item !== 'string') return item;
+        try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; }
+    });
     const stats = [
         { label: 'Listeners', value: '1.2K' },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
@@ -407,16 +410,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         <Hammer size={18} color="#7A8C37" /> Artist's Toolkit
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '12px' }}>
-                        {gear.map((item, i) => (
+                        {gear.map((item: any, i: number) => (
                             <div key={i} style={{ 
                                 padding: '12px', borderRadius: '8px', 
                                 backgroundColor: i % 2 === 0 ? 'rgba(89, 49, 25, 0.1)' : 'rgba(122, 140, 55, 0.1)',
                                 border: `1px solid ${i % 2 === 0 ? 'rgba(89, 49, 25, 0.3)' : 'rgba(122, 140, 55, 0.3)'}`
                             }}>
                                 <p style={{ fontSize: '9px', fontWeight: 'bold', color: i % 2 === 0 ? '#593119' : '#7A8C37', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-                                    {i === 0 ? 'Main DAW' : i === 1 ? 'Monitors' : i === 2 ? 'Synths' : 'Interface'}
+                                    {item.category || 'Other'}
                                 </p>
-                                <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'white', margin: '4px 0 0' }}>{item}</p>
+                                <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'white', margin: '4px 0 0' }}>{item.name || item}</p>
                             </div>
                         ))}
                         {gear.length === 0 && <p style={{ gridColumn: isMobile ? 'auto' : 'span 2', fontSize: '12px', color: '#B9C3CE' }}>No gear listed yet.</p>}
