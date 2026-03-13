@@ -22,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  Plus
+  Plus,
+  Music
 } from 'lucide-react';
 
 interface LogComment {
@@ -71,6 +72,7 @@ const CATEGORIES = [
   { id: 'LINK', label: 'Links', icon: <Link size={16} /> },
   { id: 'PIRACY', label: 'Piracy', icon: <Skull size={16} /> },
   { id: 'ERROR', label: 'Errors', icon: <AlertTriangle size={16} /> },
+  { id: 'PROFILES', label: 'Profiles', icon: <Music size={16} /> },
 ];
 
 interface LogsProps {
@@ -749,6 +751,31 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                         <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary }}>
                                             <span>Item: <span style={{ color: colors.textPrimary, fontWeight: 500 }}>{log.details.item}</span></span>
                                             <span>Price: {log.details.price} 🪙</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 4b. Profile & Track Admin Logs
+                            const profileActionLabels: Record<string, { label: string; color: string }> = {
+                                profile_status_changed: { label: 'Profile Status Changed', color: '#ff9800' },
+                                track_status_changed:   { label: 'Track Status Changed',   color: '#ff9800' },
+                                profile_wiped:          { label: 'Profile Wiped',           color: '#f44336' },
+                                track_uploaded:         { label: 'Track Uploaded',          color: colors.primary },
+                                profile_updated:        { label: 'Profile Updated',         color: colors.primary },
+                                avatar_uploaded:        { label: 'Avatar Uploaded',         color: colors.primary },
+                            };
+                            if (profileActionLabels[log.action]) {
+                                const meta = profileActionLabels[log.action];
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '8px 16px', color: colors.textSecondary }}>
+                                            {log.details?.username && <span>Artist: <span style={{ color: colors.textPrimary }}>{log.details.username}</span></span>}
+                                            {log.details?.title    && <span>Track: <span style={{ color: colors.textPrimary }}>{log.details.title}</span></span>}
+                                            {log.details?.status   && <span>Status: <span style={{ color: meta.color, fontWeight: 700, textTransform: 'uppercase' }}>{log.details.status}</span></span>}
+                                            {log.details?.reason   && <span>Reason: <span style={{ color: colors.textPrimary }}>{log.details.reason}</span></span>}
+                                            {log.details?.trackCount !== undefined && <span>Tracks removed: {log.details.trackCount}</span>}
                                         </div>
                                     </div>
                                 );

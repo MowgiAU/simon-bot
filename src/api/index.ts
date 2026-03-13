@@ -970,7 +970,8 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         'CURRENCY': ['item_bought', 'transaction'],
         'LINK': ['link_deleted', 'link_filtered'],
         'PIRACY': ['piracy_detected'],
-        'ERROR': ['error', 'command_error']
+        'ERROR': ['error', 'command_error'],
+        'PROFILES': ['profile_status_changed', 'track_status_changed', 'profile_wiped', 'track_uploaded', 'profile_updated', 'avatar_uploaded']
     };
 
     if (action && action !== 'all') {
