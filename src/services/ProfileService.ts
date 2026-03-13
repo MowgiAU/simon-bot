@@ -107,7 +107,7 @@ export class ProfileService {
     }
 
     async getProfile(identifier: string) {
-        return await this.prisma.musicianProfile.findFirst({
+        const profile = await this.prisma.musicianProfile.findFirst({
             where: {
                 OR: [
                     { userId: identifier },
@@ -125,6 +125,18 @@ export class ProfileService {
                 featuredTrack: true
             }
         });
+
+        // If the featured track has been privated, clear it from the response and DB
+        if (profile && profile.featuredTrack && !profile.featuredTrack.isPublic) {
+            await this.prisma.musicianProfile.update({
+                where: { id: profile.id },
+                data: { featuredTrackId: null }
+            });
+            profile.featuredTrackId = null;
+            (profile as any).featuredTrack = null;
+        }
+
+        return profile;
     }
 
     async getAllGenres() {

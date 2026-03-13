@@ -136,7 +136,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, color: '#5865F2', isHandle: true },
     ];
 
-    const featuredTrack = profile.featuredTrack || (profile.tracks && profile.tracks.length > 0 ? profile.tracks[0] : null);
+    const featuredTrack = profile.featuredTrack || null;
     
     // Fallback logic for avatar:
     // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
@@ -158,6 +158,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             fontFamily: 'Inter, system-ui, sans-serif'
         }}>
             {/* Header / Player Section */}
+            {featuredTrack && (
             <div style={{ 
                 backgroundColor: '#242C3D', 
                 borderRadius: '12px', 
@@ -203,9 +204,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                             <span style={{ backgroundColor: '#F27B13', color: 'white', fontSize: isMobile ? '8px' : '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
-                            <span style={{ color: colors.primary, fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Layout size={12} /> Now Playing
-                            </span>
                         </div>
                         <h2 style={{ 
                             fontSize: isMobile ? '20px' : '36px', 
@@ -294,6 +292,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     )}
                 </div>
             </div>
+            )}
 
             {/* Grid Layout */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>

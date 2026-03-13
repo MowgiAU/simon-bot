@@ -3349,6 +3349,14 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
+        // If track is being made private, clear it as the featured track on the profile
+        if (isPublic === false || isPublic === 'false') {
+            await db.musicianProfile.updateMany({
+                where: { featuredTrackId: trackId },
+                data: { featuredTrackId: null }
+            });
+        }
+
         const updated = await db.track.update({
             where: { id: trackId },
             data: { 
@@ -3409,6 +3417,10 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         }
 
+        await db.musicianProfile.updateMany({
+            where: { featuredTrackId: trackId },
+            data: { featuredTrackId: null }
+        });
         await db.track.delete({ where: { id: trackId } });
         res.json({ success: true });
     } catch (e: any) {
