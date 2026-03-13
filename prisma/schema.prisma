@@ -671,6 +671,10 @@ model MusicianProfile {
   tracks          Track[]
   totalPlays      Int      @default(0)
   
+  // Moderation
+  status          String   @default("active") // "active" | "suspended" | "banned"
+  statusReason    String?  // Admin-provided note for suspension/ban
+  
   // Genres (Many-to-Many via Join Table)
   genres          ProfileGenre[]
   
@@ -698,6 +702,10 @@ model Track {
   isPublic        Boolean  @default(true)
   allowAudioDownload Boolean @default(true)
   allowProjectDownload Boolean @default(true)
+
+  // Moderation
+  status          String   @default("active") // "active" | "suspended" | "deleted"
+  statusReason    String?  // Admin-provided note
 
   // ID3 Metadata (user-editable)
   artist          String?

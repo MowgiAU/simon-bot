@@ -3716,7 +3716,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
         
-        const where: any = { isPublic: true };
+        const where: any = { isPublic: true, status: 'active', profile: { status: 'active' } };
         
         if (genre) {
             // Get all sub-genres of this parent genre to include them in results
@@ -3855,7 +3855,7 @@ app.get('/api/musician/profiles', async (req, res) => {
   try {
       const { search, genre, sort = 'newest', limit = 50 } = req.query;
       
-      const where: any = {};
+      const where: any = { status: 'active' };
       
       if (search) {
           where.OR = [
@@ -3937,7 +3937,11 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } } } } }
             })) as any;
             if (byUsername) {
+                if (byUsername.status && byUsername.status !== 'active') {
+                    return res.status(404).json({ error: 'Profile not found' });
+                }
                 if (byUsername.tracks) {
+                    byUsername.tracks = byUsername.tracks.filter((t: any) => t.status === 'active' || !t.status);
                     byUsername.tracks.forEach((t: any) => {
                         if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                         if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
@@ -3948,9 +3952,12 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profile not found' });
         }
         
-        // Fix for profileService.getProfile missing fields
         const profileData = profile as any;
+        if (profileData.status && profileData.status !== 'active') {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
         if (profileData && profileData.tracks) {
+            profileData.tracks = profileData.tracks.filter((t: any) => t.status === 'active' || !t.status);
             profileData.tracks.forEach((t: any) => {
                 if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                 if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
@@ -4511,9 +4518,61 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
     }
 });
 
-/**
- * --- FUJI STUDIO: CLOUD SAMPLE MANAGER API ---
- */
+// Admin: Set Profile Status (suspend/ban/reinstate)
+app.patch('/api/admin/musician/profiles/:id/status', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { status, reason } = req.body;
+        if (!['active', 'suspended', 'banned'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status. Must be: active, suspended, or banned' });
+        }
+        const profile = await db.musicianProfile.update({
+            where: { id },
+            data: { status, statusReason: reason || null }
+        });
+        await logAction('GLOBAL', 'profile_status_changed', req.session.user.id, profile.userId, {
+            status, reason, username: profile.username
+        });
+        res.json({ success: true, profile });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Set Track Status (suspend/reinstate/soft-delete)
+app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const { status, reason } = req.body;
+        if (!['active', 'suspended', 'deleted'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status. Must be: active, suspended, or deleted' });
+        }
+        const track = await db.track.update({
+            where: { id: trackId },
+            data: { status, statusReason: reason || null }
+        });
+        await logAction('GLOBAL', 'track_status_changed', req.session.user.id, track.profileId, {
+            status, reason, title: track.title, trackId
+        });
+        res.json({ success: true, track });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: List tracks for a profile (including suspended/deleted)
+app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const tracks = await db.track.findMany({
+            where: { profileId: id },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(tracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // Stream/Proxy Audio from Discord
 app.get('/api/fuji/stream/:attachmentId', async (req, res) => {
