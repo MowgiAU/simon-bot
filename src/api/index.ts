@@ -3717,7 +3717,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
         
-        const where: any = { isPublic: true, status: 'active', profile: { status: 'active' } };
+        const where: any = { isPublic: true };
         
         if (genre) {
             // Get all sub-genres of this parent genre to include them in results
@@ -3783,12 +3783,13 @@ app.get('/api/discovery/tracks', async (req, res) => {
         });
 
         // Ensure new permission fields exist even if migration hasn't run fully or records are old
-        tracks.forEach((t: any) => {
+        // Filter out suspended/hidden tracks and profiles (application-level so it's safe before migration)
+        const activeTracks = tracks.filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'));
+        activeTracks.forEach((t: any) => {
             if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
             if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
         });
 
-        // Find the genre name and its children
         let genreFound = null;
         if (genre) {
             genreFound = await db.genre.findFirst({
@@ -3809,7 +3810,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
         }
 
         res.json({
-            tracks,
+            tracks: activeTracks,
             genre: genreFound
         });
     } catch (e: any) {
@@ -3856,7 +3857,7 @@ app.get('/api/musician/profiles', async (req, res) => {
   try {
       const { search, genre, sort = 'newest', limit = 50 } = req.query;
       
-      const where: any = { status: 'active' };
+      const where: any = {};
       
       if (search) {
           where.OR = [
@@ -3910,9 +3911,13 @@ app.get('/api/musician/profiles', async (req, res) => {
           });
       }
 
+      // Filter suspended/banned profiles application-side (safe before migration runs)
+      const activeProfiles = profiles.filter((p: any) => !p.status || p.status === 'active');
+
       // Track permission backfill for profile previews
-      profiles.forEach((p: any) => {
+      activeProfiles.forEach((p: any) => {
           if (p.tracks) {
+              p.tracks = p.tracks.filter((t: any) => !t.status || t.status === 'active');
               p.tracks.forEach((t: any) => {
                   if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                   if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
@@ -3920,7 +3925,7 @@ app.get('/api/musician/profiles', async (req, res) => {
           }
       });
 
-      res.json(profiles);
+      res.json(activeProfiles);
   } catch (e: any) {
       res.status(500).json({ error: e.message });
   }
