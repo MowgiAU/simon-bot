@@ -141,7 +141,24 @@ export class BeatBattlePlugin implements IPlugin {
             a.name?.endsWith('.flac')
         );
 
-        if (!audioAttachment) return;
+        if (!audioAttachment) {
+            // Delete non-audio messages and DM the user (skip for mods)
+            const member = message.member;
+            if (!member?.permissions?.has(PermissionFlagsBits.ManageMessages)) {
+                try { await message.delete(); } catch { /* missing permission or already deleted */ }
+                try {
+                    await message.author.send({
+                        embeds: [new EmbedBuilder()
+                            .setTitle('❌ Submission Removed')
+                            .setDescription(`Your message in the **${battle.title}** submissions channel was removed because it didn't contain an audio file.\n\nPlease attach an **MP3 or WAV file** to your message when submitting. You can include your beat title as the message text.`)
+                            .setColor(0xEF4444)
+                            .setFooter({ text: 'Fuji Studio Beat Battle' })
+                        ],
+                    });
+                } catch { /* DMs may be disabled */ }
+            }
+            return;
+        }
 
         // Check if user already submitted
         const existingEntry = await this.db.battleEntry.findUnique({

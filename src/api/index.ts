@@ -5209,9 +5209,9 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
 });
 
 // --- Shared helper: post a battle announcement embed to a Discord channel via REST ---
-async function postBattleAnnouncement(battle: any, settings: any): Promise<boolean> {
+async function postBattleAnnouncement(battle: any, settings: any): Promise<string | null> {
     const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
-    if (!annChannelId) return false;
+    if (!annChannelId) return 'No announcement channel configured. Set one in Beat Battle settings.';
 
     const apiUrl = process.env.API_URL || 'https://fujistudio.app';
     let embed: any;
@@ -5254,7 +5254,7 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<boole
         const winner = battle.winnerEntryId
             ? await db.battleEntry.findUnique({ where: { id: battle.winnerEntryId } })
             : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
-        if (!winner) return false;
+        if (!winner) return null;
         embed = {
             title: `🏆 ${battle.title} — Winner!`,
             description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
@@ -5264,15 +5264,22 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<boole
             timestamp: new Date().toISOString(),
         };
     } else {
-        return false;
+        return null;
     }
 
     try {
         await discordReq('POST', `/channels/${annChannelId}/messages`, { embeds: [embed] });
-        return true;
+        return null;
     } catch (err: any) {
+        const status = err.response?.status;
+        if (status === 403) {
+            return `Bot lacks Send Messages permission in <#${annChannelId}>. Grant the bot "Send Messages" in that channel, then try again.`;
+        }
+        if (status === 404) {
+            return `Announcement channel not found (ID: ${annChannelId}). Check the channel ID in Beat Battle settings.`;
+        }
         logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
-        return false;
+        return `Discord error: ${err.message}`;
     }
 }
 
@@ -5283,7 +5290,7 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
         const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-        const posted = await postBattleAnnouncement(battle, settings);
+        const announceError = await postBattleAnnouncement(battle, settings);
 
         await db.actionLog.create({
             data: {
@@ -5291,12 +5298,12 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
                 guildId: battle.guildId,
                 action: 'announcement_posted',
                 executorId: req.session.user.id,
-                details: { title: battle.title, status: battle.status, posted },
+                details: { title: battle.title, status: battle.status, ok: !announceError },
             },
         }).catch(() => {});
 
-        if (!posted) {
-            return res.status(400).json({ error: 'Could not post announcement. Check that an announcement channel is configured in Beat Battle settings.' });
+        if (announceError) {
+            return res.status(400).json({ error: announceError });
         }
         res.json({ success: true, message: 'Announcement posted!' });
     } catch (e: any) {
@@ -5690,6 +5697,15 @@ async function runBeatBattleLifecycle(): Promise<void> {
                         name: channelName,
                         type: 0, // GUILD_TEXT
                         topic: `Submit your beats for: ${battle.title}`,
+                        rate_limit_per_user: 10,
+                        permission_overwrites: [
+                            {
+                                id: battle.guildId, // @everyone role ID equals guild ID
+                                type: 0,
+                                allow: '101376', // VIEW_CHANNEL(1024) + SEND_MESSAGES(2048) + ATTACH_FILES(32768) + READ_MESSAGE_HISTORY(65536)
+                                deny: '0',
+                            },
+                        ],
                     };
                     if (categoryId) body.parent_id = categoryId;
 
@@ -5731,7 +5747,20 @@ async function runBeatBattleLifecycle(): Promise<void> {
             try {
                 const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
                 const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
-                const body: any = { name: channelName, type: 0, topic: `Submit your beats for: ${battle.title}` };
+                const body: any = {
+                    name: channelName,
+                    type: 0,
+                    topic: `Submit your beats for: ${battle.title}`,
+                    rate_limit_per_user: 10,
+                    permission_overwrites: [
+                        {
+                            id: battle.guildId,
+                            type: 0,
+                            allow: '101376',
+                            deny: '0',
+                        },
+                    ],
+                };
                 if (categoryId) body.parent_id = categoryId;
                 const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
                 const channelId = chRes.data.id;

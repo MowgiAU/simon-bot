@@ -129,7 +129,7 @@ export const BeatBattlePage: React.FC = () => {
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
     const [announcingId, setAnnouncingId] = useState<string | null>(null);
-    const [announceMsg, setAnnounceMsg] = useState<{ id: string; ok: boolean } | null>(null);
+    const [announceMsg, setAnnounceMsg] = useState<{ id: string; ok: boolean; message?: string } | null>(null);
 
     const fetchBattles = useCallback(async () => {
         try {
@@ -258,11 +258,12 @@ export const BeatBattlePage: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
             });
-            setAnnounceMsg({ id, ok: res.ok });
-            setTimeout(() => setAnnounceMsg(null), 3000);
+            const data = await res.json();
+            setAnnounceMsg({ id, ok: res.ok, message: res.ok ? undefined : (data.error || 'Failed') });
+            setTimeout(() => setAnnounceMsg(null), res.ok ? 3000 : 7000);
         } catch {
-            setAnnounceMsg({ id, ok: false });
-            setTimeout(() => setAnnounceMsg(null), 3000);
+            setAnnounceMsg({ id, ok: false, message: 'Network error' });
+            setTimeout(() => setAnnounceMsg(null), 7000);
         } finally { setAnnouncingId(null); }
     };
 
@@ -636,8 +637,8 @@ export const BeatBattlePage: React.FC = () => {
                                         >
                                             <Megaphone size={14} />
                                             {announceMsg?.id === b.id && (
-                                                <span style={{ position: 'absolute', bottom: '110%', right: 0, whiteSpace: 'nowrap', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? '#2B8C71' : '#EF4444', color: '#fff', pointerEvents: 'none' }}>
-                                                    {announceMsg.ok ? 'Posted ✓' : 'Failed ✗'}
+                                                <span style={{ position: 'absolute', bottom: '110%', right: 0, fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? '#2B8C71' : '#EF4444', color: '#fff', pointerEvents: 'none', maxWidth: '260px', lineHeight: '1.3', textAlign: 'center' }}>
+                                                    {announceMsg.ok ? 'Posted ✓' : (announceMsg.message || 'Failed ✗')}
                                                 </span>
                                             )}
                                         </button>
