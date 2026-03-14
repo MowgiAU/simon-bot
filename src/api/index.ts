@@ -4964,6 +4964,26 @@ app.get('/api/beat-battle/archive', async (req: any, res) => {
     }
 });
 
+// --- Public: Get single entry with battle context ---
+app.get('/api/beat-battle/entries/:entryId', async (req: any, res) => {
+    try {
+        const entry = await db.battleEntry.findUnique({
+            where: { id: req.params.entryId },
+            include: {
+                battle: {
+                    select: { id: true, title: true, status: true, description: true, guildId: true },
+                },
+            },
+        });
+
+        if (!entry) return res.status(404).json({ error: 'Entry not found' });
+
+        res.json(entry);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Auth: Vote on an entry ---
 app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any, res) => {
     try {
@@ -5201,7 +5221,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
                 }
             }
 
-            // → Voting: lock submissions channel
+            // → Voting: lock submissions channel + add vote buttons
             if (newStatus === 'voting' && battle.submissionChannelId) {
                 try {
                     await discordReq('PUT', `/channels/${battle.submissionChannelId}/permissions/${battle.guildId}`, {
@@ -5211,6 +5231,25 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
                     await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
                         embeds: [{ title: '🔒 Submissions Closed', description: `Submissions for **${battle.title}** are now closed.\n\n**${entryCount}** ${entryCount === 1 ? 'entry' : 'entries'} received. Voting is now open — hit the 🔥 button on your favorite beat!`, color: 0xFFA500, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
                     });
+
+                    // Add vote buttons to all existing entry embeds
+                    const entries = await db.battleEntry.findMany({
+                        where: { battleId: battle.id, discordMsgId: { not: null } },
+                    });
+                    for (const entry of entries) {
+                        try {
+                            await discordReq('PATCH', `/channels/${battle.submissionChannelId}/messages/${entry.discordMsgId}`, {
+                                components: [{
+                                    type: 1,
+                                    components: [{
+                                        type: 2, style: 1, custom_id: `battle_vote_${entry.id}`,
+                                        label: `Vote (${entry.voteCount})`, emoji: { name: '🔥' },
+                                    }],
+                                }],
+                            });
+                        } catch {}
+                    }
+                    logger.info(`Beat Battle: added vote buttons to ${entries.length} entries on manual voting transition`);
                 } catch (err: any) {
                     logger.error(`Beat Battle: failed to lock channel on manual voting: ${err.message}`);
                 }
@@ -5877,6 +5916,25 @@ async function runBeatBattleLifecycle(): Promise<void> {
                                 timestamp: new Date().toISOString(),
                             }],
                         });
+
+                        // Add vote buttons to all existing entry embeds
+                        const entries = await db.battleEntry.findMany({
+                            where: { battleId: battle.id, discordMsgId: { not: null } },
+                        });
+                        for (const entry of entries) {
+                            try {
+                                await discordReq('PATCH', `/channels/${battle.submissionChannelId}/messages/${entry.discordMsgId}`, {
+                                    components: [{
+                                        type: 1,
+                                        components: [{
+                                            type: 2, style: 1, custom_id: `battle_vote_${entry.id}`,
+                                            label: `Vote (${entry.voteCount})`, emoji: { name: '🔥' },
+                                        }],
+                                    }],
+                                });
+                            } catch {}
+                        }
+                        logger.info(`Beat Battle lifecycle: added vote buttons to ${entries.length} entries for "${battle.title}"`);
                     } catch (err: any) {
                         logger.error(`Beat Battle lifecycle: failed to lock channel for "${battle.title}": ${err.message}`);
                     }

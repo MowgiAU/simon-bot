@@ -196,17 +196,20 @@ export class BeatBattlePlugin implements IPlugin {
                 },
             });
 
-            // Post formatted embed with vote button
+            // Post formatted embed — only add vote button if battle is in voting phase
             const embed = this.buildEntryEmbed(entry, message.author.displayAvatarURL(), battle.title);
-            const voteRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`battle_vote_${entry.id}`)
-                    .setLabel('Vote (0)')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🔥')
-            );
+            const components: ActionRowBuilder<ButtonBuilder>[] = [];
+            if (battle.status === 'voting') {
+                components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`battle_vote_${entry.id}`)
+                        .setLabel('Vote (0)')
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🔥')
+                ));
+            }
 
-            const embedMsg = await (message.channel as TextChannel).send({ embeds: [embed], components: [voteRow] });
+            const embedMsg = await (message.channel as TextChannel).send({ embeds: [embed], components });
 
             // Save the embed message ID
             await this.db.battleEntry.update({
@@ -242,7 +245,7 @@ export class BeatBattlePlugin implements IPlugin {
             return;
         }
 
-        if (entry.battle.status !== 'voting' && entry.battle.status !== 'active') {
+        if (entry.battle.status !== 'voting') {
             await interaction.reply({ content: 'Voting is not currently open for this battle.', ephemeral: true });
             return;
         }
@@ -563,6 +566,36 @@ export class BeatBattlePlugin implements IPlugin {
             data: { status: 'voting' },
         });
 
+        // Add vote buttons to all existing entry embeds
+        if (battle.submissionChannelId) {
+            try {
+                const entries = await this.db.battleEntry.findMany({
+                    where: { battleId: battle.id, discordMsgId: { not: null } },
+                });
+                const channel = await this.client.channels.fetch(battle.submissionChannelId) as TextChannel | null;
+                if (channel) {
+                    for (const entry of entries) {
+                        try {
+                            const msg = await channel.messages.fetch(entry.discordMsgId!);
+                            const voteRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`battle_vote_${entry.id}`)
+                                    .setLabel(`Vote (${entry.voteCount})`)
+                                    .setStyle(ButtonStyle.Primary)
+                                    .setEmoji('🔥')
+                            );
+                            await msg.edit({ components: [voteRow] });
+                        } catch {
+                            // Individual message may have been deleted
+                        }
+                    }
+                    this.logger.info(`Beat Battle: Added vote buttons to ${entries.length} entries for "${battle.title}"`);
+                }
+            } catch (err) {
+                this.logger.error('Beat Battle: Failed to add vote buttons on voting transition', err);
+            }
+        }
+
         const settings = await this.getGuildSettings(battle.guildId);
         const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
 
@@ -766,15 +799,18 @@ export class BeatBattlePlugin implements IPlugin {
             if (!channel) return null;
 
             const embed = this.buildEntryEmbed(entry, null, battle.title);
-            const voteRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`battle_vote_${entry.id}`)
-                    .setLabel(`Vote (${entry.voteCount || 0})`)
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🔥')
-            );
+            const components: ActionRowBuilder<ButtonBuilder>[] = [];
+            if (battle.status === 'voting') {
+                components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`battle_vote_${entry.id}`)
+                        .setLabel(`Vote (${entry.voteCount || 0})`)
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🔥')
+                ));
+            }
 
-            const msg = await channel.send({ embeds: [embed], components: [voteRow] });
+            const msg = await channel.send({ embeds: [embed], components });
             return msg.id;
         } catch (err) {
             this.logger.error('Beat Battle: Failed to post entry to Discord', err);
@@ -818,7 +854,7 @@ export class BeatBattlePlugin implements IPlugin {
             .addFields(
                 { name: '🎤 Battle', value: battleTitle, inline: true },
                 { name: '🔥 Votes', value: `${entry.voteCount || 0}`, inline: true },
-                { name: '🎧 Listen', value: `[Play on Web](${apiUrl}${entry.audioUrl})` },
+                { name: '🎧 Listen', value: `[Play on Web](${apiUrl}/battles/entry/${entry.id})` },
             )
             .setFooter({ text: 'Click the Vote button to support this entry!' })
             .setTimestamp();

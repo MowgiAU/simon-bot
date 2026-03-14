@@ -408,14 +408,12 @@ export const BattlesPage: React.FC = () => {
 
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         {entry.audioUrl && (
-                                                            <a
-                                                                href={`${API}${entry.audioUrl}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
+                                                            <Link
+                                                                to={`/battles/entry/${entry.id}`}
                                                                 style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: colors.textSecondary, fontSize: '12px', textDecoration: 'none', fontWeight: 600 }}
                                                             >
                                                                 <Play size={13} fill="currentColor" /> Play
-                                                            </a>
+                                                            </Link>
                                                         )}
                                                         {currentBattle.status === 'voting' && (
                                                             <button
@@ -563,9 +561,9 @@ const ExpandedBattle: React.FC<{ battleId: string }> = ({ battleId }) => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ fontWeight: 700, color: colors.primary, fontSize: '13px' }}>🔥 {entry.voteCount}</span>
                                 {entry.audioUrl && (
-                                    <a href={`${API}${entry.audioUrl}`} target="_blank" rel="noopener noreferrer" style={{ color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}>
+                                    <Link to={`/battles/entry/${entry.id}`} style={{ color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}>
                                         <Play size={12} /> Play
-                                    </a>
+                                    </Link>
                                 )}
                             </div>
                         </div>
