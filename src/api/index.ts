@@ -5405,6 +5405,48 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
     }
 });
 
+// --- Beat Battle Settings ---
+app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-battle') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const settings = await db.beatBattleSettings.findUnique({ where: { guildId } });
+        res.json(settings || {
+            guildId,
+            battleCategoryId: null,
+            announcementChannelId: null,
+            chatChannelId: null,
+            submissionCategoryId: null,
+            archiveCategoryId: null,
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-battle') && !isTrueAdmin(guildId, req)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId } = req.body;
+
+        const settings = await db.beatBattleSettings.upsert({
+            where: { guildId },
+            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId },
+            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId },
+        });
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Serve Dashboard Dist in Production ---
 const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');

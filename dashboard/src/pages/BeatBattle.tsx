@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { ChannelSelect } from '../components/ChannelSelect';
 import { 
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
-    Building2, Link2, FileDown
+    Building2, Link2, FileDown, Settings
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -71,7 +72,7 @@ interface AnalyticsReport {
     sponsorLinkBreakdown: { label: string; url: string; clicks: number }[];
 }
 
-type Tab = 'battles' | 'sponsors' | 'backfill';
+type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
 
 export const BeatBattlePage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -103,6 +104,13 @@ export const BeatBattlePage: React.FC = () => {
         title: '', description: '', winnerUserId: '', winnerUsername: '', winnerTrackTitle: '', winnerAudioUrl: '', sponsorName: '', completedAt: '',
     });
 
+    // Settings state
+    const [settings, setSettings] = useState({
+        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '',
+    });
+    const [settingsLoading, setSettingsLoading] = useState(false);
+    const [settingsSaved, setSettingsSaved] = useState(false);
+
     const fetchBattles = useCallback(async () => {
         try {
             const res = await fetch(`${API}/api/beat-battle/battles?guildId=${guildId}`, { credentials: 'include' });
@@ -117,10 +125,42 @@ export const BeatBattlePage: React.FC = () => {
         } catch {}
     }, [guildId]);
 
+    const fetchSettings = useCallback(async () => {
+        try {
+            const res = await fetch(`${API}/api/guilds/${guildId}/beat-battle/settings`, { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                setSettings({
+                    battleCategoryId: data.battleCategoryId || '',
+                    announcementChannelId: data.announcementChannelId || '',
+                    chatChannelId: data.chatChannelId || '',
+                    submissionCategoryId: data.submissionCategoryId || '',
+                    archiveCategoryId: data.archiveCategoryId || '',
+                });
+            }
+        } catch {}
+    }, [guildId]);
+
+    const saveSettings = async () => {
+        setSettingsLoading(true);
+        try {
+            const res = await fetch(`${API}/api/guilds/${guildId}/beat-battle/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(settings),
+            });
+            if (res.ok) {
+                setSettingsSaved(true);
+                setTimeout(() => setSettingsSaved(false), 2000);
+            }
+        } catch {} finally { setSettingsLoading(false); }
+    };
+
     useEffect(() => {
         setLoading(true);
-        Promise.all([fetchBattles(), fetchSponsors()]).finally(() => setLoading(false));
-    }, [fetchBattles, fetchSponsors]);
+        Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
+    }, [fetchBattles, fetchSponsors, fetchSettings]);
 
     const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '' });
 
@@ -329,7 +369,7 @@ export const BeatBattlePage: React.FC = () => {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                {(['battles', 'sponsors', 'backfill'] as Tab[]).map(t => (
+                {(['battles', 'sponsors', 'backfill', 'settings'] as Tab[]).map(t => (
                     <button
                         key={t}
                         onClick={() => setTab(t)}
@@ -348,6 +388,7 @@ export const BeatBattlePage: React.FC = () => {
                         {t === 'battles' && <Swords size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
                         {t === 'sponsors' && <Building2 size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
                         {t === 'backfill' && <Archive size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
+                        {t === 'settings' && <Settings size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
                         {t}
                     </button>
                 ))}
@@ -666,6 +707,51 @@ export const BeatBattlePage: React.FC = () => {
                         <button onClick={handleBackfill} style={{ ...btnPrimary, marginTop: '16px' }}>
                             <Archive size={16} /> Add to Archive
                         </button>
+                    </div>
+                </>
+            )}
+
+            {/* ─── SETTINGS TAB ─── */}
+            {tab === 'settings' && (
+                <>
+                    <h2 style={{ margin: '0 0 16px', color: colors.textPrimary, fontSize: '18px' }}>Beat Battle Settings</h2>
+                    <div style={{ ...cardStyle, borderLeft: `4px solid ${colors.primary}` }}>
+                        <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: '13px' }}>
+                            Configure default channels and categories for Beat Battles. These will be used when creating new battles unless overridden per-battle.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div>
+                                <label style={labelStyle}>Battle Channels Category</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where battle channels are created</p>
+                                <ChannelSelect guildId={guildId} value={settings.battleCategoryId} onChange={(v) => setSettings({ ...settings, battleCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Announcements Channel</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Where battle announcements are posted</p>
+                                <ChannelSelect guildId={guildId} value={settings.announcementChannelId} onChange={(v) => setSettings({ ...settings, announcementChannelId: v as string })} channelTypes={[0, 5]} placeholder="Select Channel" />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Chat Channel</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>General chat channel for battle discussions</p>
+                                <ChannelSelect guildId={guildId} value={settings.chatChannelId} onChange={(v) => setSettings({ ...settings, chatChannelId: v as string })} channelTypes={[0]} placeholder="Select Channel" />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Submissions Category</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where submission channels are created</p>
+                                <ChannelSelect guildId={guildId} value={settings.submissionCategoryId} onChange={(v) => setSettings({ ...settings, submissionCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Archived Submissions Category</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where completed battle channels are moved</p>
+                                <ChannelSelect guildId={guildId} value={settings.archiveCategoryId} onChange={(v) => setSettings({ ...settings, archiveCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
+                            </div>
+                        </div>
+                        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <button onClick={saveSettings} disabled={settingsLoading} style={btnPrimary}>
+                                <Save size={16} /> {settingsLoading ? 'Saving...' : 'Save Settings'}
+                            </button>
+                            {settingsSaved && <span style={{ color: colors.success, fontSize: '13px', fontWeight: 600 }}>Saved!</span>}
+                        </div>
                     </div>
                 </>
             )}

@@ -53,8 +53,9 @@ model Guild {
   tickets            Ticket[]
 
   // Beat Battle
-  beatBattles        BeatBattle[]
-  battleSponsors     BattleSponsor[]
+  beatBattles          BeatBattle[]
+  battleSponsors       BattleSponsor[]
+  beatBattleSettings   BeatBattleSettings?
 
   @@map("guilds")
 }
@@ -1043,4 +1044,20 @@ model BattleAnalytics {
   @@index([battleId])
   @@index([eventType])
   @@map("battle_analytics")
+}
+
+model BeatBattleSettings {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  battleCategoryId      String?
+  announcementChannelId String?
+  chatChannelId         String?
+  submissionCategoryId  String?
+  archiveCategoryId     String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("beat_battle_settings")
 }

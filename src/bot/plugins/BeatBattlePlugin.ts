@@ -48,6 +48,10 @@ export class BeatBattlePlugin implements IPlugin {
     private client!: Client;
     private logger: any;
     private logAction!: (data: any) => Promise<void>;
+
+    private async getGuildSettings(guildId: string) {
+        return this.db.beatBattleSettings.findUnique({ where: { guildId } });
+    }
     private lifecycleInterval: ReturnType<typeof setInterval> | null = null;
 
     async initialize(context: IPluginContext): Promise<void> {
@@ -479,15 +483,18 @@ export class BeatBattlePlugin implements IPlugin {
     private async transitionToActive(battle: any): Promise<void> {
         this.logger.info(`Beat Battle: Activating "${battle.title}"`);
 
+        const settings = await this.getGuildSettings(battle.guildId);
+
         // Create submissions channel
         let channelId = battle.submissionChannelId;
         try {
             const guild = await this.client.guilds.fetch(battle.guildId);
             const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+            const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
             const channel = await guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
-                parent: battle.categoryId || undefined,
+                parent: categoryId,
                 topic: `Submit your beats for: ${battle.title}`,
             });
             channelId = channel.id;
@@ -516,10 +523,13 @@ export class BeatBattlePlugin implements IPlugin {
             data: { status: 'voting' },
         });
 
+        const settings = await this.getGuildSettings(battle.guildId);
+        const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
+
         // Post announcement that voting is open
-        if (battle.announcementChannelId) {
+        if (annChannelId) {
             try {
-                const channel = await this.client.channels.fetch(battle.announcementChannelId) as TextChannel | null;
+                const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
                 if (channel) {
                     const embed = new EmbedBuilder()
                         .setTitle(`🗳️ ${battle.title} — Voting is Now Open!`)
@@ -541,6 +551,7 @@ export class BeatBattlePlugin implements IPlugin {
         this.logger.info(`Beat Battle: Completing "${battle.title}"`);
 
         const winner = battle.entries?.[0];
+        const settings = await this.getGuildSettings(battle.guildId);
 
         await this.db.beatBattle.update({
             where: { id: battle.id },
@@ -550,7 +561,7 @@ export class BeatBattlePlugin implements IPlugin {
             },
         });
 
-        // Archive submissions channel (set to read-only)
+        // Archive submissions channel (set to read-only, move to archive category)
         if (battle.submissionChannelId) {
             try {
                 const guild = await this.client.guilds.fetch(battle.guildId);
@@ -560,6 +571,10 @@ export class BeatBattlePlugin implements IPlugin {
                         SendMessages: false,
                         AddReactions: false,
                     });
+                    // Move to archive category if configured
+                    if (settings?.archiveCategoryId) {
+                        await channel.setParent(settings.archiveCategoryId, { lockPermissions: false });
+                    }
                     // Rename with archived prefix
                     await channel.setName(`archived-${channel.name}`.slice(0, 100));
                 }
@@ -569,9 +584,10 @@ export class BeatBattlePlugin implements IPlugin {
         }
 
         // Post winner spotlight
-        if (winner && battle.announcementChannelId) {
+        const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
+        if (winner && annChannelId) {
             try {
-                const channel = await this.client.channels.fetch(battle.announcementChannelId) as TextChannel | null;
+                const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
                 if (channel) {
                     const apiUrl = process.env.API_URL || 'https://fujistudio.app';
                     const embed = new EmbedBuilder()
@@ -597,10 +613,12 @@ export class BeatBattlePlugin implements IPlugin {
     // ───── Announcement Posting (called from API when battle is created) ─────
 
     async postAnnouncement(battle: any): Promise<string | null> {
-        if (!battle.announcementChannelId) return null;
+        const settings = await this.getGuildSettings(battle.guildId);
+        const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
+        if (!annChannelId) return null;
 
         try {
-            const channel = await this.client.channels.fetch(battle.announcementChannelId) as TextChannel | null;
+            const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return null;
 
             const embed = new EmbedBuilder()
