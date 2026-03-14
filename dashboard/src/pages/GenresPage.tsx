@@ -29,6 +29,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
     const [selectedParent, setSelectedParent] = useState<Genre | null>(null);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [search, setSearch] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -67,12 +68,18 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
     }, [parentSlug]);
 
     const mainGenres = genres.filter(g => !g.parentId);
-    const displayedGenres = selectedParent 
+    const displayedGenres = (selectedParent 
         ? genres.filter(g => g.parentId === selectedParent.id)
-        : mainGenres;
+        : mainGenres
+    ).filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase()));
 
     return (
-        <DiscoveryLayout>
+        <DiscoveryLayout
+            activeTab="genres"
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search genres..."
+        >
             <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '16px', marginBottom: '40px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

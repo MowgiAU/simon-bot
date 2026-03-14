@@ -11,6 +11,20 @@ import {
 
 const API = import.meta.env.VITE_API_URL || '';
 
+/** Convert a UTC ISO string to a value suitable for a datetime-local input (local time). */
+function toLocalDTInput(utcStr: string | null): string {
+    if (!utcStr) return '';
+    const d = new Date(utcStr);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Convert a datetime-local input value (local time) back to a UTC ISO string for the API. */
+function localDTToISO(localStr: string): string | null {
+    if (!localStr) return null;
+    return new Date(localStr).toISOString();
+}
+
 interface Battle {
     id: string;
     title: string;
@@ -177,7 +191,14 @@ export const BeatBattlePage: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ ...form, guildId }),
+                body: JSON.stringify({
+                    ...form,
+                    guildId,
+                    submissionStart: localDTToISO(form.submissionStart),
+                    submissionEnd: localDTToISO(form.submissionEnd),
+                    votingStart: localDTToISO(form.votingStart),
+                    votingEnd: localDTToISO(form.votingEnd),
+                }),
             });
             if (res.ok) {
                 await fetchBattles();
@@ -194,7 +215,13 @@ export const BeatBattlePage: React.FC = () => {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify(form),
+                body: JSON.stringify({
+                    ...form,
+                    submissionStart: localDTToISO(form.submissionStart),
+                    submissionEnd: localDTToISO(form.submissionEnd),
+                    votingStart: localDTToISO(form.votingStart),
+                    votingEnd: localDTToISO(form.votingEnd),
+                }),
             });
             if (res.ok) {
                 await fetchBattles();
@@ -339,10 +366,10 @@ export const BeatBattlePage: React.FC = () => {
             title: b.title,
             description: b.description || '',
             rules: b.rules || '',
-            submissionStart: b.submissionStart ? b.submissionStart.slice(0, 16) : '',
-            submissionEnd: b.submissionEnd ? b.submissionEnd.slice(0, 16) : '',
-            votingStart: b.votingStart ? b.votingStart.slice(0, 16) : '',
-            votingEnd: b.votingEnd ? b.votingEnd.slice(0, 16) : '',
+            submissionStart: toLocalDTInput(b.submissionStart),
+            submissionEnd: toLocalDTInput(b.submissionEnd),
+            votingStart: toLocalDTInput(b.votingStart),
+            votingEnd: toLocalDTInput(b.votingEnd),
             sponsorId: b.sponsorId || '',
             announcementChannelId: b.announcementChannelId || '',
             categoryId: b.categoryId || '',
