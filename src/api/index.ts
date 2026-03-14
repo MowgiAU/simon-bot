@@ -5147,6 +5147,10 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
     try {
         const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
 
+        // Fetch old battle to detect status change
+        const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
+        if (!oldBattle) return res.status(404).json({ error: 'Battle not found' });
+
         const data: any = {};
         if (title !== undefined) data.title = title;
         if (description !== undefined) data.description = description;
@@ -5166,6 +5170,79 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
             data,
             include: { sponsor: { include: { links: true } } },
         });
+
+        // --- Trigger lifecycle side-effects on manual status change ---
+        const newStatus = status;
+        const statusChanged = newStatus && newStatus !== oldBattle.status;
+        if (statusChanged) {
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+
+            // → Active: create submissions channel if missing
+            if (newStatus === 'active' && !battle.submissionChannelId) {
+                try {
+                    const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+                    const catId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
+                    const body: any = {
+                        name: channelName, type: 0,
+                        topic: `Submit your beats for: ${battle.title}`,
+                        rate_limit_per_user: 10,
+                        permission_overwrites: [{ id: battle.guildId, type: 0, allow: '101376', deny: '0' }],
+                    };
+                    if (catId) body.parent_id = catId;
+                    const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
+                    const chId = chRes.data.id;
+                    await db.beatBattle.update({ where: { id: battle.id }, data: { submissionChannelId: chId } });
+                    battle.submissionChannelId = chId;
+                    await discordReq('POST', `/channels/${chId}/messages`, {
+                        embeds: [{ title: `🎵 ${battle.title} — Submissions Open!`, description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!', color: 0x2B8C71, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
+                    });
+                } catch (err: any) {
+                    logger.error(`Beat Battle: failed to create channel on manual activate: ${err.message}`);
+                }
+            }
+
+            // → Voting: lock submissions channel
+            if (newStatus === 'voting' && battle.submissionChannelId) {
+                try {
+                    await discordReq('PUT', `/channels/${battle.submissionChannelId}/permissions/${battle.guildId}`, {
+                        type: 0, allow: '66560', deny: '34816',
+                    });
+                    const entryCount = await db.battleEntry.count({ where: { battleId: battle.id } });
+                    await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
+                        embeds: [{ title: '🔒 Submissions Closed', description: `Submissions for **${battle.title}** are now closed.\n\n**${entryCount}** ${entryCount === 1 ? 'entry' : 'entries'} received. Voting is now open — hit the 🔥 button on your favorite beat!`, color: 0xFFA500, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
+                    });
+                } catch (err: any) {
+                    logger.error(`Beat Battle: failed to lock channel on manual voting: ${err.message}`);
+                }
+            }
+
+            // → Completed: determine winner, post result, archive
+            if (newStatus === 'completed') {
+                const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
+                if (winner) {
+                    await db.beatBattle.update({ where: { id: battle.id }, data: { winnerEntryId: winner.id } });
+                    if (battle.submissionChannelId) {
+                        try {
+                            await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
+                                embeds: [{ title: `🏆 ${battle.title} — Winner!`, description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`, color: 0xFFD700, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
+                            });
+                        } catch {}
+                    }
+                }
+                if (battle.submissionChannelId && settings?.archiveCategoryId) {
+                    try {
+                        await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
+                            parent_id: settings.archiveCategoryId,
+                            name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
+                        });
+                    } catch {}
+                }
+            }
+
+            // Post announcement for the new status
+            const settings2 = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            await postBattleAnnouncement(battle, settings2);
+        }
 
         await db.actionLog.create({
             data: {
@@ -5679,72 +5756,69 @@ if (fs.existsSync(distPath)) {
 async function runBeatBattleLifecycle(): Promise<void> {
     const now = new Date();
     try {
-        // 1. Upcoming → Active (submissionStart passed)
+        // ---------- 1. Upcoming → Active (submissionStart passed) ----------
         const toActivate = await db.beatBattle.findMany({
             where: { status: 'upcoming', submissionStart: { lte: now } },
         });
+        if (toActivate.length) logger.info(`Beat Battle lifecycle: ${toActivate.length} battle(s) to activate`);
+
         for (const battle of toActivate) {
-            logger.info(`Beat Battle lifecycle: activating "${battle.title}"`);
-            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            try {
+                logger.info(`Beat Battle lifecycle: activating "${battle.title}"`);
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
 
-            // Create submissions channel via Discord REST
-            let submissionChannelId = battle.submissionChannelId;
-            if (!submissionChannelId) {
-                try {
-                    const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
-                    const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
-                    const body: any = {
-                        name: channelName,
-                        type: 0, // GUILD_TEXT
-                        topic: `Submit your beats for: ${battle.title}`,
-                        rate_limit_per_user: 10,
-                        permission_overwrites: [
-                            {
-                                id: battle.guildId, // @everyone role ID equals guild ID
-                                type: 0,
-                                allow: '101376', // VIEW_CHANNEL(1024) + SEND_MESSAGES(2048) + ATTACH_FILES(32768) + READ_MESSAGE_HISTORY(65536)
-                                deny: '0',
-                            },
-                        ],
-                    };
-                    if (categoryId) body.parent_id = categoryId;
+                let submissionChannelId = battle.submissionChannelId;
+                if (!submissionChannelId) {
+                    try {
+                        const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+                        const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
+                        const body: any = {
+                            name: channelName,
+                            type: 0,
+                            topic: `Submit your beats for: ${battle.title}`,
+                            rate_limit_per_user: 10,
+                            permission_overwrites: [
+                                { id: battle.guildId, type: 0, allow: '101376', deny: '0' },
+                            ],
+                        };
+                        if (categoryId) body.parent_id = categoryId;
 
-                    const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
-                    submissionChannelId = chRes.data.id;
+                        const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
+                        submissionChannelId = chRes.data.id;
 
-                    // Post instructions embed in the new channel
-                    const instrEmbed = {
-                        title: `🎵 ${battle.title} — Submissions Open!`,
-                        description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
-                        color: 0x2B8C71,
-                        footer: { text: 'Fuji Studio Beat Battle' },
-                        timestamp: new Date().toISOString(),
-                    };
-                    await discordReq('POST', `/channels/${submissionChannelId}/messages`, { embeds: [instrEmbed] });
-                } catch (err: any) {
-                    logger.error(`Beat Battle lifecycle: failed to create submissions channel for "${battle.title}": ${err.message}`);
+                        const instrEmbed = {
+                            title: `🎵 ${battle.title} — Submissions Open!`,
+                            description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
+                            color: 0x2B8C71,
+                            footer: { text: 'Fuji Studio Beat Battle' },
+                            timestamp: new Date().toISOString(),
+                        };
+                        await discordReq('POST', `/channels/${submissionChannelId}/messages`, { embeds: [instrEmbed] });
+                    } catch (err: any) {
+                        logger.error(`Beat Battle lifecycle: failed to create submissions channel for "${battle.title}": ${err.message}`);
+                    }
                 }
+
+                await db.beatBattle.update({
+                    where: { id: battle.id },
+                    data: { status: 'active', submissionChannelId },
+                });
+
+                const updatedBattle = { ...battle, status: 'active', submissionChannelId };
+                await postBattleAnnouncement(updatedBattle, settings);
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed to activate "${battle.title}": ${err.message}`);
             }
-
-            await db.beatBattle.update({
-                where: { id: battle.id },
-                data: { status: 'active', submissionChannelId },
-            });
-
-            // Post announcement
-            const updatedBattle = { ...battle, status: 'active', submissionChannelId };
-            const settings2 = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-            await postBattleAnnouncement(updatedBattle, settings2);
         }
 
-        // 2. Active battles still missing a submissions channel (created directly as active)
+        // ---------- 2. Active battles still missing a submissions channel ----------
         const noChannel = await db.beatBattle.findMany({
             where: { status: 'active', submissionChannelId: null },
         });
         for (const battle of noChannel) {
-            logger.info(`Beat Battle lifecycle: creating missing channel for active battle "${battle.title}"`);
-            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
             try {
+                logger.info(`Beat Battle lifecycle: creating missing channel for active battle "${battle.title}"`);
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
                 const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
                 const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
                 const body: any = {
@@ -5753,12 +5827,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
                     topic: `Submit your beats for: ${battle.title}`,
                     rate_limit_per_user: 10,
                     permission_overwrites: [
-                        {
-                            id: battle.guildId,
-                            type: 0,
-                            allow: '101376',
-                            deny: '0',
-                        },
+                        { id: battle.guildId, type: 0, allow: '101376', deny: '0' },
                     ],
                 };
                 if (categoryId) body.parent_id = categoryId;
@@ -5778,42 +5847,98 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // 3. Active → Voting (submissionEnd passed)
+        // ---------- 3. Active → Voting (submissionEnd passed) ----------
         const toVoting = await db.beatBattle.findMany({
-            where: { status: 'active', submissionEnd: { lte: now } },
+            where: { status: 'active', submissionEnd: { not: null, lte: now } },
         });
+        if (toVoting.length) logger.info(`Beat Battle lifecycle: ${toVoting.length} battle(s) moving to voting`);
+
         for (const battle of toVoting) {
-            logger.info(`Beat Battle lifecycle: moving "${battle.title}" to voting`);
-            await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
-            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-            await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
+            try {
+                logger.info(`Beat Battle lifecycle: "${battle.title}" → voting`);
+                await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
+
+                // Lock submissions channel — deny SEND_MESSAGES + ATTACH_FILES for @everyone
+                if (battle.submissionChannelId) {
+                    try {
+                        await discordReq('PUT', `/channels/${battle.submissionChannelId}/permissions/${battle.guildId}`, {
+                            type: 0,
+                            allow: '66560',  // VIEW_CHANNEL(1024) + READ_MESSAGE_HISTORY(65536)
+                            deny: '34816',   // SEND_MESSAGES(2048) + ATTACH_FILES(32768)
+                        });
+
+                        const entryCount = await db.battleEntry.count({ where: { battleId: battle.id } });
+                        await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
+                            embeds: [{
+                                title: '🔒 Submissions Closed',
+                                description: `Submissions for **${battle.title}** are now closed.\n\n**${entryCount}** ${entryCount === 1 ? 'entry' : 'entries'} received. Voting is now open — hit the 🔥 button on your favorite beat!`,
+                                color: 0xFFA500,
+                                footer: { text: 'Fuji Studio Beat Battle' },
+                                timestamp: new Date().toISOString(),
+                            }],
+                        });
+                    } catch (err: any) {
+                        logger.error(`Beat Battle lifecycle: failed to lock channel for "${battle.title}": ${err.message}`);
+                    }
+                }
+
+                // Announce voting phase
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed to transition "${battle.title}" to voting: ${err.message}`);
+            }
         }
 
-        // 4. Voting → Completed (votingEnd passed)
+        // ---------- 4. Voting → Completed (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
-            where: { status: 'voting', votingEnd: { lte: now } },
+            where: { status: 'voting', votingEnd: { not: null, lte: now } },
             include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
         });
-        for (const battle of toComplete) {
-            logger.info(`Beat Battle lifecycle: completing "${battle.title}"`);
-            const winner = (battle as any).entries?.[0];
-            await db.beatBattle.update({
-                where: { id: battle.id },
-                data: { status: 'completed', winnerEntryId: winner?.id || null },
-            });
-            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-            await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
+        if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) completing`);
 
-            // Archive submissions channel
-            if (battle.submissionChannelId && settings?.archiveCategoryId) {
-                try {
-                    await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
-                        parent_id: settings.archiveCategoryId,
-                        name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
-                    });
-                } catch (err: any) {
-                    logger.error(`Beat Battle lifecycle: failed to archive channel: ${err.message}`);
+        for (const battle of toComplete) {
+            try {
+                logger.info(`Beat Battle lifecycle: completing "${battle.title}"`);
+                const winner = (battle as any).entries?.[0];
+                await db.beatBattle.update({
+                    where: { id: battle.id },
+                    data: { status: 'completed', winnerEntryId: winner?.id || null },
+                });
+
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
+
+                // Post winner in submissions channel
+                if (battle.submissionChannelId && winner) {
+                    try {
+                        await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
+                            embeds: [{
+                                title: `🏆 ${battle.title} — Winner!`,
+                                description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
+                                color: 0xFFD700,
+                                footer: { text: 'Fuji Studio Beat Battle' },
+                                timestamp: new Date().toISOString(),
+                            }],
+                        });
+                    } catch (err: any) {
+                        logger.error(`Beat Battle lifecycle: failed to post winner in channel: ${err.message}`);
+                    }
                 }
+
+                // Archive submissions channel to archive category
+                if (battle.submissionChannelId && settings?.archiveCategoryId) {
+                    try {
+                        await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
+                            parent_id: settings.archiveCategoryId,
+                            name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
+                        });
+                    } catch (err: any) {
+                        logger.error(`Beat Battle lifecycle: failed to archive channel: ${err.message}`);
+                    }
+                }
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed to complete "${battle.title}": ${err.message}`);
             }
         }
     } catch (err: any) {
