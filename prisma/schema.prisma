@@ -945,6 +945,9 @@ model BeatBattle {
   winnerEntryId       String?  // Winning BattleEntry ID
   winnerSpotlightMsgId String? // Spotlight message ID
 
+  // Prizes
+  prizes              Json?    // Array of { place: string, description: string }
+
   // Sponsor
   sponsorId           String?
 

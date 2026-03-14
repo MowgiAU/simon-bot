@@ -6,7 +6,7 @@ import {
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
-    Building2, Link2, FileDown, Settings
+    Building2, Link2, FileDown, Settings, Gift
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -17,6 +17,7 @@ interface Battle {
     description: string | null;
     status: string;
     rules: string | null;
+    prizes: { place: string; description: string }[] | null;
     submissionStart: string | null;
     submissionEnd: string | null;
     votingStart: string | null;
@@ -93,6 +94,7 @@ export const BeatBattlePage: React.FC = () => {
         title: '', description: '', rules: '',
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
         sponsorId: '', announcementChannelId: '', categoryId: '',
+        prizes: [{ place: '1st Place', description: '' }] as { place: string; description: string }[],
     });
 
     // Sponsor form
@@ -102,7 +104,8 @@ export const BeatBattlePage: React.FC = () => {
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
-        title: '', description: '', winnerUserId: '', winnerUsername: '', winnerTrackTitle: '', winnerAudioUrl: '', sponsorName: '', completedAt: '',
+        title: '', description: '', sponsorName: '', completedAt: '',
+        winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] as { userId: string; username: string; trackTitle: string; audioUrl: string }[],
     });
 
     // Settings state
@@ -163,7 +166,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '' });
+    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '', prizes: [{ place: '1st Place', description: '' }] });
 
     const handleCreateBattle = async () => {
         try {
@@ -296,11 +299,18 @@ export const BeatBattlePage: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ ...backfillForm, guildId }),
+                body: JSON.stringify({
+                    title: backfillForm.title,
+                    description: backfillForm.description,
+                    sponsorName: backfillForm.sponsorName,
+                    completedAt: backfillForm.completedAt,
+                    winners: backfillForm.winners,
+                    guildId,
+                }),
             });
             if (res.ok) {
                 await fetchBattles();
-                setBackfillForm({ title: '', description: '', winnerUserId: '', winnerUsername: '', winnerTrackTitle: '', winnerAudioUrl: '', sponsorName: '', completedAt: '' });
+                setBackfillForm({ title: '', description: '', sponsorName: '', completedAt: '', winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] });
             }
         } catch {}
     };
@@ -318,6 +328,9 @@ export const BeatBattlePage: React.FC = () => {
             sponsorId: b.sponsorId || '',
             announcementChannelId: b.announcementChannelId || '',
             categoryId: b.categoryId || '',
+            prizes: (b.prizes && (b.prizes as any[]).length > 0)
+                ? (b.prizes as { place: string; description: string }[])
+                : [{ place: '1st Place', description: '' }],
         });
         setShowCreate(true);
     };
@@ -453,6 +466,31 @@ export const BeatBattlePage: React.FC = () => {
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Rules</label>
                                     <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="One entry per person..." />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Prizes</label>
+                                    {form.prizes.map((prize, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
+                                            <input
+                                                style={{ ...inputStyle, flex: '0 0 130px' }}
+                                                value={prize.place}
+                                                onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], place: e.target.value }; setForm({ ...form, prizes: p }); }}
+                                                placeholder="1st Place"
+                                            />
+                                            <input
+                                                style={{ ...inputStyle, flex: 1 }}
+                                                value={prize.description}
+                                                onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], description: e.target.value }; setForm({ ...form, prizes: p }); }}
+                                                placeholder="$100 + Splice subscription"
+                                            />
+                                            <button onClick={() => setForm({ ...form, prizes: form.prizes.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px', flexShrink: 0 }} title="Remove">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => setForm({ ...form, prizes: [...form.prizes, { place: `${form.prizes.length + 1}${['st','nd','rd'][form.prizes.length] || 'th'} Place`, description: '' }] })} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                                        <Gift size={12} /> Add Prize
+                                    </button>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Submissions Open</label>
@@ -716,22 +754,6 @@ export const BeatBattlePage: React.FC = () => {
                                 <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={backfillForm.description} onChange={(e) => setBackfillForm({ ...backfillForm, description: e.target.value })} />
                             </div>
                             <div>
-                                <label style={labelStyle}>Winner Discord User ID</label>
-                                <input style={inputStyle} value={backfillForm.winnerUserId} onChange={(e) => setBackfillForm({ ...backfillForm, winnerUserId: e.target.value })} placeholder="123456789012345678" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Winner Username</label>
-                                <input style={inputStyle} value={backfillForm.winnerUsername} onChange={(e) => setBackfillForm({ ...backfillForm, winnerUsername: e.target.value })} placeholder="Producer123" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Winner Track Title</label>
-                                <input style={inputStyle} value={backfillForm.winnerTrackTitle} onChange={(e) => setBackfillForm({ ...backfillForm, winnerTrackTitle: e.target.value })} placeholder="Fire Beat" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Audio URL (optional)</label>
-                                <input style={inputStyle} value={backfillForm.winnerAudioUrl} onChange={(e) => setBackfillForm({ ...backfillForm, winnerAudioUrl: e.target.value })} placeholder="/uploads/battles/..." />
-                            </div>
-                            <div>
                                 <label style={labelStyle}>Sponsor Name (optional)</label>
                                 <input style={inputStyle} value={backfillForm.sponsorName} onChange={(e) => setBackfillForm({ ...backfillForm, sponsorName: e.target.value })} />
                             </div>
@@ -740,7 +762,52 @@ export const BeatBattlePage: React.FC = () => {
                                 <input type="date" style={inputStyle} value={backfillForm.completedAt} onChange={(e) => setBackfillForm({ ...backfillForm, completedAt: e.target.value })} />
                             </div>
                         </div>
-                        <button onClick={handleBackfill} style={{ ...btnPrimary, marginTop: '16px' }}>
+
+                        <div style={{ marginTop: '16px' }}>
+                            <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>Winners <span style={{ color: colors.textSecondary, fontWeight: 400, fontSize: '11px' }}>(listed in placement order — 1st, 2nd, 3rd…)</span></span>
+                                <button
+                                    onClick={() => setBackfillForm({ ...backfillForm, winners: [...backfillForm.winners, { userId: '', username: '', trackTitle: '', audioUrl: '' }] })}
+                                    style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}
+                                >
+                                    <Plus size={12} /> Add Winner
+                                </button>
+                            </label>
+                            {backfillForm.winners.map((w, i) => (
+                                <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: borderRadius.md, padding: '12px', marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : colors.textSecondary }}>
+                                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`} {i === 0 ? '1st Place' : i === 1 ? '2nd Place' : i === 2 ? '3rd Place' : `${i + 1}th Place`}
+                                        </span>
+                                        {backfillForm.winners.length > 1 && (
+                                            <button onClick={() => setBackfillForm({ ...backfillForm, winners: backfillForm.winners.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px' }}>
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Discord User ID</label>
+                                            <input style={inputStyle} value={w.userId} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], userId: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="123456789012345678" />
+                                        </div>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Username</label>
+                                            <input style={inputStyle} value={w.username} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], username: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="Producer123" />
+                                        </div>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Track Title</label>
+                                            <input style={inputStyle} value={w.trackTitle} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], trackTitle: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="Fire Beat" />
+                                        </div>
+                                        <div>
+                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Audio URL (optional)</label>
+                                            <input style={inputStyle} value={w.audioUrl} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], audioUrl: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="/uploads/battles/..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button onClick={handleBackfill} style={{ ...btnPrimary, marginTop: '8px' }}>
                             <Archive size={16} /> Add to Archive
                         </button>
                     </div>

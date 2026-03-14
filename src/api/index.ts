@@ -5091,7 +5091,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
+        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5103,6 +5103,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 title,
                 description,
                 rules,
+                prizes: prizes || [],
                 status: submissionStart && new Date(submissionStart) > new Date() ? 'upcoming' : 'active',
                 submissionStart: submissionStart ? new Date(submissionStart) : new Date(),
                 submissionEnd: submissionEnd ? new Date(submissionEnd) : null,
@@ -5137,12 +5138,13 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
+        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
 
         const data: any = {};
         if (title !== undefined) data.title = title;
         if (description !== undefined) data.description = description;
         if (rules !== undefined) data.rules = rules;
+        if (prizes !== undefined) data.prizes = prizes;
         if (status !== undefined) data.status = status;
         if (submissionStart !== undefined) data.submissionStart = submissionStart ? new Date(submissionStart) : null;
         if (submissionEnd !== undefined) data.submissionEnd = submissionEnd ? new Date(submissionEnd) : null;
@@ -5364,7 +5366,7 @@ app.get('/api/beat-battle/admin/battles/:id/analytics', requireAdmin, async (req
 // --- Admin: Backfill old battle data ---
 app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, winnerUserId, winnerUsername, winnerTrackTitle, winnerAudioUrl, sponsorName, completedAt, guildId } = req.body;
+        const { title, description, winners, sponsorName, completedAt, guildId } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5393,22 +5395,29 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
             },
         });
 
-        // Create winner entry if provided
-        if (winnerUserId && winnerTrackTitle) {
+        // Create winner entries (one per winner, descending vote counts for ranking)
+        const validWinners = (winners || []).filter((w: any) => w.userId && w.trackTitle);
+        let firstEntryId: string | null = null;
+        for (let i = 0; i < validWinners.length; i++) {
+            const w = validWinners[i];
             const entry = await db.battleEntry.create({
                 data: {
                     battleId: battle.id,
-                    userId: winnerUserId,
-                    username: winnerUsername || 'Unknown',
-                    trackTitle: winnerTrackTitle,
-                    audioUrl: winnerAudioUrl || '',
+                    userId: w.userId,
+                    username: w.username || 'Unknown',
+                    trackTitle: w.trackTitle,
+                    audioUrl: w.audioUrl || '',
+                    voteCount: validWinners.length - i, // 1st place gets highest count
                     source: 'backfill',
                 },
             });
+            if (i === 0) firstEntryId = entry.id;
+        }
 
+        if (firstEntryId) {
             await db.beatBattle.update({
                 where: { id: battle.id },
-                data: { winnerEntryId: entry.id },
+                data: { winnerEntryId: firstEntryId },
             });
         }
 
