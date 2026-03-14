@@ -401,7 +401,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             >
                                 {/* Artwork */}
                                 <div
-                                    style={{ position: 'relative', width: '52px', height: '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.07)' }}
+                                    style={{ position: 'relative', width: '104px', height: '104px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.07)' }}
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}
                                 >
                                     {track.coverUrl ? (
