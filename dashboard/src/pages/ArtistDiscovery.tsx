@@ -3,7 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
-    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, RadioTower, Award 
+    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, Swords, Award 
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -119,6 +119,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
+    const [currentBattle, setCurrentBattle] = useState<{ id: string; title: string; status: string; _count?: { entries: number }; votingEnd: string | null } | null>(null);
     const { player, setTrack, togglePlay } = usePlayer();
     const navigate = useNavigate();
 
@@ -136,6 +137,16 @@ export const ArtistDiscoveryPage: React.FC = () => {
     useEffect(() => {
         axios.get('/api/discovery/genres').then(res => setGenres(res.data)).catch(() => {});
         axios.get('/api/discovery/settings').then(res => setFeatured(res.data)).catch(() => {});
+        // Load current battle for the widget
+        fetch('/api/beat-battle/battles?guildId=default-guild')
+            .then(r => r.ok ? r.json() : [])
+            .then((battles: any[]) => {
+                const active = battles.find((b: any) => b.status === 'voting') ||
+                               battles.find((b: any) => b.status === 'active') ||
+                               battles.find((b: any) => b.status === 'upcoming');
+                if (active) setCurrentBattle(active);
+            })
+            .catch(() => {});
     }, []);
 
     const fetchArtists = async () => {
@@ -362,20 +373,50 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Live Streams */}
+                    {/* Beat Battles */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={styles.headerLabel}><RadioTower size={16} color="#EF4444" /> Live Streams</h3>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontSize: '8px', fontWeight: 'bold', borderRadius: '999px' }}>
-                                <span style={{ width: '4px', height: '4px', backgroundColor: '#EF4444', borderRadius: '50%' }}></span> 0 LIVE
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <h3 style={styles.headerLabel}><Swords size={16} color={colors.primary} /> Beat Battles</h3>
+                            {currentBattle && (
+                                <span style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 8px',
+                                    backgroundColor: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.12)' : currentBattle.status === 'active' ? 'rgba(52,211,153,0.12)' : 'rgba(96,165,250,0.12)',
+                                    color: currentBattle.status === 'voting' ? '#FBBF24' : currentBattle.status === 'active' ? '#34D399' : '#60A5FA',
+                                    fontSize: '8px', fontWeight: 'bold', borderRadius: '999px',
+                                }}>
+                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'currentColor' }} />
+                                    {currentBattle.status === 'voting' ? 'VOTING' : currentBattle.status === 'active' ? 'OPEN' : 'UPCOMING'}
+                                </span>
+                            )}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ padding: '16px', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
-                                <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>No active streams right now.</p>
-                                <p style={{ fontSize: '9px', color: 'rgba(185, 195, 206, 0.5)', marginTop: '4px' }}>Check back later for live sessions!</p>
+                        {currentBattle ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ padding: '16px', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: `1px solid ${colors.primary}20` }}>
+                                    <p style={{ fontSize: '13px', fontWeight: 700, color: 'white', margin: '0 0 6px' }}>{currentBattle.title}</p>
+                                    <p style={{ fontSize: '11px', color: '#B9C3CE', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {currentBattle._count?.entries ?? 0} {(currentBattle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
+                                        {currentBattle.status === 'voting' && currentBattle.votingEnd && (
+                                            <span style={{ marginLeft: '6px', color: '#FBBF24' }}>
+                                                · ends {new Date(currentBattle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                        )}
+                                    </p>
+                                    <Link to="/battles" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '6px 12px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
+                                        {currentBattle.status === 'voting' ? 'Vote now' : 'View battle'} →
+                                    </Link>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ padding: '16px', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                                    <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>No battle running right now.</p>
+                                    <p style={{ fontSize: '9px', color: 'rgba(185, 195, 206, 0.5)', marginTop: '4px' }}>Watch Discord for announcements!</p>
+                                </div>
+                                <Link to="/battles" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: colors.primary, textDecoration: 'none', alignSelf: 'flex-start' }}>
+                                    View archive →
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* Latest Releases — section header */}

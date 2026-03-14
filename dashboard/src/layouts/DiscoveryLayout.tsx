@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -58,7 +58,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         { key: 'discover', label: 'HOME', icon: <Search size={14} />, path: '/' },
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'genres', label: 'DISCOVER', icon: <Zap size={14} />, path: '/genres' },
-        { key: 'live', label: 'LIVE', path: null, comingSoon: true },
+        { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
     ];
 
     const isHomePage = pathname === '/';

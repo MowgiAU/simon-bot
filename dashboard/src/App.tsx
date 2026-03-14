@@ -33,7 +33,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { UniversalSearch } from "./components/UniversalSearch";
+import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -521,6 +521,11 @@ const AppInternal: React.FC = () => {
   // /terms → Terms of Service & Privacy Policy
   if (currentPath === '/terms') {
     return <TermsPage />;
+  }
+
+  // /battles → Public Beat Battles page
+  if (currentPath === '/battles') {
+    return <BattlesPage />;
   }
 
   return <ArtistDiscoveryPage />;
