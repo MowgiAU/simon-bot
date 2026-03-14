@@ -451,6 +451,16 @@ export class BeatBattlePlugin implements IPlugin {
     private async checkLifecycles(): Promise<void> {
         const now = new Date();
         try {
+            // Pending manual announcements (set via dashboard button)
+            const pendingAnn = await this.db.beatBattle.findMany({
+                where: { pendingAnnouncement: true },
+                include: { sponsor: { include: { links: true } } },
+            });
+            for (const battle of pendingAnn) {
+                await this.postByStatus(battle);
+                await this.db.beatBattle.update({ where: { id: battle.id }, data: { pendingAnnouncement: false } });
+            }
+
             // Upcoming → Active (submission period started)
             const toActivate = await this.db.beatBattle.findMany({
                 where: { status: 'upcoming', submissionStart: { lte: now } },
@@ -620,6 +630,54 @@ export class BeatBattlePlugin implements IPlugin {
             } catch (err) {
                 this.logger.error('Beat Battle: Failed to post winner spotlight', err);
             }
+        }
+    }
+
+    // ───── Post announcement for current battle stage (used by pendingAnnouncement flag) ─────
+
+    private async postByStatus(battle: any): Promise<void> {
+        const settings = await this.getGuildSettings(battle.guildId);
+        const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
+        if (!annChannelId) {
+            this.logger.warn(`Beat Battle: No announcement channel set for "${battle.title}", skipping manual announcement`);
+            return;
+        }
+
+        try {
+            const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
+            if (!channel) return;
+
+            if (battle.status === 'upcoming' || battle.status === 'active') {
+                await this.postAnnouncement(battle);
+            } else if (battle.status === 'voting') {
+                const embed = new EmbedBuilder()
+                    .setTitle(`🗳️ ${battle.title} — Voting is Now Open!`)
+                    .setDescription('Submissions are closed. Head to the submissions channel and hit the 🔥 Vote button on your favorite beat, or vote on the website!')
+                    .setColor(0xFFA500)
+                    .setTimestamp();
+                if (battle.votingEnd) {
+                    embed.addFields({ name: 'Voting Ends', value: `<t:${Math.floor(battle.votingEnd.getTime() / 1000)}:R>` });
+                }
+                await channel.send({ embeds: [embed] });
+            } else if (battle.status === 'completed') {
+                const winner = await this.db.battleEntry.findFirst({
+                    where: { battleId: battle.id, id: battle.winnerEntryId ?? undefined },
+                });
+                if (winner) {
+                    const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+                    const embed = new EmbedBuilder()
+                        .setTitle(`🏆 ${battle.title} — Winner!`)
+                        .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`)
+                        .setColor(0xFFD700)
+                        .addFields({ name: '🎧 Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` })
+                        .setFooter({ text: 'Fuji Studio Beat Battle' })
+                        .setTimestamp();
+                    await channel.send({ embeds: [embed] });
+                }
+            }
+            this.logger.info(`Beat Battle: Manual announcement posted for "${battle.title}" (${battle.status})`);
+        } catch (err) {
+            this.logger.error(`Beat Battle: Failed to post manual announcement for "${battle.title}"`, err);
         }
     }
 

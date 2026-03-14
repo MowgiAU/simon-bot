@@ -4923,6 +4923,9 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
 
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
+        // Include discordInviteUrl from guild settings
+        const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } }).catch(() => null);
+
         // Track page view
         if (req.session?.user?.id) {
             await db.battleAnalytics.create({
@@ -4930,7 +4933,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
             }).catch(() => {});
         }
 
-        res.json(battle);
+        res.json({ ...battle, discordInviteUrl: guildSettings?.discordInviteUrl || null });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -5205,6 +5208,34 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
     }
 });
 
+// --- Admin: Manually trigger announcement for current battle stage ---
+app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req: any, res) => {
+    try {
+        const battle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+
+        // Set the pendingAnnouncement flag — the bot lifecycle picks this up within 60s
+        await db.beatBattle.update({
+            where: { id: req.params.id },
+            data: { pendingAnnouncement: true },
+        });
+
+        await db.actionLog.create({
+            data: {
+                pluginId: 'beat-battle',
+                guildId: battle.guildId,
+                action: 'announcement_queued',
+                executorId: req.session.user.id,
+                details: { title: battle.title, status: battle.status },
+            },
+        }).catch(() => {});
+
+        res.json({ success: true, message: 'Announcement queued — will post within 60 seconds.' });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Admin: CRUD Sponsors ---
 app.get('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) => {
     try {
@@ -5447,6 +5478,7 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             chatChannelId: null,
             submissionCategoryId: null,
             archiveCategoryId: null,
+            discordInviteUrl: null,
         });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -5460,12 +5492,12 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId } = req.body;
+        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl } = req.body;
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
-            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId },
-            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId },
+            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl },
+            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl },
         });
         res.json(settings);
     } catch (e: any) {

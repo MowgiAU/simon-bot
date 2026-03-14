@@ -948,6 +948,9 @@ model BeatBattle {
   // Prizes
   prizes              Json?    // Array of { place: string, description: string }
 
+  // Announcement
+  pendingAnnouncement Boolean  @default(false) // Set true to trigger bot announcement on next lifecycle check
+
   // Sponsor
   sponsorId           String?
 
@@ -1057,6 +1060,7 @@ model BeatBattleSettings {
   chatChannelId         String?
   submissionCategoryId  String?
   archiveCategoryId     String?
+  discordInviteUrl      String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

@@ -6,7 +6,7 @@ import { useAuth } from '../components/AuthProvider';
 import {
     Swords, Trophy, Calendar, Users, Play, Vote, Gift,
     Building2, Clock, ChevronDown, ChevronUp, LogIn, Award,
-    ExternalLink, Flame, ArrowRight, Star
+    ExternalLink, Flame, ArrowRight, Star, MessageSquare, Hash, Send
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -23,6 +23,8 @@ interface Battle {
     votingStart: string | null;
     votingEnd: string | null;
     winnerEntryId: string | null;
+    discordInviteUrl: string | null;
+    submissionChannelId?: string | null;
     sponsor: { id: string; name: string; logoUrl: string | null; websiteUrl: string | null; links: { id: string; label: string; url: string }[] } | null;
     entries?: Entry[];
     _count?: { entries: number };
@@ -54,7 +56,10 @@ const placeColor = (i: number) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i 
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(d).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+    });
 }
 
 function timeRemaining(d: string | null) {
@@ -287,25 +292,75 @@ export const BattlesPage: React.FC = () => {
 
                                 {/* How to participate banner (if submissions open) */}
                                 {currentBattle.status === 'active' && (
-                                    <div style={{ backgroundColor: `${colors.primary}12`, border: `1px solid ${colors.primary}30`, borderRadius: '10px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                                        <div>
-                                            <p style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '15px' }}>Submissions are open!</p>
-                                            <p style={{ margin: '4px 0 0', fontSize: '13px', color: colors.textSecondary }}>Drop your beat file in the submissions channel on Discord to enter.</p>
+                                    <div style={{ backgroundColor: `${colors.primary}10`, border: `1px solid ${colors.primary}30`, borderRadius: '12px', overflow: 'hidden' }}>
+                                        {/* Header */}
+                                        <div style={{ backgroundColor: `${colors.primary}18`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Send size={18} color={colors.primary} />
+                                                <span style={{ fontWeight: 700, color: colors.textPrimary, fontSize: '15px' }}>Submissions are open!</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
+                                                <Users size={13} /> {currentBattle._count?.entries || (currentBattle.entries?.length ?? 0)} entries so far
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
-                                            <Users size={14} /> {currentBattle._count?.entries || (currentBattle.entries?.length ?? 0)} entries so far
+                                        {/* Steps */}
+                                        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>1</span>
+                                                <div>
+                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Join the Discord server</p>
+                                                    {currentBattle.discordInviteUrl ? (
+                                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '4px', fontSize: '12px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
+                                                            <MessageSquare size={12} /> Join Discord <ExternalLink size={10} />
+                                                        </a>
+                                                    ) : (
+                                                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Find the invite link in the community.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</span>
+                                                <div>
+                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Find the submissions channel</p>
+                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                                                        Look for a channel starting with <strong style={{ color: colors.textPrimary }}>submissions-</strong> in the Beat Battle category.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</span>
+                                                <div>
+                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Post your beat file</p>
+                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                                                        Upload your <strong style={{ color: colors.textPrimary }}>MP3 or WAV</strong> file as a message attachment. Include the title of your beat in the message text. One entry per person.
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
                                 {currentBattle.status === 'upcoming' && (
-                                    <div style={{ backgroundColor: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: '10px', padding: '16px 20px' }}>
-                                        <p style={{ margin: 0, fontWeight: 700, color: '#93C5FD', fontSize: '15px' }}>Coming soon</p>
-                                        {currentBattle.submissionStart && (
-                                            <p style={{ margin: '4px 0 0', fontSize: '13px', color: colors.textSecondary }}>
-                                                Submissions open {formatDate(currentBattle.submissionStart)} — stay tuned in Discord!
+                                    <div style={{ backgroundColor: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: '12px', overflow: 'hidden' }}>
+                                        <div style={{ backgroundColor: 'rgba(96,165,250,0.1)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <Clock size={16} color="#60A5FA" />
+                                            <span style={{ fontWeight: 700, color: '#93C5FD', fontSize: '15px' }}>Coming soon</span>
+                                            {currentBattle.submissionStart && (
+                                                <span style={{ fontSize: '12px', color: colors.textSecondary, marginLeft: '4px' }}>
+                                                    — submissions open {formatDate(currentBattle.submissionStart)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ padding: '14px 20px' }}>
+                                            <p style={{ margin: '0 0 10px', fontSize: '13px', color: colors.textSecondary }}>
+                                                Stay tuned in the Discord server for the announcement.
                                             </p>
-                                        )}
+                                            {currentBattle.discordInviteUrl && (
+                                                <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#60A5FA', textDecoration: 'none', backgroundColor: 'rgba(96,165,250,0.1)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(96,165,250,0.25)' }}>
+                                                    <MessageSquare size={13} /> Join Discord <ExternalLink size={10} />
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

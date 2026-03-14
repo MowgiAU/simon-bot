@@ -6,7 +6,7 @@ import {
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
-    Building2, Link2, FileDown, Settings, Gift
+    Building2, Link2, FileDown, Settings, Gift, Megaphone
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -110,10 +110,12 @@ export const BeatBattlePage: React.FC = () => {
 
     // Settings state
     const [settings, setSettings] = useState({
-        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '',
+        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '', discordInviteUrl: '',
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
+    const [announcingId, setAnnouncingId] = useState<string | null>(null);
+    const [announceMsg, setAnnounceMsg] = useState<{ id: string; ok: boolean } | null>(null);
 
     const fetchBattles = useCallback(async () => {
         try {
@@ -140,6 +142,7 @@ export const BeatBattlePage: React.FC = () => {
                     chatChannelId: data.chatChannelId || '',
                     submissionCategoryId: data.submissionCategoryId || '',
                     archiveCategoryId: data.archiveCategoryId || '',
+                    discordInviteUrl: data.discordInviteUrl || '',
                 });
             }
         } catch {}
@@ -219,6 +222,21 @@ export const BeatBattlePage: React.FC = () => {
             });
             await fetchBattles();
         } catch {}
+    };
+
+    const handleAnnounce = async (id: string) => {
+        setAnnouncingId(id);
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${id}/announce`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            setAnnounceMsg({ id, ok: res.ok });
+            setTimeout(() => setAnnounceMsg(null), 3000);
+        } catch {
+            setAnnounceMsg({ id, ok: false });
+            setTimeout(() => setAnnounceMsg(null), 3000);
+        } finally { setAnnouncingId(null); }
     };
 
     const fetchAnalytics = async (battleId: string) => {
@@ -583,6 +601,19 @@ export const BeatBattlePage: React.FC = () => {
                                                 <option value="completed">Completed</option>
                                             </select>
                                         )}
+                                        <button
+                                            onClick={() => handleAnnounce(b.id)}
+                                            disabled={announcingId === b.id}
+                                            title="Post announcement for current stage"
+                                            style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px', position: 'relative' }}
+                                        >
+                                            <Megaphone size={14} />
+                                            {announceMsg?.id === b.id && (
+                                                <span style={{ position: 'absolute', bottom: '110%', right: 0, whiteSpace: 'nowrap', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? '#2B8C71' : '#EF4444', color: '#fff', pointerEvents: 'none' }}>
+                                                    {announceMsg.ok ? 'Queued ✓' : 'Failed ✗'}
+                                                </span>
+                                            )}
+                                        </button>
                                         <button onClick={() => fetchAnalytics(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Analytics">
                                             <BarChart3 size={14} />
                                         </button>
@@ -847,6 +878,16 @@ export const BeatBattlePage: React.FC = () => {
                                 <label style={labelStyle}>Archived Submissions Category</label>
                                 <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where completed battle channels are moved</p>
                                 <ChannelSelect guildId={guildId} value={settings.archiveCategoryId} onChange={(v) => setSettings({ ...settings, archiveCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={labelStyle}>Discord Server Invite URL</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Shown on the public Beat Battles page so participants know where to submit their tracks</p>
+                                <input
+                                    style={inputStyle}
+                                    value={settings.discordInviteUrl}
+                                    onChange={(e) => setSettings({ ...settings, discordInviteUrl: e.target.value })}
+                                    placeholder="https://discord.gg/your-invite"
+                                />
                             </div>
                         </div>
                         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
