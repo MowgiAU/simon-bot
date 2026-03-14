@@ -5238,7 +5238,7 @@ app.post('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) 
 
 app.patch('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { name, logoUrl, websiteUrl, description, isActive } = req.body;
+        const { name, logoUrl, websiteUrl, description, isActive, links } = req.body;
         const data: any = {};
         if (name !== undefined) data.name = name;
         if (logoUrl !== undefined) data.logoUrl = logoUrl;
@@ -5251,7 +5251,20 @@ app.patch('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any, 
             data,
             include: { links: true },
         });
-        res.json(sponsor);
+
+        // Replace links if provided
+        if (links !== undefined) {
+            await db.battleSponsorLink.deleteMany({ where: { sponsorId: sponsor.id } });
+            const validLinks = links.filter((l: any) => l.label && l.url);
+            if (validLinks.length > 0) {
+                await db.battleSponsorLink.createMany({
+                    data: validLinks.map((l: any) => ({ sponsorId: sponsor.id, label: l.label, url: l.url })),
+                });
+            }
+        }
+
+        const updated = await db.battleSponsor.findUnique({ where: { id: sponsor.id }, include: { links: true, _count: { select: { battles: true } } } });
+        res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

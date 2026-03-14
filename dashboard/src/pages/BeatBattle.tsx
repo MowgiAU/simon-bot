@@ -97,6 +97,7 @@ export const BeatBattlePage: React.FC = () => {
 
     // Sponsor form
     const [showSponsorForm, setShowSponsorForm] = useState(false);
+    const [editingSponsor, setEditingSponsor] = useState<Sponsor | null>(null);
     const [sponsorForm, setSponsorForm] = useState({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] });
 
     // Backfill form
@@ -248,7 +249,39 @@ export const BeatBattlePage: React.FC = () => {
             }
         } catch {}
     };
+    const handleUpdateSponsor = async () => {
+        if (!editingSponsor) return;
+        try {
+            const payload = {
+                ...sponsorForm,
+                links: sponsorForm.links.filter(l => l.label && l.url),
+            };
+            const res = await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+                await fetchSponsors();
+                setEditingSponsor(null);
+                setShowSponsorForm(false);
+                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] });
+            }
+        } catch {}
+    };
 
+    const startEditSponsor = (s: Sponsor) => {
+        setEditingSponsor(s);
+        setSponsorForm({
+            name: s.name,
+            logoUrl: s.logoUrl || '',
+            websiteUrl: s.websiteUrl || '',
+            description: s.description || '',
+            links: s.links.length > 0 ? s.links.map(l => ({ label: l.label, url: l.url })) : [{ label: '', url: '' }],
+        });
+        setShowSponsorForm(true);
+    };
     const handleDeleteSponsor = async (id: string) => {
         if (!confirm('Delete this sponsor?')) return;
         try {
@@ -578,14 +611,14 @@ export const BeatBattlePage: React.FC = () => {
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h2 style={{ margin: 0, color: colors.textPrimary, fontSize: '18px' }}>Sponsors</h2>
-                        <button onClick={() => setShowSponsorForm(!showSponsorForm)} style={btnPrimary}>
+                        <button onClick={() => { setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] }); setShowSponsorForm(!showSponsorForm); }} style={btnPrimary}>
                             <Plus size={16} /> Add Sponsor
                         </button>
                     </div>
 
                     {showSponsorForm && (
                         <div style={{ ...cardStyle, borderLeft: `4px solid ${colors.primary}` }}>
-                            <h3 style={{ margin: '0 0 16px', color: colors.textPrimary }}>New Sponsor</h3>
+                            <h3 style={{ margin: '0 0 16px', color: colors.textPrimary }}>{editingSponsor ? 'Edit Sponsor' : 'New Sponsor'}</h3>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <div>
                                     <label style={labelStyle}>Name *</label>
@@ -625,8 +658,8 @@ export const BeatBattlePage: React.FC = () => {
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                                <button onClick={handleCreateSponsor} style={btnPrimary}><Save size={16} /> Create Sponsor</button>
-                                <button onClick={() => setShowSponsorForm(false)} style={btnSecondary}>Cancel</button>
+                                <button onClick={editingSponsor ? handleUpdateSponsor : handleCreateSponsor} style={btnPrimary}><Save size={16} /> {editingSponsor ? 'Save Changes' : 'Create Sponsor'}</button>
+                                <button onClick={() => { setShowSponsorForm(false); setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] }); }} style={btnSecondary}>Cancel</button>
                             </div>
                         </div>
                     )}
@@ -647,7 +680,10 @@ export const BeatBattlePage: React.FC = () => {
                                             <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>{s._count?.battles || 0} battles · {s.links.reduce((sum: number, l: SponsorLink) => sum + l.clicks, 0)} total clicks</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDeleteSponsor(s.id)} style={{ ...btnDanger, padding: '6px 10px', fontSize: '12px' }}><Trash2 size={14} /></button>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        <button onClick={() => startEditSponsor(s)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit"><Edit size={14} /></button>
+                                        <button onClick={() => handleDeleteSponsor(s.id)} style={{ ...btnDanger, padding: '6px 10px', fontSize: '12px' }} title="Delete"><Trash2 size={14} /></button>
+                                    </div>
                                 </div>
                                 {s.links.length > 0 && (
                                     <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
