@@ -32,8 +32,8 @@ import { GenresPage } from "./pages/GenresPage";
 import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
-import { LibrarySettings } from "./pages/LibrarySettings";
-import { UniversalSearch } from "./components/UniversalSearch";
+import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
+import { BattleArchivePage } from './pages/BattleArchive';import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -61,7 +61,9 @@ type Section =
   | "docs"
   | "logs"
   | "staging-test"
-  | "plugins";
+  | "plugins"
+  | "beat-battle"
+  | "battle-archive";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
   <div style={{ 
@@ -271,6 +273,10 @@ const AdminDashboard: React.FC = () => {
         return <StagingTest />;
       case "plugins":
         return <PluginManagementPage />;
+      case "beat-battle":
+        return <BeatBattlePage />;
+      case "battle-archive":
+        return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
       case "genres-list":
         return <GenresPage />;
       default:

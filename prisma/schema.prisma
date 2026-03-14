@@ -52,6 +52,10 @@ model Guild {
   ticketSettings     TicketSettings?
   tickets            Ticket[]
 
+  // Beat Battle
+  beatBattles        BeatBattle[]
+  battleSponsors     BattleSponsor[]
+
   @@map("guilds")
 }
 
@@ -910,4 +914,133 @@ model SampleCollectionItem {
 
   @@unique([collectionId, sampleId])
   @@map("fuji_collection_items")
+}
+
+// ──────────────────────────────────────────────
+// Beat Battle Plugin
+// ──────────────────────────────────────────────
+
+model BeatBattle {
+  id                  String   @id @default(cuid())
+  guildId             String
+  title               String
+  description         String?  @db.Text
+  status              String   @default("upcoming") // upcoming | active | voting | completed
+  rules               String?  @db.Text
+
+  // Scheduling
+  submissionStart     DateTime?
+  submissionEnd       DateTime?
+  votingStart         DateTime?
+  votingEnd           DateTime?
+
+  // Discord integration
+  announcementMsgId   String?  // Message ID in #battle-announcements
+  submissionChannelId String?  // Auto-created temp channel
+  announcementChannelId String? // Where announcements go
+  categoryId          String?  // Discord category for battle channels
+
+  // Winner
+  winnerEntryId       String?  // Winning BattleEntry ID
+  winnerSpotlightMsgId String? // Spotlight message ID
+
+  // Sponsor
+  sponsorId           String?
+
+  createdBy           String   // Admin Discord ID who created
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  guild               Guild          @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  sponsor             BattleSponsor? @relation(fields: [sponsorId], references: [id])
+  entries             BattleEntry[]
+  analytics           BattleAnalytics[]
+
+  @@index([guildId])
+  @@index([status])
+  @@map("beat_battles")
+}
+
+model BattleEntry {
+  id          String   @id @default(cuid())
+  battleId    String
+  userId      String   // Discord user ID
+  username    String   // Cached display name
+  trackTitle  String
+  audioUrl    String   // Path to uploaded audio
+  coverUrl    String?  // Optional cover art
+  duration    Int      @default(0) // seconds
+  voteCount   Int      @default(0) // Denormalized for perf
+  discordMsgId String? // Embed message ID in submissions channel
+  source      String   @default("web") // web | discord
+  createdAt   DateTime @default(now())
+
+  battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  votes       BattleVote[]
+
+  @@unique([battleId, userId]) // One entry per battle per user
+  @@index([battleId])
+  @@map("battle_entries")
+}
+
+model BattleVote {
+  id        String   @id @default(cuid())
+  entryId   String
+  userId    String   // Discord user ID
+  source    String   @default("web") // web | discord
+  createdAt DateTime @default(now())
+
+  entry     BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, userId]) // One vote per entry per user
+  @@index([entryId])
+  @@map("battle_votes")
+}
+
+model BattleSponsor {
+  id          String   @id @default(cuid())
+  guildId     String
+  name        String
+  logoUrl     String?
+  websiteUrl  String?
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild       Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  battles     BeatBattle[]
+  links       BattleSponsorLink[]
+
+  @@index([guildId])
+  @@map("battle_sponsors")
+}
+
+model BattleSponsorLink {
+  id          String   @id @default(cuid())
+  sponsorId   String
+  label       String   // e.g. "Visit Website", "Get 20% Off"
+  url         String
+  clicks      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  sponsor     BattleSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+
+  @@index([sponsorId])
+  @@map("battle_sponsor_links")
+}
+
+model BattleAnalytics {
+  id            String   @id @default(cuid())
+  battleId      String
+  eventType     String   // page_view | embed_view | sponsor_click | vote_cast | submission
+  userId        String?  // Discord user ID if known
+  metadata      Json?    // Additional context (e.g., { linkId: "..." })
+  createdAt     DateTime @default(now())
+
+  battle        BeatBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  @@index([battleId])
+  @@index([eventType])
+  @@map("battle_analytics")
 }

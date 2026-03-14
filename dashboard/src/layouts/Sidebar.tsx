@@ -19,6 +19,7 @@ import {
   Ticket,
   FileText,
   Music,
+  Swords,
   Compass,
   Users,
   Tag,
@@ -248,6 +249,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
                 <span className="nav-label">Feedback</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('beat-battle') && (
+            <button
+                className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
+                onClick={() => onNavigate('beat-battle')}
+                title={collapsed ? "Beat Battle" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
+                <span className="nav-label">Beat Battle</span>
             </button>
           )}
 
