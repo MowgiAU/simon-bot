@@ -378,41 +378,61 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Latest Releases Grid */}
-                    <div style={{ ...styles.widgetCard, gridColumn: 'span 12', padding: '32px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-                            <div>
-                                <h3 style={{ fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <Award size={20} color={colors.accentOrange} /> Latest Releases
-                                </h3>
-                                <p style={{ fontSize: '11px', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>Freshly uploaded from the Fuji Studio community</p>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: '24px', alignItems: 'start' }}>
-                            {topTracks.map(track => (
-                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
-                                    <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.05)', transition: 'transform 0.2s', flexShrink: 0 }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                        {track.coverUrl ? (
-                                            <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <FujiLogo size={32} color={colors.primary} opacity={0.2} />
-                                            </div>
-                                        )}
-                                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Play size={24} fill="white" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
-                                    <p style={{ fontSize: '10px', color: '#B9C3CE', margin: '2px 0 12px' }}>{track.profile.displayName || track.profile.username}</p>
-                                    <button style={{ width: '100%', padding: '6px', border: `1px solid ${colors.primary}4D`, color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', borderRadius: '6px', background: 'none', cursor: 'pointer' }}>Listen Now</button>
-                                </Link>
-                            ))}
+                    {/* Latest Releases — section header */}
+                    <div style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <Award size={18} color={colors.accentOrange} />
+                        <div>
+                            <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textPrimary }}>Latest Releases</span>
+                            <span style={{ marginLeft: '12px', fontSize: '11px', color: '#B9C3CE', letterSpacing: '0.05em' }}>Freshly uploaded from the community</span>
                         </div>
                     </div>
+
+                    {/* Latest Releases — individual track cards */}
+                    {topTracks.map(track => (
+                        <Link
+                            key={track.id}
+                            to={`/track/${track.profile.username}/${track.slug || track.id}`}
+                            style={{ gridColumn: isMobile ? 'span 6' : 'span 2', textDecoration: 'none', color: 'inherit' }}
+                        >
+                            <div
+                                style={{ ...styles.widgetCard, padding: '14px', display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}55`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+                            >
+                                {/* Artwork */}
+                                <div
+                                    style={{ position: 'relative', width: '52px', height: '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.07)' }}
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}
+                                >
+                                    {track.coverUrl ? (
+                                        <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <FujiLogo size={20} color={colors.primary} opacity={0.25} />
+                                        </div>
+                                    )}
+                                    <div
+                                        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.15s' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                                    >
+                                        <Play size={16} fill="white" color="white" />
+                                    </div>
+                                </div>
+
+                                {/* Text */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{track.title}</p>
+                                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
+                                    {track.genres?.[0] && (
+                                        <span style={{ display: 'inline-block', marginTop: '6px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.primary, backgroundColor: `${colors.primary}18`, padding: '2px 7px', borderRadius: '4px' }}>
+                                            {track.genres[0].genre.name}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
 
                 </div>
             </div>
