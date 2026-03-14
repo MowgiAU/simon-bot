@@ -395,13 +395,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             style={{ gridColumn: isMobile ? 'span 6' : 'span 2', textDecoration: 'none', color: 'inherit' }}
                         >
                             <div
-                                style={{ ...styles.widgetCard, padding: '14px', display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
+                                style={{ ...styles.widgetCard, padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}55`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
                             >
                                 {/* Artwork */}
                                 <div
-                                    style={{ position: 'relative', width: '104px', height: '104px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.07)' }}
+                                    style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}
                                 >
                                     {track.coverUrl ? (
@@ -416,12 +416,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
                                     >
-                                        <Play size={16} fill="white" color="white" />
+                                        <Play size={20} fill="white" color="white" />
                                     </div>
                                 </div>
 
                                 {/* Text */}
-                                <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ width: '100%', minWidth: 0 }}>
                                     <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{track.title}</p>
                                     <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
                                     {track.genres?.[0] && (
