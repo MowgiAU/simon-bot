@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
+import { usePlayer } from '../components/PlayerProvider';
 import {
-    Swords, Trophy, Calendar, Users, Play, Vote, Gift,
+    Swords, Trophy, Calendar, Users, Play, Pause, Vote, Gift,
     Building2, Clock, ChevronDown, ChevronUp, LogIn, Award,
     ExternalLink, Flame, ArrowRight, Star, MessageSquare, Hash, Send
 } from 'lucide-react';
@@ -38,6 +39,7 @@ interface Entry {
     trackTitle: string;
     audioUrl: string;
     coverUrl: string | null;
+    avatarUrl: string | null;
     duration?: number;
     voteCount: number;
     source: string;
@@ -74,6 +76,7 @@ function timeRemaining(d: string | null) {
 
 export const BattlesPage: React.FC = () => {
     const { user } = useAuth();
+    const { player, setTrack, togglePlay } = usePlayer();
     const [battles, setBattles] = useState<Battle[]>([]);
     const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
     const [loading, setLoading] = useState(true);
@@ -117,8 +120,14 @@ export const BattlesPage: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
             });
-            if (res.ok || res.status === 409) {
-                setVotedIds(prev => new Set([...prev, entryId]));
+            if (res.ok) {
+                const data = await res.json();
+                setVotedIds(prev => {
+                    const next = new Set(prev);
+                    if (data.voted) next.add(entryId);
+                    else next.delete(entryId);
+                    return next;
+                });
                 // Refresh entries vote counts
                 if (currentBattle) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}`, { credentials: 'include' });
@@ -403,32 +412,55 @@ export const BattlesPage: React.FC = () => {
                                                         <span style={{ fontSize: '18px', fontWeight: 800, color: colors.primary }}>🔥 {entry.voteCount}</span>
                                                     </div>
 
-                                                    <p style={{ margin: '0 0 2px', fontWeight: 700, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.3' }}>{entry.trackTitle}</p>
-                                                    <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '12px' }}>by {entry.username}</p>
+                                                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                                    {(entry.avatarUrl || entry.coverUrl) && (
+                                                        <img
+                                                            src={entry.avatarUrl || entry.coverUrl!}
+                                                            alt=""
+                                                            style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+                                                        />
+                                                    )}
+                                                    <div>
+                                                        <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 2px', fontWeight: 700, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.3', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
+                                                        <p style={{ margin: '0', color: colors.textSecondary, fontSize: '12px' }}>by {entry.username}</p>
+                                                    </div>
+                                                </div>
 
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         {entry.audioUrl && (
-                                                            <Link
-                                                                to={`/battles/entry/${entry.id}`}
-                                                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: colors.textSecondary, fontSize: '12px', textDecoration: 'none', fontWeight: 600 }}
+                                                            <button
+                                                                onClick={() => {
+                                                                    const isThisTrack = player.currentTrack?.id === `battle-${entry.id}`;
+                                                                    if (isThisTrack) { togglePlay(); return; }
+                                                                    setTrack({
+                                                                        id: `battle-${entry.id}`,
+                                                                        title: entry.trackTitle,
+                                                                        artist: entry.username,
+                                                                        cover: entry.avatarUrl || entry.coverUrl || '',
+                                                                        url: `${API}${entry.audioUrl}`,
+                                                                    });
+                                                                }}
+                                                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: colors.textSecondary, fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
                                                             >
-                                                                <Play size={13} fill="currentColor" /> Play
-                                                            </Link>
+                                                                {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
+                                                                    ? <><Pause size={13} /> Pause</>
+                                                                    : <><Play size={13} fill="currentColor" /> Play</>}
+                                                            </button>
                                                         )}
                                                         {currentBattle.status === 'voting' && (
                                                             <button
                                                                 onClick={() => vote(entry.id)}
-                                                                disabled={isVoting || hasVoted}
+                                                                disabled={isVoting}
                                                                 style={{
                                                                     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                                    padding: '8px', borderRadius: '6px', border: 'none', cursor: hasVoted ? 'default' : 'pointer',
+                                                                    padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                                                                     backgroundColor: hasVoted ? `${colors.primary}30` : colors.primary,
                                                                     color: hasVoted ? colors.primary : '#fff',
                                                                     fontSize: '12px', fontWeight: 700,
                                                                     opacity: isVoting ? 0.6 : 1,
                                                                 }}
                                                             >
-                                                                <Flame size={13} /> {hasVoted ? 'Voted' : isVoting ? '...' : 'Vote'}
+                                                                <Flame size={13} /> {hasVoted ? 'Unvote' : isVoting ? '...' : 'Vote'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -510,6 +542,7 @@ export const BattlesPage: React.FC = () => {
 
 // Lazy-fetch expanded battle detail
 const ExpandedBattle: React.FC<{ battleId: string }> = ({ battleId }) => {
+    const { player, setTrack, togglePlay } = usePlayer();
     const [battle, setBattle] = useState<Battle | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -553,17 +586,35 @@ const ExpandedBattle: React.FC<{ battleId: string }> = ({ battleId }) => {
                         <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: i === 0 ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)', borderRadius: '8px', border: i === 0 ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ fontSize: '16px' }}>{placeEmoji(i)}</span>
+                                {(entry as Entry).avatarUrl && (
+                                    <img src={(entry as Entry).avatarUrl!} alt="" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
+                                )}
                                 <div>
-                                    <p style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px' }}>{entry.trackTitle}</p>
+                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
                                     <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by {entry.username}</p>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ fontWeight: 700, color: colors.primary, fontSize: '13px' }}>🔥 {entry.voteCount}</span>
                                 {entry.audioUrl && (
-                                    <Link to={`/battles/entry/${entry.id}`} style={{ color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}>
-                                        <Play size={12} /> Play
-                                    </Link>
+                                    <button
+                                        onClick={() => {
+                                            const isThisTrack = player.currentTrack?.id === `battle-${entry.id}`;
+                                            if (isThisTrack) { togglePlay(); return; }
+                                            setTrack({
+                                                id: `battle-${entry.id}`,
+                                                title: entry.trackTitle,
+                                                artist: entry.username,
+                                                cover: (entry as Entry).avatarUrl || entry.coverUrl || '',
+                                                url: `${API}${entry.audioUrl}`,
+                                            });
+                                        }}
+                                        style={{ color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                                    >
+                                        {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
+                                            ? <><Pause size={12} /> Pause</>
+                                            : <><Play size={12} /> Play</>}
+                                    </button>
                                 )}
                             </div>
                         </div>

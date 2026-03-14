@@ -948,6 +948,9 @@ model BeatBattle {
   // Prizes
   prizes              Json?    // Array of { place: string, description: string }
 
+  // Voting
+  maxVotesPerUser     Int      @default(0) // 0 = unlimited, 1+ = max entries a single user can vote on
+
   // Announcement
   pendingAnnouncement Boolean  @default(false) // Set true to trigger bot announcement on next lifecycle check
 
@@ -976,6 +979,7 @@ model BattleEntry {
   trackTitle  String
   audioUrl    String   // Path to uploaded audio
   coverUrl    String?  // Optional cover art
+  avatarUrl   String?  // Submitter's Discord avatar URL
   duration    Int      @default(0) // seconds
   voteCount   Int      @default(0) // Denormalized for perf
   discordMsgId String? // Embed message ID in submissions channel

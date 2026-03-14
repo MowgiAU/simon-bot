@@ -4916,7 +4916,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
                 sponsor: { include: { links: true } },
                 entries: {
                     orderBy: { voteCount: 'desc' },
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
+                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
                 },
             },
         });
@@ -4952,7 +4952,7 @@ app.get('/api/beat-battle/archive', async (req: any, res) => {
                 entries: {
                     orderBy: { voteCount: 'desc' },
                     take: 3,
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, voteCount: true },
+                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
                 },
                 _count: { select: { entries: true } },
             },
@@ -4997,7 +4997,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
 
         if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
-        if (entry.battle.status !== 'voting' && entry.battle.status !== 'active') {
+        if (entry.battle.status !== 'voting') {
             return res.status(400).json({ error: 'Voting is not open for this battle' });
         }
 
@@ -5005,12 +5005,30 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             return res.status(400).json({ error: 'You cannot vote for your own submission' });
         }
 
-        // Check duplicate vote
+        // Check duplicate vote — if exists, toggle (remove) it
         const existingVote = await db.battleVote.findUnique({
             where: { entryId_userId: { entryId, userId } },
         });
         if (existingVote) {
-            return res.status(400).json({ error: 'You have already voted for this entry' });
+            await db.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
+            const updated = await db.battleEntry.update({
+                where: { id: entryId },
+                data: { voteCount: { decrement: 1 } },
+            });
+            return res.json({ voteCount: updated.voteCount, voted: false });
+        }
+
+        // Check per-battle vote limit
+        if (entry.battle.maxVotesPerUser > 0) {
+            const userVoteCount = await db.battleVote.count({
+                where: {
+                    userId,
+                    entry: { battleId: entry.battleId },
+                },
+            });
+            if (userVoteCount >= entry.battle.maxVotesPerUser) {
+                return res.status(400).json({ error: `You've used all ${entry.battle.maxVotesPerUser} vote(s) for this battle. Remove a vote from another entry first.` });
+            }
         }
 
         await db.battleVote.create({
@@ -5034,7 +5052,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             // The Discord embed will update on next interaction or can be triggered via the bot side
         } catch {}
 
-        res.json({ voteCount: updated.voteCount });
+        res.json({ voteCount: updated.voteCount, voted: true });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
         res.status(500).json({ error: e.message });
@@ -5118,7 +5136,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
+        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId, maxVotesPerUser } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5139,6 +5157,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 sponsorId: sponsorId || null,
                 announcementChannelId: announcementChannelId || null,
                 categoryId: categoryId || null,
+                maxVotesPerUser: maxVotesPerUser != null ? Number(maxVotesPerUser) : 0,
                 createdBy: req.session.user.id,
             },
             include: { sponsor: { include: { links: true } } },
@@ -5165,7 +5184,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId } = req.body;
+        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId, maxVotesPerUser } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -5184,6 +5203,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (sponsorId !== undefined) data.sponsorId = sponsorId || null;
         if (announcementChannelId !== undefined) data.announcementChannelId = announcementChannelId;
         if (categoryId !== undefined) data.categoryId = categoryId;
+        if (maxVotesPerUser !== undefined) data.maxVotesPerUser = Number(maxVotesPerUser);
 
         const battle = await db.beatBattle.update({
             where: { id: req.params.id },
@@ -5319,6 +5339,50 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
         }).catch(() => {});
 
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Public: Get battle submissions for a user (profile) ---
+app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
+    try {
+        const entries = await db.battleEntry.findMany({
+            where: { userId: req.params.userId },
+            include: {
+                battle: {
+                    select: { id: true, title: true, status: true },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // For each entry, determine placement (rank by voteCount in that battle)
+        const enriched = await Promise.all(entries.map(async (entry: any) => {
+            const allEntries = await db.battleEntry.findMany({
+                where: { battleId: entry.battleId },
+                orderBy: { voteCount: 'desc' },
+                select: { id: true, voteCount: true },
+            });
+            const placement = allEntries.findIndex((e: any) => e.id === entry.id) + 1;
+            const totalEntries = allEntries.length;
+            const isWinner = placement === 1 && entry.battle.status === 'completed' && entry.voteCount > 0;
+            return {
+                id: entry.id,
+                trackTitle: entry.trackTitle,
+                audioUrl: entry.audioUrl,
+                coverUrl: entry.coverUrl,
+                avatarUrl: entry.avatarUrl,
+                voteCount: entry.voteCount,
+                createdAt: entry.createdAt,
+                battle: entry.battle,
+                placement,
+                totalEntries,
+                isWinner,
+            };
+        }));
+
+        res.json(enriched);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

@@ -20,6 +20,7 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { MediaConverter } from '../../services/MediaConverter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -166,7 +167,17 @@ export class BeatBattlePlugin implements IPlugin {
         });
 
         if (existingEntry) {
-            await message.reply({ content: 'You already have a submission for this battle! One entry per person.' });
+            try { await message.delete(); } catch {}
+            try {
+                await message.author.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('❌ Duplicate Submission')
+                        .setDescription(`You already have a submission for **${battle.title}**! One entry per person.`)
+                        .setColor(0xEF4444)
+                        .setFooter({ text: 'Fuji Studio Beat Battle' })
+                    ],
+                });
+            } catch {}
             return;
         }
 
@@ -178,11 +189,15 @@ export class BeatBattlePlugin implements IPlugin {
             if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
             const uniqueName = `battle-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(audioAttachment.name || '.mp3')}`;
-            const filePath = path.join(uploadsDir, uniqueName);
-            fs.writeFileSync(filePath, buffer);
+            const rawFilePath = path.join(uploadsDir, uniqueName);
+            fs.writeFileSync(rawFilePath, buffer);
 
-            const audioUrl = `/uploads/battles/${uniqueName}`;
-            const title = message.content?.trim() || audioAttachment.name || 'Untitled Beat';
+            // Convert to 320kbps MP3
+            const convertedPath = await MediaConverter.convertAudio(rawFilePath);
+            const audioUrl = `/uploads/battles/${path.basename(convertedPath)}`;
+
+            const title = message.content?.trim() || audioAttachment.name?.replace(/\.[^.]+$/, '') || 'Untitled Beat';
+            const avatarUrl = message.author.displayAvatarURL({ size: 256 });
 
             // Create entry
             const entry = await this.db.battleEntry.create({
@@ -192,12 +207,16 @@ export class BeatBattlePlugin implements IPlugin {
                     username: message.author.displayName || message.author.username,
                     trackTitle: title,
                     audioUrl,
+                    avatarUrl,
                     source: 'discord',
                 },
             });
 
-            // Post formatted embed — only add vote button if battle is in voting phase
-            const embed = this.buildEntryEmbed(entry, message.author.displayAvatarURL(), battle.title);
+            // Delete the original user message
+            try { await message.delete(); } catch {}
+
+            // Post formatted embed as the bot — only add vote button if battle is in voting phase
+            const embed = this.buildEntryEmbed(entry, battle.title);
             const components: ActionRowBuilder<ButtonBuilder>[] = [];
             if (battle.status === 'voting') {
                 components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -222,11 +241,12 @@ export class BeatBattlePlugin implements IPlugin {
                 data: { battleId: battle.id, eventType: 'submission', userId: message.author.id },
             });
 
-            await message.react('✅');
             this.logger.info(`Beat Battle: ${message.author.username} submitted "${title}" to "${battle.title}"`);
         } catch (err) {
             this.logger.error('Beat Battle: Failed to process Discord submission', err);
-            await message.reply({ content: 'Something went wrong processing your submission. Please try again.' });
+            try {
+                await message.author.send({ content: 'Something went wrong processing your submission. Please try again.' });
+            } catch {}
         }
     }
 
@@ -262,8 +282,42 @@ export class BeatBattlePlugin implements IPlugin {
         });
 
         if (existingVote) {
-            await interaction.reply({ content: 'You have already voted for this submission!', ephemeral: true });
+            // Toggle: remove vote
+            await this.db.battleVote.delete({ where: { entryId_userId: { entryId, userId: interaction.user.id } } });
+            const updated = await this.db.battleEntry.update({
+                where: { id: entryId },
+                data: { voteCount: { decrement: 1 } },
+            });
+            try {
+                const voteRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`battle_vote_${entryId}`)
+                        .setLabel(`Vote (${updated.voteCount})`)
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji('🔥')
+                );
+                await interaction.update({ components: [voteRow] });
+            } catch {
+                await interaction.reply({ content: `Vote removed! (${updated.voteCount} total)`, ephemeral: true });
+            }
             return;
+        }
+
+        // Check per-battle vote limit
+        if (entry.battle.maxVotesPerUser > 0) {
+            const userVoteCount = await this.db.battleVote.count({
+                where: {
+                    userId: interaction.user.id,
+                    entry: { battleId: entry.battleId },
+                },
+            });
+            if (userVoteCount >= entry.battle.maxVotesPerUser) {
+                await interaction.reply({
+                    content: `You've used all ${entry.battle.maxVotesPerUser} vote(s) for this battle. Remove a vote from another entry first by clicking its Vote button again.`,
+                    ephemeral: true,
+                });
+                return;
+            }
         }
 
         // Record vote
@@ -385,10 +439,13 @@ export class BeatBattlePlugin implements IPlugin {
             if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
             const uniqueName = `battle-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(attachment.name || '.mp3')}`;
-            const filePath = path.join(uploadsDir, uniqueName);
-            fs.writeFileSync(filePath, buffer);
+            const rawFilePath = path.join(uploadsDir, uniqueName);
+            fs.writeFileSync(rawFilePath, buffer);
 
-            const audioUrl = `/uploads/battles/${uniqueName}`;
+            // Convert to 320kbps MP3
+            const convertedPath = await MediaConverter.convertAudio(rawFilePath);
+            const audioUrl = `/uploads/battles/${path.basename(convertedPath)}`;
+            const avatarUrl = interaction.user.displayAvatarURL({ size: 256 });
 
             const entry = await this.db.battleEntry.create({
                 data: {
@@ -397,23 +454,27 @@ export class BeatBattlePlugin implements IPlugin {
                     username: interaction.user.displayName || interaction.user.username,
                     trackTitle: title,
                     audioUrl,
+                    avatarUrl,
                     source: 'discord',
                 },
             });
 
-            // Post embed in submissions channel
+            // Post embed in submissions channel — only add vote button if voting is active
             if (battle.submissionChannelId) {
                 const channel = await this.client.channels.fetch(battle.submissionChannelId) as TextChannel | null;
                 if (channel) {
-                    const embed = this.buildEntryEmbed(entry, interaction.user.displayAvatarURL(), battle.title);
-                    const voteRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`battle_vote_${entry.id}`)
-                            .setLabel('Vote (0)')
-                            .setStyle(ButtonStyle.Primary)
-                            .setEmoji('🔥')
-                    );
-                    const embedMsg = await channel.send({ embeds: [embed], components: [voteRow] });
+                    const embed = this.buildEntryEmbed(entry, battle.title);
+                    const components: ActionRowBuilder<ButtonBuilder>[] = [];
+                    if (battle.status === 'voting') {
+                        components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`battle_vote_${entry.id}`)
+                                .setLabel('Vote (0)')
+                                .setStyle(ButtonStyle.Primary)
+                                .setEmoji('🔥')
+                        ));
+                    }
+                    const embedMsg = await channel.send({ embeds: [embed], components });
                     await this.db.battleEntry.update({
                         where: { id: entry.id },
                         data: { discordMsgId: embedMsg.id },
@@ -798,7 +859,7 @@ export class BeatBattlePlugin implements IPlugin {
             const channel = await this.client.channels.fetch(battle.submissionChannelId) as TextChannel | null;
             if (!channel) return null;
 
-            const embed = this.buildEntryEmbed(entry, null, battle.title);
+            const embed = this.buildEntryEmbed(entry, battle.title);
             const components: ActionRowBuilder<ButtonBuilder>[] = [];
             if (battle.status === 'voting') {
                 components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -845,7 +906,7 @@ export class BeatBattlePlugin implements IPlugin {
 
     // ───── Helpers ─────
 
-    private buildEntryEmbed(entry: any, avatarUrl: string | null, battleTitle: string): EmbedBuilder {
+    private buildEntryEmbed(entry: any, battleTitle: string): EmbedBuilder {
         const apiUrl = process.env.API_URL || 'https://fujistudio.app';
         const embed = new EmbedBuilder()
             .setTitle(`🎵 ${entry.trackTitle}`)
@@ -859,7 +920,7 @@ export class BeatBattlePlugin implements IPlugin {
             .setFooter({ text: 'Click the Vote button to support this entry!' })
             .setTimestamp();
 
-        if (avatarUrl) embed.setThumbnail(avatarUrl);
+        if (entry.avatarUrl) embed.setThumbnail(entry.avatarUrl);
         if (entry.coverUrl) embed.setImage(`${apiUrl}${entry.coverUrl}`);
 
         return embed;

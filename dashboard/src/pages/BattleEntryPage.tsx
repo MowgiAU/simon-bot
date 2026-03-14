@@ -17,6 +17,7 @@ interface EntryData {
     trackTitle: string;
     audioUrl: string;
     coverUrl: string | null;
+    avatarUrl: string | null;
     duration: number | null;
     voteCount: number;
     source: string;
@@ -91,7 +92,7 @@ export const BattleEntryPage: React.FC = () => {
                 artist: entry.username,
                 username: entry.username,
                 slug: '',
-                cover: entry.coverUrl ? `${API}${entry.coverUrl}` : '',
+                cover: entry.coverUrl ? `${API}${entry.coverUrl}` : entry.avatarUrl || '',
                 url: `${API}${entry.audioUrl}`,
             });
         }
@@ -108,8 +109,9 @@ export const BattleEntryPage: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
             });
-            if (res.ok || res.status === 409) {
-                setVoted(true);
+            if (res.ok) {
+                const data = await res.json();
+                setVoted(data.voted);
                 // Refresh entry data
                 const updated = await fetch(`${API}/api/beat-battle/entries/${entry.id}`);
                 if (updated.ok) setEntry(await updated.json());
@@ -173,9 +175,9 @@ export const BattleEntryPage: React.FC = () => {
                     overflow: 'hidden',
                 }}>
                     {/* Cover / accent */}
-                    {entry.coverUrl ? (
+                    {(entry.coverUrl || entry.avatarUrl) ? (
                         <div style={{ height: '200px', overflow: 'hidden', position: 'relative' }}>
-                            <img src={`${API}${entry.coverUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={entry.coverUrl ? `${API}${entry.coverUrl}` : entry.avatarUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #242C3D 0%, transparent 60%)' }} />
                         </div>
                     ) : (
@@ -223,14 +225,14 @@ export const BattleEntryPage: React.FC = () => {
                                         disabled={voting || voted}
                                         style={{
                                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                            padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: voted ? 'default' : 'pointer',
+                                            padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                                             backgroundColor: voted ? `${colors.primary}30` : 'rgba(255,255,255,0.08)',
                                             color: voted ? colors.primary : colors.textPrimary,
                                             fontSize: '15px', fontWeight: 700,
                                             opacity: voting ? 0.6 : 1,
                                         }}
                                     >
-                                        <Flame size={16} /> {voted ? 'Voted!' : voting ? '...' : 'Vote'}
+                                        <Flame size={16} /> {voted ? 'Unvote' : voting ? '...' : 'Vote'}
                                     </button>
                                 ) : (
                                     <a

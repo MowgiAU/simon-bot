@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
@@ -6,7 +7,8 @@ import axios from 'axios';
 import { 
     Music, Share2, Hammer, Globe, Instagram, Youtube, MessageCircle, Radio, 
     ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
-    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check
+    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check,
+    Swords, Trophy, Flame
 } from 'lucide-react';
 
 interface MusicianProfile {
@@ -50,6 +52,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [copied, setCopied] = useState(false);
+
+    // Battle submissions
+    const [battleEntries, setBattleEntries] = useState<any[]>([]);
 
     // Player Context
     const { player, setTrack, togglePlay } = usePlayer();
@@ -104,6 +109,17 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         };
         fetchProfile();
     }, [identifier]);
+
+    // Fetch battle submissions once profile is loaded
+    useEffect(() => {
+        if (!profile?.userId) return;
+        (async () => {
+            try {
+                const res = await axios.get(`/api/beat-battle/user/${profile.userId}/entries`);
+                setBattleEntries(res.data);
+            } catch {}
+        })();
+    }, [profile?.userId]);
 
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>
@@ -508,6 +524,73 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
                     </div>
                 </div>
+
+                {/* Beat Battle History */}
+                {battleEntries.length > 0 && (
+                    <div style={{ 
+                        gridColumn: 'span 12', backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', 
+                        borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px'
+                    }}>
+                        <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Swords size={24} color={colors.primary} /> Beat Battle History
+                            </h3>
+                            <p style={{ fontSize: '12px', color: '#B9C3CE', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Competition entries by {profile.username}</p>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {battleEntries.map((entry: any) => (
+                                <div key={entry.id} style={{
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    padding: '14px 16px', backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)',
+                                    borderRadius: '10px', border: entry.isWinner ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                                    flexWrap: 'wrap', gap: '10px',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                                        {entry.avatarUrl && (
+                                            <img src={entry.avatarUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                                        )}
+                                        <div style={{ minWidth: 0 }}>
+                                            <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '14px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
+                                            <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '12px' }}>{entry.battle.title}</p>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+                                        {entry.isWinner && (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#FFD700' }}>
+                                                <Trophy size={14} /> Winner
+                                            </span>
+                                        )}
+                                        {!entry.isWinner && entry.battle.status === 'completed' && (
+                                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>
+                                                #{entry.placement}/{entry.totalEntries}
+                                            </span>
+                                        )}
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: colors.primary, fontSize: '13px' }}>
+                                            <Flame size={14} /> {entry.voteCount}
+                                        </span>
+                                        <button
+                                            onClick={() => {
+                                                if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; }
+                                                setTrack({
+                                                    id: `battle-${entry.id}`,
+                                                    title: entry.trackTitle,
+                                                    artist: profile.username,
+                                                    cover: entry.avatarUrl || entry.coverUrl || '',
+                                                    url: `${entry.audioUrl}`,
+                                                });
+                                            }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
+                                        >
+                                            {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
+                                                ? <><Pause size={13} /> Pause</>
+                                                : <><Play size={13} /> Play</>}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
             </div>
 

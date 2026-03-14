@@ -109,6 +109,7 @@ export const BeatBattlePage: React.FC = () => {
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
         sponsorId: '', announcementChannelId: '', categoryId: '',
         prizes: [{ place: '1st Place', description: '' }] as { place: string; description: string }[],
+        maxVotesPerUser: 0,
     });
 
     // Sponsor form
@@ -183,7 +184,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '', prizes: [{ place: '1st Place', description: '' }] });
+    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0 });
 
     const handleCreateBattle = async () => {
         try {
@@ -377,6 +378,7 @@ export const BeatBattlePage: React.FC = () => {
             prizes: (b.prizes && (b.prizes as any[]).length > 0)
                 ? (b.prizes as { place: string; description: string }[])
                 : [{ place: '1st Place', description: '' }],
+            maxVotesPerUser: (b as any).maxVotesPerUser || 0,
         });
         setShowCreate(true);
     };
@@ -566,6 +568,11 @@ export const BeatBattlePage: React.FC = () => {
                                 <div>
                                     <label style={labelStyle}>Announcement Channel ID</label>
                                     <input style={inputStyle} value={form.announcementChannelId} onChange={(e) => setForm({ ...form, announcementChannelId: e.target.value })} placeholder="Channel ID" />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Max Votes Per User</label>
+                                    <input type="number" min={0} style={inputStyle} value={form.maxVotesPerUser} onChange={(e) => setForm({ ...form, maxVotesPerUser: Number(e.target.value) })} placeholder="0 = unlimited" />
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>0 = unlimited votes</p>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
