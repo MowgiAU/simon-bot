@@ -637,7 +637,7 @@ export const BeatBattlePage: React.FC = () => {
                                             <Megaphone size={14} />
                                             {announceMsg?.id === b.id && (
                                                 <span style={{ position: 'absolute', bottom: '110%', right: 0, whiteSpace: 'nowrap', fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? '#2B8C71' : '#EF4444', color: '#fff', pointerEvents: 'none' }}>
-                                                    {announceMsg.ok ? 'Queued ✓' : 'Failed ✗'}
+                                                    {announceMsg.ok ? 'Posted ✓' : 'Failed ✗'}
                                                 </span>
                                             )}
                                         </button>

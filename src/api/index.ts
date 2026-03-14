@@ -5208,29 +5208,97 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
     }
 });
 
+// --- Shared helper: post a battle announcement embed to a Discord channel via REST ---
+async function postBattleAnnouncement(battle: any, settings: any): Promise<boolean> {
+    const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
+    if (!annChannelId) return false;
+
+    const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+    let embed: any;
+
+    if (battle.status === 'upcoming' || battle.status === 'active') {
+        const fields: any[] = [];
+        if (battle.submissionStart) {
+            fields.push({ name: 'Submissions Open', value: `<t:${Math.floor(new Date(battle.submissionStart).getTime() / 1000)}:R>`, inline: true });
+        }
+        if (battle.submissionEnd) {
+            fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
+        }
+        if (battle.submissionChannelId) {
+            fields.push({ name: 'Submissions Channel', value: `<#${battle.submissionChannelId}>`, inline: true });
+        }
+        if (battle.rules) fields.push({ name: '📋 Rules', value: battle.rules });
+        fields.push({ name: '🌐 Website', value: `[View on Fuji Studio](${apiUrl}/battles)` });
+        embed = {
+            title: `🎤 New Beat Battle: ${battle.title}`,
+            description: battle.description || 'A new battle has begun! Submit your beats.',
+            color: 0x2B8C71,
+            fields,
+            footer: { text: 'Fuji Studio Beat Battle' },
+            timestamp: new Date().toISOString(),
+        };
+    } else if (battle.status === 'voting') {
+        const fields: any[] = [];
+        if (battle.votingEnd) {
+            fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
+        }
+        embed = {
+            title: `🗳️ ${battle.title} — Voting is Now Open!`,
+            description: 'Submissions are closed. Head to the submissions channel and hit the 🔥 Vote button on your favorite beat, or vote on the website!',
+            color: 0xFFA500,
+            fields,
+            footer: { text: 'Fuji Studio Beat Battle' },
+            timestamp: new Date().toISOString(),
+        };
+    } else if (battle.status === 'completed') {
+        const winner = battle.winnerEntryId
+            ? await db.battleEntry.findUnique({ where: { id: battle.winnerEntryId } })
+            : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
+        if (!winner) return false;
+        embed = {
+            title: `🏆 ${battle.title} — Winner!`,
+            description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
+            color: 0xFFD700,
+            fields: [{ name: '🎧 Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            footer: { text: 'Fuji Studio Beat Battle' },
+            timestamp: new Date().toISOString(),
+        };
+    } else {
+        return false;
+    }
+
+    try {
+        await discordReq('POST', `/channels/${annChannelId}/messages`, { embeds: [embed] });
+        return true;
+    } catch (err: any) {
+        logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
+        return false;
+    }
+}
+
 // --- Admin: Manually trigger announcement for current battle stage ---
 app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req: any, res) => {
     try {
         const battle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
-        // Set the pendingAnnouncement flag — the bot lifecycle picks this up within 60s
-        await db.beatBattle.update({
-            where: { id: req.params.id },
-            data: { pendingAnnouncement: true },
-        });
+        const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+        const posted = await postBattleAnnouncement(battle, settings);
 
         await db.actionLog.create({
             data: {
                 pluginId: 'beat-battle',
                 guildId: battle.guildId,
-                action: 'announcement_queued',
+                action: 'announcement_posted',
                 executorId: req.session.user.id,
-                details: { title: battle.title, status: battle.status },
+                details: { title: battle.title, status: battle.status, posted },
             },
         }).catch(() => {});
 
-        res.json({ success: true, message: 'Announcement queued — will post within 60 seconds.' });
+        if (!posted) {
+            return res.status(400).json({ error: 'Could not post announcement. Check that an announcement channel is configured in Beat Battle settings.' });
+        }
+        res.json({ success: true, message: 'Announcement posted!' });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -5599,6 +5667,134 @@ if (fs.existsSync(distPath)) {
         }
     });
 }
+
+// --- Beat Battle Lifecycle (runs in API process so it's always active) ---
+async function runBeatBattleLifecycle(): Promise<void> {
+    const now = new Date();
+    try {
+        // 1. Upcoming → Active (submissionStart passed)
+        const toActivate = await db.beatBattle.findMany({
+            where: { status: 'upcoming', submissionStart: { lte: now } },
+        });
+        for (const battle of toActivate) {
+            logger.info(`Beat Battle lifecycle: activating "${battle.title}"`);
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+
+            // Create submissions channel via Discord REST
+            let submissionChannelId = battle.submissionChannelId;
+            if (!submissionChannelId) {
+                try {
+                    const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+                    const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
+                    const body: any = {
+                        name: channelName,
+                        type: 0, // GUILD_TEXT
+                        topic: `Submit your beats for: ${battle.title}`,
+                    };
+                    if (categoryId) body.parent_id = categoryId;
+
+                    const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
+                    submissionChannelId = chRes.data.id;
+
+                    // Post instructions embed in the new channel
+                    const instrEmbed = {
+                        title: `🎵 ${battle.title} — Submissions Open!`,
+                        description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
+                        color: 0x2B8C71,
+                        footer: { text: 'Fuji Studio Beat Battle' },
+                        timestamp: new Date().toISOString(),
+                    };
+                    await discordReq('POST', `/channels/${submissionChannelId}/messages`, { embeds: [instrEmbed] });
+                } catch (err: any) {
+                    logger.error(`Beat Battle lifecycle: failed to create submissions channel for "${battle.title}": ${err.message}`);
+                }
+            }
+
+            await db.beatBattle.update({
+                where: { id: battle.id },
+                data: { status: 'active', submissionChannelId },
+            });
+
+            // Post announcement
+            const updatedBattle = { ...battle, status: 'active', submissionChannelId };
+            const settings2 = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            await postBattleAnnouncement(updatedBattle, settings2);
+        }
+
+        // 2. Active battles still missing a submissions channel (created directly as active)
+        const noChannel = await db.beatBattle.findMany({
+            where: { status: 'active', submissionChannelId: null },
+        });
+        for (const battle of noChannel) {
+            logger.info(`Beat Battle lifecycle: creating missing channel for active battle "${battle.title}"`);
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            try {
+                const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
+                const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
+                const body: any = { name: channelName, type: 0, topic: `Submit your beats for: ${battle.title}` };
+                if (categoryId) body.parent_id = categoryId;
+                const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
+                const channelId = chRes.data.id;
+                const instrEmbed = {
+                    title: `🎵 ${battle.title} — Submissions Open!`,
+                    description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
+                    color: 0x2B8C71,
+                    footer: { text: 'Fuji Studio Beat Battle' },
+                    timestamp: new Date().toISOString(),
+                };
+                await discordReq('POST', `/channels/${channelId}/messages`, { embeds: [instrEmbed] });
+                await db.beatBattle.update({ where: { id: battle.id }, data: { submissionChannelId: channelId } });
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed to create channel for "${battle.title}": ${err.message}`);
+            }
+        }
+
+        // 3. Active → Voting (submissionEnd passed)
+        const toVoting = await db.beatBattle.findMany({
+            where: { status: 'active', submissionEnd: { lte: now } },
+        });
+        for (const battle of toVoting) {
+            logger.info(`Beat Battle lifecycle: moving "${battle.title}" to voting`);
+            await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
+        }
+
+        // 4. Voting → Completed (votingEnd passed)
+        const toComplete = await db.beatBattle.findMany({
+            where: { status: 'voting', votingEnd: { lte: now } },
+            include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
+        });
+        for (const battle of toComplete) {
+            logger.info(`Beat Battle lifecycle: completing "${battle.title}"`);
+            const winner = (battle as any).entries?.[0];
+            await db.beatBattle.update({
+                where: { id: battle.id },
+                data: { status: 'completed', winnerEntryId: winner?.id || null },
+            });
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
+
+            // Archive submissions channel
+            if (battle.submissionChannelId && settings?.archiveCategoryId) {
+                try {
+                    await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
+                        parent_id: settings.archiveCategoryId,
+                        name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
+                    });
+                } catch (err: any) {
+                    logger.error(`Beat Battle lifecycle: failed to archive channel: ${err.message}`);
+                }
+            }
+        }
+    } catch (err: any) {
+        logger.error(`Beat Battle lifecycle error: ${err.message}`);
+    }
+}
+
+// Run lifecycle immediately on start, then every 60 seconds
+runBeatBattleLifecycle();
+setInterval(runBeatBattleLifecycle, 60_000);
 
 app.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
