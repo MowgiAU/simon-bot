@@ -821,7 +821,36 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 );
                             }
 
-                            // 7. Fallback
+                            // 7. Beat Battle Logs
+                            const battleActionLabels: Record<string, { label: string; color: string }> = {
+                                battle_created:         { label: 'Battle Created',        color: colors.primary },
+                                battle_updated:         { label: 'Battle Updated',        color: '#60A5FA' },
+                                battle_deleted:         { label: 'Battle Deleted',        color: colors.error },
+                                announcement_posted:    { label: 'Announcement Posted',   color: colors.success },
+                                announcement_queued:    { label: 'Announcement Queued',   color: '#FBBF24' },
+                            };
+                            if (battleActionLabels[log.action]) {
+                                const meta = battleActionLabels[log.action];
+                                const d = log.details || {};
+                                const changesStr = Array.isArray(d.changes) && d.changes.length > 0
+                                    ? d.changes.filter((c: string) => c !== 'title').join(', ')
+                                    : null;
+                                const statusColors: Record<string, string> = { upcoming: '#60A5FA', active: '#34D399', voting: '#FBBF24', completed: '#6B7280' };
+
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 14px', color: colors.textSecondary }}>
+                                            {d.title && <span>Battle: <span style={{ color: colors.textPrimary }}>{d.title}</span></span>}
+                                            {d.status && <span>Status: <span style={{ color: statusColors[d.status] || colors.textPrimary, fontWeight: 600, textTransform: 'uppercase' }}>{d.status}</span></span>}
+                                            {d.ok === false && <span style={{ color: colors.error, fontWeight: 600 }}>Failed</span>}
+                                            {changesStr && <span>Changed: <span style={{ color: colors.textPrimary }}>{changesStr}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 8. Fallback
                             return (
                                 <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
                                     {log.details?.content || (typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}).slice(0, 150))}
