@@ -454,8 +454,18 @@ export class BeatBattlePlugin implements IPlugin {
             // Upcoming → Active (submission period started)
             const toActivate = await this.db.beatBattle.findMany({
                 where: { status: 'upcoming', submissionStart: { lte: now } },
+                include: { sponsor: { include: { links: true } } },
             });
             for (const battle of toActivate) {
+                await this.transitionToActive(battle);
+            }
+
+            // Active battles with no submission channel (created directly as active, bypassed lifecycle)
+            const noChannel = await this.db.beatBattle.findMany({
+                where: { status: 'active', submissionChannelId: null },
+                include: { sponsor: { include: { links: true } } },
+            });
+            for (const battle of noChannel) {
                 await this.transitionToActive(battle);
             }
 
@@ -513,6 +523,9 @@ export class BeatBattlePlugin implements IPlugin {
             where: { id: battle.id },
             data: { status: 'active', submissionChannelId: channelId },
         });
+
+        // Post announcement to the configured announcement channel
+        await this.postAnnouncement({ ...battle, submissionChannelId: channelId });
     }
 
     private async transitionToVoting(battle: any): Promise<void> {

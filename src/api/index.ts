@@ -4873,10 +4873,12 @@ app.get('/api/oembed', async (req: any, res) => {
 // --- Public: List battles (with filtering) ---
 app.get('/api/beat-battle/battles', async (req: any, res) => {
     try {
-        const guildId = (req.query.guildId as string) || 'default-guild';
+        const guildId = req.query.guildId as string | undefined;
         const status = req.query.status as string | undefined;
 
-        const where: any = { guildId };
+        // 'default-guild' is the public-page sentinel meaning "all guilds"
+        const where: any = {};
+        if (guildId && guildId !== 'default-guild') where.guildId = guildId;
         if (status) where.status = status;
 
         const battles = await db.beatBattle.findMany({
@@ -4937,9 +4939,11 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
 // --- Public: Get archive (completed battles) ---
 app.get('/api/beat-battle/archive', async (req: any, res) => {
     try {
-        const guildId = (req.query.guildId as string) || 'default-guild';
+        const guildId = req.query.guildId as string | undefined;
+        const archiveWhere: any = { status: 'completed' };
+        if (guildId && guildId !== 'default-guild') archiveWhere.guildId = guildId;
         const battles = await db.beatBattle.findMany({
-            where: { guildId, status: 'completed' },
+            where: archiveWhere,
             include: {
                 sponsor: true,
                 entries: {
