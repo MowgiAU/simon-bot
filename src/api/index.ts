@@ -98,6 +98,48 @@ const logger = new Logger('API');
 
 const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
 
+// ── Virus scanning (ClamAV via clamscan) ────────────────────────────────────
+let _clamScanner: any = null;
+let _clamAvailable = true; // set false after first failed init so we stop retrying
+
+async function _getClamScanner() {
+    if (!_clamAvailable) return null;
+    if (_clamScanner) return _clamScanner;
+    try {
+        const NodeClam = (await import('clamscan')).default;
+        _clamScanner = await new NodeClam().init({
+            removeInfected: false,
+            debugMode: false,
+            clamscan: { active: true, scanArchives: true },
+            clamdscan: { active: false },
+        });
+        logger.info('ClamAV virus scanner ready');
+        return _clamScanner;
+    } catch (e: any) {
+        _clamAvailable = false;
+        logger.warn(`ClamAV unavailable — uploads will proceed without virus scanning: ${e.message}`);
+        return null;
+    }
+}
+
+async function scanFileForViruses(filePath: string, fieldName?: string): Promise<void> {
+    const scanner = await _getClamScanner();
+    if (!scanner) return; // gracefully skip if ClamAV not installed
+    try {
+        const { isInfected, viruses } = await scanner.scanFile(filePath);
+        if (isInfected) {
+            try { fs.unlinkSync(filePath); } catch {}
+            const detected = Array.isArray(viruses) ? viruses.join(', ') : String(viruses);
+            logger.warn(`Virus detected in upload${fieldName ? ` (${fieldName})` : ''}: ${detected}`);
+            throw new Error(`Uploaded file was rejected: virus detected (${detected})`);
+        }
+    } catch (e: any) {
+        if (e.message?.startsWith('Uploaded file was rejected')) throw e;
+        logger.warn(`Virus scan error for ${path.basename(filePath)}: ${e.message}`);
+    }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 /**
  * Uploads a local file to R2 (if configured) and returns the CDN URL.
  * Falls back to a local public URL if R2 is not configured or upload fails.
@@ -3269,6 +3311,11 @@ app.post('/api/musician/tracks', upload.fields([
             return res.status(400).json({ error: 'Audio file is required' });
         }
 
+        // Virus scan all uploaded files before processing
+        await scanFileForViruses(audioFile.path, 'audio');
+        if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
+        if (projectFile) await scanFileForViruses(projectFile.path, 'project');
+
         // Parse project file (.flp) or process ZIP bundle if provided
         let arrangement: object | null = null;
         let projectFileUrl: string | null = null;
@@ -3566,6 +3613,11 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
+        // Virus scan any newly uploaded files before processing
+        if (audioFile) await scanFileForViruses(audioFile.path, 'audio');
+        if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
+        if (projectFile) await scanFileForViruses(projectFile.path, 'project');
+
         const updateData: any = {};
 
         // Text field updates
@@ -3707,6 +3759,11 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const audioFile = files['audio']?.[0];
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
+
+        // Virus scan any newly uploaded files before processing
+        if (audioFile) await scanFileForViruses(audioFile.path, 'audio');
+        if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
+        if (projectFile) await scanFileForViruses(projectFile.path, 'project');
 
         const updateData: any = {};
 
@@ -3954,6 +4011,35 @@ app.get('/api/musician/leaderboards/artists', async (req, res) => {
         res.json(topArtists);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+// Download ZIP loop package (proxied to handle CDN cross-origin)
+app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            select: { projectZipUrl: true, title: true, allowProjectDownload: true, isPublic: true }
+        });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (!track.projectZipUrl) return res.status(404).json({ error: 'No loop package available for this track' });
+        if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
+
+        const safeName = (track.title || 'loop_package').replace(/[^a-z0-9_\- ]/gi, '_');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}_loop_package.zip"`);
+        res.setHeader('Content-Type', 'application/zip');
+
+        if (track.projectZipUrl.startsWith('http')) {
+            const response = await axios.get(track.projectZipUrl, { responseType: 'stream' });
+            response.data.pipe(res);
+        } else {
+            const localPath = path.join(PROJECT_ROOT, 'public', track.projectZipUrl);
+            if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
+            fs.createReadStream(localPath).pipe(res);
+        }
+    } catch (e: any) {
+        if (!res.headersSent) res.status(500).json({ error: e.message });
     }
 });
 
@@ -4612,6 +4698,9 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
             return res.status(400).json({ error: 'Avatar file is required' });
         }
 
+        // Virus scan before processing
+        await scanFileForViruses(file.path, 'avatar');
+
         // Convert to WebP before saving
         const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
 
@@ -5267,6 +5356,11 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const audioFile = files['audio']?.[0];
         if (!audioFile) return res.status(400).json({ error: 'Audio file is required' });
 
+        // Virus scan before processing
+        await scanFileForViruses(audioFile.path, 'audio');
+        const artworkFileBattle = files['artwork']?.[0];
+        if (artworkFileBattle) await scanFileForViruses(artworkFileBattle.path, 'artwork');
+
         // Move audio to battles folder
         const battlesDir = path.join(PROJECT_ROOT, 'public/uploads/battles');
         if (!fs.existsSync(battlesDir)) fs.mkdirSync(battlesDir, { recursive: true });
@@ -5277,9 +5371,8 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const audioUrl = `/uploads/battles/${uniqueName}`;
 
         let coverUrl: string | undefined;
-        const artworkFile = files['artwork']?.[0];
-        if (artworkFile) {
-            coverUrl = `/uploads/artwork/${path.basename(artworkFile.path)}`;
+        if (artworkFileBattle) {
+            coverUrl = `/uploads/artwork/${path.basename(artworkFileBattle.path)}`;
         }
 
         // Get username from Discord API

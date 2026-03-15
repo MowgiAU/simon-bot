@@ -425,6 +425,7 @@ export const TrackPage: React.FC = () => {
                         isPlaying={isPlaying}
                         projectFileUrl={track.projectFileUrl}
                         projectZipUrl={track.projectZipUrl}
+                        trackId={track.id}
                         zoom={zoom}
                         setZoom={setZoom}
                         samplesMap={Object.fromEntries(
@@ -730,6 +731,22 @@ const PianoRollModal: React.FC<{
 
     const svgW = Math.max(maxPos * BEAT_W, 240);
 
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const handler = (e: WheelEvent) => {
+            if (!e.altKey) return;
+            e.preventDefault();
+            setZoomPx(z => {
+                const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+                return Math.max(8, Math.min(200, Math.round(z * factor)));
+            });
+        };
+        el.addEventListener('wheel', handler, { passive: false });
+        return () => el.removeEventListener('wheel', handler);
+    }, []);
+
     // Which rows are black keys
     const isBlack = (k: number) => [1,3,6,8,10].includes(k % 12);
 
@@ -798,7 +815,7 @@ const PianoRollModal: React.FC<{
                 </div>
 
                 {/* Piano roll body */}
-                <div style={{ display: 'flex', flex: 1, overflow: 'auto', minHeight: 0 }}>
+                <div ref={scrollRef} style={{ display: 'flex', flex: 1, overflow: 'auto', minHeight: 0 }}>
                     {/* Piano keys sidebar */}
                     <div style={{
                         width: `${LABEL_W}px`, flexShrink: 0,
@@ -883,8 +900,9 @@ const SampleInfoModal: React.FC<{
     color: string;
     peaks?: number[];
     projectZipUrl?: string | null;
+    trackId?: string;
     onClose: () => void;
-}> = ({ clip, color, peaks, projectZipUrl, onClose }) => {
+}> = ({ clip, color, peaks, projectZipUrl, trackId, onClose }) => {
     const audioRef = React.useRef<HTMLAudioElement>(null);
     const [playing, setPlaying] = React.useState(false);
     const [currentTime, setCurrentTime] = React.useState(0);
@@ -1071,9 +1089,9 @@ const SampleInfoModal: React.FC<{
                     ))}
 
                     {/* Download ZIP button */}
-                    {projectZipUrl && (
+                    {projectZipUrl && trackId && (
                         <a
-                            href={projectZipUrl}
+                            href={`/api/tracks/${trackId}/download-zip`}
                             download
                             style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -1099,11 +1117,12 @@ const ArrangementViewer: React.FC<{
     isPlaying: boolean;
     projectFileUrl: string | null;
     projectZipUrl?: string | null;
+    trackId?: string;
     zoom: number;
     setZoom: (v: number) => void;
     /** keyed by lowercase sample basename → real peak array from server */
     samplesMap?: Record<string, number[]>;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, zoom, setZoom, samplesMap = {} }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = {} }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
@@ -1433,6 +1452,7 @@ const ArrangementViewer: React.FC<{
                     color={selectedClip.color}
                     peaks={selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined}
                     projectZipUrl={projectZipUrl}
+                    trackId={trackId}
                     onClose={() => setSelectedClip(null)}
                 />
             )}
