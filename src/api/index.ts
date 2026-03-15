@@ -96,6 +96,47 @@ const upload = multer({
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 
+const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
+
+/**
+ * Uploads a local file to R2 (if configured) and returns the CDN URL.
+ * Falls back to a local public URL if R2 is not configured or upload fails.
+ * Deletes the local file after a successful R2 upload.
+ */
+async function uploadToR2OrLocal(
+    localFilePath: string,
+    r2Key: string,
+    contentType: string,
+    localPublicUrl: string
+): Promise<string> {
+    if (R2Storage.isConfigured()) {
+        try {
+            const buffer = fs.readFileSync(localFilePath);
+            const cdnUrl = await R2Storage.uploadBuffer(r2Key, buffer, contentType);
+            try { fs.unlinkSync(localFilePath); } catch {}
+            return cdnUrl;
+        } catch (err) {
+            logger.warn(`R2 upload failed for key "${r2Key}", serving from local: ${err}`);
+        }
+    }
+    return localPublicUrl;
+}
+
+/**
+ * Deletes a file from R2 (when URL is a CDN URL) or from local disk (when URL is a /uploads/ path).
+ * Safe to call with null/undefined or Discord/external URLs — no-ops in those cases.
+ */
+async function deleteFromStorage(url: string | null | undefined): Promise<void> {
+    if (!url) return;
+    if (url.startsWith(CDN_BASE + '/')) {
+        const key = url.slice(CDN_BASE.length + 1);
+        await R2Storage.deleteObject(key);
+    } else if (url.startsWith('/uploads/')) {
+        const filePath = path.join(PROJECT_ROOT, 'public', url);
+        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
+    }
+}
+
 // --- Discord API Helper with Cache and Rate Limit Handling ---
 
 // Memory cache for expensive Discord metadata calls
@@ -3323,6 +3364,31 @@ app.post('/api/musician/tracks', upload.fields([
         // Log track upload
         await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
 
+        // Upload audio, artwork, and FLP project files to R2 (now that we have track.id for key naming).
+        // ZIP is handled later (after processing) so the local file is still available for sample extraction.
+        const r2UrlUpdates: any = {};
+
+        const r2AudioKey = `tracks/${track.id}/audio/${path.basename(finalAudioPath)}`;
+        const cdnAudioUrl = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', audioUrl);
+        if (cdnAudioUrl !== audioUrl) r2UrlUpdates.url = cdnAudioUrl;
+
+        if (finalArtworkPath) {
+            const localArtworkUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
+            const r2ArtworkKey = `tracks/${track.id}/artwork/${path.basename(finalArtworkPath)}`;
+            const cdnArtworkUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', localArtworkUrl);
+            if (cdnArtworkUrl !== localArtworkUrl) r2UrlUpdates.coverUrl = cdnArtworkUrl;
+        }
+
+        if (projectFileUrl && projectFile && !isZipUpload) {
+            const r2ProjectKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
+            const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectFileUrl);
+            if (cdnProjectUrl !== projectFileUrl) r2UrlUpdates.projectFileUrl = cdnProjectUrl;
+        }
+
+        if (Object.keys(r2UrlUpdates).length > 0) {
+            await db.track.update({ where: { id: track.id }, data: r2UrlUpdates });
+        }
+
         // Process ZIP bundle (async — enriches arrangement and creates TrackSample rows)
         if (projectFile && isZipUpload) {
             try {
@@ -3341,6 +3407,12 @@ app.post('/api/musician/tracks', upload.fields([
             } catch (zipErr: any) {
                 logger.warn(`ZIP processing failed for track ${track.id}: ${zipErr.message}`);
                 // Non-fatal: track is already saved, just without waveform data
+            }
+            // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
+            const r2ZipKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
+            const cdnZipUrl = await uploadToR2OrLocal(projectFile.path, r2ZipKey, 'application/zip', projectZipUrl!);
+            if (cdnZipUrl !== projectZipUrl) {
+                await db.track.update({ where: { id: track.id }, data: { projectZipUrl: cdnZipUrl } });
             }
         }
 
@@ -3455,15 +3527,11 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-// Delete physical files
-          if (track.url.startsWith('/uploads/')) {
-              const filePath = path.join(PROJECT_ROOT, 'public', track.url);
-              if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-          }
-          if (track.coverUrl?.startsWith('/uploads/')) {
-              const filePath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }
+// Delete physical files (from R2 or local storage)
+          await deleteFromStorage(track.url);
+          await deleteFromStorage(track.coverUrl);
+          await deleteFromStorage((track as any).projectFileUrl);
+          await deleteFromStorage((track as any).projectZipUrl);
 
         await db.musicianProfile.updateMany({
             where: { featuredTrackId: trackId },
@@ -3528,38 +3596,33 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
             }
             // Convert to 320kbps MP3
             const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
-            // Delete old audio file
-            if (track.url?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
+            // Delete old audio from R2 or local
+            await deleteFromStorage(track.url);
+            // Upload new audio to R2 or store locally
+            const r2AudioKey = `tracks/${trackId}/audio/${path.basename(finalAudioPath)}`;
+            updateData.url = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', `/uploads/tracks/${path.basename(finalAudioPath)}`);
         }
 
         // Artwork replacement
         if (artworkFile) {
             // Convert to WebP
             const finalArtworkPath = await MediaConverter.optimizeImage(artworkFile.path);
-            // Delete old artwork
-            if (track.coverUrl?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.coverUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
+            // Delete old artwork from R2 or local
+            await deleteFromStorage(track.coverUrl);
+            // Upload new artwork to R2 or store locally
+            const r2ArtworkKey = `tracks/${trackId}/artwork/${path.basename(finalArtworkPath)}`;
+            updateData.coverUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', `/uploads/artwork/${path.basename(finalArtworkPath)}`);
         }
 
         // Project file replacement — re-parse FLP or re-process ZIP
         if (projectFile) {
             const isZip = projectFile.originalname.endsWith('.zip');
 
-            // Delete old project file
-            if (track.projectFileUrl?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
-                if (fs.existsSync(oldPath)) try { fs.unlinkSync(oldPath); } catch {}
-            }
+            // Delete old project files from R2 or local
+            await deleteFromStorage(track.projectFileUrl);
+            if ((track as any).projectZipUrl) await deleteFromStorage((track as any).projectZipUrl);
 
             if (!isZip) {
-                updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 updateData.projectZipUrl = null;
                 try {
                     const flpBuffer = fs.readFileSync(projectFile.path);
@@ -3571,9 +3634,11 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
                 } catch (e) {
                     logger.warn(`Failed to parse replaced FLP file: ${e}`);
                 }
+                // Upload FLP to R2 or store locally
+                const r2ProjectKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
+                updateData.projectFileUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', `/uploads/projects/${path.basename(projectFile.path)}`);
             } else {
-                // ZIP bundle replacement
-                updateData.projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                // ZIP bundle replacement — process first (reads local file), then upload to R2
                 updateData.projectFileSizeBytes = projectFile.size;
                 try {
                     const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
@@ -3588,6 +3653,9 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
                 } catch (zipErr: any) {
                     logger.warn(`ZIP re-processing failed for track ${trackId}: ${zipErr.message}`);
                 }
+                // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
+                const r2ZipKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
+                updateData.projectZipUrl = await uploadToR2OrLocal(projectFile.path, r2ZipKey, 'application/zip', `/uploads/projects/${path.basename(projectFile.path)}`);
             }
         }
 
@@ -3655,33 +3723,30 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         if (musicKey !== undefined) updateData.key = musicKey || null;
 
         if (audioFile) {
-            if (track.url?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.url);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.url = `/uploads/tracks/${path.basename(audioFile.path)}`;
+            // Parse metadata before upload (metadata-metadata file may be deleted after R2 upload)
             try {
                 const parsed = await mm.parseFile(audioFile.path);
                 updateData.duration = Math.round(parsed.format.duration || 0);
             } catch (err) {
                 logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
             }
+            // Delete old audio from R2 or local
+            await deleteFromStorage(track.url);
+            // Upload new audio to R2 or store locally
+            const r2AudioKey = `tracks/${trackId}/audio/${path.basename(audioFile.path)}`;
+            updateData.url = await uploadToR2OrLocal(audioFile.path, r2AudioKey, 'audio/mpeg', `/uploads/tracks/${path.basename(audioFile.path)}`);
         }
 
         if (artworkFile) {
-            if (track.coverUrl?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.coverUrl);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.coverUrl = `/uploads/artwork/${path.basename(artworkFile.path)}`;
+            // Delete old artwork from R2 or local
+            await deleteFromStorage(track.coverUrl);
+            // Upload new artwork to R2 or store locally
+            const r2ArtworkKey = `tracks/${trackId}/artwork/${path.basename(artworkFile.path)}`;
+            updateData.coverUrl = await uploadToR2OrLocal(artworkFile.path, r2ArtworkKey, 'image/webp', `/uploads/artwork/${path.basename(artworkFile.path)}`);
         }
 
         if (projectFile) {
-            if (track.projectFileUrl?.startsWith('/uploads/')) {
-                const oldPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+            // Parse FLP before upload (file may be deleted after R2 upload)
             try {
                 const flpBuffer = fs.readFileSync(projectFile.path);
                 const arrangement = FLPParser.parse(flpBuffer);
@@ -3691,6 +3756,11 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
             } catch (e) {
                 logger.warn(`Failed to parse replaced FLP file: ${e}`);
             }
+            // Delete old project from R2 or local
+            await deleteFromStorage(track.projectFileUrl);
+            // Upload new project to R2 or store locally
+            const r2ProjectKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
+            updateData.projectFileUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', `/uploads/projects/${path.basename(projectFile.path)}`);
         }
 
         if (bpm && !projectFile && track.arrangement) {
@@ -4487,13 +4557,17 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
 
         // Convert to WebP before saving
         const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
-        const avatarUrl = `/uploads/avatars/${path.basename(finalAvatarPath)}`;
 
         // Update profile with the new avatar URL
         const profile = await db.musicianProfile.findFirst({ where: { userId } });
         if (!profile) {
             return res.status(404).json({ error: 'Profile not found' });
         }
+
+        // Delete old avatar from R2 or local, then upload new one
+        await deleteFromStorage(profile.avatar);
+        const r2AvatarKey = `profiles/${profile.id}/avatar/${path.basename(finalAvatarPath)}`;
+        const avatarUrl = await uploadToR2OrLocal(finalAvatarPath, r2AvatarKey, 'image/webp', `/uploads/avatars/${path.basename(finalAvatarPath)}`);
 
         const updated = await db.musicianProfile.update({
             where: { id: profile.id },
@@ -4545,31 +4619,22 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
 
         if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
-        // 1. Gather files to delete
-        const filesToDelete: string[] = [];
-        if (profile.avatar && profile.avatar.startsWith('/uploads/')) {
-            filesToDelete.push(path.join(PROJECT_ROOT, 'public', profile.avatar));
-        }
+        // 1. Delete all associated files from R2 or local storage
+        if (profile.avatar) await deleteFromStorage(profile.avatar).catch((err: any) =>
+            logger.error(`Failed to delete avatar during profile wipe: ${profile.avatar}`, err));
         for (const track of profile.tracks) {
-            if (track.url.startsWith('/uploads/')) {
-                filesToDelete.push(path.join(PROJECT_ROOT, 'public', track.url));
-            }
-            if (track.coverUrl && track.coverUrl.startsWith('/uploads/')) {
-                filesToDelete.push(path.join(PROJECT_ROOT, 'public', track.coverUrl));
-            }
+            await deleteFromStorage(track.url).catch((err: any) =>
+                logger.error(`Failed to delete track audio during profile wipe: ${track.url}`, err));
+            if (track.coverUrl) await deleteFromStorage(track.coverUrl).catch((err: any) =>
+                logger.error(`Failed to delete track artwork during profile wipe: ${track.coverUrl}`, err));
+            if ((track as any).projectFileUrl) await deleteFromStorage((track as any).projectFileUrl).catch((err: any) =>
+                logger.error(`Failed to delete track project during profile wipe`, err));
+            if ((track as any).projectZipUrl) await deleteFromStorage((track as any).projectZipUrl).catch((err: any) =>
+                logger.error(`Failed to delete track ZIP during profile wipe`, err));
         }
 
         // 2. Delete from DB (Tracks cascade delete, but we need to stay safe)
         await db.musicianProfile.delete({ where: { id } });
-
-        // 3. Physically delete files
-        for (const f of filesToDelete) {
-            try {
-                if (fs.existsSync(f)) fs.unlinkSync(f);
-            } catch (err) {
-                logger.error(`Failed to delete file during profile wipe: ${f}`, err);
-            }
-        }
 
         // 4. Log the wipe
         await logAction('GLOBAL', 'profile_wiped', executorId, profile.userId, { 
