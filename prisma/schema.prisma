@@ -668,6 +668,7 @@ model MusicianProfile {
   dawVersion      String?
   vsts            String[] @default([])
   hardware        String[] @default([])
+  maxProjectSizeMb Int     @default(100) // Max project ZIP size in MB; bumped for paid users
 
   // Socials / Streaming (Stored as JSON for flexibility, validated via service)
   socials         Json?    @default("[]")
@@ -722,6 +723,10 @@ model Track {
   // Project Viewer (Splice-style timeline)
   arrangement     Json?    // Parsed FLP arrangement data: { bpm, tracks, clips }
   projectFileUrl  String?  // URL to the original .flp download
+  projectZipUrl   String?  // URL to the uploaded .zip project package (R2)
+  projectFileSizeBytes Int? // Size of uploaded project ZIP in bytes
+
+  samples         TrackSample[]
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
@@ -747,6 +752,20 @@ model TrackPlay {
 
   @@index([ipAddress, trackId, playAt]) // For fast anti-cheat lookups
   @@map("track_plays")
+}
+
+model TrackSample {
+  id               String   @id @default(cuid())
+  trackId          String
+  originalFilename String   // Basename matched to FLP clip sampleFileName
+  oggUrl           String   // R2 CDN URL (or local /uploads/samples/ path if R2 not configured)
+  peaks            Json     // number[] ~1200 normalised RMS values, 0.0–1.0
+  duration         Float?   // Duration in seconds
+  track            Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@unique([trackId, originalFilename])
+  @@map("track_samples")
 }
 
 model Genre {

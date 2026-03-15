@@ -410,9 +410,14 @@ export const MyTracksPage: React.FC = () => {
                         <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>FL Studio Project (Optional)</div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: `1px solid ${projectFile ? colors.primary : 'rgba(255,255,255,0.1)'}`, borderRadius: borderRadius.sm, cursor: 'pointer', color: projectFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem', transition: 'all 0.2s' }}>
                             <Music size={18} color={projectFile ? colors.primary : colors.textSecondary} />
-                            {projectFile ? projectFile.name : 'Attach .flp project file...'}
-                            <input type="file" accept=".flp" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                            {projectFile ? projectFile.name : 'Attach .flp project or .zip bundle...'}
+                            <input type="file" accept=".flp,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                         </label>
+                        {projectFile?.name.endsWith('.zip') && (
+                            <p style={{ margin: '4px 0 0 2px', fontSize: '0.78rem', color: colors.textSecondary }}>
+                                ZIP bundles are processed server-side to extract real waveforms from your samples.
+                            </p>
+                        )}
 
                         {/* Track Metadata */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>

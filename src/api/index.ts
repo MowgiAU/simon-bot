@@ -23,6 +23,8 @@ import { AudioService } from '../services/AudioService.js';
 import * as mm from 'music-metadata';
 import { FLPParser } from '../bot/utils/FLPParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
+import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
+import { R2Storage } from '../services/R2Storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,11 +80,12 @@ const upload = multer({
         cb(new Error(`Only image files are allowed for ${file.fieldname}!`));
       }
     } else if (file.fieldname === 'project') {
-      // Accept .flp files (binary, often sent as octet-stream)
-      if (file.originalname.endsWith('.flp')) {
+      // Accept .flp (plain project) or .zip (project + samples bundle)
+      if (file.originalname.endsWith('.flp') || file.originalname.endsWith('.zip') ||
+          file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
         cb(null, true);
       } else {
-        cb(new Error('Only FL Studio (.flp) project files are allowed!'));
+        cb(new Error('Only FL Studio (.flp) project files or .zip bundles are allowed!'));
       }
     } else {
       cb(null, true);
@@ -3225,10 +3228,15 @@ app.post('/api/musician/tracks', upload.fields([
             return res.status(400).json({ error: 'Audio file is required' });
         }
 
-        // Parse .flp if provided
+        // Parse project file (.flp) or process ZIP bundle if provided
         let arrangement: object | null = null;
         let projectFileUrl: string | null = null;
-        if (projectFile) {
+        let projectZipUrl: string | null = null;
+        let projectFileSizeBytes: number | null = null;
+        const isZipUpload = projectFile?.originalname.endsWith('.zip');
+
+        if (projectFile && !isZipUpload) {
+            // Plain .flp — parse arrangement only
             try {
                 const flpBuffer = fs.readFileSync(projectFile.path);
                 arrangement = FLPParser.parse(flpBuffer);
@@ -3238,6 +3246,13 @@ app.post('/api/musician/tracks', upload.fields([
             } catch (e) {
                 logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
                 // Continue without arrangement — don't block the upload
+            }
+        } else if (projectFile && isZipUpload) {
+            // .zip bundle — will be processed after track is created (we need trackId first)
+            projectFileSizeBytes = projectFile.size;
+            projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+            if (!R2Storage.isConfigured()) {
+                logger.info('R2 not configured — ZIP samples will be served from local storage');
             }
         }
 
@@ -3300,11 +3315,34 @@ app.post('/api/musician/tracks', upload.fields([
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
             ...(arrangement ? { arrangement } : {}),
-            ...(projectFileUrl ? { projectFileUrl } : {})
+            ...(projectFileUrl ? { projectFileUrl } : {}),
+            ...(projectZipUrl ? { projectZipUrl } : {}),
+            ...(projectFileSizeBytes != null ? { projectFileSizeBytes } : {}),
         });
 
         // Log track upload
         await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
+
+        // Process ZIP bundle (async — enriches arrangement and creates TrackSample rows)
+        if (projectFile && isZipUpload) {
+            try {
+                const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
+                    projectFile.path,
+                    track.id,
+                    db,
+                );
+                // Merge user-supplied BPM into enriched arrangement
+                if (metadata.bpm) (enrichedArr as any).bpm = metadata.bpm;
+                await db.track.update({
+                    where: { id: track.id },
+                    data: { arrangement: enrichedArr },
+                });
+                logger.info(`ZIP processed: ${sampleCount} samples for track ${track.id}`);
+            } catch (zipErr: any) {
+                logger.warn(`ZIP processing failed for track ${track.id}: ${zipErr.message}`);
+                // Non-fatal: track is already saved, just without waveform data
+            }
+        }
 
         // 4. Handle genre tags for this track
         const genreIds = req.body.genreIds;
@@ -3510,25 +3548,46 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
             updateData.coverUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
         }
 
-        // Project file replacement — re-parse FLP
+        // Project file replacement — re-parse FLP or re-process ZIP
         if (projectFile) {
+            const isZip = projectFile.originalname.endsWith('.zip');
+
             // Delete old project file
             if (track.projectFileUrl?.startsWith('/uploads/')) {
                 const oldPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+                if (fs.existsSync(oldPath)) try { fs.unlinkSync(oldPath); } catch {}
             }
-            updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
 
-            try {
-                const flpBuffer = fs.readFileSync(projectFile.path);
-                const arrangement = FLPParser.parse(flpBuffer);
-                // Use user-provided BPM if available, otherwise use track's existing BPM
-                const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
-                if (finalBpm) (arrangement as any).bpm = finalBpm;
-                updateData.arrangement = arrangement;
-                logger.info(`Re-parsed FLP for track edit: ${track.title} — arrangement BPM set to ${finalBpm}`);
-            } catch (e) {
-                logger.warn(`Failed to parse replaced FLP file: ${e}`);
+            if (!isZip) {
+                updateData.projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                updateData.projectZipUrl = null;
+                try {
+                    const flpBuffer = fs.readFileSync(projectFile.path);
+                    const arrangement = FLPParser.parse(flpBuffer);
+                    const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
+                    if (finalBpm) (arrangement as any).bpm = finalBpm;
+                    updateData.arrangement = arrangement;
+                    logger.info(`Re-parsed FLP for track edit: ${track.title} — arrangement BPM set to ${finalBpm}`);
+                } catch (e) {
+                    logger.warn(`Failed to parse replaced FLP file: ${e}`);
+                }
+            } else {
+                // ZIP bundle replacement
+                updateData.projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                updateData.projectFileSizeBytes = projectFile.size;
+                try {
+                    const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
+                        projectFile.path,
+                        trackId,
+                        db,
+                    );
+                    const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
+                    if (finalBpm) (enrichedArr as any).bpm = finalBpm;
+                    updateData.arrangement = enrichedArr;
+                    logger.info(`ZIP re-processed: ${sampleCount} samples for track ${trackId}`);
+                } catch (zipErr: any) {
+                    logger.warn(`ZIP re-processing failed for track ${trackId}: ${zipErr.message}`);
+                }
             }
         }
 
@@ -3994,7 +4053,8 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
             include: { 
                 profile: true,
                 genres: { include: { genre: true } },
-                plays: true
+                plays: true,
+                samples: true
             }
         })) as any;
 
@@ -4002,7 +4062,7 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
             // Fallback: try by ID if slug doesn't match
             const byId = (await db.track.findFirst({
                 where: { profileId: profile.id, id: trackSlug },
-                include: { profile: true, genres: { include: { genre: true } }, plays: true }
+                include: { profile: true, genres: { include: { genre: true } }, plays: true, samples: true }
             })) as any;
             if (byId) {
                 if (byId.allowAudioDownload === undefined) byId.allowAudioDownload = true;
@@ -6074,4 +6134,7 @@ setInterval(runBeatBattleLifecycle, 60_000);
 
 app.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);
+  if (!R2Storage.isConfigured()) {
+    logger.warn('R2 not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME missing). ZIP sample audio will be served from local storage.');
+  }
 });

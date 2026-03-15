@@ -36,6 +36,10 @@ interface ArrangementClip {
     notes?: NoteData[];
     sampleFileName?: string;
     automationPoints?: AutomationPoint[];
+    // Enriched by ProjectZipProcessor when a ZIP bundle was uploaded
+    oggUrl?: string;
+    peaks?: number[];
+    duration?: number;
 }
 
 interface ArrangementTrack {
@@ -58,6 +62,14 @@ interface ArrangementData {
     markers?: Array<{ position: number; name: string }>;
 }
 
+interface TrackSample {
+    id: string;
+    originalFilename: string;
+    oggUrl: string;
+    peaks: number[];
+    duration: number | null;
+}
+
 interface Track {
     id: string;
     title: string;
@@ -75,8 +87,10 @@ interface Track {
     createdAt: string;
     arrangement: ArrangementData | null;
     projectFileUrl: string | null;
+    projectZipUrl: string | null;
     allowAudioDownload: boolean;
     allowProjectDownload: boolean;
+    samples?: TrackSample[];
     profile: {
         id: string;
         username: string;
@@ -412,6 +426,9 @@ export const TrackPage: React.FC = () => {
                         projectFileUrl={track.projectFileUrl}
                         zoom={zoom}
                         setZoom={setZoom}
+                        samplesMap={Object.fromEntries(
+                            (track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])
+                        )}
                     />
                 )}
 
@@ -638,9 +655,14 @@ export const TrackPage: React.FC = () => {
                                         <div>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem', transition: 'border-color 0.2s' }}>
                                                 <Upload size={16} />
-                                                {editProjectFile ? editProjectFile.name : 'Replace project file (FLP)'}
-                                                <input type="file" accept=".flp" style={{ display: 'none' }} onChange={e => setEditProjectFile(e.target.files?.[0] || null)} />
+                                                {editProjectFile ? editProjectFile.name : 'Replace project file (FLP or ZIP bundle)'}
+                                                <input type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setEditProjectFile(e.target.files?.[0] || null)} />
                                             </label>
+                                            {editProjectFile?.name.endsWith('.zip') && (
+                                                <p style={{ margin: '4px 0 0 4px', fontSize: '0.78rem', color: colors.textSecondary }}>
+                                                    ZIP bundles are processed server-side to extract real waveforms. This may take a moment.
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -685,7 +707,9 @@ const ArrangementViewer: React.FC<{
     projectFileUrl: string | null;
     zoom: number;
     setZoom: (v: number) => void;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom }) => {
+    /** keyed by lowercase sample basename → real peak array from server */
+    samplesMap?: Record<string, number[]>;
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom, samplesMap = {} }) => {
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
     const lastClipEnd = arrangement.tracks.reduce((max, t) => {
@@ -906,7 +930,11 @@ const ArrangementViewer: React.FC<{
                                                 <MiniAutomation points={clip.automationPoints} color={trackColor} />
                                             )}
                                             {clip.type === 'audio' && (
-                                                <MiniWaveform color={trackColor} clipId={clip.id} />
+                                                <MiniWaveform
+                                                    color={trackColor}
+                                                    clipId={clip.id}
+                                                    peaks={clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined}
+                                                />
                                             )}
                                         </div>
                                     );
@@ -1068,9 +1096,43 @@ const MiniAutomation: React.FC<{ points: AutomationPoint[]; color: string }> = (
     );
 };
 
-/** Placeholder waveform for audio clips: deterministic pseudo-random bars */
-const MiniWaveform: React.FC<{ color: string; clipId: number | string }> = ({ color, clipId }) => {
-    // Generate a deterministic waveform shape from clipId
+/** Waveform for audio clips: uses real peaks from server when available, otherwise falls back to deterministic pseudo-random bars */
+const MiniWaveform: React.FC<{ color: string; clipId: number | string; peaks?: number[] }> = ({ color, clipId, peaks }) => {
+    if (peaks && peaks.length > 0) {
+        // Real waveform: render as a bar chart, downsampled to fit the SVG width
+        const bars = 60;
+        const step = peaks.length / bars;
+        return (
+            <svg
+                viewBox={`0 0 ${bars} 20`}
+                preserveAspectRatio="none"
+                style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.75 }}
+            >
+                {Array.from({ length: bars }, (_, i) => {
+                    // Average a slice of the peaks array to get one bar value
+                    const start = Math.floor(i * step);
+                    const end = Math.min(Math.ceil((i + 1) * step), peaks.length);
+                    let sum = 0;
+                    for (let j = start; j < end; j++) sum += peaks[j];
+                    const amp = sum / (end - start);
+                    const h = Math.max(amp * 18, 1);
+                    return (
+                        <rect
+                            key={i}
+                            x={i}
+                            y={10 - h / 2}
+                            width={0.7}
+                            height={h}
+                            fill={color}
+                            opacity={0.8}
+                        />
+                    );
+                })}
+            </svg>
+        );
+    }
+
+    // Placeholder: deterministic pseudo-random bars
     const bars = 48;
     const seed = typeof clipId === 'string' ? clipId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : clipId;
 
@@ -1081,7 +1143,6 @@ const MiniWaveform: React.FC<{ color: string; clipId: number | string }> = ({ co
             style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.6 }}
         >
             {Array.from({ length: bars }, (_, i) => {
-                // Simple hash-like amplitude
                 const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) *
                             (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
                 const h = Math.max(amp * 18, 1);

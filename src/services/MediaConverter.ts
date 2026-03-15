@@ -57,6 +57,48 @@ export class MediaConverter {
     }
 
     /**
+     * Converts any audio file to Ogg Vorbis (quality 5, ~160 kbps).
+     * Returns the path of the converted .ogg file.
+     * On failure, returns the original path unchanged.
+     */
+    static async convertToOgg(inputPath: string): Promise<string> {
+        const base = inputPath.replace(/\.[^.]+$/, '');
+        const outputPath = base + '.ogg';
+        const tempOutputPath = base + '._converting.ogg';
+
+        return new Promise((resolve) => {
+            ffmpeg(inputPath)
+                .audioCodec('libvorbis')
+                .audioQuality(5) // ~160 kbps
+                .noVideo()
+                .output(tempOutputPath)
+                .on('end', () => {
+                    try {
+                        if (fs.existsSync(inputPath) && inputPath !== tempOutputPath) {
+                            fs.unlinkSync(inputPath);
+                        }
+                        if (fs.existsSync(tempOutputPath)) {
+                            fs.renameSync(tempOutputPath, outputPath);
+                        }
+                        logger.info(`Audio converted to OGG: ${path.basename(outputPath)}`);
+                        resolve(outputPath);
+                    } catch (e) {
+                        logger.warn(`Post-conversion file ops failed (ogg): ${e}`);
+                        resolve(tempOutputPath);
+                    }
+                })
+                .on('error', (err) => {
+                    logger.warn(`OGG conversion failed for ${path.basename(inputPath)}: ${err.message}`);
+                    if (fs.existsSync(tempOutputPath)) {
+                        try { fs.unlinkSync(tempOutputPath); } catch {}
+                    }
+                    resolve(inputPath);
+                })
+                .run();
+        });
+    }
+
+    /**
      * Optimizes an image file to WebP format (quality 82, max 2000x2000).
      * Returns the path of the converted file.
      * On failure, returns the original path unchanged.
