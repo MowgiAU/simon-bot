@@ -94,13 +94,10 @@ export class ProjectZipProcessor {
                     let oggUrl: string;
                     if (R2Storage.isConfigured()) {
                         const oggBuffer = fs.readFileSync(oggPath);
-                        // Key format: projects/{trackId}/filename.ogg
-                        const key = R2Storage.buildKey(
-                            'projects',
-                            trackId,
-                            path.basename(baseName, path.extname(baseName)) + '.ogg',
-                        );
+                        // Key format: tracks/{trackId}/samples/filename.ogg
+                        const key = `tracks/${trackId}/samples/${path.basename(baseName, path.extname(baseName))}.ogg`;
                         oggUrl = await R2Storage.uploadBuffer(key, oggBuffer, 'audio/ogg');
+                        // CDN URL: https://cdn.fujistud.io/tracks/{trackId}/samples/filename.ogg
                     } else {
                         // Serve from local uploads/samples/{trackId}/
                         const localDir = path.join(LOCAL_SAMPLES_DIR, trackId);

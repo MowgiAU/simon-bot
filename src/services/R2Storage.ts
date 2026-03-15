@@ -57,6 +57,8 @@ export class R2Storage {
                 Key: key,
                 Body: buffer,
                 ContentType: contentType,
+                // 7-day edge cache — Cloudflare will serve from CDN without hitting R2
+                CacheControl: 'public, max-age=604800',
             })
         );
 
