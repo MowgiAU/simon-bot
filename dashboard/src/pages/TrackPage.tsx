@@ -730,8 +730,21 @@ const ArrangementViewer: React.FC<{
     
     const bpm = arrangement.bpm || 140;
     const beatsPerSec = bpm / 60;
-    const currentBeat = currentTime * beatsPerSec;
-    const playheadPct = totalBeats > 0 ? (currentBeat / totalBeats) * 100 : 0;
+
+    // Anchor playhead to actual audio duration rather than BPM alone.
+    // This eliminates drift when the FLP's parsed BPM is even slightly off.
+    // If the track has a known duration, map audio time linearly to the
+    // arrangement's beat span.  Fall back to BPM-only when duration is unknown.
+    const minClipStart = activeTracks.reduce((min, t) =>
+        t.clips.reduce((tm, c) => Math.min(tm, c.start), min), Infinity);
+    const startBeat = isFinite(minClipStart) ? minClipStart : 0;
+    const spanBeats = totalBeats - startBeat;
+
+    const playheadBeat = duration > 0 && spanBeats > 0
+        ? startBeat + (currentTime / duration) * spanBeats
+        : currentTime * beatsPerSec;
+
+    const playheadPct = totalBeats > 0 ? (playheadBeat / totalBeats) * 100 : 0;
 
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
