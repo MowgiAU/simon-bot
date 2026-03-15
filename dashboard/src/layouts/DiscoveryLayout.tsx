@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -42,7 +42,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     };
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { user, permissions, mutualAdminGuilds } = useAuth();
+    const { user, permissions, mutualAdminGuilds, logout } = useAuth();
     const { player } = usePlayer();
 
     // Check if user has access to ANY guild's dashboard
@@ -234,6 +234,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
                                                 <Upload size={13} /> Upload Tracks
                                             </Link>
+                                            <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+                                            <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#F87171', fontSize: '11px', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(248,113,113,0.1)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                                                <LogOut size={13} /> Log Out
+                                            </button>
                                         </React.Fragment>
                                     ))}
                                 </div>
