@@ -98,7 +98,7 @@ const logger = new Logger('API');
 
 const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
 
-// ── Virus scanning (ClamAV via clamscan) ────────────────────────────────────
+// ── Virus scanning (ClamAV via clamdscan daemon) ─────────────────────────────
 let _clamScanner: any = null;
 let _clamAvailable = true; // set false after first failed init so we stop retrying
 
@@ -107,13 +107,20 @@ async function _getClamScanner() {
     if (_clamScanner) return _clamScanner;
     try {
         const NodeClam = (await import('clamscan')).default;
+        // Use the clamav-daemon socket for near-instant scans.
+        // The daemon keeps virus definitions in memory, avoiding the 30-60s
+        // cold-start penalty of the standalone clamscan binary.
         _clamScanner = await new NodeClam().init({
             removeInfected: false,
             debugMode: false,
-            clamscan: { active: true, scanArchives: true },
-            clamdscan: { active: false },
+            clamdscan: {
+                active: true,
+                socket: '/var/run/clamav/clamd.ctl',
+                timeout: 30000,
+            },
+            clamscan: { active: false },
         });
-        logger.info('ClamAV virus scanner ready');
+        logger.info('ClamAV virus scanner ready (clamdscan daemon)');
         return _clamScanner;
     } catch (e: any) {
         _clamAvailable = false;
