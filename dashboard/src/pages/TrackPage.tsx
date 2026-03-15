@@ -628,7 +628,7 @@ export const TrackPage: React.FC = () => {
                                                 checked={editForm.allowProjectDownload}
                                                 onChange={e => setEditForm(f => ({ ...f, allowProjectDownload: e.target.checked }))}
                                             />
-                                            Public: Allow FLP Project Download
+                                            Public: Allow .flp project & ZIP loop package download
                                         </label>
                                     </div>
                                 </div>

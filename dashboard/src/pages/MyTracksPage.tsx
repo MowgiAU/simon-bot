@@ -31,6 +31,8 @@ export const MyTracksPage: React.FC = () => {
     // Add track state
     const [isAddingTrack, setIsAddingTrack] = useState(false);
     const [tosAgreed, setTosAgreed] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0); // 0-100 file transfer %
+    const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
     const [newTrack, setNewTrack] = useState({ 
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
         allowAudioDownload: true, allowProjectDownload: true
@@ -99,10 +101,24 @@ export const MyTracksPage: React.FC = () => {
         if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
         setSaving(true);
+        setUploadProgress(0);
+        setUploadStage('uploading');
+        let scanTimer: ReturnType<typeof setTimeout> | null = null;
         try {
             const res = await axios.post('/api/musician/tracks', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
-                withCredentials: true
+                withCredentials: true,
+                onUploadProgress: (evt) => {
+                    if (evt.total) {
+                        const pct = Math.round((evt.loaded / evt.total) * 100);
+                        setUploadProgress(pct);
+                        if (pct >= 100) {
+                            setUploadStage('scanning');
+                            // After ~4s advance to "converting" stage label
+                            scanTimer = setTimeout(() => setUploadStage('converting'), 4000);
+                        }
+                    }
+                },
             });
             setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
@@ -113,7 +129,10 @@ export const MyTracksPage: React.FC = () => {
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track.' });
         } finally {
+            if (scanTimer) clearTimeout(scanTimer);
             setSaving(false);
+            setUploadStage(null);
+            setUploadProgress(0);
         }
     };
 
@@ -370,7 +389,7 @@ export const MyTracksPage: React.FC = () => {
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                     <input type="checkbox" checked={editingTrack.allowProjectDownload ?? true} onChange={e => setEditingTrack({...editingTrack, allowProjectDownload: e.target.checked})} />
-                                    Allow users to download .flp project (if attached)
+                                    Allow users to download .flp project & ZIP loop package
                                 </label>
                             </div>
                         </div>
@@ -460,7 +479,7 @@ export const MyTracksPage: React.FC = () => {
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                     <input type="checkbox" checked={newTrack.allowProjectDownload} onChange={e => setNewTrack({...newTrack, allowProjectDownload: e.target.checked})} />
-                                    Public: Allow FLP Project Download
+                                    Allow .flp project & ZIP loop package download
                                 </label>
                             </div>
                         </div>
@@ -486,11 +505,42 @@ export const MyTracksPage: React.FC = () => {
                             </label>
                         </div>
 
+                        {/* Upload progress */}
+                        {saving && uploadStage && (
+                            <div style={{ marginTop: spacing.sm, padding: '12px', backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: borderRadius.sm }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: colors.primary }}>
+                                        {uploadStage === 'uploading' && `Uploading… ${uploadProgress}%`}
+                                        {uploadStage === 'scanning' && '🔍 Scanning for viruses…'}
+                                        {uploadStage === 'converting' && '⚙️ Converting & processing…'}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', color: colors.textSecondary }}>
+                                        {uploadStage === 'uploading' ? 'Transferring file to server' : uploadStage === 'scanning' ? 'Takes a few seconds' : 'Audio conversion + waveform extraction'}
+                                    </span>
+                                </div>
+                                <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        backgroundColor: colors.primary,
+                                        borderRadius: '3px',
+                                        transition: 'width 0.3s ease',
+                                        width: uploadStage === 'uploading' ? `${uploadProgress}%`
+                                            : uploadStage === 'scanning' ? '100%'
+                                            : '100%',
+                                        opacity: uploadStage !== 'uploading' ? 0.6 : 1,
+                                        backgroundImage: uploadStage !== 'uploading' ? 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)' : 'none',
+                                        animation: uploadStage !== 'uploading' ? 'stripe-slide 1s linear infinite' : 'none',
+                                    }} />
+                                </div>
+                                <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
+                            </div>
+                        )}
+
                         {/* Submit */}
                         <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
                             <button onClick={handleAddTrack} disabled={saving || !audioFile || !tosAgreed}
                                 style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile || !tosAgreed) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile || !tosAgreed) ? 0.7 : 1 }}>
-                                {saving ? 'Uploading...' : 'Upload Track'}
+                                {saving ? '...' : 'Upload Track'}
                             </button>
                             <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); }}
                                 style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
