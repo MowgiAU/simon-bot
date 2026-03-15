@@ -699,6 +699,299 @@ const TRACK_COLORS = [
     '#DC2626', '#7C3AED', '#0891B2', '#65A30D',
 ];
 
+/* ── Note names for piano roll labels ── */
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const keyToName = (k: number) => `${NOTE_NAMES[k % 12]}${Math.floor(k / 12) - 2}`;
+
+/** Full Piano Roll Modal – shown when a pattern clip is clicked */
+const PianoRollModal: React.FC<{
+    clip: ArrangementClip;
+    color: string;
+    onClose: () => void;
+}> = ({ clip, color, onClose }) => {
+    const notes = clip.notes ?? [];
+    if (!notes.length) return null;
+
+    const keys = notes.map(n => n.key);
+    const minKey = Math.max(0, Math.min(...keys) - 2);
+    const maxKey = Math.min(131, Math.max(...keys) + 2);
+    const keyRange = maxKey - minKey + 1;
+    const ROW_H = 14;
+    const ROLL_H = keyRange * ROW_H;
+    const LABEL_W = 44;
+
+    // Horizontal scale: 1 beat = 80px
+    const BEAT_W = 80;
+    const maxPos = Math.max(...notes.map(n => n.position + n.length), clip.length);
+    const svgW = Math.max(maxPos * BEAT_W, 240);
+
+    // Which rows are black keys
+    const isBlack = (k: number) => [1,3,6,8,10].includes(k % 12);
+
+    // Beat grid lines
+    const beatLines = [];
+    for (let b = 0; b <= Math.ceil(maxPos); b++) {
+        beatLines.push(b);
+    }
+
+    return (
+        <div
+            onClick={onClose}
+            style={{
+                position: 'fixed', inset: 0, zIndex: 1000,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '24px',
+            }}
+        >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                    backgroundColor: '#0d1117',
+                    border: `1px solid ${color}44`,
+                    borderRadius: borderRadius.lg,
+                    maxWidth: '900px',
+                    width: '100%',
+                    maxHeight: '80vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    boxShadow: `0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px ${color}22`,
+                }}
+            >
+                {/* Header */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.07)',
+                    flexShrink: 0,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: color }} />
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{clip.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '12px' }}>
+                            {notes.length} notes · {clip.length.toFixed(1)} beats
+                        </span>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Piano roll body */}
+                <div style={{ display: 'flex', flex: 1, overflow: 'auto', minHeight: 0 }}>
+                    {/* Piano keys sidebar */}
+                    <div style={{
+                        width: `${LABEL_W}px`, flexShrink: 0,
+                        backgroundColor: '#0d1117',
+                        borderRight: '1px solid rgba(255,255,255,0.07)',
+                        position: 'sticky', left: 0, zIndex: 2,
+                    }}>
+                        {Array.from({ length: keyRange }, (_, i) => {
+                            const k = maxKey - i;
+                            const black = isBlack(k);
+                            const isC = k % 12 === 0;
+                            return (
+                                <div key={k} style={{
+                                    height: `${ROW_H}px`,
+                                    backgroundColor: black ? '#1a1f2b' : '#242938',
+                                    borderBottom: '1px solid rgba(0,0,0,0.4)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+                                    paddingRight: '6px',
+                                    fontSize: '0.6rem',
+                                    color: isC ? '#a78bfa' : (black ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.45)'),
+                                    fontWeight: isC ? 700 : 400,
+                                }}>
+                                    {isC || black ? keyToName(k) : ''}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Note grid */}
+                    <div style={{ position: 'relative', flexShrink: 0, width: `${svgW}px`, height: `${ROLL_H}px` }}>
+                        {/* Row backgrounds */}
+                        {Array.from({ length: keyRange }, (_, i) => {
+                            const k = maxKey - i;
+                            return (
+                                <div key={k} style={{
+                                    position: 'absolute', left: 0, right: 0,
+                                    top: i * ROW_H, height: ROW_H,
+                                    backgroundColor: isBlack(k) ? 'rgba(0,0,0,0.25)' : 'transparent',
+                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                }} />
+                            );
+                        })}
+
+                        {/* Beat grid lines */}
+                        {beatLines.map(b => (
+                            <div key={b} style={{
+                                position: 'absolute', top: 0, bottom: 0,
+                                left: `${b * BEAT_W}px`, width: '1px',
+                                backgroundColor: b % 4 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                            }} />
+                        ))}
+
+                        {/* Notes */}
+                        {notes.map((note, i) => {
+                            const rowIdx = maxKey - note.key;
+                            if (rowIdx < 0 || rowIdx >= keyRange) return null;
+                            const w = Math.max(note.length * BEAT_W - 2, 3);
+                            return (
+                                <div key={i} style={{
+                                    position: 'absolute',
+                                    left: `${note.position * BEAT_W + 1}px`,
+                                    top: `${rowIdx * ROW_H + 2}px`,
+                                    width: `${w}px`,
+                                    height: `${ROW_H - 4}px`,
+                                    backgroundColor: color,
+                                    opacity: 0.4 + (note.velocity / 128) * 0.6,
+                                    borderRadius: '2px',
+                                    boxShadow: `0 0 4px ${color}88`,
+                                }} />
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/** Sample Info Modal – shown when an audio clip is clicked */
+const SampleInfoModal: React.FC<{
+    clip: ArrangementClip;
+    color: string;
+    peaks?: number[];
+    onClose: () => void;
+}> = ({ clip, color, peaks, onClose }) => {
+    const hasPeaks = peaks && peaks.length > 0;
+    const bars = 120;
+    const step = hasPeaks ? peaks!.length / bars : 1;
+
+    const fmtDuration = (s?: number | null) => {
+        if (s == null) return '—';
+        const m = Math.floor(s / 60);
+        const sec = (s % 60).toFixed(2).padStart(5, '0');
+        return `${m}:${sec}`;
+    };
+
+    return (
+        <div
+            onClick={onClose}
+            style={{
+                position: 'fixed', inset: 0, zIndex: 1000,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '24px',
+            }}
+        >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                    backgroundColor: '#0d1117',
+                    border: `1px solid ${color}44`,
+                    borderRadius: borderRadius.lg,
+                    width: '480px',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    boxShadow: `0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px ${color}22`,
+                }}
+            >
+                {/* Header */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.07)',
+                    backgroundColor: `${color}18`,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FileAudio size={16} color={color} />
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{clip.name}</span>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Waveform */}
+                <div style={{ padding: '16px 16px 8px' }}>
+                    <div style={{
+                        backgroundColor: 'rgba(0,0,0,0.4)',
+                        borderRadius: borderRadius.md,
+                        padding: '12px 8px',
+                        border: `1px solid ${color}22`,
+                    }}>
+                        <svg viewBox={`0 0 ${bars} 40`} preserveAspectRatio="none" style={{ width: '100%', height: '64px', display: 'block' }}>
+                            {hasPeaks
+                                ? Array.from({ length: bars }, (_, i) => {
+                                    const start = Math.floor(i * step);
+                                    const end = Math.min(Math.ceil((i + 1) * step), peaks!.length);
+                                    let sum = 0;
+                                    for (let j = start; j < end; j++) sum += peaks![j];
+                                    const amp = sum / (end - start);
+                                    const h = Math.max(amp * 36, 1);
+                                    return (
+                                        <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.85} />
+                                    );
+                                })
+                                : Array.from({ length: bars }, (_, i) => {
+                                    const seed = clip.id;
+                                    const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) * (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
+                                    const h = Math.max(amp * 36, 1);
+                                    return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.55} />;
+                                })
+                            }
+                        </svg>
+                        {!hasPeaks && (
+                            <div style={{ textAlign: 'center', fontSize: '0.65rem', color: colors.textSecondary, marginTop: '4px' }}>
+                                Upload a ZIP bundle to see the real waveform
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Metadata rows */}
+                <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {[
+                        { label: 'File', value: clip.sampleFileName ?? clip.name },
+                        { label: 'Appears at', value: `Beat ${clip.start.toFixed(2)}` },
+                        { label: 'Clip length', value: `${clip.length.toFixed(2)} beats` },
+                        { label: 'Sample duration', value: fmtDuration(clip.duration) },
+                    ].map(({ label, value }) => (
+                        <div key={label} style={{
+                            display: 'flex', justifyContent: 'space-between',
+                            padding: '6px 10px',
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            borderRadius: borderRadius.sm,
+                            fontSize: '0.82rem',
+                        }}>
+                            <span style={{ color: colors.textSecondary }}>{label}</span>
+                            <span style={{ color: colors.textPrimary, fontWeight: 500, fontFamily: 'monospace' }}>{value}</span>
+                        </div>
+                    ))}
+                    {clip.oggUrl && (
+                        <a
+                            href={clip.oggUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                marginTop: '4px', padding: '8px',
+                                backgroundColor: `${color}22`, border: `1px solid ${color}44`,
+                                borderRadius: borderRadius.md, color, textDecoration: 'none',
+                                fontSize: '0.82rem', fontWeight: 600,
+                            }}
+                        >
+                            <ExternalLink size={14} /> Preview OGG file
+                        </a>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ArrangementViewer: React.FC<{
     arrangement: ArrangementData;
     duration: number;
@@ -710,6 +1003,7 @@ const ArrangementViewer: React.FC<{
     /** keyed by lowercase sample basename → real peak array from server */
     samplesMap?: Record<string, number[]>;
 }> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom, samplesMap = {} }) => {
+    const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
     const lastClipEnd = arrangement.tracks.reduce((max, t) => {
@@ -902,10 +1196,12 @@ const ArrangementViewer: React.FC<{
                             </div>
                             <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
                                 {t.clips.map((clip) => {
+                                    const isClickable = (clip.type === 'pattern' && clip.notes && clip.notes.length > 0) || clip.type === 'audio';
                                     return (
                                         <div
                                             key={clip.id}
                                             title={clip.name}
+                                            onClick={isClickable ? (e) => { e.stopPropagation(); setSelectedClip({ clip, color: trackColor }); } : undefined}
                                             style={{
                                                 position: 'absolute',
                                                 left: `${(clip.start / totalBeats) * 100}%`,
@@ -917,6 +1213,7 @@ const ArrangementViewer: React.FC<{
                                                 boxSizing: 'border-box',
                                                 minWidth: '3px',
                                                 overflow: 'hidden',
+                                                cursor: isClickable ? 'pointer' : 'default',
                                             }}
                                         >
                                             {/* Clip label */}
@@ -1020,6 +1317,23 @@ const ArrangementViewer: React.FC<{
                     })}
                 </div>
             </div>
+
+            {/* Clip inspector modals */}
+            {selectedClip && selectedClip.clip.type === 'pattern' && selectedClip.clip.notes && selectedClip.clip.notes.length > 0 && (
+                <PianoRollModal
+                    clip={selectedClip.clip}
+                    color={selectedClip.color}
+                    onClose={() => setSelectedClip(null)}
+                />
+            )}
+            {selectedClip && selectedClip.clip.type === 'audio' && (
+                <SampleInfoModal
+                    clip={selectedClip.clip}
+                    color={selectedClip.color}
+                    peaks={selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined}
+                    onClose={() => setSelectedClip(null)}
+                />
+            )}
         </div>
     );
 };
