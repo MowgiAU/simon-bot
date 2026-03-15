@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 
 interface Genre {
@@ -19,6 +19,7 @@ interface Genre {
 
 export const MyTracksPage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [tracks, setTracks] = useState<any[]>([]);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,7 +56,10 @@ export const MyTracksPage: React.FC = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user) return;
+            if (!user) {
+                if (!authLoading) window.location.href = '/api/auth/discord/login';
+                return;
+            }
             setLoading(true);
             try {
                 const [profileRes, genresRes] = await Promise.all([
@@ -66,14 +70,18 @@ export const MyTracksPage: React.FC = () => {
                 if (data?.tracks) setTracks(data.tracks);
                 if (data?.username) setUsername(data.username);
                 setAllGenres(genresRes.data);
-            } catch {
-                setMessage({ type: 'error', text: 'Failed to load tracks' });
+            } catch (err: any) {
+                if (err.response?.status === 404) {
+                    navigate('/profile/setup', { replace: true });
+                } else {
+                    setMessage({ type: 'error', text: 'Failed to load tracks' });
+                }
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [user?.id]);
+    }, [user?.id, authLoading]);
 
     const handleAddTrack = async () => {
         if (!audioFile) {

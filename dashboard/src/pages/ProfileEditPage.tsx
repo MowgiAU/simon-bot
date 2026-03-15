@@ -7,7 +7,7 @@ import {
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const GEAR_CATEGORIES = [
     'DAW', 'VST / Plugin', 'Monitor', 'Synth', 'Keyboard / Controller',
@@ -38,7 +38,8 @@ interface Genre {
 }
 
 export const ProfileEditPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [tracks, setTracks] = useState<any[]>([]);
@@ -69,7 +70,10 @@ export const ProfileEditPage: React.FC = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user) return;
+            if (!user) {
+                if (!authLoading) window.location.href = '/api/auth/discord/login';
+                return;
+            }
             setLoading(true);
             try {
                 const [profileRes, genresRes] = await Promise.all([
@@ -101,20 +105,7 @@ export const ProfileEditPage: React.FC = () => {
                 setAllGenres(genresRes.data);
             } catch (err: any) {
                 if (err.response?.status === 404) {
-                    setProfile({
-                        username: user.username,
-                        displayName: user.username,
-                        bio: '',
-                        spotifyUrl: '',
-                        soundcloudUrl: '',
-                        youtubeUrl: '',
-                        instagramUrl: '',
-                        discordUrl: '',
-                        gearList: [],
-                        genres: []
-                    });
-                    const res = await axios.get('/api/musician/genres', { withCredentials: true });
-                    setAllGenres(res.data);
+                    navigate('/profile/setup', { replace: true });
                 } else {
                     setMessage({ type: 'error', text: 'Failed to load profile' });
                 }
@@ -123,7 +114,7 @@ export const ProfileEditPage: React.FC = () => {
             }
         };
         fetchData();
-    }, [user?.id]);
+    }, [user?.id, authLoading]);
 
     const handleSave = async () => {
         if (!user || !profile) return;
