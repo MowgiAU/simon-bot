@@ -424,6 +424,7 @@ export const TrackPage: React.FC = () => {
                         currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
                         isPlaying={isPlaying}
                         projectFileUrl={track.projectFileUrl}
+                        projectZipUrl={track.projectZipUrl}
                         zoom={zoom}
                         setZoom={setZoom}
                         samplesMap={Object.fromEntries(
@@ -720,9 +721,13 @@ const PianoRollModal: React.FC<{
     const ROLL_H = keyRange * ROW_H;
     const LABEL_W = 44;
 
-    // Horizontal scale: 1 beat = 80px
-    const BEAT_W = 80;
+    // Auto-fit: scale so all notes fit in ~820px (interior minus key sidebar)
     const maxPos = Math.max(...notes.map(n => n.position + n.length), clip.length);
+    const FIT_WIDTH = 820;
+    const autoZoom = Math.max(15, Math.min(80, Math.floor(FIT_WIDTH / Math.max(maxPos, 1))));
+    const [zoomPx, setZoomPx] = React.useState(autoZoom);
+    const BEAT_W = zoomPx;
+
     const svgW = Math.max(maxPos * BEAT_W, 240);
 
     // Which rows are black keys
@@ -773,9 +778,23 @@ const PianoRollModal: React.FC<{
                             {notes.length} notes · {clip.length.toFixed(1)} beats
                         </span>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex' }}>
-                        <X size={18} />
-                    </button>
+                    {/* Zoom controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,255,255,0.05)', padding: '3px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button
+                                onClick={() => setZoomPx(z => Math.max(8, Math.round(z / 1.5)))}
+                                style={{ background: 'none', border: 'none', color: zoomPx <= 8 ? colors.textSecondary : colors.textPrimary, cursor: zoomPx <= 8 ? 'default' : 'pointer', padding: '0 6px', fontSize: '1.1rem', fontWeight: 'bold', lineHeight: 1 }}
+                            >−</button>
+                            <span style={{ fontSize: '0.7rem', color: colors.textSecondary, minWidth: '36px', textAlign: 'center' }}>{zoomPx}px/b</span>
+                            <button
+                                onClick={() => setZoomPx(z => Math.min(200, Math.round(z * 1.5)))}
+                                style={{ background: 'none', border: 'none', color: zoomPx >= 200 ? colors.textSecondary : colors.textPrimary, cursor: zoomPx >= 200 ? 'default' : 'pointer', padding: '0 6px', fontSize: '1.1rem', fontWeight: 'bold', lineHeight: 1 }}
+                            >+</button>
+                        </div>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Piano roll body */}
@@ -863,16 +882,37 @@ const SampleInfoModal: React.FC<{
     clip: ArrangementClip;
     color: string;
     peaks?: number[];
+    projectZipUrl?: string | null;
     onClose: () => void;
-}> = ({ clip, color, peaks, onClose }) => {
+}> = ({ clip, color, peaks, projectZipUrl, onClose }) => {
+    const audioRef = React.useRef<HTMLAudioElement>(null);
+    const [playing, setPlaying] = React.useState(false);
+    const [currentTime, setCurrentTime] = React.useState(0);
+    const [audioDuration, setAudioDuration] = React.useState<number>(clip.duration ?? 0);
+
     const hasPeaks = peaks && peaks.length > 0;
     const bars = 120;
     const step = hasPeaks ? peaks!.length / bars : 1;
 
-    const fmtDuration = (s?: number | null) => {
-        if (s == null) return '—';
+    // Playhead position in SVG units (0..bars)
+    const playheadX = audioDuration > 0 ? (currentTime / audioDuration) * bars : 0;
+
+    const togglePlay = () => {
+        if (!audioRef.current) return;
+        if (playing) audioRef.current.pause();
+        else audioRef.current.play().catch(() => {});
+    };
+
+    const seekClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!audioRef.current || !audioDuration) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        audioRef.current.currentTime = frac * audioDuration;
+    };
+
+    const fmtTime = (s: number) => {
         const m = Math.floor(s / 60);
-        const sec = (s % 60).toFixed(2).padStart(5, '0');
+        const sec = Math.floor(s % 60).toString().padStart(2, '0');
         return `${m}:${sec}`;
     };
 
@@ -914,14 +954,19 @@ const SampleInfoModal: React.FC<{
                     </button>
                 </div>
 
-                {/* Waveform */}
-                <div style={{ padding: '16px 16px 8px' }}>
-                    <div style={{
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        borderRadius: borderRadius.md,
-                        padding: '12px 8px',
-                        border: `1px solid ${color}22`,
-                    }}>
+                {/* Waveform with playhead */}
+                <div style={{ padding: '16px 16px 0' }}>
+                    <div
+                        onClick={clip.oggUrl ? seekClick : undefined}
+                        style={{
+                            backgroundColor: 'rgba(0,0,0,0.4)',
+                            borderRadius: borderRadius.md,
+                            padding: '12px 8px',
+                            border: `1px solid ${color}22`,
+                            cursor: clip.oggUrl ? 'pointer' : 'default',
+                            position: 'relative',
+                        }}
+                    >
                         <svg viewBox={`0 0 ${bars} 40`} preserveAspectRatio="none" style={{ width: '100%', height: '64px', display: 'block' }}>
                             {hasPeaks
                                 ? Array.from({ length: bars }, (_, i) => {
@@ -942,6 +987,11 @@ const SampleInfoModal: React.FC<{
                                     return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.55} />;
                                 })
                             }
+                            {/* Synced playhead */}
+                            {audioDuration > 0 && (
+                                <line x1={playheadX} y1={0} x2={playheadX} y2={40}
+                                    stroke="white" strokeWidth="0.5" opacity="0.9" />
+                            )}
                         </svg>
                         {!hasPeaks && (
                             <div style={{ textAlign: 'center', fontSize: '0.65rem', color: colors.textSecondary, marginTop: '4px' }}>
@@ -951,13 +1001,62 @@ const SampleInfoModal: React.FC<{
                     </div>
                 </div>
 
+                {/* Audio player controls */}
+                {clip.oggUrl && (
+                    <div style={{ padding: '10px 16px 0' }}>
+                        <audio
+                            ref={audioRef}
+                            src={clip.oggUrl}
+                            onTimeUpdate={() => { if (audioRef.current) setCurrentTime(audioRef.current.currentTime); }}
+                            onDurationChange={() => { if (audioRef.current) setAudioDuration(audioRef.current.duration); }}
+                            onPlay={() => setPlaying(true)}
+                            onPause={() => setPlaying(false)}
+                            onEnded={() => { setPlaying(false); setCurrentTime(0); }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {/* Play/pause */}
+                            <button
+                                onClick={togglePlay}
+                                style={{
+                                    background: `${color}22`, border: `1px solid ${color}55`,
+                                    borderRadius: '50%', width: 32, height: 32, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color, flexShrink: 0,
+                                }}
+                            >
+                                {playing ? <Pause size={14} /> : <Play size={14} />}
+                            </button>
+
+                            {/* Progress bar */}
+                            <div
+                                onClick={seekClick}
+                                style={{
+                                    flex: 1, height: 4, backgroundColor: 'rgba(255,255,255,0.12)',
+                                    borderRadius: 4, cursor: 'pointer', position: 'relative',
+                                }}
+                            >
+                                <div style={{
+                                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                                    width: `${audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0}%`,
+                                    backgroundColor: color, borderRadius: 4,
+                                    transition: 'width 0.05s linear',
+                                }} />
+                            </div>
+
+                            {/* Time */}
+                            <span style={{ fontSize: '0.72rem', color: colors.textSecondary, fontFamily: 'monospace', flexShrink: 0 }}>
+                                {fmtTime(currentTime)} / {fmtTime(audioDuration)}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Metadata rows */}
-                <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ padding: '12px 16px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {[
                         { label: 'File', value: clip.sampleFileName ?? clip.name },
-                        { label: 'Appears at', value: `Beat ${clip.start.toFixed(2)}` },
                         { label: 'Clip length', value: `${clip.length.toFixed(2)} beats` },
-                        { label: 'Sample duration', value: fmtDuration(clip.duration) },
+                        { label: 'Sample duration', value: audioDuration > 0 ? fmtTime(audioDuration) : (clip.duration ? fmtTime(clip.duration) : '—') },
                     ].map(({ label, value }) => (
                         <div key={label} style={{
                             display: 'flex', justifyContent: 'space-between',
@@ -970,11 +1069,12 @@ const SampleInfoModal: React.FC<{
                             <span style={{ color: colors.textPrimary, fontWeight: 500, fontFamily: 'monospace' }}>{value}</span>
                         </div>
                     ))}
-                    {clip.oggUrl && (
+
+                    {/* Download ZIP button */}
+                    {projectZipUrl && (
                         <a
-                            href={clip.oggUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={projectZipUrl}
+                            download
                             style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                 marginTop: '4px', padding: '8px',
@@ -983,7 +1083,7 @@ const SampleInfoModal: React.FC<{
                                 fontSize: '0.82rem', fontWeight: 600,
                             }}
                         >
-                            <ExternalLink size={14} /> Preview OGG file
+                            <Download size={14} /> Download Loop Package
                         </a>
                     )}
                 </div>
@@ -998,11 +1098,12 @@ const ArrangementViewer: React.FC<{
     currentTime: number;
     isPlaying: boolean;
     projectFileUrl: string | null;
+    projectZipUrl?: string | null;
     zoom: number;
     setZoom: (v: number) => void;
     /** keyed by lowercase sample basename → real peak array from server */
     samplesMap?: Record<string, number[]>;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, zoom, setZoom, samplesMap = {} }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, zoom, setZoom, samplesMap = {} }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
     // Find the actual project length based ONLY on the clips provided.
     // If the FLP parser included empty tracks up to 501, we filter those out here.
@@ -1331,6 +1432,7 @@ const ArrangementViewer: React.FC<{
                     clip={selectedClip.clip}
                     color={selectedClip.color}
                     peaks={selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined}
+                    projectZipUrl={projectZipUrl}
                     onClose={() => setSelectedClip(null)}
                 />
             )}

@@ -299,8 +299,11 @@ export class FLPParser {
             }
 
             // ── Playlist items: event 233 (DATA+25) ──
+            // After the playlist event, subsequent TEXT+11 (203) events belong to mixer effect slots,
+            // not channel names. Reset currentChannelIID so they route to mixerPluginNames.
             if (code === 233 && buf) {
                 playlistBuf = buf;
+                currentChannelIID = 0;
             }
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
