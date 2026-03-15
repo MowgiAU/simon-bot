@@ -5,7 +5,9 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import sharp from 'sharp';
 import { Logger } from '../bot/utils/logger.js';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Prefer a system-installed FFmpeg (set via FFMPEG_PATH env var on the server)
+// so we get full codec support (libopus etc.) instead of the bundled minimal build.
+ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
 
 const logger = new Logger('MediaConverter');
 
@@ -57,7 +59,8 @@ export class MediaConverter {
     }
 
     /**
-     * Converts any audio file to Ogg Vorbis (quality 5, ~160 kbps).
+     * Converts any audio file to OGG Opus (128kbps) for efficient web delivery.
+     * Uses libopus which provides ~90% size reduction vs WAV at comparable quality.
      * Returns the path of the converted .ogg file.
      * On failure, returns the original path unchanged.
      */
@@ -68,8 +71,8 @@ export class MediaConverter {
 
         return new Promise((resolve) => {
             ffmpeg(inputPath)
-                .audioCodec('libvorbis')
-                .audioQuality(5) // ~160 kbps
+                .audioCodec('libopus')
+                .audioBitrate('128k')
                 .noVideo()
                 .output(tempOutputPath)
                 .on('end', () => {
@@ -80,7 +83,7 @@ export class MediaConverter {
                         if (fs.existsSync(tempOutputPath)) {
                             fs.renameSync(tempOutputPath, outputPath);
                         }
-                        logger.info(`Audio converted to OGG: ${path.basename(outputPath)}`);
+                        logger.info(`Audio converted to OGG Opus 128k: ${path.basename(outputPath)}`);
                         resolve(outputPath);
                     } catch (e) {
                         logger.warn(`Post-conversion file ops failed (ogg): ${e}`);

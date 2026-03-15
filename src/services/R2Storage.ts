@@ -8,10 +8,10 @@ let _client: S3Client | null = null;
 function getClient(): S3Client {
     if (_client) return _client;
 
-    const accountId = process.env.R2_ACCOUNT_ID!;
     _client = new S3Client({
         region: 'auto',
-        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        // Use R2_ENDPOINT directly: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+        endpoint: process.env.R2_ENDPOINT!,
         credentials: {
             accessKeyId: process.env.R2_ACCESS_KEY_ID!,
             secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
@@ -22,12 +22,12 @@ function getClient(): S3Client {
 
 export class R2Storage {
     /**
-     * Returns true only when all four R2 env vars are populated.
+     * Returns true only when all required R2 env vars are populated.
      * When false every upload silently falls back to local storage.
      */
     static isConfigured(): boolean {
         return !!(
-            process.env.R2_ACCOUNT_ID &&
+            process.env.R2_ENDPOINT &&
             process.env.R2_ACCESS_KEY_ID &&
             process.env.R2_SECRET_ACCESS_KEY &&
             process.env.R2_BUCKET_NAME
@@ -36,7 +36,7 @@ export class R2Storage {
 
     /**
      * Build a deterministic object key.
-     * e.g. buildKey('samples', 'clxxx', 'kick_01.ogg') → 'samples/clxxx/kick_01.ogg'
+     * e.g. buildKey('projects', 'clxxx', 'kick_01.ogg') → 'projects/clxxx/kick_01.ogg'
      */
     static buildKey(category: string, trackId: string, filename: string): string {
         return `${category}/${trackId}/${filename}`;
@@ -44,13 +44,14 @@ export class R2Storage {
 
     /**
      * Upload a Buffer to R2 and return the public CDN URL.
+     * Also logs the ETag returned by R2 — callers can use it for conditional requests.
      * Throws if R2 is not configured — callers should check isConfigured() first.
      */
     static async uploadBuffer(key: string, buffer: Buffer, contentType: string): Promise<string> {
         const bucket = process.env.R2_BUCKET_NAME!;
         const cdnBase = (process.env.CDN_URL || '').replace(/\/$/, '');
 
-        await getClient().send(
+        const result = await getClient().send(
             new PutObjectCommand({
                 Bucket: bucket,
                 Key: key,
@@ -59,8 +60,11 @@ export class R2Storage {
             })
         );
 
+        // ETag enables conditional requests (If-None-Match) from the FLP parser,
+        // saving R2 Class B read operations on unchanged samples.
+        const etag = result.ETag ?? 'unknown';
         const url = `${cdnBase}/${key}`;
-        logger.info(`Uploaded to R2: ${key}`);
+        logger.info(`Uploaded to R2: ${key} (ETag: ${etag})`);
         return url;
     }
 

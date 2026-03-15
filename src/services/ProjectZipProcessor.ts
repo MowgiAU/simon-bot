@@ -94,8 +94,9 @@ export class ProjectZipProcessor {
                     let oggUrl: string;
                     if (R2Storage.isConfigured()) {
                         const oggBuffer = fs.readFileSync(oggPath);
+                        // Key format: projects/{trackId}/filename.ogg
                         const key = R2Storage.buildKey(
-                            'samples',
+                            'projects',
                             trackId,
                             path.basename(baseName, path.extname(baseName)) + '.ogg',
                         );

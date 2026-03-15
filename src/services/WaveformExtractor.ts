@@ -4,6 +4,8 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { Logger } from '../bot/utils/logger.js';
 
 const logger = new Logger('WaveformExtractor');
+// Use system FFmpeg if available (set FFMPEG_PATH on the server), otherwise fall back to bundled build.
+const FFMPEG_BIN = process.env.FFMPEG_PATH || ffmpegInstaller.path;
 
 /**
  * Extract normalised RMS waveform peaks from an audio file using FFmpeg.
@@ -17,7 +19,7 @@ export class WaveformExtractor {
         return new Promise((resolve, reject) => {
             const chunks: Buffer[] = [];
 
-            const proc = spawn(ffmpegInstaller.path, [
+            const proc = spawn(FFMPEG_BIN, [
                 '-i', inputPath,
                 '-ac', '1',       // mono
                 '-ar', '8000',    // 8 kHz — enough for envelope shape
