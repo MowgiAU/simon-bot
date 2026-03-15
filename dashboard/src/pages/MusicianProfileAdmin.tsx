@@ -67,6 +67,7 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     // FLP reprocessing state
     const [reprocessing, setReprocessing] = useState(false);
+    const [migratingR2, setMigratingR2] = useState(false);
 
     // Admin track management state
     const [adminTrackSearch, setAdminTrackSearch] = useState('');
@@ -175,6 +176,27 @@ export const MusicianProfileAdmin: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleMigrateToR2 = () => {
+        setConfirmDialog({
+            title: 'Migrate Files to R2 CDN',
+            message: 'This will upload all existing local track files (audio, artwork, project files) to Cloudflare R2 and update the database URLs. This may take several minutes. Proceed?',
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                setMigratingR2(true);
+                setMsg({ type: 'success', text: 'Migration started... This may take a minute.' });
+                try {
+                    const res = await axios.post('/api/admin/migrate-uploads-to-r2', {}, { withCredentials: true });
+                    const d = res.data.tracks;
+                    setMsg({ type: 'success', text: `Migration complete! Audio: ${d.audio}, Artwork: ${d.artwork}, Projects: ${d.projectFile + d.projectZip}${d.errors.length ? ` (${d.errors.length} errors — check logs)` : ''}` });
+                } catch (err: any) {
+                    setMsg({ type: 'error', text: err.response?.data?.error || 'Migration failed' });
+                } finally {
+                    setMigratingR2(false);
+                }
+            }
+        });
     };
 
     const handleReprocessFlps = () => {
@@ -434,31 +456,37 @@ export const MusicianProfileAdmin: React.FC = () => {
                     <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.md, fontSize: '1rem', color: colors.textSecondary }}>
                         <Settings size={18} /> System Maintenance
                     </h3>
-                    <div className="settings-explanation" style={{ backgroundColor: 'rgba(255,152,0,0.05)', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid #ff9800` }}>
-                        <p style={{ margin: 0, color: colors.textPrimary, fontSize: '0.9rem' }}>
-                            Update logic for <b>FLP arrangements</b> (Automation curves, Plugin listing, etc.) has been improved. 
-                            Click below to re-process all tracks currently in the database without requiring users to re-upload.
-                        </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                        {/* Re-process FLPs */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(255,152,0,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,152,0,0.15)' }}>
+                            <div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse FLP files</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all project files in the database.</div>
+                            </div>
+                            <button
+                                onClick={handleReprocessFlps}
+                                disabled={reprocessing}
+                                style={{ backgroundColor: 'transparent', color: reprocessing ? colors.textSecondary : '#ff9800', border: `1px solid ${reprocessing ? colors.textSecondary : '#ff9800'}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: reprocessing ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}
+                            >
+                                {reprocessing ? 'Processing...' : 'Run'}
+                            </button>
+                        </div>
+
+                        {/* Migrate to R2 */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(99,102,241,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(99,102,241,0.2)' }}>
+                            <div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Migrate files to R2 CDN</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Upload existing local track files to Cloudflare R2 and update database URLs.</div>
+                            </div>
+                            <button
+                                onClick={handleMigrateToR2}
+                                disabled={migratingR2}
+                                style={{ backgroundColor: 'transparent', color: migratingR2 ? colors.textSecondary : '#6366f1', border: `1px solid ${migratingR2 ? colors.textSecondary : '#6366f1'}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: migratingR2 ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}
+                            >
+                                {migratingR2 ? 'Migrating...' : 'Run'}
+                            </button>
+                        </div>
                     </div>
-                    <button 
-                        onClick={handleReprocessFlps} 
-                        disabled={reprocessing}
-                        style={{ 
-                            backgroundColor: 'transparent', 
-                            color: reprocessing ? colors.textSecondary : '#ff9800', 
-                            border: `1px solid ${reprocessing ? colors.textSecondary : '#ff9800'}`, 
-                            borderRadius: borderRadius.sm, 
-                            padding: `${spacing.sm} ${spacing.lg}`, 
-                            cursor: reprocessing ? 'default' : 'pointer', 
-                            fontWeight: 'bold', 
-                            fontSize: '0.85rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        {reprocessing ? 'Reprocessing...' : 'Re-process all FLP files'}
-                    </button>
                 </div>
             </div>
 
