@@ -4423,6 +4423,63 @@ app.get('/api/admin/debug-tracks-summary', requireAdmin, async (req, res) => {
     }
 });
 
+// Migrate existing local uploads to R2 (one-time admin operation)
+app.post('/api/admin/migrate-uploads-to-r2', requireAdmin, async (req, res) => {
+    if (!R2Storage.isConfigured()) {
+        return res.status(503).json({ error: 'R2 is not configured on this server.' });
+    }
+
+    const results = {
+        tracks: { total: 0, audio: 0, artwork: 0, projectFile: 0, projectZip: 0, errors: [] as string[] }
+    };
+
+    const tracks = await db.track.findMany({
+        select: { id: true, title: true, url: true, coverUrl: true, projectFileUrl: true, projectZipUrl: true }
+    });
+    results.tracks.total = tracks.length;
+
+    for (const track of tracks) {
+        const updates: any = {};
+
+        const tryUpload = async (
+            field: keyof typeof updates,
+            url: string | null | undefined,
+            dir: string,
+            contentType: string,
+            counter: keyof typeof results.tracks
+        ) => {
+            if (!url || !url.startsWith('/uploads/')) return;
+            const localPath = path.join(PROJECT_ROOT, 'public', url);
+            if (!fs.existsSync(localPath)) {
+                results.tracks.errors.push(`[${track.title}] Missing file: ${localPath}`);
+                return;
+            }
+            try {
+                const buffer = fs.readFileSync(localPath);
+                const filename = path.basename(url);
+                const r2Key = `tracks/${track.id}/${dir}/${filename}`;
+                const cdnUrl = await R2Storage.uploadBuffer(r2Key, buffer, contentType);
+                updates[field] = cdnUrl;
+                (results.tracks[counter] as number)++;
+            } catch (err: any) {
+                results.tracks.errors.push(`[${track.title}] Failed ${String(field)}: ${err.message}`);
+            }
+        };
+
+        await tryUpload('url',            track.url,            'audio',   'audio/mpeg',             'audio');
+        await tryUpload('coverUrl',        track.coverUrl,       'artwork', 'image/webp',              'artwork');
+        await tryUpload('projectFileUrl',  track.projectFileUrl, 'project', 'application/octet-stream','projectFile');
+        await tryUpload('projectZipUrl',   track.projectZipUrl,  'project', 'application/zip',         'projectZip');
+
+        if (Object.keys(updates).length > 0) {
+            await db.track.update({ where: { id: track.id }, data: updates });
+        }
+    }
+
+    logger.info(`R2 migration complete: ${JSON.stringify(results.tracks)}`);
+    res.json(results);
+});
+
 // Re-process all FLP files (Admin operation)
 app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
     try {
