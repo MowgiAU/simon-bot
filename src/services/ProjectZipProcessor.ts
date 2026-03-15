@@ -58,21 +58,28 @@ export class ProjectZipProcessor {
             // Build a lookup map: lowercase-basename → absolute path of extracted audio
             const audioFileMap = buildAudioFileMap(tempDir);
 
-            // ── Step 4-6: Process each audio clip ─────────────────────────────
+            // ── Step 4-6: Process each UNIQUE sample, then enrich all clips ──────
             let sampleCount = 0;
             const clips: any[] = arrangement?.tracks?.flatMap((t: any) => t.clips ?? []) ?? [];
 
+            // Deduplicate: collect unique sample filenames referenced by audio clips
+            const uniqueSamples = new Map<string, string>(); // baseName → srcPath
             for (const clip of clips) {
                 if (clip.type !== 'audio' || !clip.sampleFileName) continue;
-
-                const baseName = clip.sampleFileName; // already just the basename from FLPParser
+                const baseName = clip.sampleFileName;
+                if (uniqueSamples.has(baseName)) continue;
                 const srcPath = audioFileMap.get(baseName.toLowerCase());
-
-                if (!srcPath) {
+                if (srcPath) {
+                    uniqueSamples.set(baseName, srcPath);
+                } else {
                     logger.warn(`ZIP missing sample for clip: ${baseName} – skipping`);
-                    continue;
                 }
+            }
 
+            // Process each unique sample exactly once
+            const sampleCache = new Map<string, { oggUrl: string; peaks: number[]; duration: number | null }>();
+
+            for (const [baseName, srcPath] of uniqueSamples) {
                 try {
                     // Copy to a working temp path so we don't corrupt the extracted tree
                     const workPath = path.join(tempDir, `work_${Date.now()}_${baseName}`);
@@ -84,7 +91,7 @@ export class ProjectZipProcessor {
                     // Extract waveform peaks
                     const peaks = await WaveformExtractor.extractPeaks(oggPath);
 
-                    // Duration via file stat proxy (rough: ffprobe not required)
+                    // Duration
                     let duration: number | null = null;
                     try {
                         duration = await getDurationSeconds(oggPath);
@@ -97,7 +104,6 @@ export class ProjectZipProcessor {
                         // Key format: tracks/{trackId}/samples/filename.ogg
                         const key = `tracks/${trackId}/samples/${path.basename(baseName, path.extname(baseName))}.ogg`;
                         oggUrl = await R2Storage.uploadBuffer(key, oggBuffer, 'audio/ogg');
-                        // CDN URL: https://cdn.fujistud.io/tracks/{trackId}/samples/filename.ogg
                     } else {
                         // Serve from local uploads/samples/{trackId}/
                         const localDir = path.join(LOCAL_SAMPLES_DIR, trackId);
@@ -122,15 +128,22 @@ export class ProjectZipProcessor {
                         update: { oggUrl, peaks, duration },
                     });
 
-                    // Enrich the clip in the arrangement
-                    clip.oggUrl = oggUrl;
-                    clip.peaks = peaks;
-                    clip.duration = duration;
-
+                    sampleCache.set(baseName, { oggUrl, peaks, duration });
                     sampleCount++;
                 } catch (err: any) {
                     logger.warn(`Failed to process sample ${baseName}: ${err.message}`);
                     // Continue — partial results are better than a complete failure
+                }
+            }
+
+            // Enrich all clips from cache (no reprocessing)
+            for (const clip of clips) {
+                if (clip.type !== 'audio' || !clip.sampleFileName) continue;
+                const cached = sampleCache.get(clip.sampleFileName);
+                if (cached) {
+                    clip.oggUrl = cached.oggUrl;
+                    clip.peaks = cached.peaks;
+                    clip.duration = cached.duration;
                 }
             }
 
