@@ -1035,6 +1035,7 @@ model BattleSponsor {
   websiteUrl  String?
   description String?  @db.Text
   isActive    Boolean  @default(true)
+  showOnPage  Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1084,6 +1085,8 @@ model BeatBattleSettings {
   submissionCategoryId  String?
   archiveCategoryId     String?
   discordInviteUrl      String?
+  featuredBattleId      String?
+  sponsorSectionTitle   String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

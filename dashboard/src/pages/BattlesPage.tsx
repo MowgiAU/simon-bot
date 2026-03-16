@@ -60,6 +60,14 @@ interface Entry {
     createdAt: string;
 }
 
+interface PublicSponsor {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+    websiteUrl: string | null;
+    links: { id: string; label: string; url: string }[];
+}
+
 export const BattlesPage: React.FC = () => {
     const { user } = useAuth();
     const { player, setTrack, togglePlay } = usePlayer();
@@ -71,6 +79,8 @@ export const BattlesPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
     const [hallOfFame, setHallOfFame] = useState<Array<{ battle: Battle; winner: Entry | null }>>([]);
+    const [globalSponsors, setGlobalSponsors] = useState<PublicSponsor[]>([]);
+    const [sponsorSectionTitle, setSponsorSectionTitle] = useState<string>('Official Partners');
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -81,16 +91,38 @@ export const BattlesPage: React.FC = () => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/beat-battle/battles?guildId=default-guild`);
-            if (!res.ok) return;
-            const data: Battle[] = await res.json();
+            const [battlesRes, pageSettingsRes, sponsorsRes] = await Promise.all([
+                fetch(`${API}/api/beat-battle/battles?guildId=default-guild`),
+                fetch(`${API}/api/beat-battle/page-settings?guildId=default-guild`),
+                fetch(`${API}/api/beat-battle/sponsors?guildId=default-guild`),
+            ]);
+            if (!battlesRes.ok) return;
+            const data: Battle[] = await battlesRes.json();
             setBattles(data);
-            const active = data.find(b => b.status === 'voting') ||
-                           data.find(b => b.status === 'active') ||
-                           data.find(b => b.status === 'upcoming');
-            if (active) {
-                const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                if (detail.ok) setCurrentBattle(await detail.json());
+
+            if (pageSettingsRes.ok) {
+                const ps = await pageSettingsRes.json();
+                if (ps.sponsorSectionTitle) setSponsorSectionTitle(ps.sponsorSectionTitle);
+                if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
+
+                const featured = ps.featuredBattleId ? data.find((b: Battle) => b.id === ps.featuredBattleId) : null;
+                const active = featured ||
+                               data.find(b => b.status === 'voting') ||
+                               data.find(b => b.status === 'active') ||
+                               data.find(b => b.status === 'upcoming');
+                if (active) {
+                    const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
+                    if (detail.ok) setCurrentBattle(await detail.json());
+                }
+            } else {
+                if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
+                const active = data.find(b => b.status === 'voting') ||
+                               data.find(b => b.status === 'active') ||
+                               data.find(b => b.status === 'upcoming');
+                if (active) {
+                    const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
+                    if (detail.ok) setCurrentBattle(await detail.json());
+                }
             }
         } catch {} finally { setLoading(false); }
     }, []);
@@ -179,8 +211,13 @@ export const BattlesPage: React.FC = () => {
                             backgroundColor: '#242C3D', minHeight: isMobile ? '280px' : '420px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
                             border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                            ...(currentBattle.entries?.[0]?.coverUrl ? {
+                                backgroundImage: `url(${API}${currentBattle.entries[0].coverUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center top',
+                            } : {}),
                         }}>
-                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #161925 0%, rgba(22,25,37,0.5) 55%, rgba(22,25,37,0.1) 100%)', zIndex: 1 }} />
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(16,19,29,0.97) 0%, rgba(22,25,37,0.75) 50%, rgba(22,25,37,0.35) 100%)', zIndex: 1 }} />
                             <div style={{ position: 'relative', zIndex: 2, padding: isMobile ? '24px 20px' : '40px 48px' }}>
                                 {/* Status badge */}
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentBattle.status === 'voting' ? ACCENT : '#34D399', fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>
@@ -193,50 +230,52 @@ export const BattlesPage: React.FC = () => {
                                     </h2>
                                 </Link>
                                 {currentBattle.description && (
-                                    <p style={{ margin: '0 0 28px', color: 'rgba(255,255,255,0.55)', maxWidth: '580px', fontSize: isMobile ? '13px' : '15px', lineHeight: 1.65 }}>
+                                    <p style={{ margin: '0 0 24px', color: 'rgba(255,255,255,0.55)', maxWidth: '580px', fontSize: isMobile ? '13px' : '15px', lineHeight: 1.65 }}>
                                         {currentBattle.description}
                                     </p>
                                 )}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? '16px' : '28px' }}>
-                                    {/* Countdown */}
-                                    {countdown && (
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {[
-                                                { val: countdown.days, label: 'Days' },
-                                                { val: countdown.hours, label: 'Hrs' },
-                                                { val: countdown.minutes, label: 'Min' },
-                                            ].map(({ val, label }) => (
-                                                <div key={label} style={{ textAlign: 'center' }}>
-                                                    <div style={{ width: isMobile ? '44px' : '56px', height: isMobile ? '44px' : '56px', backgroundColor: ACCENT, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '18px' : '22px', fontWeight: 800, color: '#fff' }}>
-                                                        {String(val).padStart(2, '0')}
-                                                    </div>
-                                                    <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', fontWeight: 700, display: 'block', marginTop: '4px', letterSpacing: '0.1em' }}>{label}</span>
+                                {/* Countdown row */}
+                                {countdown && (
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                                        {[
+                                            { val: countdown.days, label: 'Days' },
+                                            { val: countdown.hours, label: 'Hrs' },
+                                            { val: countdown.minutes, label: 'Min' },
+                                        ].map(({ val, label }) => (
+                                            <div key={label} style={{ textAlign: 'center' }}>
+                                                <div style={{ width: isMobile ? '48px' : '60px', height: isMobile ? '48px' : '60px', backgroundColor: ACCENT, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: '#fff' }}>
+                                                    {String(val).padStart(2, '0')}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {/* CTAs */}
+                                                <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', fontWeight: 700, display: 'block', marginTop: '4px', letterSpacing: '0.1em' }}>{label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {/* CTA buttons row */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
                                     {currentBattle.status === 'active' && currentBattle.discordInviteUrl && (
                                         <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
-                                            style={{ backgroundColor: colors.primary, color: '#fff', padding: isMobile ? '11px 22px' : '15px 40px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
+                                            style={{ backgroundColor: colors.primary, color: '#fff', padding: isMobile ? '11px 22px' : '14px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
                                             <MessageSquare size={16} /> Join Battle
                                         </a>
                                     )}
                                     {currentBattle.status === 'voting' && (
                                         <button onClick={() => document.getElementById('entries-section')?.scrollIntoView({ behavior: 'smooth' })}
-                                            style={{ backgroundColor: ACCENT, color: '#fff', padding: isMobile ? '11px 22px' : '15px 40px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '16px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.35)' }}>
+                                            style={{ backgroundColor: ACCENT, color: '#fff', padding: isMobile ? '11px 22px' : '14px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.35)' }}>
                                             <Vote size={16} /> Vote Now
                                         </button>
                                     )}
                                     {currentBattle.status === 'upcoming' && currentBattle.discordInviteUrl && (
                                         <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
-                                            style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '15px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
+                                            style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '14px 32px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
                                             <MessageSquare size={16} /> Get Notified
                                         </a>
-                                    )}                                    <Link to={`/battles/${currentBattle.id}`}
-                                        style={{ color: 'rgba(255,255,255,0.45)', fontSize: isMobile ? '12px' : '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: isMobile ? '11px 18px' : '15px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                                    )}
+                                    <Link to={`/battles/${currentBattle.id}`}
+                                        style={{ color: 'rgba(255,255,255,0.45)', fontSize: isMobile ? '12px' : '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: isMobile ? '11px 18px' : '14px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
                                         View Details
-                                    </Link>                                </div>
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -249,20 +288,29 @@ export const BattlesPage: React.FC = () => {
                 </div>
 
                 {/* â”€â”€ SPONSOR STRIP â”€â”€ */}
-                {currentBattle?.sponsor && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '20px 24px', marginTop: '24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
+                {/* ─── SPONSORS GRID ─── */}
+                {globalSponsors.length > 0 && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', marginTop: '24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
                         <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
-                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, marginBottom: '16px' }}>Official Partner</p>
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                                {currentBattle.sponsor.logoUrl && <img src={currentBattle.sponsor.logoUrl} alt={currentBattle.sponsor.name} style={{ height: '32px', opacity: 0.7 }} />}
-                                <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>{currentBattle.sponsor.name.toUpperCase()}</span>
-                                {currentBattle.sponsor.links.map(l => (
-                                    <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-                                        onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
-                                        style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}25` }}>
-                                        {l.label} <ExternalLink size={11} />
-                                    </a>
-                                ))}
+                            <p style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, marginBottom: '20px' }}>{sponsorSectionTitle}</p>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                {globalSponsors.map(s => {
+                                    const href = s.links[0]?.url || s.websiteUrl;
+                                    const inner = s.logoUrl
+                                        ? <img src={s.logoUrl} alt={s.name} style={{ width: '80px', height: '40px', objectFit: 'contain', opacity: 0.75 }} />
+                                        : <span style={{ fontWeight: 800, fontSize: '13px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em', textAlign: 'center' }}>{s.name.toUpperCase()}</span>;
+                                    const boxStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '120px', height: '80px', padding: '12px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' };
+                                    return href ? (
+                                        <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
+                                            onClick={() => s.links[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
+                                            style={{ ...boxStyle, textDecoration: 'none', transition: 'border-color 0.2s' }}
+                                            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
+                                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
+                                        >{inner}</a>
+                                    ) : (
+                                        <div key={s.id} style={boxStyle}>{inner}</div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

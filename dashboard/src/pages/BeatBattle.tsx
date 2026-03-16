@@ -65,6 +65,7 @@ interface Sponsor {
     websiteUrl: string | null;
     description: string | null;
     isActive: boolean;
+    showOnPage: boolean;
     links: SponsorLink[];
     _count?: { battles: number };
 }
@@ -115,7 +116,9 @@ export const BeatBattlePage: React.FC = () => {
     // Sponsor form
     const [showSponsorForm, setShowSponsorForm] = useState(false);
     const [editingSponsor, setEditingSponsor] = useState<Sponsor | null>(null);
-    const [sponsorForm, setSponsorForm] = useState({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] });
+    const [sponsorForm, setSponsorForm] = useState({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
+    const [sponsorLogoFile, setSponsorLogoFile] = useState<File | null>(null);
+    const [sponsorLogoPreview, setSponsorLogoPreview] = useState<string>('');
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
@@ -125,7 +128,7 @@ export const BeatBattlePage: React.FC = () => {
 
     // Settings state
     const [settings, setSettings] = useState({
-        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '', discordInviteUrl: '',
+        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '',
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
@@ -158,6 +161,8 @@ export const BeatBattlePage: React.FC = () => {
                     submissionCategoryId: data.submissionCategoryId || '',
                     archiveCategoryId: data.archiveCategoryId || '',
                     discordInviteUrl: data.discordInviteUrl || '',
+                    featuredBattleId: data.featuredBattleId || '',
+                    sponsorSectionTitle: data.sponsorSectionTitle || '',
                 });
             }
         } catch {}
@@ -281,11 +286,7 @@ export const BeatBattlePage: React.FC = () => {
 
     const handleCreateSponsor = async () => {
         try {
-            const payload = {
-                ...sponsorForm,
-                guildId,
-                links: sponsorForm.links.filter(l => l.label && l.url),
-            };
+            const payload = { ...sponsorForm, guildId, links: sponsorForm.links.filter(l => l.label && l.url) };
             const res = await fetch(`${API}/api/beat-battle/admin/sponsors`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -293,19 +294,28 @@ export const BeatBattlePage: React.FC = () => {
                 body: JSON.stringify(payload),
             });
             if (res.ok) {
+                const created = await res.json();
+                if (sponsorLogoFile) {
+                    const fd = new FormData();
+                    fd.append('sponsorLogo', sponsorLogoFile);
+                    await fetch(`${API}/api/beat-battle/admin/sponsors/${created.id}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                }
                 await fetchSponsors();
                 setShowSponsorForm(false);
-                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] });
+                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
+                setSponsorLogoFile(null); setSponsorLogoPreview('');
             }
         } catch {}
     };
     const handleUpdateSponsor = async () => {
         if (!editingSponsor) return;
         try {
-            const payload = {
-                ...sponsorForm,
-                links: sponsorForm.links.filter(l => l.label && l.url),
-            };
+            if (sponsorLogoFile) {
+                const fd = new FormData();
+                fd.append('sponsorLogo', sponsorLogoFile);
+                await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+            }
+            const payload = { ...sponsorForm, links: sponsorForm.links.filter(l => l.label && l.url) };
             const res = await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -316,7 +326,8 @@ export const BeatBattlePage: React.FC = () => {
                 await fetchSponsors();
                 setEditingSponsor(null);
                 setShowSponsorForm(false);
-                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] });
+                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
+                setSponsorLogoFile(null); setSponsorLogoPreview('');
             }
         } catch {}
     };
@@ -328,8 +339,11 @@ export const BeatBattlePage: React.FC = () => {
             logoUrl: s.logoUrl || '',
             websiteUrl: s.websiteUrl || '',
             description: s.description || '',
+            showOnPage: s.showOnPage,
             links: s.links.length > 0 ? s.links.map(l => ({ label: l.label, url: l.url })) : [{ label: '', url: '' }],
         });
+        setSponsorLogoFile(null);
+        setSponsorLogoPreview(s.logoUrl || '');
         setShowSponsorForm(true);
     };
     const handleDeleteSponsor = async (id: string) => {
@@ -715,7 +729,7 @@ export const BeatBattlePage: React.FC = () => {
                 <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h2 style={{ margin: 0, color: colors.textPrimary, fontSize: '18px' }}>Sponsors</h2>
-                        <button onClick={() => { setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] }); setShowSponsorForm(!showSponsorForm); }} style={btnPrimary}>
+                        <button onClick={() => { setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] }); setSponsorLogoFile(null); setSponsorLogoPreview(''); setShowSponsorForm(!showSponsorForm); }} style={btnPrimary}>
                             <Plus size={16} /> Add Sponsor
                         </button>
                     </div>
@@ -732,13 +746,31 @@ export const BeatBattlePage: React.FC = () => {
                                     <label style={labelStyle}>Website URL</label>
                                     <input style={inputStyle} value={sponsorForm.websiteUrl} onChange={(e) => setSponsorForm({ ...sponsorForm, websiteUrl: e.target.value })} placeholder="https://..." />
                                 </div>
-                                <div>
-                                    <label style={labelStyle}>Logo URL</label>
-                                    <input style={inputStyle} value={sponsorForm.logoUrl} onChange={(e) => setSponsorForm({ ...sponsorForm, logoUrl: e.target.value })} placeholder="https://..." />
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Logo</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                        {(sponsorLogoPreview || sponsorForm.logoUrl) && (
+                                            <img src={sponsorLogoPreview || sponsorForm.logoUrl} alt="Preview" style={{ width: '80px', height: '40px', objectFit: 'contain', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                        )}
+                                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary, fontSize: '13px' }}>
+                                            <Upload size={14} /> Upload Logo
+                                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                                const f = e.target.files?.[0];
+                                                if (f) { setSponsorLogoFile(f); setSponsorLogoPreview(URL.createObjectURL(f)); }
+                                            }} />
+                                        </label>
+                                        <div style={{ flex: 1, minWidth: '160px' }}>
+                                            <input style={inputStyle} value={sponsorForm.logoUrl} onChange={(e) => { setSponsorForm({ ...sponsorForm, logoUrl: e.target.value }); setSponsorLogoPreview(''); }} placeholder="Or paste URL..." />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Description</label>
                                     <input style={inputStyle} value={sponsorForm.description} onChange={(e) => setSponsorForm({ ...sponsorForm, description: e.target.value })} />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
+                                    <input type="checkbox" id="showOnPage" checked={sponsorForm.showOnPage} onChange={(e) => setSponsorForm({ ...sponsorForm, showOnPage: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.primary }} />
+                                    <label htmlFor="showOnPage" style={{ color: colors.textPrimary, fontSize: '13px', cursor: 'pointer' }}>Show on public battles page</label>
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Promo Links</label>
@@ -763,7 +795,7 @@ export const BeatBattlePage: React.FC = () => {
                             </div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                                 <button onClick={editingSponsor ? handleUpdateSponsor : handleCreateSponsor} style={btnPrimary}><Save size={16} /> {editingSponsor ? 'Save Changes' : 'Create Sponsor'}</button>
-                                <button onClick={() => { setShowSponsorForm(false); setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', links: [{ label: '', url: '' }] }); }} style={btnSecondary}>Cancel</button>
+                                <button onClick={() => { setShowSponsorForm(false); setEditingSponsor(null); setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] }); setSponsorLogoFile(null); setSponsorLogoPreview(''); }} style={btnSecondary}>Cancel</button>
                             </div>
                         </div>
                     )}
@@ -923,6 +955,35 @@ export const BeatBattlePage: React.FC = () => {
                                     onChange={(e) => setSettings({ ...settings, discordInviteUrl: e.target.value })}
                                     placeholder="https://discord.gg/your-invite"
                                 />
+                            </div>
+                            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px', marginTop: '4px' }}>
+                                <h4 style={{ margin: '0 0 16px', color: colors.textPrimary, fontSize: '14px' }}>Public Page Settings</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={labelStyle}>Featured Battle (Hero)</label>
+                                        <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Pin a specific battle to the hero card. Leave blank to auto-select the active one.</p>
+                                        <select
+                                            style={{ ...inputStyle, cursor: 'pointer' }}
+                                            value={settings.featuredBattleId}
+                                            onChange={(e) => setSettings({ ...settings, featuredBattleId: e.target.value })}
+                                        >
+                                            <option value="">Auto (active/voting/upcoming)</option>
+                                            {battles.map(b => (
+                                                <option key={b.id} value={b.id}>{b.title} [{b.status}]</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Sponsors Section Title</label>
+                                        <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Label shown above the sponsors grid (e.g. "Official Partners", "Supported By")</p>
+                                        <input
+                                            style={inputStyle}
+                                            value={settings.sponsorSectionTitle}
+                                            onChange={(e) => setSettings({ ...settings, sponsorSectionTitle: e.target.value })}
+                                            placeholder="Official Partners"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>

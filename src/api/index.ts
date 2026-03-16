@@ -47,6 +47,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/avatars');
     } else if (file.fieldname === 'project') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/projects');
+    } else if (file.fieldname === 'sponsorLogo') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/sponsors');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -73,7 +75,7 @@ const upload = multer({
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
       }
-    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar') {
+    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo') {
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
@@ -5784,6 +5786,35 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
 });
 
 // --- Admin: CRUD Sponsors ---
+// --- Public: Get battle page settings (featured battle, sponsor title) ---
+app.get('/api/beat-battle/page-settings', async (req: any, res) => {
+    try {
+        const guildId = (req.query.guildId as string) || 'default-guild';
+        const settings = await db.beatBattleSettings.findFirst({ where: { guildId } });
+        res.json({
+            featuredBattleId: settings?.featuredBattleId || null,
+            sponsorSectionTitle: settings?.sponsorSectionTitle || null,
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Public: Get sponsors shown on page ---
+app.get('/api/beat-battle/sponsors', async (req: any, res) => {
+    try {
+        const guildId = (req.query.guildId as string) || 'default-guild';
+        const sponsors = await db.battleSponsor.findMany({
+            where: { guildId, showOnPage: true, isActive: true },
+            include: { links: true },
+            orderBy: { createdAt: 'asc' },
+        });
+        res.json(sponsors);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) => {
     try {
         const guildId = (req.query.guildId as string) || 'default-guild';
@@ -5824,11 +5855,14 @@ app.patch('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any, 
     try {
         const { name, logoUrl, websiteUrl, description, isActive, links } = req.body;
         const data: any = {};
+        const { name, logoUrl, websiteUrl, description, isActive, showOnPage, links } = req.body;
+        const data: any = {};
         if (name !== undefined) data.name = name;
         if (logoUrl !== undefined) data.logoUrl = logoUrl;
         if (websiteUrl !== undefined) data.websiteUrl = websiteUrl;
         if (description !== undefined) data.description = description;
         if (isActive !== undefined) data.isActive = isActive;
+        if (showOnPage !== undefined) data.showOnPage = showOnPage;
 
         const sponsor = await db.battleSponsor.update({
             where: { id: req.params.id },
@@ -5858,6 +5892,27 @@ app.delete('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any,
     try {
         await db.battleSponsor.delete({ where: { id: req.params.id } });
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Admin: Upload sponsor logo ---
+app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single('sponsorLogo'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const localUrl = `/uploads/sponsors/${req.file.filename}`;
+        const finalUrl = await uploadToR2OrLocal(
+            req.file.path,
+            `sponsors/${req.file.filename}`,
+            req.file.mimetype,
+            localUrl
+        );
+        await db.battleSponsor.update({
+            where: { id: req.params.id },
+            data: { logoUrl: finalUrl },
+        });
+        res.json({ url: finalUrl });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -6026,6 +6081,8 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             submissionCategoryId: null,
             archiveCategoryId: null,
             discordInviteUrl: null,
+            featuredBattleId: null,
+            sponsorSectionTitle: null,
         });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -6039,12 +6096,12 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl } = req.body;
+        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId, sponsorSectionTitle } = req.body;
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
-            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl },
-            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl },
+            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null },
+            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null },
         });
         res.json(settings);
     } catch (e: any) {
