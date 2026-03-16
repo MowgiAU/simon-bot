@@ -40,6 +40,7 @@ interface Battle {
     categoryId: string | null;
     sponsorId: string | null;
     winnerEntryId: string | null;
+    bannerUrl: string | null;
     createdAt: string;
     sponsor: Sponsor | null;
     entries?: Entry[];
@@ -119,6 +120,8 @@ export const BeatBattlePage: React.FC = () => {
     const [sponsorForm, setSponsorForm] = useState({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
     const [sponsorLogoFile, setSponsorLogoFile] = useState<File | null>(null);
     const [sponsorLogoPreview, setSponsorLogoPreview] = useState<string>('');
+    const [bannerFile, setBannerFile] = useState<File | null>(null);
+    const [bannerPreview, setBannerPreview] = useState<string>('');
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
@@ -207,8 +210,16 @@ export const BeatBattlePage: React.FC = () => {
                 }),
             });
             if (res.ok) {
+                const created = await res.json();
+                if (bannerFile) {
+                    const fd = new FormData();
+                    fd.append('battleBanner', bannerFile);
+                    await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/banner`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                }
                 await fetchBattles();
                 setShowCreate(false);
+                setBannerFile(null);
+                setBannerPreview('');
                 resetForm();
             }
         } catch {}
@@ -217,6 +228,11 @@ export const BeatBattlePage: React.FC = () => {
     const handleUpdateBattle = async () => {
         if (!editingBattle) return;
         try {
+            if (bannerFile) {
+                const fd = new FormData();
+                fd.append('battleBanner', bannerFile);
+                await fetch(`${API}/api/beat-battle/admin/battles/${editingBattle.id}/banner`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+            }
             const res = await fetch(`${API}/api/beat-battle/admin/battles/${editingBattle.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -232,6 +248,8 @@ export const BeatBattlePage: React.FC = () => {
             if (res.ok) {
                 await fetchBattles();
                 setEditingBattle(null);
+                setBannerFile(null);
+                setBannerPreview('');
                 resetForm();
             }
         } catch {}
@@ -394,6 +412,8 @@ export const BeatBattlePage: React.FC = () => {
                 : [{ place: '1st Place', description: '' }],
             maxVotesPerUser: (b as any).maxVotesPerUser || 0,
         });
+        setBannerFile(null);
+        setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
         setShowCreate(true);
     };
 
@@ -528,6 +548,26 @@ export const BeatBattlePage: React.FC = () => {
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Rules</label>
                                     <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="One entry per person..." />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Hero Banner Image</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>
+                                            <Upload size={14} /> {bannerFile ? bannerFile.name : 'Upload Image'}
+                                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                                const f = e.target.files?.[0] || null;
+                                                setBannerFile(f);
+                                                setBannerPreview(f ? URL.createObjectURL(f) : (editingBattle?.bannerUrl ? `${API}${editingBattle.bannerUrl}` : ''));
+                                            }} />
+                                        </label>
+                                        {bannerPreview && (
+                                            <img src={bannerPreview} alt="Banner preview" style={{ height: '60px', width: '120px', objectFit: 'cover', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                        )}
+                                        {bannerPreview && (
+                                            <button onClick={() => { setBannerFile(null); setBannerPreview(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px' }} title="Remove"><X size={16} /></button>
+                                        )}
+                                    </div>
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>Shown as the hero background on the public battles page. Recommended: 1920×600px.</p>
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Prizes</label>

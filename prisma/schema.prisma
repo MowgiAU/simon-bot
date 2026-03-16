@@ -976,6 +976,9 @@ model BeatBattle {
   // Sponsor
   sponsorId           String?
 
+  // Media
+  bannerUrl           String?  // Admin-uploaded hero banner image
+
   createdBy           String   // Admin Discord ID who created
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

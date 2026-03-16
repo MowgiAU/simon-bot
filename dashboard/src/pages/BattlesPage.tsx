@@ -40,6 +40,7 @@ interface Battle {
     winnerEntryId: string | null;
     discordInviteUrl: string | null;
     submissionChannelId?: string | null;
+    bannerUrl: string | null;
     sponsor: { id: string; name: string; logoUrl: string | null; websiteUrl: string | null; links: { id: string; label: string; url: string }[] } | null;
     entries?: Entry[];
     _count?: { entries: number };
@@ -211,7 +212,11 @@ export const BattlesPage: React.FC = () => {
                             backgroundColor: '#242C3D', minHeight: isMobile ? '280px' : '420px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
                             border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-                            ...(currentBattle.entries?.[0]?.coverUrl ? {
+                            ...(currentBattle.bannerUrl ? {
+                                backgroundImage: `url(${API}${currentBattle.bannerUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center top',
+                            } : currentBattle.entries?.[0]?.coverUrl ? {
                                 backgroundImage: `url(${API}${currentBattle.entries[0].coverUrl})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center top',

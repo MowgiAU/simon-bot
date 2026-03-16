@@ -49,6 +49,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/projects');
     } else if (file.fieldname === 'sponsorLogo') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/sponsors');
+    } else if (file.fieldname === 'battleBanner') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/battle-banners');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -75,7 +77,7 @@ const upload = multer({
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
       }
-    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo') {
+    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner') {
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
@@ -5909,6 +5911,27 @@ app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single
         await db.battleSponsor.update({
             where: { id: req.params.id },
             data: { logoUrl: finalUrl },
+        });
+        res.json({ url: finalUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Admin: Upload battle banner image ---
+app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.single('battleBanner'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const localUrl = `/uploads/battle-banners/${req.file.filename}`;
+        const finalUrl = await uploadToR2OrLocal(
+            req.file.path,
+            `battle-banners/${req.file.filename}`,
+            req.file.mimetype,
+            localUrl
+        );
+        await db.beatBattle.update({
+            where: { id: req.params.id },
+            data: { bannerUrl: finalUrl },
         });
         res.json({ url: finalUrl });
     } catch (e: any) {
