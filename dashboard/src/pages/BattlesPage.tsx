@@ -187,9 +187,11 @@ export const BattlesPage: React.FC = () => {
                                     <Flame size={13} />
                                     {currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
                                 </div>
-                                <h2 style={{ margin: '0 0 12px', fontSize: isMobile ? '28px' : '52px', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
-                                    {currentBattle.title}
-                                </h2>
+                                <Link to={`/battles/${currentBattle.id}`} style={{ textDecoration: 'none' }}>
+                                    <h2 style={{ margin: '0 0 12px', fontSize: isMobile ? '28px' : '52px', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
+                                        {currentBattle.title}
+                                    </h2>
+                                </Link>
                                 {currentBattle.description && (
                                     <p style={{ margin: '0 0 28px', color: 'rgba(255,255,255,0.55)', maxWidth: '580px', fontSize: isMobile ? '13px' : '15px', lineHeight: 1.65 }}>
                                         {currentBattle.description}
@@ -231,8 +233,10 @@ export const BattlesPage: React.FC = () => {
                                             style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '15px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
                                             <MessageSquare size={16} /> Get Notified
                                         </a>
-                                    )}
-                                </div>
+                                    )}                                    <Link to={`/battles/${currentBattle.id}`}
+                                        style={{ color: 'rgba(255,255,255,0.45)', fontSize: isMobile ? '12px' : '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: isMobile ? '11px 18px' : '15px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                                        View Details
+                                    </Link>                                </div>
                             </div>
                         </div>
                     ) : (
@@ -441,14 +445,14 @@ export const BattlesPage: React.FC = () => {
                                         {pastBattles.map((b, i) => {
                                             const hof = hallOfFame.find(h => h.battle.id === b.id);
                                             return (
-                                                <div key={b.id} style={{ padding: '14px 16px', borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                                <Link key={b.id} to={`/battles/${b.id}`} style={{ display: 'block', padding: '14px 16px', borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', textDecoration: 'none' }}>
                                                     <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '14px' }}>{b.title}</p>
                                                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: colors.textSecondary }}>
                                                         {formatDate(b.votingEnd)}
-                                                        {hof?.winner && <span style={{ color: colors.primary, fontWeight: 700, marginLeft: '8px' }}>ðŸ† {hof.winner.username}</span>}
+                                                        {hof?.winner && <span style={{ color: colors.primary, fontWeight: 700, marginLeft: '8px' }}>🏆 {hof.winner.username}</span>}
                                                         <span style={{ marginLeft: '8px' }}>{b._count?.entries || 0} entries</span>
                                                     </p>
-                                                </div>
+                                                </Link>
                                             );
                                         })}
                                     </div>
@@ -465,10 +469,14 @@ export const BattlesPage: React.FC = () => {
                                             {pastBattles.map((b, i) => {
                                                 const hof = hallOfFame.find(h => h.battle.id === b.id);
                                                 return (
-                                                    <tr key={b.id} style={{ borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                                    <tr key={b.id}
+                                                        onClick={() => window.location.href = `/battles/${b.id}`}
+                                                        style={{ borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer' }}
+                                                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(43,140,113,0.06)')}
+                                                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
                                                         <td style={{ padding: '14px 24px', fontWeight: 600, color: colors.textPrimary }}>{b.title}</td>
                                                         <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{formatDate(b.votingEnd)}</td>
-                                                        <td style={{ padding: '14px 24px', fontWeight: 700, color: colors.primary }}>{hof?.winner?.username || 'â€”'}</td>
+                                                        <td style={{ padding: '14px 24px', fontWeight: 700, color: colors.primary }}>{hof?.winner?.username || '—'}</td>
                                                         <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{b._count?.entries || 0}</td>
                                                     </tr>
                                                 );
