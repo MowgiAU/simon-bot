@@ -555,9 +555,12 @@ export const BeatBattlePage: React.FC = () => {
                                         <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>
                                             <Upload size={14} /> {bannerFile ? bannerFile.name : 'Upload Image'}
                                             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                                                const f = e.target.files?.[0] || null;
+                                                const f = e.target.files?.[0];
+                                                if (!f) return;
                                                 setBannerFile(f);
-                                                setBannerPreview(f ? URL.createObjectURL(f) : (editingBattle?.bannerUrl ? `${API}${editingBattle.bannerUrl}` : ''));
+                                                const reader = new FileReader();
+                                                reader.onload = (ev) => setBannerPreview(ev.target?.result as string);
+                                                reader.readAsDataURL(f);
                                             }} />
                                         </label>
                                         {bannerPreview && (
