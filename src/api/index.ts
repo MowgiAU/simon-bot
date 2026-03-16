@@ -5853,8 +5853,6 @@ app.post('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) 
 
 app.patch('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { name, logoUrl, websiteUrl, description, isActive, links } = req.body;
-        const data: any = {};
         const { name, logoUrl, websiteUrl, description, isActive, showOnPage, links } = req.body;
         const data: any = {};
         if (name !== undefined) data.name = name;
