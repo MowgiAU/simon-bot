@@ -55,7 +55,7 @@ export const TermsPage: React.FC = () => {
                             Terms of Service & Privacy Policy
                         </h1>
                         <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-                            Fuji Studio — Last updated March 13, 2026
+                            Fuji Studio — Last updated March 16, 2026
                         </p>
                     </div>
                 </div>
@@ -97,23 +97,26 @@ export const TermsPage: React.FC = () => {
                             <Bullet label="Ownership">
                                 You retain all original rights to the music, artwork, and project files (FLPs) you upload.
                             </Bullet>
-                            <Bullet label="Liability">
+                            <Bullet label="Liability &amp; Sample Redistribution">
                                 You are solely responsible for ensuring you have the necessary rights and clearances for all audio
-                                (including samples) uploaded to the platform.
+                                (including individual samples) uploaded to the platform. If your project file contains third-party
+                                audio samples that you do not have the legal right to redistribute, you are strictly required to
+                                disable the download feature for that project.
                             </Bullet>
                             <Bullet label="License to Fuji Studio">
                                 You grant Fuji Studio a non-exclusive, royalty-free, worldwide license to host, stream, and display
                                 your content to facilitate site features (e.g., the Music Player, Artist Profiles, and Discovery feed).
                             </Bullet>
-                            <Bullet label="Project Files (FLPs)">
-                                Project files are shared for display and educational purposes. By making an FLP public, you grant
-                                other users a license to download and open the file for study. However, downloading an FLP does not
-                                grant users the right to commercialize or release the original creator's melodies, compositions, or
-                                unique sound designs as their own without explicit permission.
+                            <Bullet label="Project Files">
+                                Project files are shared for display and educational purposes. By making a project file public and
+                                available for download, you grant other users a license to download and open the file for study.
+                                However, downloading a project file does not grant users the right to commercialise or release the
+                                original creator's melodies, compositions, or unique sound designs as their own without explicit
+                                permission.
                             </Bullet>
-                            <Bullet label="No Asset Distribution">
-                                Fuji Studio does not host or distribute the third-party audio samples, VSTs, or plugins referenced
-                                within an FLP.
+                            <Bullet label="Asset Hosting">
+                                While Fuji Studio hosts user-uploaded audio samples and project assets, we do not host or
+                                distribute third-party VSTs or plugins.
                             </Bullet>
                         </ul>
                     </Section>
@@ -128,7 +131,7 @@ export const TermsPage: React.FC = () => {
                     <Section title="5. Prohibited Conduct">
                         <P>You may not upload content that:</P>
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
-                            <Bullet>Infringes on the intellectual property of others (e.g., stolen project files, uncleared master samples).</Bullet>
+                            <Bullet>Infringes on the intellectual property of others (e.g., stolen project files, redistributing uncleared commercial samples within downloadable project files).</Bullet>
                             <Bullet>Contains malicious code, viruses, or "zip bombs."</Bullet>
                             <Bullet>Is intended to harass, defame, or exploit other users.</Bullet>
                         </ul>
@@ -152,7 +155,7 @@ export const TermsPage: React.FC = () => {
                     <Section title="8. Limitation of Liability">
                         <P>
                             Fuji Studio provides its services "as is." We are not liable for data loss, the unavailability of the site,
-                            or the misuse of your publicly shared project files by third parties.
+                            or the misuse of your publicly shared project files or samples by third parties.
                         </P>
                     </Section>
 
@@ -176,7 +179,7 @@ export const TermsPage: React.FC = () => {
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Authentication">Discord Username, Discord ID, and Email Address.</Bullet>
                             <Bullet label="Profile Data">Bio, display name, social links, and gear lists.</Bullet>
-                            <Bullet label="Content">Hosted audio previews, artwork, and .flp files.</Bullet>
+                            <Bullet label="Content">Hosted audio previews, user-uploaded audio samples, artwork, and .flp files.</Bullet>
                             <Bullet label="Analytics & Security">
                                 Basic play counts, download metrics to power "Trending" sections, and IP addresses strictly
                                 for security, moderation, and anti-spam purposes.
