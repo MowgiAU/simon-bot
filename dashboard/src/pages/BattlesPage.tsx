@@ -1,16 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import {
-    Swords, Trophy, Calendar, Users, Play, Pause, Vote, Gift,
-    Building2, Clock, ChevronDown, ChevronUp, LogIn, Award,
-    ExternalLink, Flame, ArrowRight, Star, MessageSquare, Hash, Send
+    Swords, Trophy, Users, Play, Pause, Vote,
+    LogIn, ExternalLink, Flame, MessageSquare, Zap, History
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
+const ACCENT = '#F97316';
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+    upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
+    active:    { label: 'SUBMISSIONS OPEN', color: '#34D399' },
+    voting:    { label: 'VOTING LIVE',      color: ACCENT },
+    completed: { label: 'ENDED',            color: '#6B7280' },
+};
+
+function formatDate(d: string | null) {
+    if (!d) return 'â€”';
+    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const placeEmoji = (i: number) => i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : i === 2 ? 'ðŸ¥‰' : `#${i + 1}`;
 
 interface Battle {
     id: string;
@@ -46,34 +60,6 @@ interface Entry {
     createdAt: string;
 }
 
-const statusLabel: Record<string, { label: string; color: string; bg: string }> = {
-    upcoming:  { label: 'UPCOMING',  color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
-    active:    { label: 'OPEN',      color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
-    voting:    { label: 'VOTING',    color: '#FBBF24', bg: 'rgba(251,191,36,0.12)' },
-    completed: { label: 'ENDED',     color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
-};
-
-const placeEmoji = (i: number) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-const placeColor = (i: number) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : colors.textSecondary;
-
-function formatDate(d: string | null) {
-    if (!d) return '—';
-    return new Date(d).toLocaleString(undefined, {
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit',
-    });
-}
-
-function timeRemaining(d: string | null) {
-    if (!d) return null;
-    const diff = new Date(d).getTime() - Date.now();
-    if (diff <= 0) return 'Ended';
-    const days = Math.floor(diff / 86400000);
-    const hours = Math.floor((diff % 86400000) / 3600000);
-    if (days > 0) return `${days}d ${hours}h remaining`;
-    return `${hours}h remaining`;
-}
-
 export const BattlesPage: React.FC = () => {
     const { user } = useAuth();
     const { player, setTrack, togglePlay } = usePlayer();
@@ -82,8 +68,9 @@ export const BattlesPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
     const [votingId, setVotingId] = useState<string | null>(null);
-    const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
+    const [hallOfFame, setHallOfFame] = useState<Array<{ battle: Battle; winner: Entry | null }>>([]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -98,8 +85,6 @@ export const BattlesPage: React.FC = () => {
             if (!res.ok) return;
             const data: Battle[] = await res.json();
             setBattles(data);
-
-            // Fetch full detail for the most prominent active/voting/upcoming battle
             const active = data.find(b => b.status === 'voting') ||
                            data.find(b => b.status === 'active') ||
                            data.find(b => b.status === 'upcoming');
@@ -112,23 +97,57 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
+    // Countdown timer
+    useEffect(() => {
+        if (!currentBattle) return;
+        const target =
+            currentBattle.status === 'voting'   ? currentBattle.votingEnd :
+            currentBattle.status === 'active'   ? currentBattle.submissionEnd :
+            currentBattle.status === 'upcoming' ? currentBattle.submissionStart : null;
+        if (!target) return;
+        const update = () => {
+            const diff = new Date(target).getTime() - Date.now();
+            if (diff <= 0) { setCountdown({ days: 0, hours: 0, minutes: 0 }); return; }
+            setCountdown({
+                days: Math.floor(diff / 86400000),
+                hours: Math.floor((diff % 86400000) / 3600000),
+                minutes: Math.floor((diff % 3600000) / 60000),
+            });
+        };
+        update();
+        const interval = setInterval(update, 60000);
+        return () => clearInterval(interval);
+    }, [currentBattle]);
+
+    // Hall of Fame â€” fetch top 3 completed battles for winner data
+    useEffect(() => {
+        const completed = battles.filter(b => b.status === 'completed').slice(0, 3);
+        if (!completed.length) return;
+        Promise.all(
+            completed.map(async b => {
+                try {
+                    const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`);
+                    if (!res.ok) return { battle: b, winner: null };
+                    const data: Battle = await res.json();
+                    const winner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    return { battle: data, winner };
+                } catch { return { battle: b, winner: null }; }
+            })
+        ).then(setHallOfFame);
+    }, [battles]);
+
     const vote = async (entryId: string) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
         setVotingId(entryId);
         try {
-            const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
-                method: 'POST',
-                credentials: 'include',
-            });
+            const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, { method: 'POST', credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setVotedIds(prev => {
                     const next = new Set(prev);
-                    if (data.voted) next.add(entryId);
-                    else next.delete(entryId);
+                    if (data.voted) next.add(entryId); else next.delete(entryId);
                     return next;
                 });
-                // Refresh entries vote counts
                 if (currentBattle) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}`, { credentials: 'include' });
                     if (detail.ok) setCurrentBattle(await detail.json());
@@ -137,490 +156,330 @@ export const BattlesPage: React.FC = () => {
         } catch {} finally { setVotingId(null); }
     };
 
+    const activeBattles = battles.filter(b => b.status !== 'completed');
     const pastBattles = battles.filter(b => b.status === 'completed');
 
-    const card: React.CSSProperties = {
-        backgroundColor: '#242C3D',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: borderRadius.lg,
-    };
-
-    if (loading) {
-        return (
-            <DiscoveryLayout activeTab="battles">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: colors.textSecondary }}>
-                    Loading battles...
-                </div>
-            </DiscoveryLayout>
-        );
-    }
+    if (loading) return (
+        <DiscoveryLayout activeTab="battles">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: colors.textSecondary }}>
+                Loading battles...
+            </div>
+        </DiscoveryLayout>
+    );
 
     return (
         <DiscoveryLayout activeTab="battles">
-            <div style={{ maxWidth: '1100px', margin: '0 auto', padding: isMobile ? '20px 16px' : '32px 24px' }}>
+            <div style={{ overflowX: 'hidden' }}>
 
-                {/* Page Header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: `${colors.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Swords size={24} color={colors.primary} />
-                    </div>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: isMobile ? '22px' : '28px', fontWeight: 800, color: colors.textPrimary }}>Beat Battles</h1>
-                        <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-                            Community beat competitions — submit on Discord, vote here.
-                        </p>
-                    </div>
-                </div>
-
-                {/* ── CURRENT BATTLE ── */}
-                {currentBattle ? (
-                    <div style={{ marginBottom: '48px' }}>
-                        <div style={{ ...card, border: `1px solid ${colors.primary}33`, overflow: 'hidden' }}>
-                            {/* Top accent bar */}
-                            <div style={{ height: '4px', background: `linear-gradient(90deg, ${colors.primary}, #60A5FA)` }} />
-
-                            <div style={{ padding: isMobile ? '20px 16px' : '28px 32px' }}>
-                                {/* Title row */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                    <h2 style={{ margin: 0, fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: colors.textPrimary }}>
-                                        {currentBattle.title}
-                                    </h2>
-                                    <span style={{
-                                        fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em',
-                                        padding: '4px 10px', borderRadius: '6px',
-                                        color: statusLabel[currentBattle.status]?.color,
-                                        backgroundColor: statusLabel[currentBattle.status]?.bg,
-                                    }}>
-                                        {statusLabel[currentBattle.status]?.label}
-                                    </span>
+                {/* â”€â”€ HERO â”€â”€ */}
+                <div style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '16px 16px 0' : '32px 24px 0' }}>
+                    {currentBattle ? (
+                        <div style={{
+                            position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
+                            backgroundColor: '#242C3D', minHeight: isMobile ? '280px' : '420px',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                            border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                        }}>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #161925 0%, rgba(22,25,37,0.5) 55%, rgba(22,25,37,0.1) 100%)', zIndex: 1 }} />
+                            <div style={{ position: 'relative', zIndex: 2, padding: isMobile ? '24px 20px' : '40px 48px' }}>
+                                {/* Status badge */}
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentBattle.status === 'voting' ? ACCENT : '#34D399', fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>
+                                    <Flame size={13} />
+                                    {currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
                                 </div>
-
+                                <h2 style={{ margin: '0 0 12px', fontSize: isMobile ? '28px' : '52px', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
+                                    {currentBattle.title}
+                                </h2>
                                 {currentBattle.description && (
-                                    <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: '15px', lineHeight: '1.6', maxWidth: '700px' }}>
+                                    <p style={{ margin: '0 0 28px', color: 'rgba(255,255,255,0.55)', maxWidth: '580px', fontSize: isMobile ? '13px' : '15px', lineHeight: 1.65 }}>
                                         {currentBattle.description}
                                     </p>
                                 )}
-
-                                {/* Meta grid: prizes + timeline */}
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-
-                                    {/* Prizes */}
-                                    {currentBattle.prizes && currentBattle.prizes.length > 0 && (
-                                        <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                                <Gift size={14} color={colors.primary} />
-                                                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.textSecondary }}>Prizes</span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {currentBattle.prizes.map((p, i) => (
-                                                    <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                                        <span style={{ fontSize: '16px' }}>{placeEmoji(i)}</span>
-                                                        <div>
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: placeColor(i) }}>{p.place}</span>
-                                                            {p.description && <span style={{ fontSize: '13px', color: colors.textPrimary, marginLeft: '6px' }}>— {p.description}</span>}
-                                                        </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? '16px' : '28px' }}>
+                                    {/* Countdown */}
+                                    {countdown && (
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {[
+                                                { val: countdown.days, label: 'Days' },
+                                                { val: countdown.hours, label: 'Hrs' },
+                                                { val: countdown.minutes, label: 'Min' },
+                                            ].map(({ val, label }) => (
+                                                <div key={label} style={{ textAlign: 'center' }}>
+                                                    <div style={{ width: isMobile ? '44px' : '56px', height: isMobile ? '44px' : '56px', backgroundColor: ACCENT, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? '18px' : '22px', fontWeight: 800, color: '#fff' }}>
+                                                        {String(val).padStart(2, '0')}
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', fontWeight: 700, display: 'block', marginTop: '4px', letterSpacing: '0.1em' }}>{label}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
-
-                                    {/* Timeline */}
-                                    <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '10px', padding: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                            <Calendar size={14} color={colors.primary} />
-                                            <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.textSecondary }}>Timeline</span>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                                            {currentBattle.submissionStart && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: colors.textSecondary }}>Submissions open</span>
-                                                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{formatDate(currentBattle.submissionStart)}</span>
-                                                </div>
-                                            )}
-                                            {currentBattle.submissionEnd && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: colors.textSecondary }}>Submissions close</span>
-                                                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{formatDate(currentBattle.submissionEnd)}</span>
-                                                </div>
-                                            )}
-                                            {currentBattle.votingStart && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: colors.textSecondary }}>Voting opens</span>
-                                                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{formatDate(currentBattle.votingStart)}</span>
-                                                </div>
-                                            )}
-                                            {currentBattle.votingEnd && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span style={{ color: colors.textSecondary }}>Voting ends</span>
-                                                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>
-                                                        {formatDate(currentBattle.votingEnd)}
-                                                        {currentBattle.status === 'voting' && (
-                                                            <span style={{ marginLeft: '8px', color: '#FBBF24', fontSize: '11px' }}>
-                                                                ({timeRemaining(currentBattle.votingEnd)})
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    {/* CTAs */}
+                                    {currentBattle.status === 'active' && currentBattle.discordInviteUrl && (
+                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                            style={{ backgroundColor: colors.primary, color: '#fff', padding: isMobile ? '11px 22px' : '15px 40px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '16px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
+                                            <MessageSquare size={16} /> Join Battle
+                                        </a>
+                                    )}
+                                    {currentBattle.status === 'voting' && (
+                                        <button onClick={() => document.getElementById('entries-section')?.scrollIntoView({ behavior: 'smooth' })}
+                                            style={{ backgroundColor: ACCENT, color: '#fff', padding: isMobile ? '11px 22px' : '15px 40px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '16px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.35)' }}>
+                                            <Vote size={16} /> Vote Now
+                                        </button>
+                                    )}
+                                    {currentBattle.status === 'upcoming' && currentBattle.discordInviteUrl && (
+                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                            style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '15px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
+                                            <MessageSquare size={16} /> Get Notified
+                                        </a>
+                                    )}
                                 </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ padding: '60px 40px', textAlign: 'center', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <Swords size={48} color={colors.textSecondary} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                            <p style={{ color: colors.textSecondary, fontSize: '16px', margin: 0 }}>No active battle right now.</p>
+                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon â€” battles are announced in Discord.</p>
+                        </div>
+                    )}
+                </div>
 
-                                {/* Rules */}
-                                {currentBattle.rules && (
-                                    <div style={{ backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '14px 16px', marginBottom: '20px', borderLeft: `3px solid ${colors.primary}40` }}>
-                                        <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary, lineHeight: '1.6' }}>
-                                            <strong style={{ color: colors.textPrimary }}>Rules: </strong>{currentBattle.rules}
-                                        </p>
-                                    </div>
-                                )}
+                {/* â”€â”€ SPONSOR STRIP â”€â”€ */}
+                {currentBattle?.sponsor && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '20px 24px', marginTop: '24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
+                        <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
+                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, marginBottom: '16px' }}>Official Partner</p>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                                {currentBattle.sponsor.logoUrl && <img src={currentBattle.sponsor.logoUrl} alt={currentBattle.sponsor.name} style={{ height: '32px', opacity: 0.7 }} />}
+                                <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>{currentBattle.sponsor.name.toUpperCase()}</span>
+                                {currentBattle.sponsor.links.map(l => (
+                                    <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+                                        onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
+                                        style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}25` }}>
+                                        {l.label} <ExternalLink size={11} />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                                {/* Sponsor */}
-                                {currentBattle.sponsor && (
-                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
-                                        <span style={{ fontSize: '11px', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Sponsored by</span>
-                                        {currentBattle.sponsor.logoUrl && (
-                                            <img src={currentBattle.sponsor.logoUrl} alt={currentBattle.sponsor.name} style={{ height: '24px', borderRadius: '4px' }} />
-                                        )}
-                                        <span style={{ fontSize: '14px', fontWeight: 700, color: colors.textPrimary }}>{currentBattle.sponsor.name}</span>
-                                        {currentBattle.sponsor.links.map(l => (
-                                            <a
-                                                key={l.id}
-                                                href={l.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
-                                                style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}
-                                            >
-                                                {l.label} <ExternalLink size={11} />
-                                            </a>
-                                        ))}
-                                    </div>
-                                )}
+                {/* â”€â”€ MAIN CONTENT â”€â”€ */}
+                <div style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
 
-                                {/* How to participate banner (if submissions open) */}
-                                {currentBattle.status === 'active' && (
-                                    <div style={{ backgroundColor: `${colors.primary}10`, border: `1px solid ${colors.primary}30`, borderRadius: '12px', overflow: 'hidden' }}>
-                                        {/* Header */}
-                                        <div style={{ backgroundColor: `${colors.primary}18`, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Send size={18} color={colors.primary} />
-                                                <span style={{ fontWeight: 700, color: colors.textPrimary, fontSize: '15px' }}>Submissions are open!</span>
+                    {/* â”€â”€ THREE COLUMNS: Active Battles | How To | Hall of Fame â”€â”€ */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '24px', marginBottom: '48px' }}>
+
+                        {/* Column 1: Active Battles */}
+                        <div>
+                            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Swords size={16} color={colors.primary} /> Active Battles
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {activeBattles.length === 0 ? (
+                                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>No active battles right now.</p>
+                                ) : activeBattles.map(b => {
+                                    const cfg = statusConfig[b.status] || statusConfig.upcoming;
+                                    return (
+                                        <div key={b.id} style={{ backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                {b.sponsor ? (
+                                                    <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{b.sponsor.name}</span>
+                                                ) : <span />}
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
-                                                <Users size={13} /> {currentBattle._count?.entries || (currentBattle.entries?.length ?? 0)} entries so far
+                                            <h4 style={{ margin: '0 0 10px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>{b.title}</h4>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
+                                                <Users size={12} /> {b._count?.entries || 0} Participants
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Column 2: How to Participate */}
+                        <div>
+                            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Zap size={16} color={colors.primary} /> How to Participate
+                            </h3>
+                            <div style={{ backgroundColor: '#242C3D', borderRadius: '10px', padding: '20px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column' }}>
+                                <p style={{ margin: '0 0 20px', fontSize: '13px', color: colors.textSecondary, lineHeight: 1.65 }}>
+                                    Ready to show your skills? Follow these steps to enter the arena and win big.
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                    {[
+                                        { n: 1, title: 'Join the Discord', desc: 'Find the beat battle category and read the rules for the current battle.' },
+                                        { n: 2, title: 'Post Your Beat', desc: 'Upload your MP3 or WAV in the submissions channel. Aim for 320kbps quality.' },
+                                        { n: 3, title: 'Share & Get Votes', desc: 'Rally your community! The most voted beats advance to win prizes.' },
+                                    ].map(({ n, title, desc }) => (
+                                        <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, fontWeight: 700, fontSize: '14px' }}>{n}</div>
+                                            <div>
+                                                <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>{title}</p>
+                                                <p style={{ margin: '3px 0 0', fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5 }}>{desc}</p>
                                             </div>
                                         </div>
-                                        {/* Steps */}
-                                        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>1</span>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Join the Discord server</p>
-                                                    {currentBattle.discordInviteUrl ? (
-                                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '4px', fontSize: '12px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
-                                                            <MessageSquare size={12} /> Join Discord <ExternalLink size={10} />
-                                                        </a>
-                                                    ) : (
-                                                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Find the invite link in the community.</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</span>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Find the submissions channel</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
-                                                        Look for a channel starting with <strong style={{ color: colors.textPrimary }}>submissions-</strong> in the Beat Battle category.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                                <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: `${colors.primary}30`, color: colors.primary, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</span>
-                                                <div>
-                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Post your beat file</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
-                                                        Upload your <strong style={{ color: colors.textPrimary }}>MP3 or WAV</strong> file as a message attachment. Include the title of your beat in the message text. One entry per person.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {currentBattle.status === 'upcoming' && (
-                                    <div style={{ backgroundColor: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: '12px', overflow: 'hidden' }}>
-                                        <div style={{ backgroundColor: 'rgba(96,165,250,0.1)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <Clock size={16} color="#60A5FA" />
-                                            <span style={{ fontWeight: 700, color: '#93C5FD', fontSize: '15px' }}>Coming soon</span>
-                                            {currentBattle.submissionStart && (
-                                                <span style={{ fontSize: '12px', color: colors.textSecondary, marginLeft: '4px' }}>
-                                                    — submissions open {formatDate(currentBattle.submissionStart)}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div style={{ padding: '14px 20px' }}>
-                                            <p style={{ margin: '0 0 10px', fontSize: '13px', color: colors.textSecondary }}>
-                                                Stay tuned in the Discord server for the announcement.
-                                            </p>
-                                            {currentBattle.discordInviteUrl && (
-                                                <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#60A5FA', textDecoration: 'none', backgroundColor: 'rgba(96,165,250,0.1)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(96,165,250,0.25)' }}>
-                                                    <MessageSquare size={13} /> Join Discord <ExternalLink size={10} />
-                                                </a>
-                                            )}
-                                        </div>
+                                    ))}
+                                </div>
+                                {currentBattle?.discordInviteUrl && (
+                                    <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', backgroundColor: `${colors.primary}12`, color: colors.primary, padding: '10px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.primary}20` }}>
+                                            <MessageSquare size={14} /> Join Discord Server <ExternalLink size={11} />
+                                        </a>
                                     </div>
                                 )}
                             </div>
+                        </div>
 
-                            {/* ── ENTRIES / VOTING ── */}
-                            {(currentBattle.status === 'voting' || currentBattle.status === 'active') && currentBattle.entries && currentBattle.entries.length > 0 && (
-                                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px 16px' : '24px 32px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <Vote size={18} color={colors.primary} />
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: colors.textPrimary }}>
-                                                {currentBattle.status === 'voting' ? 'Vote for your favourite' : 'Submissions'}
-                                            </span>
-                                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>{currentBattle.entries.length} entries</span>
+                        {/* Column 3: Hall of Fame */}
+                        <div>
+                            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Trophy size={16} color={ACCENT} /> Hall of Fame
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {hallOfFame.length === 0 ? (
+                                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>No past winners yet.</p>
+                                ) : hallOfFame.map(({ battle, winner }) => (
+                                    <div key={battle.id} style={{ backgroundColor: '#242C3D', borderRadius: '10px', padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', border: `2px solid ${colors.primary}35`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {winner?.avatarUrl
+                                                    ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    : <Trophy size={18} color={ACCENT} />}
+                                            </div>
+                                            <div style={{ position: 'absolute', bottom: '-3px', right: '-5px', backgroundColor: ACCENT, color: '#fff', fontSize: '8px', fontWeight: 700, padding: '2px 5px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
                                         </div>
-                                        {currentBattle.status === 'voting' && !user && (
-                                            <a href="/api/auth/discord/login" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '6px 12px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
-                                                <LogIn size={13} /> Log in to vote
-                                            </a>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.username || 'â€”'}</h5>
+                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.trackTitle || battle.title}</p>
+                                        </div>
+                                        {winner?.audioUrl && (
+                                            <button onClick={() => {
+                                                const id = `battle-${winner.id}`;
+                                                if (player.currentTrack?.id === id) { togglePlay(); return; }
+                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}` });
+                                            }} style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
+                                                {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                                            </button>
                                         )}
                                     </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
-                                        {currentBattle.entries.map((entry, i) => {
-                                            const isWinner = entry.id === currentBattle.winnerEntryId;
-                                            const hasVoted = votedIds.has(entry.id);
-                                            const isVoting = votingId === entry.id;
-
-                                            return (
-                                                <div key={entry.id} style={{
-                                                    backgroundColor: i < 3 ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.15)',
-                                                    border: i === 0 ? `1px solid ${colors.primary}40` : '1px solid rgba(255,255,255,0.06)',
-                                                    borderRadius: '10px',
-                                                    padding: '16px',
-                                                    position: 'relative',
-                                                }}>
-                                                    {/* Rank badge */}
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                                        <span style={{ fontSize: '18px' }}>{placeEmoji(i)}</span>
-                                                        <span style={{ fontSize: '18px', fontWeight: 800, color: colors.primary }}>🔥 {entry.voteCount}</span>
-                                                    </div>
-
-                                                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                                                    {(entry.avatarUrl || entry.coverUrl) && (
-                                                        <img
-                                                            src={entry.avatarUrl || entry.coverUrl!}
-                                                            alt=""
-                                                            style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
-                                                        />
-                                                    )}
-                                                    <div>
-                                                        <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 2px', fontWeight: 700, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.3', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
-                                                        <p style={{ margin: '0', color: colors.textSecondary, fontSize: '12px' }}>by {entry.username}</p>
-                                                    </div>
+                    {/* â”€â”€ ENTRIES / VOTING â”€â”€ */}
+                    {currentBattle && (currentBattle.status === 'voting' || currentBattle.status === 'active') && currentBattle.entries && currentBattle.entries.length > 0 && (
+                        <section id="entries-section" style={{ marginBottom: '48px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
+                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Vote size={16} color={colors.primary} />
+                                    {currentBattle.status === 'voting' ? 'Vote for Your Favourite' : 'Submissions'}
+                                    <span style={{ fontSize: '12px', color: colors.textSecondary, fontWeight: 400 }}>{currentBattle.entries.length} entries</span>
+                                </h3>
+                                {currentBattle.status === 'voting' && !user && (
+                                    <a href="/api/auth/discord/login" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '6px 12px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
+                                        <LogIn size={13} /> Log in to vote
+                                    </a>
+                                )}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                                {currentBattle.entries.map((entry, i) => {
+                                    const hasVoted = votedIds.has(entry.id);
+                                    const isVoting = votingId === entry.id;
+                                    return (
+                                        <div key={entry.id} style={{ backgroundColor: '#242C3D', border: i === 0 ? `1px solid ${colors.primary}40` : '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                <span style={{ fontSize: '18px' }}>{placeEmoji(i)}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: 800, color: colors.primary }}>ðŸ”¥ {entry.voteCount}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                                {(entry.avatarUrl || entry.coverUrl) && (
+                                                    <img src={entry.avatarUrl || entry.coverUrl!} alt="" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                                                )}
+                                                <div>
+                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
+                                                    <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by {entry.username}</p>
                                                 </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                {entry.audioUrl && (
+                                                    <button onClick={() => {
+                                                        const id = `battle-${entry.id}`;
+                                                        if (player.currentTrack?.id === id) { togglePlay(); return; }
+                                                        setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${API}${entry.audioUrl}` });
+                                                    }} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: colors.textSecondary, fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}>
+                                                        {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? <><Pause size={12} /> Pause</> : <><Play size={12} fill="currentColor" /> Play</>}
+                                                    </button>
+                                                )}
+                                                {currentBattle.status === 'voting' && (
+                                                    <button onClick={() => vote(entry.id)} disabled={isVoting} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: hasVoted ? `${colors.primary}30` : colors.primary, color: hasVoted ? colors.primary : '#fff', fontSize: '11px', fontWeight: 700, opacity: isVoting ? 0.6 : 1 }}>
+                                                        <Flame size={12} /> {hasVoted ? 'Unvote' : isVoting ? 'â€¦' : 'Vote'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
 
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                        {entry.audioUrl && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    const isThisTrack = player.currentTrack?.id === `battle-${entry.id}`;
-                                                                    if (isThisTrack) { togglePlay(); return; }
-                                                                    setTrack({
-                                                                        id: `battle-${entry.id}`,
-                                                                        title: entry.trackTitle,
-                                                                        artist: entry.username,
-                                                                        cover: entry.avatarUrl || entry.coverUrl || '',
-                                                                        url: `${API}${entry.audioUrl}`,
-                                                                    });
-                                                                }}
-                                                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: colors.textSecondary, fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
-                                                            >
-                                                                {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
-                                                                    ? <><Pause size={13} /> Pause</>
-                                                                    : <><Play size={13} fill="currentColor" /> Play</>}
-                                                            </button>
-                                                        )}
-                                                        {currentBattle.status === 'voting' && (
-                                                            <button
-                                                                onClick={() => vote(entry.id)}
-                                                                disabled={isVoting}
-                                                                style={{
-                                                                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                                    padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                                                    backgroundColor: hasVoted ? `${colors.primary}30` : colors.primary,
-                                                                    color: hasVoted ? colors.primary : '#fff',
-                                                                    fontSize: '12px', fontWeight: 700,
-                                                                    opacity: isVoting ? 0.6 : 1,
-                                                                }}
-                                                            >
-                                                                <Flame size={13} /> {hasVoted ? 'Unvote' : isVoting ? '...' : 'Vote'}
-                                                            </button>
-                                                        )}
-                                                    </div>
+                    {/* â”€â”€ PAST BATTLES TABLE â”€â”€ */}
+                    {pastBattles.length > 0 && (
+                        <section>
+                            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <History size={16} color={colors.textSecondary} /> Past Battles Archive
+                            </h3>
+                            <div style={{ backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                {isMobile ? (
+                                    <div>
+                                        {pastBattles.map((b, i) => {
+                                            const hof = hallOfFame.find(h => h.battle.id === b.id);
+                                            return (
+                                                <div key={b.id} style={{ padding: '14px 16px', borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                                    <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '14px' }}>{b.title}</p>
+                                                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                                                        {formatDate(b.votingEnd)}
+                                                        {hof?.winner && <span style={{ color: colors.primary, fontWeight: 700, marginLeft: '8px' }}>ðŸ† {hof.winner.username}</span>}
+                                                        <span style={{ marginLeft: '8px' }}>{b._count?.entries || 0} entries</span>
+                                                    </p>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    !loading && (
-                        <div style={{ ...card, padding: '60px 40px', textAlign: 'center', marginBottom: '48px' }}>
-                            <Swords size={48} color={colors.textSecondary} style={{ opacity: 0.3, marginBottom: '16px' }} />
-                            <p style={{ color: colors.textSecondary, fontSize: '16px', margin: 0 }}>No active battle right now.</p>
-                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon — battles are announced in Discord.</p>
-                        </div>
-                    )
-                )}
-
-                {/* ── PAST BATTLES ── */}
-                {pastBattles.length > 0 && (
-                    <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <Trophy size={18} color="#FFD700" />
-                            <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textPrimary }}>Past Battles</span>
-                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>{pastBattles.length} completed</span>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {pastBattles.map(b => {
-                                const fullBattle = battles.find(x => x.id === b.id) || b;
-                                const isExpanded = expandedArchive === b.id;
-
-                                return (
-                                    <div key={b.id} style={{ ...card, overflow: 'hidden' }}>
-                                        <button
-                                            onClick={() => setExpandedArchive(isExpanded ? null : b.id)}
-                                            style={{
-                                                width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: isMobile ? '16px' : '18px 24px',
-                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', color: 'inherit',
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
-                                                <Trophy size={20} color="#FFD700" style={{ flexShrink: 0 }} />
-                                                <div style={{ minWidth: 0, textAlign: 'left' }}>
-                                                    <p style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</p>
-                                                    {b.votingEnd && (
-                                                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>{formatDate(b.votingEnd)}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-                                                <span style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                    <Users size={12} /> {b._count?.entries || 0}
-                                                </span>
-                                                {b.sponsor && (
-                                                    <span style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <Building2 size={12} /> {b.sponsor.name}
-                                                    </span>
-                                                )}
-                                                {isExpanded ? <ChevronUp size={16} color={colors.textSecondary} /> : <ChevronDown size={16} color={colors.textSecondary} />}
-                                            </div>
-                                        </button>
-
-                                        {/* Expanded archive detail — triggers full fetch */}
-                                        {isExpanded && <ExpandedBattle battleId={b.id} />}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
+                                ) : (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                                {['Battle Name', 'Date', 'Winner', 'Entries'].map(h => (
+                                                    <th key={h} style={{ padding: '14px 24px', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: colors.textSecondary }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {pastBattles.map((b, i) => {
+                                                const hof = hallOfFame.find(h => h.battle.id === b.id);
+                                                return (
+                                                    <tr key={b.id} style={{ borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                                        <td style={{ padding: '14px 24px', fontWeight: 600, color: colors.textPrimary }}>{b.title}</td>
+                                                        <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{formatDate(b.votingEnd)}</td>
+                                                        <td style={{ padding: '14px 24px', fontWeight: 700, color: colors.primary }}>{hof?.winner?.username || 'â€”'}</td>
+                                                        <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{b._count?.entries || 0}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </section>
+                    )}
+                </div>
             </div>
         </DiscoveryLayout>
     );
 };
 
-// Lazy-fetch expanded battle detail
-const ExpandedBattle: React.FC<{ battleId: string }> = ({ battleId }) => {
-    const { player, setTrack, togglePlay } = usePlayer();
-    const [battle, setBattle] = useState<Battle | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}`);
-                if (res.ok) setBattle(await res.json());
-            } catch {} finally { setLoading(false); }
-        })();
-    }, [battleId]);
-
-    if (loading) return <div style={{ padding: '16px 24px', color: colors.textSecondary, fontSize: '13px' }}>Loading...</div>;
-    if (!battle) return null;
-
-    const winner = battle.entries?.find(e => e.id === battle.winnerEntryId) || battle.entries?.[0];
-    const top3 = battle.entries?.slice(0, 3) || [];
-
-    return (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 24px 20px' }}>
-            {battle.description && (
-                <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px', lineHeight: '1.6' }}>{battle.description}</p>
-            )}
-
-            {/* Prizes */}
-            {battle.prizes && battle.prizes.length > 0 && (
-                <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {battle.prizes.map((p, i) => (
-                        <span key={i} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.textSecondary }}>
-                            {placeEmoji(i)} <strong style={{ color: placeColor(i) }}>{p.place}</strong>{p.description ? ` — ${p.description}` : ''}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Top 3 entries */}
-            {top3.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textSecondary }}>Top Entries</p>
-                    {top3.map((entry, i) => (
-                        <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: i === 0 ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)', borderRadius: '8px', border: i === 0 ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '16px' }}>{placeEmoji(i)}</span>
-                                {(entry as Entry).avatarUrl && (
-                                    <img src={(entry as Entry).avatarUrl!} alt="" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
-                                )}
-                                <div>
-                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
-                                    <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by {entry.username}</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontWeight: 700, color: colors.primary, fontSize: '13px' }}>🔥 {entry.voteCount}</span>
-                                {entry.audioUrl && (
-                                    <button
-                                        onClick={() => {
-                                            const isThisTrack = player.currentTrack?.id === `battle-${entry.id}`;
-                                            if (isThisTrack) { togglePlay(); return; }
-                                            setTrack({
-                                                id: `battle-${entry.id}`,
-                                                title: entry.trackTitle,
-                                                artist: entry.username,
-                                                cover: (entry as Entry).avatarUrl || entry.coverUrl || '',
-                                                url: `${API}${entry.audioUrl}`,
-                                            });
-                                        }}
-                                        style={{ color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-                                    >
-                                        {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
-                                            ? <><Pause size={12} /> Pause</>
-                                            : <><Play size={12} /> Play</>}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
