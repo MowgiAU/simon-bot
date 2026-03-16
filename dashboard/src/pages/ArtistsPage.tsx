@@ -242,7 +242,7 @@ export const ArtistsPage: React.FC = () => {
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                                     }}>
                                         {artist.avatar ? (
-                                            <img src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <img src={artist.avatar.startsWith('http') || artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                             <div style={{ width: '100%', height: '100%', backgroundColor: accentColors[idx % accentColors.length] + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color: accentColors[idx % accentColors.length] }}>
                                                 {artist.username.charAt(0).toUpperCase()}

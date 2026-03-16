@@ -2255,8 +2255,8 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 
                     // B. Execute Webhook
                     const user = await resolveUser(post.userId);
-                    const avatarUrl = user?.avatar 
-                        ? `https://cdn.discordapp.com/avatars/${post.userId}/${user.avatar}.png` 
+                    const avatarUrl = user?.avatar
+                        ? (user.avatar.startsWith('http') ? user.avatar : `https://cdn.discordapp.com/avatars/${post.userId}/${user.avatar}.png`)
                         : `https://cdn.discordapp.com/embed/avatars/${Number(post.userId) % 5}.png`;
 
                     // To enable the Discord Audio Player reliably, we must UPLOAD the file as an attachment.

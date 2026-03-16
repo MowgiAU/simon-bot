@@ -162,7 +162,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     // 2. Discord avatar (if it's just a hash)
     // 3. First letter of username
     const avatarUrl = profile.avatar 
-        ? (profile.avatar.startsWith('/uploads/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${profile.userId}/${profile.avatar}.png?size=256`)
+        ? (profile.avatar.startsWith('http') || profile.avatar.startsWith('/uploads/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${profile.userId}/${profile.avatar}.png?size=256`)
         : null;
 
     // Track cover should strictly be the track's cover, or a fallback music icon
