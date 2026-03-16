@@ -281,7 +281,9 @@ export const BattlesPage: React.FC = () => {
                                 ) : activeBattles.map(b => {
                                     const cfg = statusConfig[b.status] || statusConfig.upcoming;
                                     return (
-                                        <div key={b.id} style={{ backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                                        <Link key={b.id} to={`/battles/${b.id}`} style={{ textDecoration: 'none', display: 'block', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', transition: 'border-color 0.2s' }}
+                                            onMouseEnter={e => (e.currentTarget.style.borderColor = `${colors.primary}50`)}
+                                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                                 {b.sponsor ? (
                                                     <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{b.sponsor.name}</span>
@@ -292,7 +294,7 @@ export const BattlesPage: React.FC = () => {
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
                                                 <Users size={12} /> {b._count?.entries || 0} Participants
                                             </span>
-                                        </div>
+                                        </Link>
                                     );
                                 })}
                             </div>

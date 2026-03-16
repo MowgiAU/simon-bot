@@ -33,7 +33,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { UniversalSearch } from "./components/UniversalSearch";
+import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -527,6 +527,11 @@ const AppInternal: React.FC = () => {
   // /battles/entry/:entryId → Battle entry track page
   if (currentPath.startsWith('/battles/entry/')) {
     return <BattleEntryPage />;
+  }
+
+  // /battles/:battleId → Individual battle detail page
+  if (currentPath.startsWith('/battles/') && !currentPath.startsWith('/battles/entry/')) {
+    return <BattleDetailPage />;
   }
 
   // /battles → Public Beat Battles page
