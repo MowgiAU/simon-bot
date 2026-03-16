@@ -23,6 +23,17 @@ export class MediaConverter {
         // Write to a temp file first to avoid input/output collision when input is already .mp3
         const tempOutputPath = base + '._converting.mp3';
 
+        // If already an MP3, skip re-encoding (avoids expensive ffmpeg passthrough)
+        if (inputPath.toLowerCase().endsWith('.mp3') && inputPath !== outputPath) {
+            try {
+                fs.renameSync(inputPath, outputPath);
+                logger.info(`Audio already MP3, skipped re-encoding: ${path.basename(outputPath)}`);
+                return outputPath;
+            } catch (e) {
+                logger.warn(`MP3 rename failed, will re-encode: ${e}`);
+            }
+        }
+
         return new Promise((resolve) => {
             ffmpeg(inputPath)
                 .audioCodec('libmp3lame')

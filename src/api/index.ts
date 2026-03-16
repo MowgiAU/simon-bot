@@ -116,7 +116,7 @@ async function _getClamScanner() {
             clamdscan: {
                 active: true,
                 socket: '/var/run/clamav/clamd.ctl',
-                timeout: 30000,
+                timeout: 5000,
             },
             clamscan: { active: false },
         });
@@ -3418,26 +3418,36 @@ app.post('/api/musician/tracks', upload.fields([
         // Log track upload
         await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
 
-        // Upload audio, artwork, and FLP project files to R2 (now that we have track.id for key naming).
+        // Upload audio, artwork, and FLP project files to R2 in parallel (now that we have track.id).
         // ZIP is handled later (after processing) so the local file is still available for sample extraction.
         const r2UrlUpdates: any = {};
 
-        const r2AudioKey = `tracks/${track.id}/audio/${path.basename(finalAudioPath)}`;
-        const cdnAudioUrl = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', audioUrl);
-        if (cdnAudioUrl !== audioUrl) r2UrlUpdates.url = cdnAudioUrl;
+        const r2Uploads: Promise<void>[] = [];
+
+        r2Uploads.push((async () => {
+            const r2AudioKey = `tracks/${track.id}/audio/${path.basename(finalAudioPath)}`;
+            const cdnAudioUrl = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', audioUrl);
+            if (cdnAudioUrl !== audioUrl) r2UrlUpdates.url = cdnAudioUrl;
+        })());
 
         if (finalArtworkPath) {
-            const localArtworkUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
-            const r2ArtworkKey = `tracks/${track.id}/artwork/${path.basename(finalArtworkPath)}`;
-            const cdnArtworkUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', localArtworkUrl);
-            if (cdnArtworkUrl !== localArtworkUrl) r2UrlUpdates.coverUrl = cdnArtworkUrl;
+            r2Uploads.push((async () => {
+                const localArtworkUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
+                const r2ArtworkKey = `tracks/${track.id}/artwork/${path.basename(finalArtworkPath)}`;
+                const cdnArtworkUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', localArtworkUrl);
+                if (cdnArtworkUrl !== localArtworkUrl) r2UrlUpdates.coverUrl = cdnArtworkUrl;
+            })());
         }
 
         if (projectFileUrl && projectFile && !isZipUpload) {
-            const r2ProjectKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
-            const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectFileUrl);
-            if (cdnProjectUrl !== projectFileUrl) r2UrlUpdates.projectFileUrl = cdnProjectUrl;
+            r2Uploads.push((async () => {
+                const r2ProjectKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
+                const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectFileUrl);
+                if (cdnProjectUrl !== projectFileUrl) r2UrlUpdates.projectFileUrl = cdnProjectUrl;
+            })());
         }
+
+        await Promise.all(r2Uploads);
 
         if (Object.keys(r2UrlUpdates).length > 0) {
             await db.track.update({ where: { id: track.id }, data: r2UrlUpdates });
