@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const RETURN_TO_KEY = 'fuji_login_return_to';
 
 export interface User {
   id: string;
@@ -33,6 +36,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [mutualAdminGuilds, setMutualAdminGuilds] = useState<Guild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
@@ -94,9 +98,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
           setIsGuildMember(data.isGuildMember ?? false);
           if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
-              // Prefer user's last choice or first one? For simplicity first one
-              // Just picking first one for now
              setSelectedGuild(data.mutualAdminGuilds[0]);
+          }
+          // Redirect back to the page the user was on before login
+          const returnTo = localStorage.getItem(RETURN_TO_KEY);
+          if (returnTo) {
+            localStorage.removeItem(RETURN_TO_KEY);
+            if (window.location.pathname === '/') {
+              navigate(returnTo, { replace: true });
+            }
           }
         }
         setLoading(false);
@@ -108,6 +118,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = () => {
+    const returnTo = window.location.pathname + window.location.search;
+    if (returnTo && returnTo !== '/') {
+      localStorage.setItem(RETURN_TO_KEY, returnTo);
+    }
     window.location.href = '/api/auth/discord/login';
   };
 
