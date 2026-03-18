@@ -13,6 +13,7 @@ interface LibraryTrack {
     coverUrl: string | null;
     duration: number | null;
     artist: string;
+    projectFileUrl: string | null;
 }
 
 interface BattleSubmitModalProps {
@@ -106,8 +107,9 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
         try {
             if (tab === 'library') {
                 if (!selectedTrackId) { setError('Select a track from your library.'); setSubmitting(false); return; }
-                if (requireProjectFile && !libraryProjectFile) { setError('This battle requires a project file (.flp or .zip).'); setSubmitting(false); return; }
                 const selectedTrack = tracks.find(t => t.id === selectedTrackId);
+                const trackHasProject = !!selectedTrack?.projectFileUrl;
+                if (requireProjectFile && !trackHasProject && !libraryProjectFile) { setError('This battle requires a project file. The selected track has none — add one to your track page first.'); setSubmitting(false); return; }
                 const formData = new FormData();
                 formData.append('trackId', selectedTrackId);
                 formData.append('title', selectedTrack?.title || 'Untitled');
@@ -363,16 +365,41 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                             rows={2}
                                         />
                                     </div>
-                                    <div>
-                                        <label style={labelStyle}>Project File (.flp, .zip){requireProjectFile ? ' *' : ''}</label>
-                                        <input ref={libraryProjectRef} type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setLibraryProjectFile(e.target.files?.[0] || null)} />
-                                        <button onClick={() => libraryProjectRef.current?.click()} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: libraryProjectFile ? colors.textPrimary : colors.textSecondary }}>
-                                            <FileArchive size={14} /> {libraryProjectFile ? libraryProjectFile.name : requireProjectFile ? 'Choose project file (required)...' : 'Choose project file (optional)...'}
-                                        </button>
-                                        {requireProjectFile && (
-                                            <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#F97316' }}>This battle requires a project file upload.</p>
-                                        )}
-                                    </div>
+                                    {/* Project file — smart based on selected track */}
+                                    {selectedTrackId && (() => {
+                                        const sel = tracks.find(t => t.id === selectedTrackId);
+                                        if (sel?.projectFileUrl) {
+                                            return (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: borderRadius.md }}>
+                                                    <Check size={15} color="#34D399" style={{ flexShrink: 0 }} />
+                                                    <div>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#34D399' }}>Project file included</p>
+                                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>This track already has a project file — no upload needed.</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        } else if (requireProjectFile) {
+                                            return (
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: borderRadius.md }}>
+                                                    <AlertCircle size={15} color="#EF4444" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                                    <div>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#EF4444' }}>Can't submit this track</p>
+                                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>This battle requires a project file (.flp or .zip), but the selected track doesn't have one. Go to your track page and attach a project file first.</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        } else {
+                                            return (
+                                                <div>
+                                                    <label style={labelStyle}>Project File (.flp, .zip)</label>
+                                                    <input ref={libraryProjectRef} type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setLibraryProjectFile(e.target.files?.[0] || null)} />
+                                                    <button onClick={() => libraryProjectRef.current?.click()} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: libraryProjectFile ? colors.textPrimary : colors.textSecondary }}>
+                                                        <FileArchive size={14} /> {libraryProjectFile ? libraryProjectFile.name : 'Choose project file (optional)...'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        }
+                                    })()}
                                 </div>
                             )}
                         </div>
@@ -405,10 +432,17 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                             <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
                         </div>
                     )}
-                    <button onClick={handleSubmit} disabled={submitting || (tab === 'upload' && !tosAgreed)}
-                        style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: (submitting || (tab === 'upload' && !tosAgreed)) ? 'not-allowed' : 'pointer', opacity: (submitting || (tab === 'upload' && !tosAgreed)) ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : 'Submit Entry'}
-                    </button>
+                    {(() => {
+                        const selTrack = tab === 'library' ? tracks.find(t => t.id === selectedTrackId) : undefined;
+                        const libraryBlocked = tab === 'library' && !!selectedTrackId && requireProjectFile && !selTrack?.projectFileUrl && !libraryProjectFile;
+                        const isDisabled = submitting || (tab === 'upload' && !tosAgreed) || libraryBlocked;
+                        return (
+                            <button onClick={handleSubmit} disabled={isDisabled}
+                                style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: isDisabled ? 'not-allowed' : 'pointer', opacity: isDisabled ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : 'Submit Entry'}
+                            </button>
+                        );
+                    })()}
                 </div>
                 </>
                 )}

@@ -5775,7 +5775,7 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
         if (!profile) return res.json([]);
         const tracks = await db.track.findMany({
             where: { profileId: profile.id, status: 'active' },
-            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true },
+            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true },
             orderBy: { createdAt: 'desc' },
         });
         res.json(tracks);
