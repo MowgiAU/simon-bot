@@ -537,9 +537,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                 )}
 
                                 {/* Actions */}
-                                {user && editingId !== comment.id && (
+                                {editingId !== comment.id && (
                                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                                        {comment.userId === user.id && (
+                                        {user && comment.userId === user.id && (
                                             <button onClick={() => { setEditingId(comment.id); setEditContent(comment.content); setEditGifUrl(comment.gifUrl); }}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                 <Edit3 size={12} /> Edit
