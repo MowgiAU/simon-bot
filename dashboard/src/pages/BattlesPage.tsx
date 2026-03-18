@@ -388,14 +388,30 @@ export const BattlesPage: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                                {currentBattle?.discordInviteUrl && (
-                                    <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
-                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', backgroundColor: `${colors.primary}12`, color: colors.primary, padding: '10px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.primary}20` }}>
-                                            <MessageSquare size={14} /> Join Discord Server <ExternalLink size={11} />
-                                        </a>
-                                    </div>
-                                )}
+                                {(() => {
+                                    const activeBattle = currentBattle && (currentBattle.status === 'active' || currentBattle.status === 'voting') ? currentBattle : null;
+                                    if (user && activeBattle) {
+                                        return (
+                                            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <Link to={`/battles/${activeBattle.id}`}
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', backgroundColor: `${colors.primary}12`, color: colors.primary, padding: '10px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.primary}20` }}>
+                                                    <Swords size={14} /> View Active Battle
+                                                </Link>
+                                            </div>
+                                        );
+                                    }
+                                    if (!user) {
+                                        return (
+                                            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <a href="/api/auth/discord/login"
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', backgroundColor: `${colors.primary}12`, color: colors.primary, padding: '10px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.primary}20` }}>
+                                                    <LogIn size={14} /> Log In to Participate
+                                                </a>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
                         </div>
 

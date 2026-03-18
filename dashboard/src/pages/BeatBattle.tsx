@@ -804,8 +804,8 @@ export const BeatBattlePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label style={labelStyle}>Description</label>
-                                    <input style={inputStyle} value={sponsorForm.description} onChange={(e) => setSponsorForm({ ...sponsorForm, description: e.target.value })} />
+                                    <label style={labelStyle}>Copy / Tagline</label>
+                                    <input style={inputStyle} value={sponsorForm.description} onChange={(e) => setSponsorForm({ ...sponsorForm, description: e.target.value })} placeholder="e.g. The #1 sample platform for producers" />
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
                                     <input type="checkbox" id="showOnPage" checked={sponsorForm.showOnPage} onChange={(e) => setSponsorForm({ ...sponsorForm, showOnPage: e.target.checked })} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.primary }} />

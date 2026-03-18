@@ -31,6 +31,32 @@ function formatDateRange(start: string | null, end: string | null) {
     return formatDate(start || end);
 }
 
+/** Render text that may contain [label](url) markdown links as React nodes */
+function renderWithLinks(text: string): React.ReactNode[] {
+    const parts = text.split(/\[([^\]]+)\]\(([^)]+)\)/g);
+    const nodes: React.ReactNode[] = [];
+    for (let i = 0; i < parts.length; i++) {
+        if (i % 3 === 0) {
+            if (parts[i]) nodes.push(parts[i]);
+        } else if (i % 3 === 1) {
+            const label = parts[i];
+            const url = parts[i + 1] ?? '';
+            if (url.match(/^https?:\/\//)) {
+                nodes.push(
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                        style={{ color: colors.primary, textDecoration: 'underline' }}>
+                        {label}
+                    </a>
+                );
+            } else {
+                nodes.push(`[${label}](${url})`);
+            }
+            i++;
+        }
+    }
+    return nodes;
+}
+
 /** Deterministic waveform heights for visual decoration */
 function waveHeights(seed: string, count = 32): number[] {
     const heights: number[] = [];
@@ -62,6 +88,7 @@ interface Battle {
         name: string;
         logoUrl: string | null;
         websiteUrl: string | null;
+        description: string | null;
         links: { id: string; label: string; url: string }[];
     } | null;
     entries?: Entry[];
@@ -255,7 +282,7 @@ export const BattleDetailPage: React.FC = () => {
 
                             {battle.description && (
                                 <p style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', color: colors.textSecondary, maxWidth: '520px', lineHeight: 1.7 }}>
-                                    {battle.description}
+                                    {renderWithLinks(battle.description)}
                                 </p>
                             )}
 
@@ -392,7 +419,7 @@ export const BattleDetailPage: React.FC = () => {
                                             <div style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px', borderRadius: '50%', backgroundColor: `${colors.primary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <Check size={10} color={colors.primary} />
                                             </div>
-                                            <span style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>{rule}</span>
+                                <span style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>{renderWithLinks(rule)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -432,12 +459,12 @@ export const BattleDetailPage: React.FC = () => {
 
                 {/* ── SPONSOR STRIP ── */}
                 {battle.sponsor && (
-                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '20px 24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
-                        <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
-                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, marginBottom: '16px' }}>Official Sponsors</p>
+                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
+                        <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
                             <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                 {battle.sponsor.logoUrl && (
-                                    <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '32px' }} />
+                                    <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '36px' }} />
                                 )}
                                 <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                                     {battle.sponsor.name}
@@ -450,6 +477,11 @@ export const BattleDetailPage: React.FC = () => {
                                     </a>
                                 ))}
                             </div>
+                            {battle.sponsor.description && (
+                                <p style={{ margin: 0, textAlign: 'center', fontSize: '13px', color: colors.textSecondary, maxWidth: '560px', lineHeight: 1.6 }}>
+                                    {renderWithLinks(battle.sponsor.description)}
+                                </p>
+                            )}
                         </div>
                     </section>
                 )}
