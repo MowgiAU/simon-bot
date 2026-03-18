@@ -1012,6 +1012,7 @@ model BattleEntry {
   bpm         Int?
   key         String?
   artist      String?
+  arrangement Json?              // Parsed FLP arrangement data
   voteCount   Int      @default(0) // Denormalized for perf
   trackId     String?  // FK to musician Track (library submission)
   source      String   @default("web")

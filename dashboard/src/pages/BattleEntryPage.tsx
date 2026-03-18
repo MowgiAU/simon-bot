@@ -9,8 +9,9 @@ import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import {
     Play, Pause, ArrowLeft, Swords, Music, User, Calendar, Vote, LogIn,
-    Share2, Download, Info, Zap, Tag, Clock, FileAudio, List
+    Share2, Download, Info, Zap, Tag, Clock, FileAudio, List, X, Layers
 } from 'lucide-react';
+import { ArrangementViewer, ProjectInfoPanel } from '../components/ArrangementViewer';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -31,6 +32,7 @@ interface EntryData {
     artist: string | null;
     trackId: string | null;
     source: string;
+    arrangement?: any;
     createdAt: string;
     battle: {
         id: string;
@@ -93,6 +95,7 @@ export const BattleEntryPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
+    const [zoom, setZoom] = useState(1);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -368,6 +371,46 @@ export const BattleEntryPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* FLP Arrangement Viewer — direct upload */}
+                {!t && (entry.arrangement as any)?.tracks?.some((tr: any) => tr.clips.length > 0) && (
+                    <ArrangementViewer
+                        arrangement={entry.arrangement as any}
+                        duration={duration}
+                        currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
+                        isPlaying={isPlaying}
+                        projectFileUrl={entry.projectUrl ? (entry.projectUrl.startsWith('http') ? entry.projectUrl : `${API}${entry.projectUrl}`) : null}
+                        zoom={zoom}
+                        setZoom={setZoom}
+                    />
+                )}
+
+                {/* FLP Arrangement Viewer — library track */}
+                {t && (t.arrangement as any)?.tracks?.some((tr: any) => tr.clips.length > 0) && (
+                    <ArrangementViewer
+                        arrangement={t.arrangement as any}
+                        duration={duration}
+                        currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
+                        isPlaying={isPlaying}
+                        projectFileUrl={t.projectFileUrl || null}
+                        projectZipUrl={t.projectZipUrl}
+                        trackId={t.id}
+                        zoom={zoom}
+                        setZoom={setZoom}
+                    />
+                )}
+
+                {/* Project Info Panel — direct upload */}
+                {!t && (entry.arrangement as any)?.projectInfo &&
+                    ((entry.arrangement as any).projectInfo.plugins?.length > 0 || (entry.arrangement as any).projectInfo.samples?.length > 0) && (
+                    <ProjectInfoPanel projectInfo={(entry.arrangement as any).projectInfo} />
+                )}
+
+                {/* Project Info Panel — library track */}
+                {t?.arrangement?.projectInfo &&
+                    (t.arrangement.projectInfo.plugins?.length > 0 || t.arrangement.projectInfo.samples?.length > 0) && (
+                    <ProjectInfoPanel projectInfo={t.arrangement.projectInfo} />
+                )}
 
                 {/* Project Details */}
                 {(entry.bpm || entry.key || entry.artist || entry.projectUrl) && !t && (

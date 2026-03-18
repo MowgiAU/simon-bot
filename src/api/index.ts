@@ -5458,6 +5458,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         let coverUrl: string | undefined;
         let projectUrl: string | undefined;
         let duration = 0;
+        let arrangement: object | null = null;
 
         if (trackId) {
             // ─── Library track submission ───
@@ -5479,6 +5480,16 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             const artworkFile = files['cover']?.[0] || files['artwork']?.[0];
             if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
             if (projectFile) await scanFileForViruses(projectFile.path, 'project');
+
+            // Parse FLP arrangement data
+            if (projectFile && !projectFile.originalname.toLowerCase().endsWith('.zip')) {
+                try {
+                    const flpBuffer = fs.readFileSync(projectFile.path);
+                    arrangement = FLPParser.parse(flpBuffer);
+                } catch (e) {
+                    logger.warn(`Failed to parse battle entry FLP: ${e}`);
+                }
+            }
 
             // Parse audio metadata (duration)
             try {
@@ -5514,6 +5525,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
                 artist,
                 trackId: trackId || null,
                 source: 'web',
+                ...(arrangement ? { arrangement } : {}),
             },
         });
 
