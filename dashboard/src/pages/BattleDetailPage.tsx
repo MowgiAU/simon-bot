@@ -658,9 +658,9 @@ export const BattleDetailPage: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div style={{ minWidth: 0 }}>
-                                                    <h4 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
                                                         {entry.trackTitle}
-                                                    </h4>
+                                                    </Link>
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         @{entry.username}
                                                     </Link>
@@ -678,7 +678,7 @@ export const BattleDetailPage: React.FC = () => {
                                                 <div
                                                     onClick={() => {
                                                         if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}` });
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
                                                     }}
                                                     style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '48px', width: '100%', cursor: 'pointer' }}>
                                                     {bars.map((h, bi) => (
@@ -699,7 +699,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         <button
                                                             onClick={() => {
                                                                 if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}` });
+                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
                                                             }}
                                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: colors.textPrimary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                                                             {isCurrentlyPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} fill="currentColor" /> Play</>}

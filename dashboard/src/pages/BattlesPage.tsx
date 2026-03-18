@@ -449,7 +449,7 @@ export const BattlesPage: React.FC = () => {
                                             <button onClick={() => {
                                                 const id = `battle-${winner.id}`;
                                                 if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}` });
+                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: `/battles/entry/${winner.id}` });
                                             }} style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
                                                 {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} /> : <Play size={14} />}
                                             </button>
@@ -492,7 +492,7 @@ export const BattlesPage: React.FC = () => {
                                                     if (!entry.audioUrl) return;
                                                     const id = `battle-${entry.id}`;
                                                     if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                                    setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}` });
+                                                    setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
                                                 }}
                                             >
                                                 {entry.coverUrl ? (

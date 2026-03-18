@@ -54,10 +54,11 @@ export const GlobalPlayer: React.FC = () => {
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                     {(() => {
-                        const t = player.currentTrack!;
-                        return t.username && t.slug ? (
+                        const t = player.currentTrack! as any;
+                        const titleTo = (t.username && t.slug) ? `/track/${t.username}/${t.slug}` : (t.entryRoute || null);
+                        return titleTo ? (
                             <Link
-                                to={`/track/${t.username}/${t.slug}`}
+                                to={titleTo}
                                 onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
                                 onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
                                 style={{ 
@@ -74,7 +75,7 @@ export const GlobalPlayer: React.FC = () => {
                                     display: 'block',
                                 }}
                             >
-                                {player.currentTrack.title}
+                                {player.currentTrack!.title}
                             </Link>
                         ) : (
                             <p style={{ 
@@ -86,7 +87,7 @@ export const GlobalPlayer: React.FC = () => {
                                 textOverflow: 'ellipsis', 
                                 color: 'white',
                             }}>
-                                {player.currentTrack.title}
+                                {player.currentTrack!.title}
                             </p>
                         );
                     })()}

@@ -9,7 +9,7 @@ import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import {
     Play, Pause, ArrowLeft, Swords, Music, User, Calendar, Vote, LogIn,
-    Share2, Download, Info, Zap, Tag, Clock, FileAudio
+    Share2, Download, Info, Zap, Tag, Clock, FileAudio, List
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -26,6 +26,9 @@ interface EntryData {
     projectUrl: string | null;
     duration: number | null;
     voteCount: number;
+    bpm: number | null;
+    key: string | null;
+    artist: string | null;
     trackId: string | null;
     source: string;
     createdAt: string;
@@ -89,6 +92,7 @@ export const BattleEntryPage: React.FC = () => {
     const [voting, setVoting] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
+    const [battleEntries, setBattleEntries] = useState<any[]>([]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -120,6 +124,14 @@ export const BattleEntryPage: React.FC = () => {
         }
     }, [entry]);
 
+    useEffect(() => {
+        if (!entry?.battle.id) return;
+        fetch(`${API}/api/beat-battle/battles/${entry.battle.id}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.entries) setBattleEntries(data.entries.sort((a: any, b: any) => b.voteCount - a.voteCount)); })
+            .catch(() => {});
+    }, [entry?.battle.id]);
+
     const t = entry?.track;
     const coverUrl = t?.coverUrl || entry?.coverUrl;
     const resolvedCover = coverUrl ? (coverUrl.startsWith('http') ? coverUrl : `${API}${coverUrl}`) : null;
@@ -144,6 +156,7 @@ export const BattleEntryPage: React.FC = () => {
                 slug: '',
                 cover: resolvedCover || entry.avatarUrl || '',
                 url: audioUrl,
+                entryRoute: `/battles/entry/${entry.id}`,
             });
         }
     };
@@ -356,12 +369,63 @@ export const BattleEntryPage: React.FC = () => {
                     </div>
                 </div>
 
-                {!t && entry.projectUrl && (
-                    <div style={{ marginTop: spacing.xl, padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <FileAudio size={20} color={colors.primary} />
-                        <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Project File Included</div>
-                            <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>This entry includes an FL Studio project file</div>
+                {/* Project Details */}
+                {(entry.bpm || entry.key || entry.artist || entry.projectUrl) && !t && (
+                    <div style={{ marginTop: spacing.xl, padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: spacing.md }}>
+                            <FileAudio size={18} color={colors.primary} />
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Project Details</h3>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(160px, 1fr))', gap: spacing.md, marginBottom: entry.projectUrl ? spacing.md : 0 }}>
+                            {entry.artist && <InfoItem icon={<User size={16}/>} label="Artist" value={entry.artist} />}
+                            {entry.bpm && <InfoItem icon={<Zap size={16}/>} label="BPM" value={entry.bpm.toString()} />}
+                            {entry.key && <InfoItem icon={<Tag size={16}/>} label="Key" value={entry.key} />}
+                        </div>
+                        {entry.projectUrl && (
+                            <a href={entry.projectUrl.startsWith('http') ? entry.projectUrl : `${API}${entry.projectUrl}`} download
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>
+                                <Download size={18} /> Download Project File
+                            </a>
+                        )}
+                    </div>
+                )}
+
+                {/* Battle Playlist */}
+                {battleEntries.length > 1 && (
+                    <div style={{ marginTop: spacing.xl }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: spacing.md }}>
+                            <List size={18} color={colors.primary} />
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Battle Playlist</h3>
+                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>({battleEntries.length} entries)</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {battleEntries.map((e: any, i: number) => {
+                                const isThisEntry = e.id === entry.id;
+                                const trackId = `battle-playlist-${e.id}`;
+                                const isPlaying = player.currentTrack?.id === trackId && player.isPlaying;
+                                const coverSrc = e.coverUrl ? (e.coverUrl.startsWith('http') ? e.coverUrl : `${API}${e.coverUrl}`) : (e.avatarUrl ? (e.avatarUrl.startsWith('http') ? e.avatarUrl : `${API}${e.avatarUrl}`) : null);
+                                return (
+                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', backgroundColor: isThisEntry ? `${colors.primary}12` : 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: `1px solid ${isThisEntry ? colors.primary + '30' : 'rgba(255,255,255,0.06)'}` }}>
+                                        <span style={{ fontSize: '12px', color: colors.textSecondary, width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0 }}>
+                                            {coverSrc ? <img src={coverSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} style={{ opacity: 0.3 }} /></div>}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <Link to={`/battles/entry/${e.id}`} style={{ fontWeight: 600, fontSize: '13px', color: isThisEntry ? colors.primary : colors.textPrimary, textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.trackTitle}</Link>
+                                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>{e.username}</span>
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0 }}>🔥 {e.voteCount}</div>
+                                        {e.audioUrl && (
+                                            <button onClick={() => {
+                                                if (player.currentTrack?.id === trackId) { togglePlay(); return; }
+                                                setTrack({ id: trackId, title: e.trackTitle, artist: e.username, cover: e.coverUrl || e.avatarUrl || '', url: e.audioUrl.startsWith('http') ? e.audioUrl : `${API}${e.audioUrl}`, entryRoute: `/battles/entry/${e.id}` });
+                                            }} style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: isPlaying ? colors.primary : 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'white' }}>
+                                                {isPlaying ? <Pause size={13} fill="white" /> : <Play size={13} fill="white" style={{ marginLeft: '1px' }} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
