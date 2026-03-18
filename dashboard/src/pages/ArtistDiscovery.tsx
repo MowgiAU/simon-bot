@@ -719,17 +719,17 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             )}
                                             {/* Track count badge */}
                                             <div style={{ position: 'absolute', bottom: '6px', right: '6px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, color: 'white', backdropFilter: 'blur(4px)' }}>
-                                                {playlist._count.tracks} tracks
+                                                {playlist.trackCount} tracks
                                             </div>
                                         </div>
 
                                         {/* Text */}
                                         <div style={{ width: '100%', minWidth: 0 }}>
                                             <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{playlist.name}</p>
-                                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>by {playlist.profile.displayName || playlist.profile.username}</p>
+                                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>by {playlist.profile?.displayName || playlist.profile?.username || 'Unknown'}</p>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
                                                 <span style={{ fontSize: '10px', color: '#B9C3CE', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                    <Play size={9} /> {playlist.plays.toLocaleString()} plays
+                                                    <Play size={9} /> {playlist.totalPlays.toLocaleString()} plays
                                                 </span>
                                             </div>
                                         </div>
