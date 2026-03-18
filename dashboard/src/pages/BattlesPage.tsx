@@ -25,7 +25,11 @@ function formatDate(d: string | null) {
     return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const placeEmoji = (i: number) => i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : i === 2 ? 'ðŸ¥‰' : `#${i + 1}`;
+const MEDAL_GOLD   = '\u{1F947}';
+const MEDAL_SILVER = '\u{1F948}';
+const MEDAL_BRONZE = '\u{1F949}';
+const FIRE         = '\u{1F525}';
+const placeEmoji = (i: number) => i === 0 ? MEDAL_GOLD : i === 1 ? MEDAL_SILVER : i === 2 ? MEDAL_BRONZE : `#${i + 1}`;
 
 interface Battle {
     id: string;
@@ -475,7 +479,7 @@ export const BattlesPage: React.FC = () => {
                                         <div key={entry.id} style={{ backgroundColor: '#242C3D', border: i === 0 ? `1px solid ${colors.primary}40` : '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                                 <span style={{ fontSize: '18px' }}>{placeEmoji(i)}</span>
-                                                <span style={{ fontSize: '14px', fontWeight: 800, color: colors.primary }}>ðŸ”¥ {entry.voteCount}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: 800, color: colors.primary }}>{FIRE} {entry.voteCount}</span>
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                                                 {(entry.avatarUrl || entry.coverUrl) && (
@@ -525,7 +529,7 @@ export const BattlesPage: React.FC = () => {
                                                     <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '14px' }}>{b.title}</p>
                                                     <p style={{ margin: '4px 0 0', fontSize: '12px', color: colors.textSecondary }}>
                                                         {formatDate(b.votingEnd)}
-                                                        {hof?.winner && <span style={{ color: colors.primary, fontWeight: 700, marginLeft: '8px' }}>🏆 {hof.winner.username}</span>}
+                                                        {hof?.winner && <span style={{ color: colors.primary, fontWeight: 700, marginLeft: '8px' }}>{'\u{1F3C6}'} {hof.winner.username}</span>}
                                                         <span style={{ marginLeft: '8px' }}>{b._count?.entries || 0} entries</span>
                                                     </p>
                                                 </Link>

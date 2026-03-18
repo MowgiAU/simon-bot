@@ -441,7 +441,7 @@ export const BattleDetailPage: React.FC = () => {
                                     {battle.prizes.map((p, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', backgroundColor: `${colors.primary}08`, border: `1px solid ${colors.primary}18`, borderRadius: borderRadius.md }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <span style={{ fontSize: '20px' }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span>
+                                                <span style={{ fontSize: '20px' }}>{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : i === 2 ? '\u{1F949}' : `#${i + 1}`}</span>
                                                 <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>{p.place}</span>
                                             </div>
                                             <span style={{ fontSize: '14px', fontWeight: 700, color: colors.primary }}>{p.description}</span>
