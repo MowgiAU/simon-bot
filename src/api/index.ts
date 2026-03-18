@@ -41,7 +41,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let dir = path.join(PROJECT_ROOT, 'public/uploads/tracks');
     
-    if (file.fieldname === 'artwork') {
+    if (file.fieldname === 'artwork' || file.fieldname === 'cover') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/artwork');
     } else if (file.fieldname === 'avatar') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/avatars');
@@ -77,7 +77,7 @@ const upload = multer({
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
       }
-    } else if (file.fieldname === 'artwork' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner') {
+    } else if (file.fieldname === 'artwork' || file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner') {
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
@@ -5346,7 +5346,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
 // --- Auth: Submit entry via web (upload or library track) ---
 app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields([
     { name: 'audio', maxCount: 1 },
-    { name: 'artwork', maxCount: 1 },
+    { name: 'cover', maxCount: 1 },
 ]), async (req: any, res) => {
     try {
         const userId = req.session.user.id;
@@ -5409,7 +5409,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
 
             await scanFileForViruses(audioFile.path, 'audio');
-            const artworkFileBattle = files['artwork']?.[0];
+            const artworkFileBattle = files['cover']?.[0] || files['artwork']?.[0];
             if (artworkFileBattle) await scanFileForViruses(artworkFileBattle.path, 'artwork');
 
             const battlesDir = path.join(PROJECT_ROOT, 'public/uploads/battles');
