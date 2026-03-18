@@ -86,205 +86,137 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             </a>
             {/* Header */}
             <header style={{
-                height: isMobile ? '110px' : '64px', backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '12px 12px' : '0 24px', zIndex: 100,
-                flexShrink: 0, gap: isMobile ? '12px' : '0'
+                backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex', flexDirection: 'column', zIndex: 100, flexShrink: 0,
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '32px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                    <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
-                        <FujiLogo size={isMobile ? 32 : 40} color={colors.primary} />
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', letterSpacing: '0.05em' }}>FUJI STUDIO</h1>
-                        </div>
-                    </Link>
-                    {isMobile && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {sidebar && (
-                                <button
-                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                    style={{
-                                        backgroundColor: isSidebarOpen ? `${colors.primary}33` : 'rgba(255,255,255,0.05)',
-                                        color: isSidebarOpen ? colors.primary : 'white',
-                                        border: 'none', padding: '8px 12px', borderRadius: '8px',
-                                        display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 'bold'
-                                    }}
-                                >
-                                    <Menu size={16} /> {isSidebarOpen ? 'CLOSE' : 'FILTERS'}
-                                </button>
+                {/* Main row */}
+                <div style={{
+                    height: '56px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: '12px',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '32px', minWidth: 0 }}>
+                        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
+                            <FujiLogo size={isMobile ? 28 : 36} color={colors.primary} />
+                            {!isMobile && (
+                                <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 'bold', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>FUJI STUDIO</h1>
                             )}
-                            {hasDashboardAccess && (
-                                <Link to="/dashboard" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, padding: '7px', borderRadius: '6px', display: 'flex', textDecoration: 'none' }}>
-                                    <Zap size={18} fill={colors.primary} />
-                                </Link>
-                            )}
-                            {user ? (
-                                <Link to="/profile" style={{ backgroundColor: pathname === '/profile' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
-                                    <User size={15} /> PROFILE
-                                </Link>
-                            ) : (
-                                <a
-                                    href="/api/auth/discord/login"
-                                    style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 'bold', textDecoration: 'none' }}
-                                >
-                                    <LogIn size={16} /> LOG IN
-                                </a>
-                            )}
-                        </div>
-                    )}
-                    {!isMobile && (
-                        <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            {navItems.map(item => {
-                                const navStyle: React.CSSProperties = {
-                                    padding: '6px 16px', borderRadius: '4px',
-                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
-                                    color: activeTab === item.key ? colors.primary : '#B9C3CE',
-                                    fontSize: '10px', fontWeight: 'bold',
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    opacity: item.comingSoon ? 0.6 : 1,
-                                };
-                                if (item.comingSoon || !item.path) {
-                                    return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
-                                }
-                                return (
-                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
-                                );
-                            })}
-                        </nav>
-                    )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: isMobile ? '100%' : 'auto' }}>
-                    {!isMobile && hasDashboardAccess ? (
-                        <Link
-                            to="/dashboard"
-                            style={{
-                                backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`,
-                                color: colors.primary,
-                                border: `1px solid ${colors.primary}33`,
-                                padding: '8px 20px',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                letterSpacing: '0.05em',
-                                textDecoration: 'none',
-                            }}
-                            title="Admin Dashboard"
-                        >
-                            <Zap size={14} fill={colors.primary} />
-                            DASHBOARD
                         </Link>
-                    ) : null}
-
-                    {!isMobile && user ? (
-                        <div
-                            style={{ position: 'relative' }}
-                            onMouseEnter={openAccountMenu}
-                            onMouseLeave={closeAccountMenu}
+                        {!isMobile && (
+                            <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {navItems.map(item => {
+                                    const navStyle: React.CSSProperties = {
+                                        padding: '6px 16px', borderRadius: '4px',
+                                        backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
+                                        color: activeTab === item.key ? colors.primary : '#B9C3CE',
+                                        fontSize: '10px', fontWeight: 'bold',
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                        opacity: item.comingSoon ? 0.6 : 1,
+                                    };
+                                    if (item.comingSoon || !item.path) {
+                                        return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
+                                    }
+                                    return (
+                                        <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
+                                    );
+                                })}
+                            </nav>
+                        )}
+                    </div>
+                    {/* Right-side actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '12px', flexShrink: 0 }}>
+                    {/* Mobile: compact icon buttons */}
+                    {isMobile && sidebar && (
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            style={{
+                                backgroundColor: isSidebarOpen ? `${colors.primary}33` : 'rgba(255,255,255,0.07)',
+                                color: isSidebarOpen ? colors.primary : 'white',
+                                border: 'none', padding: '7px 10px', borderRadius: '7px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold',
+                            }}
                         >
-                            <Link
-                                to="/profile/edit"
-                                style={{
-                                    backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
-                                    color: 'white',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    padding: '8px 16px',
-                                    borderRadius: '8px',
-                                    fontSize: '11px',
-                                    fontWeight: '700',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    transition: 'all 0.2s',
-                                    letterSpacing: '0.05em',
-                                    textDecoration: 'none',
-                                }}
-                            >
-                                <User size={14} />
-                                ACCOUNT
-                                <ChevronDown size={12} />
+                            <Menu size={15} /> {isSidebarOpen ? 'CLOSE' : 'FILTERS'}
+                        </button>
+                    )}
+                    {isMobile && hasDashboardAccess && (
+                        <Link to="/dashboard" title="Dashboard" style={{ backgroundColor: `${colors.primary}15`, color: colors.primary, padding: '7px', borderRadius: '7px', display: 'flex', textDecoration: 'none' }}>
+                            <Zap size={16} fill={colors.primary} />
+                        </Link>
+                    )}
+                    {isMobile && user && (
+                        <Link to="/profile" style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
+                            <User size={14} /> ME
+                        </Link>
+                    )}
+                    {isMobile && !user && (
+                        <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
+                            <LogIn size={14} /> LOG IN
+                        </a>
+                    )}
+
+                    {/* Desktop: full buttons + inline search */}
+                    {!isMobile && hasDashboardAccess && (
+                        <Link to="/dashboard" style={{ backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '7px 18px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }} title="Admin Dashboard">
+                            <Zap size={14} fill={colors.primary} /> DASHBOARD
+                        </Link>
+                    )}
+                    {!isMobile && user && (
+                        <div style={{ position: 'relative' }} onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
+                            <Link to="/profile/edit" style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
+                                <User size={14} /> ACCOUNT <ChevronDown size={12} />
                             </Link>
                             {accountMenuOpen && (
-                                <div style={{
-                                    position: 'absolute', top: '100%', right: 0, marginTop: '4px',
-                                    backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000,
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-                                    display: 'flex', flexDirection: 'column', gap: '2px'
-                                }}
-                                    onMouseEnter={openAccountMenu}
-                                    onMouseLeave={closeAccountMenu}
-                                >
+                                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000, boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                                    onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
                                     {[user.username].map(uname => (
                                         <React.Fragment key="menu">
-                                            <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
-                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
-                                                <ExternalLink size={13} /> View Profile
-                                            </Link>
-                                            <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
-                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
-                                                <Edit3 size={13} /> Edit Profile
-                                            </Link>
-                                            <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }}
-                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}>
-                                                <Upload size={13} /> Upload Tracks
-                                            </Link>
+                                            <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ExternalLink size={13} /> View Profile</Link>
+                                            <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Edit3 size={13} /> Edit Profile</Link>
+                                            <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Upload size={13} /> Upload Tracks</Link>
                                             <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
-                                            <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#F87171', fontSize: '11px', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
-                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(248,113,113,0.1)'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                                                <LogOut size={13} /> Log Out
-                                            </button>
+                                            <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#F87171', fontSize: '11px', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(248,113,113,0.1)'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}><LogOut size={13} /> Log Out</button>
                                         </React.Fragment>
                                     ))}
                                 </div>
                             )}
                         </div>
-                    ) : null}
-                    {!user && !isMobile ? (
-                        <a
-                            href="/api/auth/discord/login"
-                            style={{
-                                backgroundColor: colors.primary,
-                                color: 'white',
-                                padding: '8px 20px',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                transition: 'all 0.2s',
-                                letterSpacing: '0.05em',
-                                textDecoration: 'none',
-                            }}
-                        >
-                            <LogIn size={14} />
-                            LOG IN
+                    )}
+                    {!isMobile && !user && (
+                        <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 18px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
+                            <LogIn size={14} /> LOG IN
                         </a>
-                    ) : null}
-                    {onSearchChange && (
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: isMobile ? 1 : 'none' }}>
-                            <Search size={16} color="#B9C3CE" style={{ position: 'absolute', left: '16px' }} />
-                            <input
-                                type="text"
-                                placeholder={searchPlaceholder}
-                                value={search}
-                                onChange={(e) => onSearchChange(e.target.value)}
-                                aria-label="Search"
-                                style={{
-                                    width: isMobile ? '100%' : '300px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
-                                    borderRadius: '999px', padding: '8px 48px', fontSize: '12px', color: 'white'
-                                }}
-                            />
+                    )}
+                    {!isMobile && onSearchChange && (
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <Search size={15} color="#B9C3CE" style={{ position: 'absolute', left: '14px' }} />
+                            <input type="text" placeholder={searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search"
+                                style={{ width: '280px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '999px', padding: '7px 14px 7px 40px', fontSize: '12px', color: 'white', outline: 'none' }} />
                         </div>
                     )}
+                    </div>
+                    {/* end right-side actions */}
                 </div>
+                {/* end main row */}
+
+                {/* Mobile nav strip */}
+                {isMobile && (
+                    <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', padding: '0 12px 8px', scrollbarWidth: 'none' }}>
+                        {navItems.map(item => (
+                            item.path
+                                ? <Link key={item.key} to={item.path} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 12px', borderRadius: '6px', backgroundColor: activeTab === item.key ? `${colors.primary}25` : 'rgba(255,255,255,0.04)', color: activeTab === item.key ? colors.primary : '#B9C3CE', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.icon} {item.label}</Link>
+                                : null
+                        ))}
+                    </div>
+                )}
+
+                {/* Mobile search row */}
+                {isMobile && onSearchChange && (
+                    <div style={{ padding: '0 12px 10px', display: 'flex', alignItems: 'center', position: 'relative' }}>
+                        <Search size={15} color="#B9C3CE" style={{ position: 'absolute', left: '26px' }} />
+                        <input type="text" placeholder={searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search"
+                            style={{ width: '100%', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '999px', padding: '8px 14px 8px 38px', fontSize: '13px', color: 'white', outline: 'none' }} />
+                    </div>
+                )}
             </header>
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
