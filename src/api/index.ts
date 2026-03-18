@@ -7021,6 +7021,8 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
             select: { artistId: true },
         });
 
+        logger.info(`[Feed] userId=${userId} followCount=${follows.length}`);
+
         if (follows.length === 0) {
             return res.json({ tracks: [], hasMore: false, nextCursor: null });
         }
@@ -7046,6 +7048,8 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
 
         // Filter out suspended
         const activeTracks = tracks.filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'));
+
+        logger.info(`[Feed] trackCount=${tracks.length} activeCount=${activeTracks.length} profileIds=[${profileIds.join(',')}]`);
 
         res.json({ tracks: activeTracks, hasMore, nextCursor: hasMore ? activeTracks[activeTracks.length - 1]?.id : null });
     } catch (e: any) {

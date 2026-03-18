@@ -61,6 +61,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'genres', label: 'GENRES', icon: <Zap size={14} />, path: '/genres' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
+        { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
     ];
 
     const isHomePage = pathname === '/';
