@@ -37,12 +37,21 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [artist, setArtist] = useState('');
+    const [bpm, setBpm] = useState('');
+    const [key, setKey] = useState('');
+    const [tosAgreed, setTosAgreed] = useState(false);
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string>('');
     const [projectFile, setProjectFile] = useState<File | null>(null);
     const audioRef = useRef<HTMLInputElement>(null);
     const coverRef = useRef<HTMLInputElement>(null);
     const projectRef = useRef<HTMLInputElement>(null);
+
+    const keyOptions = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
+        <option key={`${note} Major`} value={`${note} Major`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Major</option>,
+        <option key={`${note} Minor`} value={`${note} Minor`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Minor</option>,
+    ]);
 
     // Library tab
     const [tracks, setTracks] = useState<LibraryTrack[]>([]);
@@ -121,11 +130,15 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
             } else {
                 if (!audioFile) { setError('Please select an audio file.'); setSubmitting(false); return; }
                 if (!title.trim()) { setError('Please enter a track title.'); setSubmitting(false); return; }
+                if (!tosAgreed) { setError('You must confirm you own the rights to this audio.'); setSubmitting(false); return; }
                 if (requireProjectFile && !projectFile) { setError('This battle requires a project file (.flp or .zip).'); setSubmitting(false); return; }
                 const formData = new FormData();
                 formData.append('audio', audioFile);
                 formData.append('title', title.trim());
                 if (description.trim()) formData.append('description', description.trim());
+                if (artist.trim()) formData.append('artist', artist.trim());
+                if (bpm) formData.append('bpm', bpm);
+                if (key) formData.append('key', key);
                 if (coverFile) formData.append('cover', coverFile);
                 if (projectFile) formData.append('project', projectFile);
                 setUploadStage('uploading');
@@ -266,8 +279,37 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                     <FileArchive size={14} /> {projectFile ? projectFile.name : requireProjectFile ? 'Choose project file (required)...' : 'Choose project file (optional)...'}
                                 </button>
                                 {requireProjectFile && (
-                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.warning || '#F97316' }}>This battle requires a project file upload.</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#F97316' }}>This battle requires a project file upload.</p>
                                 )}
+                            </div>
+
+                            {/* Artist / BPM / Key */}
+                            <div>
+                                <label style={labelStyle}>Artist</label>
+                                <input style={inputStyle} value={artist} onChange={e => setArtist(e.target.value)} placeholder="Your producer name" />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div>
+                                    <label style={labelStyle}>BPM</label>
+                                    <input type="number" style={inputStyle} value={bpm} onChange={e => setBpm(e.target.value)} placeholder="140" min={1} max={999} />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Key</label>
+                                    <select style={inputStyle} value={key} onChange={e => setKey(e.target.value)}>
+                                        <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Select key...</option>
+                                        {keyOptions}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* ToS */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <input type="checkbox" id="battle-tos" checked={tosAgreed} onChange={e => setTosAgreed(e.target.checked)}
+                                    style={{ marginTop: '2px', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer', accentColor: colors.primary }} />
+                                <label htmlFor="battle-tos" style={{ fontSize: '12px', color: colors.textSecondary, cursor: 'pointer', lineHeight: 1.5 }}>
+                                    I confirm I own or have the rights to all audio in this submission and agree to the{' '}
+                                    <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>Terms of Service</a>.
+                                </label>
                             </div>
                         </div>
                     )}
@@ -363,8 +405,8 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                             <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
                         </div>
                     )}
-                    <button onClick={handleSubmit} disabled={submitting}
-                        style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <button onClick={handleSubmit} disabled={submitting || (tab === 'upload' && !tosAgreed)}
+                        style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: (submitting || (tab === 'upload' && !tosAgreed)) ? 'not-allowed' : 'pointer', opacity: (submitting || (tab === 'upload' && !tosAgreed)) ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : 'Submit Entry'}
                     </button>
                 </div>

@@ -5403,6 +5403,9 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const title = req.body.title;
         const trackId = req.body.trackId; // optional — library track submission
         const description = req.body.description || null;
+        const bpm = req.body.bpm ? parseInt(req.body.bpm, 10) : null;
+        const key = req.body.key || null;
+        const artist = req.body.artist || null;
 
         // Guild membership gate
         if (process.env.GUILD_ID && !req.session.isGuildMember) {
@@ -5506,6 +5509,9 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
                 avatarUrl,
                 description,
                 duration,
+                bpm,
+                key,
+                artist,
                 trackId: trackId || null,
                 source: 'web',
             },

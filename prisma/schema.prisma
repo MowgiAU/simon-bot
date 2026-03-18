@@ -1008,6 +1008,9 @@ model BattleEntry {
   description String?  @db.Text // Optional description
   projectUrl  String?  // Optional project file (.flp/.zip) URL
   duration    Int      @default(0) // seconds
+  bpm         Int?
+  key         String?
+  artist      String?
   voteCount   Int      @default(0) // Denormalized for perf
   trackId     String?  // FK to musician Track (library submission)
   source      String   @default("web")
