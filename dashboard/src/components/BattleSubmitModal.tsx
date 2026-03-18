@@ -43,6 +43,9 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     const [tracks, setTracks] = useState<LibraryTrack[]>([]);
     const [tracksLoading, setTracksLoading] = useState(false);
     const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+    const [libraryDescription, setLibraryDescription] = useState('');
+    const [libraryProjectFile, setLibraryProjectFile] = useState<File | null>(null);
+    const libraryProjectRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (open && tab === 'library') fetchTracks();
@@ -84,11 +87,17 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
         try {
             if (tab === 'library') {
                 if (!selectedTrackId) { setError('Select a track from your library.'); setSubmitting(false); return; }
+                if (requireProjectFile && !libraryProjectFile) { setError('This battle requires a project file (.flp or .zip).'); setSubmitting(false); return; }
+                const selectedTrack = tracks.find(t => t.id === selectedTrackId);
+                const formData = new FormData();
+                formData.append('trackId', selectedTrackId);
+                formData.append('title', selectedTrack?.title || 'Untitled');
+                if (libraryDescription.trim()) formData.append('description', libraryDescription.trim());
+                if (libraryProjectFile) formData.append('project', libraryProjectFile);
                 const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/submit`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ trackId: selectedTrackId, title: tracks.find(t => t.id === selectedTrackId)?.title || 'Untitled' }),
+                    body: formData,
                 });
                 if (!res.ok) {
                     const data = await res.json().catch(() => ({}));
@@ -254,6 +263,32 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                             </button>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* Library extras: description + project file */}
+                            {!tracksLoading && tracks.length > 0 && (
+                                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div>
+                                        <label style={labelStyle}>Description</label>
+                                        <textarea
+                                            style={{ ...inputStyle, minHeight: '48px', resize: 'vertical', fontFamily: 'inherit' }}
+                                            value={libraryDescription}
+                                            onChange={e => setLibraryDescription(e.target.value)}
+                                            placeholder="Tell us about this beat..."
+                                            rows={2}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Project File (.flp, .zip){requireProjectFile ? ' *' : ''}</label>
+                                        <input ref={libraryProjectRef} type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setLibraryProjectFile(e.target.files?.[0] || null)} />
+                                        <button onClick={() => libraryProjectRef.current?.click()} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: libraryProjectFile ? colors.textPrimary : colors.textSecondary }}>
+                                            <FileArchive size={14} /> {libraryProjectFile ? libraryProjectFile.name : requireProjectFile ? 'Choose project file (required)...' : 'Choose project file (optional)...'}
+                                        </button>
+                                        {requireProjectFile && (
+                                            <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#F97316' }}>This battle requires a project file upload.</p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>

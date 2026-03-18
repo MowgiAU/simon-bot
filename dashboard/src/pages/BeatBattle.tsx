@@ -1064,18 +1064,30 @@ export const BeatBattlePage: React.FC = () => {
 const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
     const [entries, setEntries] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const fetchEntries = async () => {
+        try {
+            const res = await fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                setEntries(data.entries || []);
+            }
+        } catch {} finally { setLoading(false); }
+    };
 
     useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' });
-                if (res.ok) {
-                    const data = await res.json();
-                    setEntries(data.entries || []);
-                }
-            } catch {} finally { setLoading(false); }
-        })();
+        fetchEntries();
     }, [battleId]);
+
+    const deleteEntry = async (entryId: string, name: string) => {
+        if (!window.confirm(`Delete submission "${name}"? This cannot be undone.`)) return;
+        setDeletingId(entryId);
+        try {
+            const res = await fetch(`${API}/api/beat-battle/entries/${entryId}`, { method: 'DELETE', credentials: 'include' });
+            if (res.ok) setEntries(prev => prev.filter(e => e.id !== entryId));
+        } catch {} finally { setDeletingId(null); }
+    };
 
     if (loading) return <p style={{ color: colors.textSecondary, fontSize: '13px', marginTop: '12px' }}>Loading entries...</p>;
     if (entries.length === 0) return <p style={{ color: colors.textSecondary, fontSize: '13px', marginTop: '12px' }}>No submissions yet.</p>;
@@ -1101,6 +1113,14 @@ const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
                             </a>
                         )}
                         <span style={{ color: colors.primary, fontWeight: 700, fontSize: '14px' }}>🔥 {e.voteCount}</span>
+                        <button
+                            onClick={() => deleteEntry(e.id, e.trackTitle)}
+                            disabled={deletingId === e.id}
+                            title="Delete submission"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F87171', padding: '4px', opacity: deletingId === e.id ? 0.4 : 0.7, display: 'flex', alignItems: 'center' }}
+                        >
+                            <Trash2 size={14} />
+                        </button>
                     </div>
                 </div>
             ))}

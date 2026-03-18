@@ -5343,6 +5343,22 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
     }
 });
 
+// --- Admin: Delete a battle entry ---
+app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, res) => {
+    try {
+        const { entryId } = req.params;
+        const entry = await db.battleEntry.findUnique({ where: { id: entryId } });
+        if (!entry) return res.status(404).json({ error: 'Entry not found' });
+        // Delete votes first (FK constraint)
+        await db.battleVote.deleteMany({ where: { entryId } });
+        await db.battleEntry.delete({ where: { id: entryId } });
+        res.json({ success: true });
+    } catch (e: any) {
+        logger.error('Beat Battle API: delete entry failed', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Auth: Submit entry via web (upload or library track) ---
 app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields([
     { name: 'audio', maxCount: 1 },
@@ -5372,7 +5388,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         }
 
         // Check project file requirement
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const files = (req.files || {}) as { [fieldname: string]: Express.Multer.File[] };
         const projectFile = files['project']?.[0];
         if (battle.requireProjectFile && !trackId && !projectFile) {
             return res.status(400).json({ error: 'This battle requires a project file (.flp or .zip) upload.' });
