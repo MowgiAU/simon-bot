@@ -476,7 +476,7 @@ export const BattleDetailPage: React.FC = () => {
 
                 {/* ── SPONSOR STRIP ── */}
                 {battle.sponsor && (
-                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '40px 24px', backgroundColor: 'rgba(255,255,255,0.015)', marginBottom: '16px' }}>
+                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '40px 24px', backgroundColor: 'rgba(255,255,255,0.015)', marginBottom: '48px' }}>
                         <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                             <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
                             <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>

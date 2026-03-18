@@ -6671,9 +6671,26 @@ app.get('/api/klipy/search', async (req: any, res) => {
     }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
   if (!R2Storage.isConfigured()) {
     logger.warn('R2 not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME missing). ZIP sample audio will be served from local storage.');
+  }
+
+  // Backfill slugs for any battles that don't have one yet
+  try {
+    const unsluggedBattles = await db.beatBattle.findMany({ where: { slug: null }, select: { id: true, title: true } });
+    for (const battle of unsluggedBattles) {
+      const baseSlug = battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      let slug = baseSlug;
+      let suffix = 2;
+      while (await db.beatBattle.findFirst({ where: { slug, NOT: { id: battle.id } } })) {
+        slug = `${baseSlug}-${suffix++}`;
+      }
+      await db.beatBattle.update({ where: { id: battle.id }, data: { slug } });
+    }
+    if (unsluggedBattles.length > 0) logger.info(`Backfilled slugs for ${unsluggedBattles.length} battle(s)`);
+  } catch (e) {
+    logger.warn('Slug backfill skipped (migration may not have run yet)');
   }
 });
