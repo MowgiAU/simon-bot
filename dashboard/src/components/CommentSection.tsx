@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
+import { showToast } from './Toast';
 import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
     Search, Loader2, ChevronDown
@@ -294,7 +295,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             setComments(prev => [res.data, ...prev]);
             setContent('');
             setGifUrl(null);
-        } catch {} finally {
+        } catch (e: any) {
+            const msg = e?.response?.data?.error || 'Failed to post comment';
+            showToast(msg, 'error');
+        } finally {
             setSending(false);
         }
     };
@@ -308,14 +312,18 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             }, { withCredentials: true });
             setComments(prev => prev.map(c => c.id === commentId ? res.data : c));
             setEditingId(null);
-        } catch {}
+        } catch (e: any) {
+            showToast(e?.response?.data?.error || 'Failed to update comment', 'error');
+        }
     };
 
     const handleDelete = async (commentId: string) => {
         try {
             await axios.delete(`${API}/api/comments/${commentId}`, { withCredentials: true });
             setComments(prev => prev.filter(c => c.id !== commentId));
-        } catch {}
+        } catch (e: any) {
+            showToast(e?.response?.data?.error || 'Failed to delete comment', 'error');
+        }
     };
 
     const canDelete = (comment: Comment) => {
