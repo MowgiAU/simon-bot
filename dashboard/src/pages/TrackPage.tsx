@@ -147,16 +147,6 @@ export const TrackPage: React.FC = () => {
     const openEditMode = () => {
         if (!track) return;
 
-    const toggleFavourite = async () => {
-        if (!track || !user) return;
-        try {
-            const { data } = await axios.post(`/api/tracks/${track.id}/favourite`, {}, { withCredentials: true });
-            setIsFavourited(data.favourited);
-            setFavouriteCount(prev => data.favourited ? prev + 1 : prev - 1);
-        } catch {
-            showToast('Login to favourite tracks', 'error');
-        }
-    };
         setEditForm({
             title: track.title || '',
             description: track.description || '',
@@ -174,6 +164,17 @@ export const TrackPage: React.FC = () => {
         setEditProjectFile(null);
         setEditMsg(null);
         setEditing(true);
+    };
+
+    const toggleFavourite = async () => {
+        if (!track || !user) return;
+        try {
+            const { data } = await axios.post(`/api/tracks/${track.id}/favourite`, {}, { withCredentials: true });
+            setIsFavourited(data.favourited);
+            setFavouriteCount(prev => data.favourited ? prev + 1 : prev - 1);
+        } catch {
+            showToast('Login to favourite tracks', 'error');
+        }
     };
 
     const handleSaveEdit = async () => {
