@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -32,6 +32,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+    const [isPieMenuOpen, setIsPieMenuOpen] = useState(false);
     const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const openAccountMenu = () => {
@@ -95,7 +96,16 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     height: '56px', display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: '12px',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '32px', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '32px', minWidth: 0 }}>
+                        {isMobile && (
+                            <button
+                                onClick={() => setIsPieMenuOpen(true)}
+                                aria-label="Open navigation"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', display: 'flex', padding: '6px', borderRadius: '8px', flexShrink: 0 }}
+                            >
+                                <Menu size={22} />
+                            </button>
+                        )}
                         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
                             <FujiLogo size={isMobile ? 28 : 36} color={colors.primary} />
                             {!isMobile && (
@@ -157,8 +167,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
                     {/* Desktop: full buttons + inline search */}
                     {!isMobile && hasDashboardAccess && (
-                        <Link to="/dashboard" style={{ backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '7px 18px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }} title="Admin Dashboard">
-                            <Zap size={14} fill={colors.primary} /> DASHBOARD
+                        <Link to="/dashboard" title="Admin Dashboard" style={{ backgroundColor: pathname.startsWith('/dashboard') ? `${colors.primary}33` : `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                            <Zap size={16} fill={colors.primary} />
                         </Link>
                     )}
                     {!isMobile && user && (
@@ -204,16 +214,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 </div>
                 {/* end main row */}
 
-                {/* Mobile nav strip */}
-                {isMobile && (
-                    <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', padding: '0 12px 8px', scrollbarWidth: 'none' }}>
-                        {navItems.map(item => (
-                            item.path
-                                ? <Link key={item.key} to={item.path} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 12px', borderRadius: '6px', backgroundColor: activeTab === item.key ? `${colors.primary}25` : 'rgba(255,255,255,0.04)', color: activeTab === item.key ? colors.primary : '#B9C3CE', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.icon} {item.label}</Link>
-                                : null
-                        ))}
-                    </div>
-                )}
+
 
                 {/* Mobile search row */}
                 {isMobile && onSearchChange && (
@@ -321,6 +322,82 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         );
                     })}
                 </nav>
+            )}
+
+            {/* Pie Navigation Menu (mobile) */}
+            {isPieMenuOpen && (
+                <div
+                    onClick={() => setIsPieMenuOpen(false)}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 500,
+                        backgroundColor: 'rgba(10,13,22,0.92)',
+                        backdropFilter: 'blur(14px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                >
+                    <div style={{ position: 'relative', width: '280px', height: '280px' }} onClick={e => e.stopPropagation()}>
+                        {/* Center close button */}
+                        <button
+                            onClick={() => setIsPieMenuOpen(false)}
+                            style={{
+                                position: 'absolute', top: '50%', left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                width: '56px', height: '56px', borderRadius: '50%',
+                                backgroundColor: '#1A1E2E', border: `2px solid ${colors.primary}55`,
+                                color: 'white', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                zIndex: 1,
+                            }}
+                        >
+                            <X size={22} />
+                        </button>
+
+                        {/* Nav items at radial positions */}
+                        {([
+                            { key: 'discover',  label: 'HOME',    icon: <Home size={22} />,   path: '/',        angle: 225 },
+                            { key: 'artists',   label: 'ARTISTS', icon: <User size={22} />,   path: '/artists', angle: 315 },
+                            { key: 'genres',    label: 'GENRES',  icon: <Zap size={22} />,    path: '/genres',  angle: 135 },
+                            { key: 'battles',   label: 'BATTLES', icon: <Swords size={22} />, path: '/battles', angle: 45  },
+                        ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
+                            const rad = item.angle * (Math.PI / 180);
+                            const r = 110;
+                            const x = Math.cos(rad) * r;
+                            const y = Math.sin(rad) * r;
+                            const isActive = activeTab === item.key;
+                            return (
+                                <Link
+                                    key={item.key}
+                                    to={item.path}
+                                    onClick={() => setIsPieMenuOpen(false)}
+                                    style={{
+                                        position: 'absolute', top: '50%', left: '50%',
+                                        transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                                        textDecoration: 'none',
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '54px', height: '54px', borderRadius: '50%',
+                                        backgroundColor: isActive ? colors.primary : 'rgba(255,255,255,0.07)',
+                                        border: `2px solid ${isActive ? colors.primary : 'rgba(255,255,255,0.12)'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: isActive ? 'white' : '#B9C3CE',
+                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : 'none',
+                                    }}>
+                                        {item.icon}
+                                    </div>
+                                    <span style={{
+                                        fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em',
+                                        color: isActive ? colors.primary : '#B9C3CE',
+                                        textTransform: 'uppercase',
+                                    }}>
+                                        {item.label}
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
             )}
         </div>
     );
