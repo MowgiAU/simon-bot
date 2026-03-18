@@ -377,12 +377,21 @@ export const BeatBattlePage: React.FC = () => {
     const handleUpdateSponsor = async () => {
         if (!editingSponsor) return;
         try {
+            let uploadedLogoUrl: string | undefined;
             if (sponsorLogoFile) {
                 const fd = new FormData();
                 fd.append('sponsorLogo', sponsorLogoFile);
-                await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                const logoRes = await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => null);
+                if (logoRes?.ok) {
+                    const logoData = await logoRes.json();
+                    uploadedLogoUrl = logoData.url;
+                }
             }
-            const payload = { ...sponsorForm, links: sponsorForm.links.filter(l => l.label && l.url) };
+            const payload = {
+                ...sponsorForm,
+                ...(uploadedLogoUrl !== undefined ? { logoUrl: uploadedLogoUrl } : {}),
+                links: sponsorForm.links.filter(l => l.label && l.url),
+            };
             const res = await fetch(`${API}/api/beat-battle/admin/sponsors/${editingSponsor.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
