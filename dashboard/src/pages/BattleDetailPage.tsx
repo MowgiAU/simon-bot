@@ -441,6 +441,35 @@ export const BattleDetailPage: React.FC = () => {
                     </div>
                 </section>
 
+                {/* ── SPONSOR STRIP ── */}
+                {battle.sponsor && (
+                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
+                        <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
+                            <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                                {battle.sponsor.logoUrl && (
+                                    <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '36px' }} />
+                                )}
+                                <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                    {battle.sponsor.name}
+                                </span>
+                                {battle.sponsor.links.map(l => (
+                                    <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+                                        onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
+                                        style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}25` }}>
+                                        {l.label} <ExternalLink size={11} />
+                                    </a>
+                                ))}
+                            </div>
+                            {battle.sponsor.description && (
+                                <p style={{ margin: 0, textAlign: 'center', fontSize: '13px', color: colors.textSecondary, maxWidth: '560px', lineHeight: 1.6 }}>
+                                    {renderWithLinks(battle.sponsor.description)}
+                                </p>
+                            )}
+                        </div>
+                    </section>
+                )}
+
                 {/* ── RULES + PRIZES ── */}
                 <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
@@ -545,35 +574,6 @@ export const BattleDetailPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
-
-                {/* ── SPONSOR STRIP ── */}
-                {battle.sponsor && (
-                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
-                        <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
-                            <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                                {battle.sponsor.logoUrl && (
-                                    <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '36px' }} />
-                                )}
-                                <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                    {battle.sponsor.name}
-                                </span>
-                                {battle.sponsor.links.map(l => (
-                                    <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-                                        onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
-                                        style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}25` }}>
-                                        {l.label} <ExternalLink size={11} />
-                                    </a>
-                                ))}
-                            </div>
-                            {battle.sponsor.description && (
-                                <p style={{ margin: 0, textAlign: 'center', fontSize: '13px', color: colors.textSecondary, maxWidth: '560px', lineHeight: 1.6 }}>
-                                    {renderWithLinks(battle.sponsor.description)}
-                                </p>
-                            )}
-                        </div>
-                    </section>
-                )}
 
                 {/* ── COMMUNITY SUBMISSIONS ── */}
                 <section id="submissions" style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '32px 16px 56px' : '48px 24px 72px' }}>
