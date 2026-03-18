@@ -6557,34 +6557,36 @@ app.get('/api/discord/emojis', async (_req: any, res) => {
     }
 });
 
-// ─── Tenor GIF Proxy (safe search enforced) ─────────────────────────────
+// ─── Klipy GIF Proxy ────────────────────────────────────────────────────
+// Klipy is a Tenor drop-in replacement (https://docs.klipy.com/migrate-from-tenor)
+// Content filtering is configured in the Klipy Partner Dashboard
 
-app.get('/api/tenor/featured', async (_req: any, res) => {
+app.get('/api/klipy/featured', async (_req: any, res) => {
     try {
-        const key = process.env.TENOR_API_KEY;
+        const key = process.env.KLIPY_API_KEY;
         if (!key) return res.json({ results: [] });
 
-        const tenorRes = await axios.get('https://tenor.googleapis.com/v2/featured', {
-            params: { key, limit: 30, contentfilter: 'medium', media_filter: 'tinygif,nanogif,gif' },
+        const klipyRes = await axios.get('https://api.klipy.com/v2/featured', {
+            params: { key, limit: 30, media_filter: 'tinygif,nanogif,gif' },
         });
 
-        res.json({ results: tenorRes.data.results || [] });
+        res.json({ results: klipyRes.data.results || [] });
     } catch {
         res.json({ results: [] });
     }
 });
 
-app.get('/api/tenor/search', async (req: any, res) => {
+app.get('/api/klipy/search', async (req: any, res) => {
     try {
-        const key = process.env.TENOR_API_KEY;
+        const key = process.env.KLIPY_API_KEY;
         const q = req.query.q;
         if (!key || !q) return res.json({ results: [] });
 
-        const tenorRes = await axios.get('https://tenor.googleapis.com/v2/search', {
-            params: { key, q, limit: 30, contentfilter: 'medium', media_filter: 'tinygif,nanogif,gif' },
+        const klipyRes = await axios.get('https://api.klipy.com/v2/search', {
+            params: { key, q, limit: 30, media_filter: 'tinygif,nanogif,gif' },
         });
 
-        res.json({ results: tenorRes.data.results || [] });
+        res.json({ results: klipyRes.data.results || [] });
     } catch {
         res.json({ results: [] });
     }

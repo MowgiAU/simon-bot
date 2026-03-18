@@ -58,8 +58,8 @@ const GifPicker: React.FC<{ onSelect: (url: string) => void; onClose: () => void
         setLoading(true);
         try {
             const endpoint = q.trim()
-                ? `${API}/api/tenor/search?q=${encodeURIComponent(q.trim())}`
-                : `${API}/api/tenor/featured`;
+                ? `${API}/api/klipy/search?q=${encodeURIComponent(q.trim())}`
+                : `${API}/api/klipy/featured`;
             const res = await axios.get(endpoint, { withCredentials: true });
             const results = res.data?.results || [];
             if (q.trim()) {
@@ -96,7 +96,7 @@ const GifPicker: React.FC<{ onSelect: (url: string) => void; onClose: () => void
                 <input
                     value={query}
                     onChange={e => handleSearch(e.target.value)}
-                    placeholder="Search GIFs..."
+                    placeholder="Search KLIPY"
                     autoFocus
                     style={{ flex: 1, background: 'none', border: 'none', color: colors.textPrimary, fontSize: '14px', outline: 'none' }}
                 />
@@ -130,7 +130,7 @@ const GifPicker: React.FC<{ onSelect: (url: string) => void; onClose: () => void
                 )}
             </div>
             <div style={{ padding: '4px 8px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '10px', color: colors.textSecondary, textAlign: 'right' }}>
-                Powered by Tenor
+                Powered by KLIPY
             </div>
         </div>
     );
