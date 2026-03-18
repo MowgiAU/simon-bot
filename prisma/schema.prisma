@@ -732,6 +732,7 @@ model Track {
   isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
   plays           TrackPlay[]
   genres          TrackGenre[]
+  battleEntries   BattleEntry[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -955,14 +956,10 @@ model BeatBattle {
   votingEnd           DateTime?
 
   // Discord integration
-  announcementMsgId   String?  // Message ID in #battle-announcements
-  submissionChannelId String?  // Auto-created temp channel
   announcementChannelId String? // Where announcements go
-  categoryId          String?  // Discord category for battle channels
 
   // Winner
   winnerEntryId       String?  // Winning BattleEntry ID
-  winnerSpotlightMsgId String? // Spotlight message ID
 
   // Prizes
   prizes              Json?    // Array of { place: string, description: string }
@@ -1004,11 +1001,12 @@ model BattleEntry {
   avatarUrl   String?  // Submitter's Discord avatar URL
   duration    Int      @default(0) // seconds
   voteCount   Int      @default(0) // Denormalized for perf
-  discordMsgId String? // Embed message ID in submissions channel
-  source      String   @default("web") // web | discord
+  trackId     String?  // FK to musician Track (library submission)
+  source      String   @default("web")
   createdAt   DateTime @default(now())
 
   battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  track       Track?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
   votes       BattleVote[]
 
   @@unique([battleId, userId]) // One entry per battle per user
@@ -1082,14 +1080,12 @@ model BattleAnalytics {
 model BeatBattleSettings {
   id                    String   @id @default(cuid())
   guildId               String   @unique
-  battleCategoryId      String?
   announcementChannelId String?
   chatChannelId         String?
-  submissionCategoryId  String?
-  archiveCategoryId     String?
   discordInviteUrl      String?
   featuredBattleId      String?
   sponsorSectionTitle   String?
+  requireMusicianProfile Boolean @default(false)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

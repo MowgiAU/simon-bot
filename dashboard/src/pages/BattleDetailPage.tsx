@@ -6,8 +6,9 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
-    Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check,
+    Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
 } from 'lucide-react';
+import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -92,6 +93,7 @@ export const BattleDetailPage: React.FC = () => {
     const [votingId, setVotingId] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
 
     // Extract battleId from /battles/:id
     const battleId = pathname.split('/').filter(Boolean)[1];
@@ -187,7 +189,7 @@ export const BattleDetailPage: React.FC = () => {
         {
             label: 'Winner Announced',
             date: formatDate(battle.votingEnd),
-            note: 'Results posted on Discord',
+            note: 'Results posted on the website',
             active: false,
             done: battle.status === 'completed',
         },
@@ -258,10 +260,16 @@ export const BattleDetailPage: React.FC = () => {
 
                             {/* CTAs */}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                                {battle.status === 'active' && battle.discordInviteUrl && (
-                                    <a href={battle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                {battle.status === 'active' && user && (
+                                    <button onClick={() => setShowSubmitModal(true)}
+                                        style={{ backgroundColor: ACCENT, color: '#fff', padding: '12px 32px', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '15px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.3)' }}>
+                                        <Upload size={16} /> Submit Entry
+                                    </button>
+                                )}
+                                {battle.status === 'active' && !user && (
+                                    <a href="/api/auth/discord/login"
                                         style={{ backgroundColor: ACCENT, color: '#fff', padding: '12px 32px', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.3)' }}>
-                                        <MessageSquare size={16} /> Enter Battle
+                                        <LogIn size={16} /> Log in to Submit
                                     </a>
                                 )}
                                 {battle.status === 'voting' && (
@@ -270,11 +278,8 @@ export const BattleDetailPage: React.FC = () => {
                                         <Vote size={16} /> Vote Now
                                     </button>
                                 )}
-                                {battle.status === 'upcoming' && battle.discordInviteUrl && (
-                                    <a href={battle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
-                                        style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: '12px 32px', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
-                                        <MessageSquare size={16} /> Get Notified
-                                    </a>
+                                {battle.status === 'upcoming' && (
+                                    <span style={{ color: colors.textSecondary, fontSize: '14px', fontWeight: 600, padding: '12px 0' }}>Submissions open soon!</span>
                                 )}
                                 {entries.length > 0 && (
                                     <button onClick={() => document.getElementById('submissions')?.scrollIntoView({ behavior: 'smooth' })}
@@ -378,7 +383,7 @@ export const BattleDetailPage: React.FC = () => {
                                 </ul>
                             ) : (
                                 <p style={{ margin: 0, fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>
-                                    Rules will be posted when the battle opens. Follow our Discord for updates.
+                                    Rules will be posted when the battle opens. Check back soon!
                                 </p>
                             )}
                         </div>
@@ -403,9 +408,7 @@ export const BattleDetailPage: React.FC = () => {
                                 </div>
                             ) : (
                                 <p style={{ margin: 0, fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>
-                                    Prizes to be announced. {battle.discordInviteUrl && (
-                                        <a href={battle.discordInviteUrl} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>Join Discord</a>
-                                    )} for updates.
+                                    Prizes to be announced. Stay tuned!
                                 </p>
                             )}
                         </div>
@@ -470,10 +473,16 @@ export const BattleDetailPage: React.FC = () => {
                             <Swords size={40} color={colors.textSecondary} style={{ opacity: 0.2, marginBottom: '12px' }} />
                             <p style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '16px', fontWeight: 600 }}>No submissions yet</p>
                             <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px' }}>Be the first to enter this battle.</p>
-                            {battle.status === 'active' && battle.discordInviteUrl && (
-                                <a href={battle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                            {battle.status === 'active' && user && (
+                                <button onClick={() => setShowSubmitModal(true)}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '20px', backgroundColor: `${colors.primary}15`, color: colors.primary, fontSize: '13px', fontWeight: 600, padding: '9px 20px', borderRadius: '8px', border: `1px solid ${colors.primary}25`, cursor: 'pointer' }}>
+                                    <Upload size={14} /> Submit Your Beat
+                                </button>
+                            )}
+                            {battle.status === 'active' && !user && (
+                                <a href="/api/auth/discord/login"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '20px', backgroundColor: `${colors.primary}15`, color: colors.primary, textDecoration: 'none', fontSize: '13px', fontWeight: 600, padding: '9px 20px', borderRadius: '8px', border: `1px solid ${colors.primary}25` }}>
-                                    <MessageSquare size={14} /> Submit on Discord
+                                    <LogIn size={14} /> Log in to Submit
                                 </a>
                             )}
                         </div>
@@ -516,9 +525,9 @@ export const BattleDetailPage: React.FC = () => {
                                                     <h4 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {entry.trackTitle}
                                                     </h4>
-                                                    <p style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600 }}>
+                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         @{entry.username}
-                                                    </p>
+                                                    </Link>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                         <Flame size={11} color={ACCENT} />
                                                         <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
@@ -593,6 +602,14 @@ export const BattleDetailPage: React.FC = () => {
                     )}
                 </section>
             </div>
+            {battle && <BattleSubmitModal battleId={battle.id} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
+                setLoading(true);
+                fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => { if (data) setBattle(data); })
+                    .catch(() => {})
+                    .finally(() => setLoading(false));
+            }} />}
         </DiscoveryLayout>
     );
 };

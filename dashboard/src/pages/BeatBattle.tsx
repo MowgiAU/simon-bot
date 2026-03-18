@@ -37,7 +37,6 @@ interface Battle {
     votingStart: string | null;
     votingEnd: string | null;
     announcementChannelId: string | null;
-    categoryId: string | null;
     sponsorId: string | null;
     winnerEntryId: string | null;
     bannerUrl: string | null;
@@ -109,7 +108,7 @@ export const BeatBattlePage: React.FC = () => {
     const [form, setForm] = useState({
         title: '', description: '', rules: '',
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
-        sponsorId: '', announcementChannelId: '', categoryId: '',
+        sponsorId: '', announcementChannelId: '',
         prizes: [{ place: '1st Place', description: '' }] as { place: string; description: string }[],
         maxVotesPerUser: 0,
     });
@@ -131,7 +130,7 @@ export const BeatBattlePage: React.FC = () => {
 
     // Settings state
     const [settings, setSettings] = useState({
-        battleCategoryId: '', announcementChannelId: '', chatChannelId: '', submissionCategoryId: '', archiveCategoryId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '',
+        announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [settingsSaved, setSettingsSaved] = useState(false);
@@ -158,14 +157,12 @@ export const BeatBattlePage: React.FC = () => {
             if (res.ok) {
                 const data = await res.json();
                 setSettings({
-                    battleCategoryId: data.battleCategoryId || '',
                     announcementChannelId: data.announcementChannelId || '',
                     chatChannelId: data.chatChannelId || '',
-                    submissionCategoryId: data.submissionCategoryId || '',
-                    archiveCategoryId: data.archiveCategoryId || '',
                     discordInviteUrl: data.discordInviteUrl || '',
                     featuredBattleId: data.featuredBattleId || '',
                     sponsorSectionTitle: data.sponsorSectionTitle || '',
+                    requireMusicianProfile: data.requireMusicianProfile ?? false,
                 });
             }
         } catch {}
@@ -192,7 +189,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', categoryId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0 });
+    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0 });
 
     const handleCreateBattle = async () => {
         try {
@@ -406,7 +403,6 @@ export const BeatBattlePage: React.FC = () => {
             votingEnd: toLocalDTInput(b.votingEnd),
             sponsorId: b.sponsorId || '',
             announcementChannelId: b.announcementChannelId || '',
-            categoryId: b.categoryId || '',
             prizes: (b.prizes && (b.prizes as any[]).length > 0)
                 ? (b.prizes as { place: string; description: string }[])
                 : [{ place: '1st Place', description: '' }],
@@ -491,7 +487,7 @@ export const BeatBattlePage: React.FC = () => {
             {/* Explanation */}
             <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
-                    Beat Battles sync between Discord and the website. Create a battle here, and the bot will handle announcements, channel creation, voting, and winner spotlighting automatically.
+                    Beat Battles are hosted on the website. Create a battle here, and the bot will post announcements to Discord. All submissions and voting happen on the site.
                 </p>
             </div>
 
@@ -965,13 +961,8 @@ export const BeatBattlePage: React.FC = () => {
                         </p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                             <div>
-                                <label style={labelStyle}>Battle Channels Category</label>
-                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where battle channels are created</p>
-                                <ChannelSelect guildId={guildId} value={settings.battleCategoryId} onChange={(v) => setSettings({ ...settings, battleCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
-                            </div>
-                            <div>
                                 <label style={labelStyle}>Announcements Channel</label>
-                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Where battle announcements are posted</p>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Where battle announcements are posted to Discord</p>
                                 <ChannelSelect guildId={guildId} value={settings.announcementChannelId} onChange={(v) => setSettings({ ...settings, announcementChannelId: v as string })} channelTypes={[0, 5]} placeholder="Select Channel" />
                             </div>
                             <div>
@@ -979,19 +970,22 @@ export const BeatBattlePage: React.FC = () => {
                                 <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>General chat channel for battle discussions</p>
                                 <ChannelSelect guildId={guildId} value={settings.chatChannelId} onChange={(v) => setSettings({ ...settings, chatChannelId: v as string })} channelTypes={[0]} placeholder="Select Channel" />
                             </div>
-                            <div>
-                                <label style={labelStyle}>Submissions Category</label>
-                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where submission channels are created</p>
-                                <ChannelSelect guildId={guildId} value={settings.submissionCategoryId} onChange={(v) => setSettings({ ...settings, submissionCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Archived Submissions Category</label>
-                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Category where completed battle channels are moved</p>
-                                <ChannelSelect guildId={guildId} value={settings.archiveCategoryId} onChange={(v) => setSettings({ ...settings, archiveCategoryId: v as string })} channelTypes={[4]} placeholder="Select Category" />
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={labelStyle}>Require Musician Profile to Submit</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>If enabled, users must have a musician profile before they can submit entries</p>
+                                <button
+                                    onClick={() => setSettings({ ...settings, requireMusicianProfile: !settings.requireMusicianProfile })}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.requireMusicianProfile ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.requireMusicianProfile ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                >
+                                    <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.requireMusicianProfile ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s' }}>
+                                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px', left: settings.requireMusicianProfile ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                    </div>
+                                    {settings.requireMusicianProfile ? 'Required' : 'Not Required'}
+                                </button>
                             </div>
                             <div style={{ gridColumn: '1 / -1' }}>
                                 <label style={labelStyle}>Discord Server Invite URL</label>
-                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Shown on the public Beat Battles page so participants know where to submit their tracks</p>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Shown on the public Beat Battles page for community links</p>
                                 <input
                                     style={inputStyle}
                                     value={settings.discordInviteUrl}

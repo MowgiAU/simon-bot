@@ -5336,14 +5336,6 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             data: { battleId: entry.battleId, eventType: 'vote_cast', userId },
         }).catch(() => {});
 
-        // Sync vote count to Discord embed
-        try {
-            const { BeatBattlePlugin } = await import('../bot/plugins/BeatBattlePlugin.js');
-            // The bot instance updates the Discord message asynchronously
-            // We can't easily access the running plugin instance here, so we rely on the denormalized count
-            // The Discord embed will update on next interaction or can be triggered via the bot side
-        } catch {}
-
         res.json({ voteCount: updated.voteCount, voted: true });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
@@ -5351,7 +5343,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
     }
 });
 
-// --- Auth: Submit entry via web ---
+// --- Auth: Submit entry via web (upload or library track) ---
 app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'artwork', maxCount: 1 },
@@ -5360,6 +5352,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const userId = req.session.user.id;
         const battleId = req.params.battleId;
         const title = req.body.title;
+        const trackId = req.body.trackId; // optional — library track submission
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5367,44 +5360,70 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         if (battle.status !== 'active') return res.status(400).json({ error: 'This battle is not accepting submissions' });
 
+        // Check requireMusicianProfile setting
+        const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+        if (guildSettings?.requireMusicianProfile) {
+            const profile = await db.musicianProfile.findFirst({ where: { userId } });
+            if (!profile) {
+                return res.status(403).json({ error: 'A musician profile is required to submit. Create one first.' });
+            }
+        }
+
         // Check duplicate entry
         const existing = await db.battleEntry.findUnique({
             where: { battleId_userId: { battleId, userId } },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
 
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const audioFile = files['audio']?.[0];
-        if (!audioFile) return res.status(400).json({ error: 'Audio file is required' });
-
-        // Virus scan before processing
-        await scanFileForViruses(audioFile.path, 'audio');
-        const artworkFileBattle = files['artwork']?.[0];
-        if (artworkFileBattle) await scanFileForViruses(artworkFileBattle.path, 'artwork');
-
-        // Move audio to battles folder
-        const battlesDir = path.join(PROJECT_ROOT, 'public/uploads/battles');
-        if (!fs.existsSync(battlesDir)) fs.mkdirSync(battlesDir, { recursive: true });
-
-        const uniqueName = `battle-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(audioFile.originalname)}`;
-        const destPath = path.join(battlesDir, uniqueName);
-        fs.renameSync(audioFile.path, destPath);
-        const audioUrl = `/uploads/battles/${uniqueName}`;
-
-        let coverUrl: string | undefined;
-        if (artworkFileBattle) {
-            coverUrl = `/uploads/artwork/${path.basename(artworkFileBattle.path)}`;
-        }
-
         // Get username from Discord API
         let username = 'Unknown';
+        let avatarUrl: string | undefined;
         try {
             const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
                 headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
                 timeout: 5000,
             });
             username = userRes.data.global_name || userRes.data.username || 'Unknown';
+            if (userRes.data.avatar) {
+                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=256`;
+            }
         } catch {}
+
+        let audioUrl: string;
+        let coverUrl: string | undefined;
+
+        if (trackId) {
+            // ─── Library track submission ───
+            const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+            if (!track) return res.status(404).json({ error: 'Track not found' });
+            if (track.profile.userId !== userId) return res.status(403).json({ error: 'You can only submit your own tracks' });
+            audioUrl = track.url;
+            coverUrl = track.coverUrl || undefined;
+            // Use profile display name if available
+            username = track.profile.displayName || track.profile.username || username;
+            avatarUrl = track.profile.avatar || avatarUrl;
+        } else {
+            // ─── Direct upload submission ───
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+            const audioFile = files['audio']?.[0];
+            if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
+
+            await scanFileForViruses(audioFile.path, 'audio');
+            const artworkFileBattle = files['artwork']?.[0];
+            if (artworkFileBattle) await scanFileForViruses(artworkFileBattle.path, 'artwork');
+
+            const battlesDir = path.join(PROJECT_ROOT, 'public/uploads/battles');
+            if (!fs.existsSync(battlesDir)) fs.mkdirSync(battlesDir, { recursive: true });
+
+            const uniqueName = `battle-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(audioFile.originalname)}`;
+            const destPath = path.join(battlesDir, uniqueName);
+            fs.renameSync(audioFile.path, destPath);
+            audioUrl = `/uploads/battles/${uniqueName}`;
+
+            if (artworkFileBattle) {
+                coverUrl = `/uploads/artwork/${path.basename(artworkFileBattle.path)}`;
+            }
+        }
 
         const entry = await db.battleEntry.create({
             data: {
@@ -5414,6 +5433,8 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
                 trackTitle: title,
                 audioUrl,
                 coverUrl,
+                avatarUrl,
+                trackId: trackId || null,
                 source: 'web',
             },
         });
@@ -5432,7 +5453,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId, maxVotesPerUser } = req.body;
+        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5452,7 +5473,6 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 votingEnd: votingEnd ? new Date(votingEnd) : null,
                 sponsorId: sponsorId || null,
                 announcementChannelId: announcementChannelId || null,
-                categoryId: categoryId || null,
                 maxVotesPerUser: maxVotesPerUser != null ? Number(maxVotesPerUser) : 0,
                 createdBy: req.session.user.id,
             },
@@ -5480,7 +5500,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, categoryId, maxVotesPerUser } = req.body;
+        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -5498,7 +5518,6 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (votingEnd !== undefined) data.votingEnd = votingEnd ? new Date(votingEnd) : null;
         if (sponsorId !== undefined) data.sponsorId = sponsorId || null;
         if (announcementChannelId !== undefined) data.announcementChannelId = announcementChannelId;
-        if (categoryId !== undefined) data.categoryId = categoryId;
         if (maxVotesPerUser !== undefined) data.maxVotesPerUser = Number(maxVotesPerUser);
 
         const battle = await db.beatBattle.update({
@@ -5511,86 +5530,11 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         const newStatus = status;
         const statusChanged = newStatus && newStatus !== oldBattle.status;
         if (statusChanged) {
-            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-
-            // → Active: create submissions channel if missing
-            if (newStatus === 'active' && !battle.submissionChannelId) {
-                try {
-                    const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
-                    const catId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
-                    const body: any = {
-                        name: channelName, type: 0,
-                        topic: `Submit your beats for: ${battle.title}`,
-                        rate_limit_per_user: 10,
-                        permission_overwrites: [{ id: battle.guildId, type: 0, allow: '101376', deny: '0' }],
-                    };
-                    if (catId) body.parent_id = catId;
-                    const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
-                    const chId = chRes.data.id;
-                    await db.beatBattle.update({ where: { id: battle.id }, data: { submissionChannelId: chId } });
-                    battle.submissionChannelId = chId;
-                    await discordReq('POST', `/channels/${chId}/messages`, {
-                        embeds: [{ title: `🎵 ${battle.title} — Submissions Open!`, description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!', color: 0x2B8C71, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
-                    });
-                } catch (err: any) {
-                    logger.error(`Beat Battle: failed to create channel on manual activate: ${err.message}`);
-                }
-            }
-
-            // → Voting: lock submissions channel + add vote buttons
-            if (newStatus === 'voting' && battle.submissionChannelId) {
-                try {
-                    await discordReq('PUT', `/channels/${battle.submissionChannelId}/permissions/${battle.guildId}`, {
-                        type: 0, allow: '66560', deny: '34816',
-                    });
-                    const entryCount = await db.battleEntry.count({ where: { battleId: battle.id } });
-                    await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
-                        embeds: [{ title: '🔒 Submissions Closed', description: `Submissions for **${battle.title}** are now closed.\n\n**${entryCount}** ${entryCount === 1 ? 'entry' : 'entries'} received. Voting is now open — hit the 🔥 button on your favorite beat!`, color: 0xFFA500, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
-                    });
-
-                    // Add vote buttons to all existing entry embeds
-                    const entries = await db.battleEntry.findMany({
-                        where: { battleId: battle.id, discordMsgId: { not: null } },
-                    });
-                    for (const entry of entries) {
-                        try {
-                            await discordReq('PATCH', `/channels/${battle.submissionChannelId}/messages/${entry.discordMsgId}`, {
-                                components: [{
-                                    type: 1,
-                                    components: [{
-                                        type: 2, style: 1, custom_id: `battle_vote_${entry.id}`,
-                                        label: `Vote (${entry.voteCount})`, emoji: { name: '🔥' },
-                                    }],
-                                }],
-                            });
-                        } catch {}
-                    }
-                    logger.info(`Beat Battle: added vote buttons to ${entries.length} entries on manual voting transition`);
-                } catch (err: any) {
-                    logger.error(`Beat Battle: failed to lock channel on manual voting: ${err.message}`);
-                }
-            }
-
-            // → Completed: determine winner, post result, archive
+            // → Completed: determine winner
             if (newStatus === 'completed') {
                 const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
                 if (winner) {
                     await db.beatBattle.update({ where: { id: battle.id }, data: { winnerEntryId: winner.id } });
-                    if (battle.submissionChannelId) {
-                        try {
-                            await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
-                                embeds: [{ title: `🏆 ${battle.title} — Winner!`, description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`, color: 0xFFD700, footer: { text: 'Fuji Studio Beat Battle' }, timestamp: new Date().toISOString() }],
-                            });
-                        } catch {}
-                    }
-                }
-                if (battle.submissionChannelId && settings?.archiveCategoryId) {
-                    try {
-                        await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
-                            parent_id: settings.archiveCategoryId,
-                            name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
-                        });
-                    } catch {}
                 }
             }
 
@@ -5684,6 +5628,23 @@ app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
     }
 });
 
+// --- Auth: Get current user's library tracks (for battle submission picker) ---
+app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) return res.json([]);
+        const tracks = await db.track.findMany({
+            where: { profileId: profile.id, status: 'active', isPublic: true },
+            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(tracks);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- Shared helper: post a battle announcement embed to a Discord channel via REST ---
 async function postBattleAnnouncement(battle: any, settings: any): Promise<string | null> {
     const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
@@ -5700,14 +5661,11 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.submissionEnd) {
             fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.submissionChannelId) {
-            fields.push({ name: 'Submissions Channel', value: `<#${battle.submissionChannelId}>`, inline: true });
-        }
         if (battle.rules) fields.push({ name: '📋 Rules', value: battle.rules });
-        fields.push({ name: '🌐 Website', value: `[View on Fuji Studio](${apiUrl}/battles)` });
+        fields.push({ name: '🌐 Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
             title: `🎤 New Beat Battle: ${battle.title}`,
-            description: battle.description || 'A new battle has begun! Submit your beats.',
+            description: battle.description || 'A new battle has begun! Submit your beats on the website.',
             color: 0x2B8C71,
             fields,
             footer: { text: 'Fuji Studio Beat Battle' },
@@ -5718,9 +5676,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.votingEnd) {
             fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
         }
+        fields.push({ name: '🌐 Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
             title: `🗳️ ${battle.title} — Voting is Now Open!`,
-            description: 'Submissions are closed. Head to the submissions channel and hit the 🔥 Vote button on your favorite beat, or vote on the website!',
+            description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
             color: 0xFFA500,
             fields,
             footer: { text: 'Fuji Studio Beat Battle' },
@@ -6096,14 +6055,12 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         const settings = await db.beatBattleSettings.findUnique({ where: { guildId } });
         res.json(settings || {
             guildId,
-            battleCategoryId: null,
             announcementChannelId: null,
             chatChannelId: null,
-            submissionCategoryId: null,
-            archiveCategoryId: null,
             discordInviteUrl: null,
             featuredBattleId: null,
             sponsorSectionTitle: null,
+            requireMusicianProfile: false,
         });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -6117,12 +6074,12 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId, sponsorSectionTitle } = req.body;
+        const { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId, sponsorSectionTitle, requireMusicianProfile } = req.body;
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
-            update: { battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null },
-            create: { guildId, battleCategoryId, announcementChannelId, chatChannelId, submissionCategoryId, archiveCategoryId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null },
+            update: { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null, requireMusicianProfile: requireMusicianProfile ?? false },
+            create: { guildId, announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null, requireMusicianProfile: requireMusicianProfile ?? false },
         });
         res.json(settings);
     } catch (e: any) {
@@ -6238,89 +6195,15 @@ async function runBeatBattleLifecycle(): Promise<void> {
         for (const battle of toActivate) {
             try {
                 logger.info(`Beat Battle lifecycle: activating "${battle.title}"`);
+                await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'active' } });
                 const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-
-                let submissionChannelId = battle.submissionChannelId;
-                if (!submissionChannelId) {
-                    try {
-                        const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
-                        const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
-                        const body: any = {
-                            name: channelName,
-                            type: 0,
-                            topic: `Submit your beats for: ${battle.title}`,
-                            rate_limit_per_user: 10,
-                            permission_overwrites: [
-                                { id: battle.guildId, type: 0, allow: '101376', deny: '0' },
-                            ],
-                        };
-                        if (categoryId) body.parent_id = categoryId;
-
-                        const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
-                        submissionChannelId = chRes.data.id;
-
-                        const instrEmbed = {
-                            title: `🎵 ${battle.title} — Submissions Open!`,
-                            description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
-                            color: 0x2B8C71,
-                            footer: { text: 'Fuji Studio Beat Battle' },
-                            timestamp: new Date().toISOString(),
-                        };
-                        await discordReq('POST', `/channels/${submissionChannelId}/messages`, { embeds: [instrEmbed] });
-                    } catch (err: any) {
-                        logger.error(`Beat Battle lifecycle: failed to create submissions channel for "${battle.title}": ${err.message}`);
-                    }
-                }
-
-                await db.beatBattle.update({
-                    where: { id: battle.id },
-                    data: { status: 'active', submissionChannelId },
-                });
-
-                const updatedBattle = { ...battle, status: 'active', submissionChannelId };
-                await postBattleAnnouncement(updatedBattle, settings);
+                await postBattleAnnouncement({ ...battle, status: 'active' }, settings);
             } catch (err: any) {
                 logger.error(`Beat Battle lifecycle: failed to activate "${battle.title}": ${err.message}`);
             }
         }
 
-        // ---------- 2. Active battles still missing a submissions channel ----------
-        const noChannel = await db.beatBattle.findMany({
-            where: { status: 'active', submissionChannelId: null },
-        });
-        for (const battle of noChannel) {
-            try {
-                logger.info(`Beat Battle lifecycle: creating missing channel for active battle "${battle.title}"`);
-                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-                const channelName = `submissions-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
-                const categoryId = battle.categoryId || settings?.submissionCategoryId || settings?.battleCategoryId || undefined;
-                const body: any = {
-                    name: channelName,
-                    type: 0,
-                    topic: `Submit your beats for: ${battle.title}`,
-                    rate_limit_per_user: 10,
-                    permission_overwrites: [
-                        { id: battle.guildId, type: 0, allow: '101376', deny: '0' },
-                    ],
-                };
-                if (categoryId) body.parent_id = categoryId;
-                const chRes = await discordReq('POST', `/guilds/${battle.guildId}/channels`, body);
-                const channelId = chRes.data.id;
-                const instrEmbed = {
-                    title: `🎵 ${battle.title} — Submissions Open!`,
-                    description: 'Drop your audio file (MP3/WAV) in this channel to submit.\n\nOne entry per person. Good luck!',
-                    color: 0x2B8C71,
-                    footer: { text: 'Fuji Studio Beat Battle' },
-                    timestamp: new Date().toISOString(),
-                };
-                await discordReq('POST', `/channels/${channelId}/messages`, { embeds: [instrEmbed] });
-                await db.beatBattle.update({ where: { id: battle.id }, data: { submissionChannelId: channelId } });
-            } catch (err: any) {
-                logger.error(`Beat Battle lifecycle: failed to create channel for "${battle.title}": ${err.message}`);
-            }
-        }
-
-        // ---------- 3. Active → Voting (submissionEnd passed) ----------
+        // ---------- 2. Active → Voting (submissionEnd passed) ----------
         const toVoting = await db.beatBattle.findMany({
             where: { status: 'active', submissionEnd: { not: null, lte: now } },
         });
@@ -6330,51 +6213,6 @@ async function runBeatBattleLifecycle(): Promise<void> {
             try {
                 logger.info(`Beat Battle lifecycle: "${battle.title}" → voting`);
                 await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
-
-                // Lock submissions channel — deny SEND_MESSAGES + ATTACH_FILES for @everyone
-                if (battle.submissionChannelId) {
-                    try {
-                        await discordReq('PUT', `/channels/${battle.submissionChannelId}/permissions/${battle.guildId}`, {
-                            type: 0,
-                            allow: '66560',  // VIEW_CHANNEL(1024) + READ_MESSAGE_HISTORY(65536)
-                            deny: '34816',   // SEND_MESSAGES(2048) + ATTACH_FILES(32768)
-                        });
-
-                        const entryCount = await db.battleEntry.count({ where: { battleId: battle.id } });
-                        await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
-                            embeds: [{
-                                title: '🔒 Submissions Closed',
-                                description: `Submissions for **${battle.title}** are now closed.\n\n**${entryCount}** ${entryCount === 1 ? 'entry' : 'entries'} received. Voting is now open — hit the 🔥 button on your favorite beat!`,
-                                color: 0xFFA500,
-                                footer: { text: 'Fuji Studio Beat Battle' },
-                                timestamp: new Date().toISOString(),
-                            }],
-                        });
-
-                        // Add vote buttons to all existing entry embeds
-                        const entries = await db.battleEntry.findMany({
-                            where: { battleId: battle.id, discordMsgId: { not: null } },
-                        });
-                        for (const entry of entries) {
-                            try {
-                                await discordReq('PATCH', `/channels/${battle.submissionChannelId}/messages/${entry.discordMsgId}`, {
-                                    components: [{
-                                        type: 1,
-                                        components: [{
-                                            type: 2, style: 1, custom_id: `battle_vote_${entry.id}`,
-                                            label: `Vote (${entry.voteCount})`, emoji: { name: '🔥' },
-                                        }],
-                                    }],
-                                });
-                            } catch {}
-                        }
-                        logger.info(`Beat Battle lifecycle: added vote buttons to ${entries.length} entries for "${battle.title}"`);
-                    } catch (err: any) {
-                        logger.error(`Beat Battle lifecycle: failed to lock channel for "${battle.title}": ${err.message}`);
-                    }
-                }
-
-                // Announce voting phase
                 const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
                 await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
             } catch (err: any) {
@@ -6382,7 +6220,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 4. Voting → Completed (votingEnd passed) ----------
+        // ---------- 3. Voting → Completed (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
             include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
@@ -6397,38 +6235,8 @@ async function runBeatBattleLifecycle(): Promise<void> {
                     where: { id: battle.id },
                     data: { status: 'completed', winnerEntryId: winner?.id || null },
                 });
-
                 const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
                 await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
-
-                // Post winner in submissions channel
-                if (battle.submissionChannelId && winner) {
-                    try {
-                        await discordReq('POST', `/channels/${battle.submissionChannelId}/messages`, {
-                            embeds: [{
-                                title: `🏆 ${battle.title} — Winner!`,
-                                description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
-                                color: 0xFFD700,
-                                footer: { text: 'Fuji Studio Beat Battle' },
-                                timestamp: new Date().toISOString(),
-                            }],
-                        });
-                    } catch (err: any) {
-                        logger.error(`Beat Battle lifecycle: failed to post winner in channel: ${err.message}`);
-                    }
-                }
-
-                // Archive submissions channel to archive category
-                if (battle.submissionChannelId && settings?.archiveCategoryId) {
-                    try {
-                        await discordReq('PATCH', `/channels/${battle.submissionChannelId}`, {
-                            parent_id: settings.archiveCategoryId,
-                            name: `archived-${battle.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 25)}`,
-                        });
-                    } catch (err: any) {
-                        logger.error(`Beat Battle lifecycle: failed to archive channel: ${err.message}`);
-                    }
-                }
             } catch (err: any) {
                 logger.error(`Beat Battle lifecycle: failed to complete "${battle.title}": ${err.message}`);
             }

@@ -6,8 +6,9 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     Swords, Trophy, Users, Play, Pause, Vote,
-    LogIn, ExternalLink, Flame, MessageSquare, Zap, History
+    LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload
 } from 'lucide-react';
+import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -39,7 +40,6 @@ interface Battle {
     votingEnd: string | null;
     winnerEntryId: string | null;
     discordInviteUrl: string | null;
-    submissionChannelId?: string | null;
     bannerUrl: string | null;
     sponsor: { id: string; name: string; logoUrl: string | null; websiteUrl: string | null; links: { id: string; label: string; url: string }[] } | null;
     entries?: Entry[];
@@ -78,6 +78,7 @@ export const BattlesPage: React.FC = () => {
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
     const [votingId, setVotingId] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
     const [hallOfFame, setHallOfFame] = useState<Array<{ battle: Battle; winner: Entry | null }>>([]);
     const [globalSponsors, setGlobalSponsors] = useState<PublicSponsor[]>([]);
@@ -258,10 +259,16 @@ export const BattlesPage: React.FC = () => {
                                 )}
                                 {/* CTA buttons row */}
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
-                                    {currentBattle.status === 'active' && currentBattle.discordInviteUrl && (
-                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                    {currentBattle.status === 'active' && user && (
+                                        <button onClick={() => setShowSubmitModal(true)}
+                                            style={{ backgroundColor: colors.primary, color: '#fff', padding: isMobile ? '11px 22px' : '14px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
+                                            <Upload size={16} /> Submit Entry
+                                        </button>
+                                    )}
+                                    {currentBattle.status === 'active' && !user && (
+                                        <a href="/api/auth/discord/login"
                                             style={{ backgroundColor: colors.primary, color: '#fff', padding: isMobile ? '11px 22px' : '14px 36px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
-                                            <MessageSquare size={16} /> Join Battle
+                                            <LogIn size={16} /> Log in to Submit
                                         </a>
                                     )}
                                     {currentBattle.status === 'voting' && (
@@ -270,11 +277,11 @@ export const BattlesPage: React.FC = () => {
                                             <Vote size={16} /> Vote Now
                                         </button>
                                     )}
-                                    {currentBattle.status === 'upcoming' && currentBattle.discordInviteUrl && (
-                                        <a href={currentBattle.discordInviteUrl} target="_blank" rel="noopener noreferrer"
+                                    {currentBattle.status === 'upcoming' && (
+                                        <Link to={`/battles/${currentBattle.id}`}
                                             style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '14px 32px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
-                                            <MessageSquare size={16} /> Get Notified
-                                        </a>
+                                            <Swords size={16} /> View Details
+                                        </Link>
                                     )}
                                     <Link to={`/battles/${currentBattle.id}`}
                                         style={{ color: 'rgba(255,255,255,0.45)', fontSize: isMobile ? '12px' : '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: isMobile ? '11px 18px' : '14px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
@@ -287,7 +294,7 @@ export const BattlesPage: React.FC = () => {
                         <div style={{ padding: '60px 40px', textAlign: 'center', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
                             <Swords size={48} color={colors.textSecondary} style={{ opacity: 0.3, marginBottom: '16px' }} />
                             <p style={{ color: colors.textSecondary, fontSize: '16px', margin: 0 }}>No active battle right now.</p>
-                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon â€” battles are announced in Discord.</p>
+                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon — new battles are coming!</p>
                         </div>
                     )}
                 </div>
@@ -368,8 +375,8 @@ export const BattlesPage: React.FC = () => {
                                 </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                                     {[
-                                        { n: 1, title: 'Join the Discord', desc: 'Find the beat battle category and read the rules for the current battle.' },
-                                        { n: 2, title: 'Post Your Beat', desc: 'Upload your MP3 or WAV in the submissions channel. Aim for 320kbps quality.' },
+                                        { n: 1, title: 'Log In', desc: 'Sign in with your Discord account to access battle submissions and voting.' },
+                                        { n: 2, title: 'Submit Your Beat', desc: 'Upload a new track or choose one from your music library right here on the site.' },
                                         { n: 3, title: 'Share & Get Votes', desc: 'Rally your community! The most voted beats advance to win prizes.' },
                                     ].map(({ n, title, desc }) => (
                                         <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -460,7 +467,7 @@ export const BattlesPage: React.FC = () => {
                                                 )}
                                                 <div>
                                                     <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block' }}>{entry.trackTitle}</Link>
-                                                    <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by {entry.username}</p>
+                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px', textDecoration: 'none' }}>by {entry.username}</Link>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', gap: '6px' }}>
@@ -542,6 +549,7 @@ export const BattlesPage: React.FC = () => {
                     )}
                 </div>
             </div>
+            {currentBattle && <BattleSubmitModal battleId={currentBattle.id} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={load} />}
         </DiscoveryLayout>
     );
 };
