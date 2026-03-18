@@ -951,6 +951,7 @@ model BeatBattle {
   description         String?  @db.Text
   status              String   @default("upcoming") // upcoming | active | voting | completed
   rules               String?  @db.Text
+  rulesData           Json?    // Array of { text, links: {label,url}[], samples: {name,url}[] }
 
   // Scheduling
   submissionStart     DateTime?

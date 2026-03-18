@@ -5572,7 +5572,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
+        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -5583,7 +5583,8 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 guildId: effectiveGuildId,
                 title,
                 description,
-                rules,
+                rules: rules || (Array.isArray(rulesData) ? rulesData.map((r: any) => r.text || '').filter(Boolean).join('\n') : null),
+                rulesData: rulesData || null,
                 prizes: prizes || [],
                 status: submissionStart && new Date(submissionStart) > new Date() ? 'upcoming' : 'active',
                 submissionStart: submissionStart ? new Date(submissionStart) : new Date(),
@@ -5620,7 +5621,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
+        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -5630,6 +5631,11 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (title !== undefined) data.title = title;
         if (description !== undefined) data.description = description;
         if (rules !== undefined) data.rules = rules;
+        if (rulesData !== undefined) {
+            data.rulesData = rulesData;
+            // keep plain-text rules in sync for backward compat
+            if (Array.isArray(rulesData)) data.rules = rulesData.map((r: any) => r.text || '').filter(Boolean).join('\n');
+        }
         if (prizes !== undefined) data.prizes = prizes;
         if (status !== undefined) data.status = status;
         if (submissionStart !== undefined) data.submissionStart = submissionStart ? new Date(submissionStart) : null;
@@ -5999,6 +6005,40 @@ app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single
 });
 
 // --- Admin: Upload battle banner image ---
+// --- Admin: Upload prize image (no battle ID required) ---
+app.post('/api/beat-battle/admin/prize-image', requireAdmin, upload.single('prizeImage'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const localUrl = `/uploads/battle-prizes/${req.file.filename}`;
+        const finalUrl = await uploadToR2OrLocal(
+            req.file.path,
+            `battle-prizes/${req.file.filename}`,
+            req.file.mimetype,
+            localUrl
+        );
+        res.json({ url: finalUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Admin: Upload rule audio sample (no battle ID required) ---
+app.post('/api/beat-battle/admin/rule-sample', requireAdmin, upload.single('ruleSample'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const localUrl = `/uploads/battle-rule-samples/${req.file.filename}`;
+        const finalUrl = await uploadToR2OrLocal(
+            req.file.path,
+            `battle-rule-samples/${req.file.filename}`,
+            'audio/mpeg',
+            localUrl
+        );
+        res.json({ url: finalUrl, name: req.file.originalname });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.single('battleBanner'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });

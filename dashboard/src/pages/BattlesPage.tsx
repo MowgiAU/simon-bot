@@ -37,7 +37,8 @@ interface Battle {
     description: string | null;
     status: string;
     rules: string | null;
-    prizes: { place: string; description: string }[] | null;
+    rulesData?: { text: string; links?: { label: string; url: string }[]; samples?: { name: string; url: string }[] }[] | null;
+    prizes: { place: string; title?: string; description: string; imageUrl?: string; link?: string }[] | null;
     submissionStart: string | null;
     submissionEnd: string | null;
     votingStart: string | null;

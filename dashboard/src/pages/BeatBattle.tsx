@@ -6,7 +6,8 @@ import {
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
-    Building2, Link2, FileDown, Settings, Gift, Megaphone
+    Building2, Link2, FileDown, Settings, Gift, Megaphone,
+    Image, Loader2, Music, Pause, Download
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -31,7 +32,8 @@ interface Battle {
     description: string | null;
     status: string;
     rules: string | null;
-    prizes: { place: string; description: string }[] | null;
+    rulesData: { text: string; links: { label: string; url: string }[]; samples: { name: string; url: string }[] }[] | null;
+    prizes: { place: string; title: string; description: string; imageUrl?: string; link?: string }[] | null;
     submissionStart: string | null;
     submissionEnd: string | null;
     votingStart: string | null;
@@ -106,13 +108,16 @@ export const BeatBattlePage: React.FC = () => {
 
     // Form state
     const [form, setForm] = useState({
-        title: '', description: '', rules: '',
+        title: '', description: '',
+        rulesData: [{ text: '', links: [] as { label: string; url: string }[], samples: [] as { name: string; url: string }[] }],
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
         sponsorId: '', announcementChannelId: '',
-        prizes: [{ place: '1st Place', description: '' }] as { place: string; description: string }[],
+        prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }] as { place: string; title: string; description: string; imageUrl: string; link: string }[],
         maxVotesPerUser: 0,
         requireProjectFile: false,
     });
+    const [uploadingPrizeIdx, setUploadingPrizeIdx] = useState<number | null>(null);
+    const [uploadingRuleIdx, setUploadingRuleIdx] = useState<number | null>(null);
 
     // Sponsor form
     const [showSponsorForm, setShowSponsorForm] = useState(false);
@@ -190,7 +195,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0, requireProjectFile: false });
+    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false });
 
     const handleCreateBattle = async () => {
         try {
@@ -199,12 +204,20 @@ export const BeatBattlePage: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    ...form,
+                    title: form.title,
+                    description: form.description,
+                    rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
+                    rulesData: form.rulesData,
+                    prizes: form.prizes,
                     guildId,
                     submissionStart: localDTToISO(form.submissionStart),
                     submissionEnd: localDTToISO(form.submissionEnd),
                     votingStart: localDTToISO(form.votingStart),
                     votingEnd: localDTToISO(form.votingEnd),
+                    sponsorId: form.sponsorId,
+                    announcementChannelId: form.announcementChannelId,
+                    maxVotesPerUser: form.maxVotesPerUser,
+                    requireProjectFile: form.requireProjectFile,
                 }),
             });
             if (res.ok) {
@@ -236,11 +249,19 @@ export const BeatBattlePage: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    ...form,
+                    title: form.title,
+                    description: form.description,
+                    rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
+                    rulesData: form.rulesData,
+                    prizes: form.prizes,
                     submissionStart: localDTToISO(form.submissionStart),
                     submissionEnd: localDTToISO(form.submissionEnd),
                     votingStart: localDTToISO(form.votingStart),
                     votingEnd: localDTToISO(form.votingEnd),
+                    sponsorId: form.sponsorId,
+                    announcementChannelId: form.announcementChannelId,
+                    maxVotesPerUser: form.maxVotesPerUser,
+                    requireProjectFile: form.requireProjectFile,
                 }),
             });
             if (res.ok) {
@@ -259,6 +280,36 @@ export const BeatBattlePage: React.FC = () => {
             await fetch(`${API}/api/beat-battle/admin/battles/${id}`, { method: 'DELETE', credentials: 'include' });
             await fetchBattles();
         } catch {}
+    };
+
+    const uploadPrizeImage = async (idx: number, file: File) => {
+        setUploadingPrizeIdx(idx);
+        try {
+            const fd = new FormData();
+            fd.append('prizeImage', file);
+            const res = await fetch(`${API}/api/beat-battle/admin/prize-image`, { method: 'POST', credentials: 'include', body: fd });
+            if (res.ok) {
+                const { url } = await res.json();
+                setForm(f => { const p = [...f.prizes]; p[idx] = { ...p[idx], imageUrl: url }; return { ...f, prizes: p }; });
+            }
+        } catch {} finally { setUploadingPrizeIdx(null); }
+    };
+
+    const uploadRuleSample = async (ruleIdx: number, file: File) => {
+        setUploadingRuleIdx(ruleIdx);
+        try {
+            const fd = new FormData();
+            fd.append('ruleSample', file);
+            const res = await fetch(`${API}/api/beat-battle/admin/rule-sample`, { method: 'POST', credentials: 'include', body: fd });
+            if (res.ok) {
+                const { url, name } = await res.json();
+                setForm(f => {
+                    const rd = [...f.rulesData];
+                    rd[ruleIdx] = { ...rd[ruleIdx], samples: [...rd[ruleIdx].samples, { name, url }] };
+                    return { ...f, rulesData: rd };
+                });
+            }
+        } catch {} finally { setUploadingRuleIdx(null); }
     };
 
     const handleStatusChange = async (id: string, status: string) => {
@@ -397,7 +448,9 @@ export const BeatBattlePage: React.FC = () => {
         setForm({
             title: b.title,
             description: b.description || '',
-            rules: b.rules || '',
+            rulesData: (b.rulesData && (b.rulesData as any[]).length > 0)
+                ? (b.rulesData as any[]).map(r => ({ text: r.text || '', links: r.links || [], samples: r.samples || [] }))
+                : (b.rules || '').split('\n').filter(Boolean).map(text => ({ text, links: [], samples: [] })),
             submissionStart: toLocalDTInput(b.submissionStart),
             submissionEnd: toLocalDTInput(b.submissionEnd),
             votingStart: toLocalDTInput(b.votingStart),
@@ -405,8 +458,8 @@ export const BeatBattlePage: React.FC = () => {
             sponsorId: b.sponsorId || '',
             announcementChannelId: b.announcementChannelId || '',
             prizes: (b.prizes && (b.prizes as any[]).length > 0)
-                ? (b.prizes as { place: string; description: string }[])
-                : [{ place: '1st Place', description: '' }],
+                ? (b.prizes as any[]).map(p => ({ place: p.place || '', title: p.title || '', description: p.description || '', imageUrl: p.imageUrl || '', link: p.link || '' }))
+                : [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }],
             maxVotesPerUser: (b as any).maxVotesPerUser || 0,
             requireProjectFile: (b as any).requireProjectFile || false,
         });
@@ -545,7 +598,50 @@ export const BeatBattlePage: React.FC = () => {
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Rules</label>
-                                    <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="One entry per person..." />
+                                    {form.rulesData.map((rule, ri) => (
+                                        <div key={ri} style={{ marginBottom: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.07)' }}>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                                <textarea
+                                                    style={{ ...inputStyle, flex: 1, minHeight: '48px', resize: 'vertical' }}
+                                                    value={rule.text}
+                                                    onChange={(e) => { const rd = [...form.rulesData]; rd[ri] = { ...rd[ri], text: e.target.value }; setForm({ ...form, rulesData: rd }); }}
+                                                    placeholder="Describe the rule..."
+                                                />
+                                                <button onClick={() => setForm({ ...form, rulesData: form.rulesData.filter((_, idx) => idx !== ri) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px', flexShrink: 0 }}><X size={14} /></button>
+                                            </div>
+                                            {/* Links */}
+                                            <div style={{ marginTop: '8px' }}>
+                                                <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '4px', fontWeight: 600 }}>Links</div>
+                                                {rule.links.map((lnk, li) => (
+                                                    <div key={li} style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
+                                                        <input style={{ ...inputStyle, flex: '0 0 150px', padding: '6px 8px', fontSize: '12px' }} value={lnk.label} onChange={(e) => { const rd = [...form.rulesData]; rd[ri].links[li] = { ...rd[ri].links[li], label: e.target.value }; setForm({ ...form, rulesData: rd }); }} placeholder="Label (e.g. Plugin name)" />
+                                                        <input style={{ ...inputStyle, flex: 1, padding: '6px 8px', fontSize: '12px' }} value={lnk.url} onChange={(e) => { const rd = [...form.rulesData]; rd[ri].links[li] = { ...rd[ri].links[li], url: e.target.value }; setForm({ ...form, rulesData: rd }); }} placeholder="https://..." />
+                                                        <button onClick={() => { const rd = [...form.rulesData]; rd[ri] = { ...rd[ri], links: rd[ri].links.filter((_, idx) => idx !== li) }; setForm({ ...form, rulesData: rd }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px' }}><X size={12} /></button>
+                                                    </div>
+                                                ))}
+                                                <button onClick={() => { const rd = [...form.rulesData]; rd[ri] = { ...rd[ri], links: [...rd[ri].links, { label: '', url: '' }] }; setForm({ ...form, rulesData: rd }); }} style={{ ...btnSecondary, fontSize: '11px', padding: '3px 8px' }}><Link2 size={11} /> Add Link</button>
+                                            </div>
+                                            {/* Samples */}
+                                            <div style={{ marginTop: '8px' }}>
+                                                <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '4px', fontWeight: 600 }}>Audio Samples (Optional)</div>
+                                                {rule.samples.map((s, si) => (
+                                                    <div key={si} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', padding: '4px 8px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <Music size={12} color={colors.textSecondary} />
+                                                        <span style={{ fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: colors.textPrimary }}>{s.name}</span>
+                                                        <button onClick={() => { const rd = [...form.rulesData]; rd[ri] = { ...rd[ri], samples: rd[ri].samples.filter((_, idx) => idx !== si) }; setForm({ ...form, rulesData: rd }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px' }}><X size={12} /></button>
+                                                    </div>
+                                                ))}
+                                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, cursor: uploadingRuleIdx === ri ? 'not-allowed' : 'pointer', fontSize: '11px', color: colors.textPrimary }}>
+                                                    {uploadingRuleIdx === ri ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Music size={11} />}
+                                                    {uploadingRuleIdx === ri ? 'Uploading...' : 'Add Sample'}
+                                                    <input type="file" accept="audio/*" style={{ display: 'none' }} disabled={uploadingRuleIdx === ri} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRuleSample(ri, f); e.target.value = ''; }} />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => setForm({ ...form, rulesData: [...form.rulesData, { text: '', links: [], samples: [] }] })} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                                        <Plus size={12} /> Add Rule
+                                    </button>
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Hero Banner Image</label>
@@ -573,25 +669,48 @@ export const BeatBattlePage: React.FC = () => {
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Prizes</label>
                                     {form.prizes.map((prize, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
-                                            <input
-                                                style={{ ...inputStyle, flex: '0 0 130px' }}
-                                                value={prize.place}
-                                                onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], place: e.target.value }; setForm({ ...form, prizes: p }); }}
-                                                placeholder="1st Place"
-                                            />
-                                            <input
-                                                style={{ ...inputStyle, flex: 1 }}
-                                                value={prize.description}
-                                                onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], description: e.target.value }; setForm({ ...form, prizes: p }); }}
-                                                placeholder="$100 + Splice subscription"
-                                            />
-                                            <button onClick={() => setForm({ ...form, prizes: form.prizes.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px', flexShrink: 0 }} title="Remove">
-                                                <X size={16} />
-                                            </button>
+                                        <div key={i} style={{ marginBottom: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.07)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prize #{i + 1}</span>
+                                                <button onClick={() => setForm({ ...form, prizes: form.prizes.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px' }}><X size={14} /></button>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Place Label</label>
+                                                    <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.place} onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], place: e.target.value }; setForm({ ...form, prizes: p }); }} placeholder="1st Place" />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Prize Title</label>
+                                                    <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.title} onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], title: e.target.value }; setForm({ ...form, prizes: p }); }} placeholder="Splice Subscription" />
+                                                </div>
+                                                <div style={{ gridColumn: 'span 2' }}>
+                                                    <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Description</label>
+                                                    <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.description} onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], description: e.target.value }; setForm({ ...form, prizes: p }); }} placeholder="3 months of Splice + $100 cash" />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Link (Optional)</label>
+                                                    <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.link} onChange={(e) => { const p = [...form.prizes]; p[i] = { ...p[i], link: e.target.value }; setForm({ ...form, prizes: p }); }} placeholder="https://splice.com" />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Image (Optional)</label>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, cursor: uploadingPrizeIdx === i ? 'not-allowed' : 'pointer', fontSize: '12px', color: colors.textPrimary }}>
+                                                            {uploadingPrizeIdx === i ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Image size={12} />}
+                                                            {uploadingPrizeIdx === i ? 'Uploading...' : 'Upload'}
+                                                            <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingPrizeIdx === i} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPrizeImage(i, f); e.target.value = ''; }} />
+                                                        </label>
+                                                        {prize.imageUrl && (
+                                                            <>
+                                                                <img src={prize.imageUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                                <button onClick={() => { const p = [...form.prizes]; p[i] = { ...p[i], imageUrl: '' }; setForm({ ...form, prizes: p }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px' }}><X size={12} /></button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
-                                    <button onClick={() => setForm({ ...form, prizes: [...form.prizes, { place: `${form.prizes.length + 1}${['st','nd','rd'][form.prizes.length] || 'th'} Place`, description: '' }] })} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                                    <button onClick={() => setForm({ ...form, prizes: [...form.prizes, { place: `${form.prizes.length + 1}${['st','nd','rd'][form.prizes.length] || 'th'} Place`, title: '', description: '', imageUrl: '', link: '' }] })} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
                                         <Gift size={12} /> Add Prize
                                     </button>
                                 </div>

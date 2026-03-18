@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { colors, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -7,6 +7,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import {
     ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
+    Download, Music,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
@@ -75,7 +76,8 @@ interface Battle {
     description: string | null;
     status: string;
     rules: string | null;
-    prizes: { place: string; description: string }[] | null;
+    rulesData?: { text: string; links?: { label: string; url: string }[]; samples?: { name: string; url: string }[] }[] | null;
+    prizes: { place: string; title?: string; description: string; imageUrl?: string; link?: string }[] | null;
     submissionStart: string | null;
     submissionEnd: string | null;
     votingStart: string | null;
@@ -125,6 +127,34 @@ export const BattleDetailPage: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+    // Rule sample audio player
+    const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
+    const [playingSampleUrl, setPlayingSampleUrl] = useState<string | null>(null);
+    const [sampleIsPlaying, setSampleIsPlaying] = useState(false);
+
+    useEffect(() => {
+        const audio = new Audio();
+        sampleAudioRef.current = audio;
+        const onEnded = () => { setSampleIsPlaying(false); setPlayingSampleUrl(null); };
+        audio.addEventListener('ended', onEnded);
+        return () => { audio.removeEventListener('ended', onEnded); audio.pause(); };
+    }, []);
+
+    const toggleSample = (url: string) => {
+        const audio = sampleAudioRef.current;
+        if (!audio) return;
+        const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+        if (playingSampleUrl === url) {
+            if (sampleIsPlaying) { audio.pause(); setSampleIsPlaying(false); }
+            else { audio.play(); setSampleIsPlaying(true); }
+        } else {
+            audio.pause();
+            audio.src = fullUrl;
+            setPlayingSampleUrl(url);
+            audio.play().then(() => setSampleIsPlaying(true)).catch(() => {});
+        }
+    };
 
     // Extract battleId from /battles/:id
     const battleId = pathname.split('/').filter(Boolean)[1];
@@ -199,6 +229,12 @@ export const BattleDetailPage: React.FC = () => {
     const rules = battle.rules
         ? battle.rules.split('\n').map(r => r.trim()).filter(Boolean)
         : [];
+
+    // Structured rules (new format) with backward compat for plain-text rules
+    const rulesItems: { text: string; links?: { label: string; url: string }[]; samples?: { name: string; url: string }[] }[] =
+        (battle.rulesData && (battle.rulesData as any[]).length > 0)
+            ? (battle.rulesData as any[])
+            : rules.map(text => ({ text }));
 
     const isLive = battle.status === 'active' || battle.status === 'voting';
 
@@ -415,14 +451,52 @@ export const BattleDetailPage: React.FC = () => {
                                 <Shield size={18} color={colors.primary} />
                                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.textPrimary }}>Battle Rules</h3>
                             </div>
-                            {rules.length > 0 ? (
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                    {rules.map((rule, i) => (
-                                        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                            <div style={{ marginTop: '2px', flexShrink: 0, width: '16px', height: '16px', borderRadius: '50%', backgroundColor: `${colors.primary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Check size={10} color={colors.primary} />
+                            {rulesItems.length > 0 ? (
+                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    {rulesItems.map((rule, i) => (
+                                        <li key={i}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                <div style={{ marginTop: '3px', flexShrink: 0, width: '16px', height: '16px', borderRadius: '50%', backgroundColor: `${colors.primary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Check size={10} color={colors.primary} />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>{renderWithLinks(rule.text)}</span>
+                                                    {/* Inline links */}
+                                                    {rule.links && rule.links.filter(l => l.url && l.label).length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '7px' }}>
+                                                            {rule.links.filter(l => l.url && l.label).map((lnk, li) => (
+                                                                <a key={li} href={lnk.url.startsWith('http') ? lnk.url : `https://${lnk.url}`} target="_blank" rel="noopener noreferrer"
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.primary, border: `1px solid ${colors.primary}30`, padding: '3px 9px', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
+                                                                    {lnk.label} <ExternalLink size={10} />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* Sample rows */}
+                                                    {rule.samples && rule.samples.length > 0 && (
+                                                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {rule.samples.map((sample, si) => {
+                                                                const isThis = playingSampleUrl === sample.url && sampleIsPlaying;
+                                                                const fullUrl = sample.url.startsWith('http') ? sample.url : `${API}${sample.url}`;
+                                                                return (
+                                                                    <div key={si} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: `1px solid ${isThis ? colors.primary + '40' : 'rgba(255,255,255,0.06)'}`, transition: 'border-color 0.15s' }}>
+                                                                        <button onClick={() => toggleSample(sample.url)}
+                                                                            style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', backgroundColor: isThis ? colors.primary : 'rgba(255,255,255,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background-color 0.15s' }}>
+                                                                            {isThis ? <Pause size={10} color="#fff" /> : <Play size={10} fill="#fff" color="#fff" style={{ marginLeft: '1px' }} />}
+                                                                        </button>
+                                                                        <Music size={12} color={isThis ? colors.primary : colors.textSecondary} style={{ flexShrink: 0 }} />
+                                                                        <span style={{ fontSize: '12px', color: isThis ? colors.textPrimary : colors.textSecondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.name}</span>
+                                                                        <a href={fullUrl} download={sample.name} onClick={e => e.stopPropagation()}
+                                                                            style={{ color: colors.textSecondary, display: 'flex', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Download">
+                                                                            <Download size={12} />
+                                                                        </a>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                <span style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.6 }}>{renderWithLinks(rule)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -440,14 +514,26 @@ export const BattleDetailPage: React.FC = () => {
                                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.textPrimary }}>Grand Prizes</h3>
                             </div>
                             {battle.prizes && battle.prizes.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {battle.prizes.map((p, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', backgroundColor: `${colors.primary}08`, border: `1px solid ${colors.primary}18`, borderRadius: borderRadius.md }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <span style={{ fontSize: '20px' }}>{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : i === 2 ? '\u{1F949}' : `#${i + 1}`}</span>
-                                                <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>{p.place}</span>
+                                        <div key={i} style={{ display: 'flex', gap: '14px', padding: '14px 16px', backgroundColor: `${colors.primary}08`, border: `1px solid ${colors.primary}18`, borderRadius: borderRadius.md, alignItems: 'flex-start' }}>
+                                            {p.imageUrl && (
+                                                <img src={p.imageUrl} alt={p.title || p.place} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <span style={{ fontSize: '18px' }}>{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : i === 2 ? '\u{1F949}' : `#${i + 1}`}</span>
+                                                    <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{p.place}</span>
+                                                </div>
+                                                {p.title && <p style={{ margin: '0 0 3px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>{p.title}</p>}
+                                                {p.description && <p style={{ margin: 0, fontSize: '13px', color: colors.primary, fontWeight: 600 }}>{p.description}</p>}
+                                                {p.link && (
+                                                    <a href={p.link} target="_blank" rel="noopener noreferrer"
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '8px', fontSize: '12px', color: colors.primary, border: `1px solid ${colors.primary}40`, padding: '4px 10px', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
+                                                        Learn More <ExternalLink size={10} />
+                                                    </a>
+                                                )}
                                             </div>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: colors.primary }}>{p.description}</span>
                                         </div>
                                     ))}
                                 </div>
