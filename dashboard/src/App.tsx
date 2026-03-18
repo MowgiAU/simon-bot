@@ -33,7 +33,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { UniversalSearch } from "./components/UniversalSearch";
+import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -435,6 +435,9 @@ const AppInternal: React.FC = () => {
       { test: p => p.startsWith('/category/'), title: 'Fuji Studio | Category' },
       { test: p => p === '/terms',             title: 'Fuji Studio | Terms & Privacy' },
       { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
+      { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
+      { test: p => p === '/my-favourites', title: 'Fuji Studio | My Favourites' },
+      { test: p => p === '/my-playlists', title: 'Fuji Studio | My Playlists' },
       { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
     ];
     const match = titles.find(t => t.test(currentPath));
@@ -527,6 +530,21 @@ const AppInternal: React.FC = () => {
   // /guides/project-cleanup → FL Studio project cleanup guide
   if (currentPath === '/guides/project-cleanup') {
     return <ProjectCleanupGuide />;
+  }
+
+  // /playlist/:id → View a playlist
+  if (currentPath.startsWith('/playlist/')) {
+    return <PlaylistPage />;
+  }
+
+  // /my-favourites → User's favourited tracks
+  if (currentPath === '/my-favourites') {
+    return <MyFavouritesPage />;
+  }
+
+  // /my-playlists → User's playlists
+  if (currentPath === '/my-playlists') {
+    return <MyPlaylistsPage />;
   }
 
   // /battles/entry/:entryId → Battle entry track page

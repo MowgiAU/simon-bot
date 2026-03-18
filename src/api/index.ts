@@ -4407,20 +4407,37 @@ app.get('/api/discovery/settings', async (req, res) => {
         if (!settings) {
             settings = await db.discoverySettings.create({ data: { id: 'singleton' } });
         }
-        // If there's a featured track, include full track + profile info
-        let featuredTrack = null;
-        if (settings.featuredTrackId) {
-            featuredTrack = await db.track.findUnique({
+        const result: any = { ...settings, featuredTrack: null, featuredArtist: null, featuredPlaylist: null };
+
+        // Load featured content based on type
+        if (settings.featuredType === 'track' && settings.featuredTrackId) {
+            const featuredTrack = await db.track.findUnique({
                 where: { id: settings.featuredTrackId },
                 include: { profile: true }
             }) as any;
-
             if (featuredTrack) {
                 if (featuredTrack.allowAudioDownload === undefined) featuredTrack.allowAudioDownload = true;
                 if (featuredTrack.allowProjectDownload === undefined) featuredTrack.allowProjectDownload = true;
             }
+            result.featuredTrack = featuredTrack;
+        } else if (settings.featuredType === 'artist' && settings.featuredArtistId) {
+            const featuredArtist = await db.musicianProfile.findUnique({
+                where: { userId: settings.featuredArtistId },
+                include: { tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 5, include: { genres: { include: { genre: true } } } }, genres: { include: { genre: true } } },
+            });
+            result.featuredArtist = featuredArtist;
+        } else if (settings.featuredType === 'playlist' && settings.featuredPlaylistId) {
+            const featuredPlaylist = await db.playlist.findUnique({
+                where: { id: settings.featuredPlaylistId },
+                include: {
+                    tracks: { orderBy: { position: 'asc' }, take: 5, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
+                    profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+                },
+            });
+            result.featuredPlaylist = featuredPlaylist;
         }
-        res.json({ ...settings, featuredTrack });
+
+        res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -4429,12 +4446,12 @@ app.get('/api/discovery/settings', async (req, res) => {
 // Update discovery settings (admin only)
 app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
     try {
-        const { featuredTrackId, featuredLabel } = req.body;
+        const { featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel } = req.body;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },
-            create: { id: 'singleton', featuredTrackId, featuredLabel },
-            update: { featuredTrackId, featuredLabel }
+            create: { id: 'singleton', featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel },
+            update: { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel }
         });
         res.json(settings);
     } catch (e: any) {
@@ -6536,6 +6553,46 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             },
         }).catch(() => {});
 
+        // Notifications (fire-and-forget)
+        (async () => {
+            try {
+                const snippet = (content || '').trim().slice(0, 80) || '(GIF)';
+                if (parentId) {
+                    // Reply notification — notify the parent comment author
+                    const parentComment = await db.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
+                    if (parentComment && parentComment.userId !== userId) {
+                        let link: string | null = null;
+                        if (resolvedTrackId) {
+                            const t = await db.track.findUnique({ where: { id: resolvedTrackId }, select: { slug: true, id: true, profile: { select: { username: true } } } });
+                            if (t) link = `/track/${t.profile.username}/${t.slug || t.id}`;
+                        } else if (resolvedProfileId) {
+                            const p = await db.musicianProfile.findUnique({ where: { id: resolvedProfileId }, select: { username: true } });
+                            if (p) link = `/profile/${p.username}`;
+                        }
+                        await db.musicNotification.create({
+                            data: { userId: parentComment.userId, type: 'reply', title: `${username} replied to your comment`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
+                        });
+                    }
+                } else {
+                    // Top-level comment notification — notify the content owner
+                    let ownerId: string | null = null;
+                    let link: string | null = null;
+                    if (resolvedTrackId) {
+                        const t = await db.track.findUnique({ where: { id: resolvedTrackId }, select: { slug: true, id: true, profile: { select: { userId: true, username: true } } } });
+                        if (t) { ownerId = t.profile.userId; link = `/track/${t.profile.username}/${t.slug || t.id}`; }
+                    } else if (resolvedProfileId) {
+                        const p = await db.musicianProfile.findUnique({ where: { id: resolvedProfileId }, select: { userId: true, username: true } });
+                        if (p) { ownerId = p.userId; link = `/profile/${p.username}`; }
+                    }
+                    if (ownerId && ownerId !== userId) {
+                        await db.musicNotification.create({
+                            data: { userId: ownerId, type: 'comment', title: `${username} commented`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
+                        });
+                    }
+                }
+            } catch {}
+        })();
+
         res.json(comment);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -6656,6 +6713,474 @@ app.get('/api/discord/emojis', async (_req: any, res) => {
 // ─── Klipy GIF Proxy ────────────────────────────────────────────────────
 // Klipy is a Tenor drop-in replacement (https://docs.klipy.com/migrate-from-tenor)
 // Content filtering is configured in the Klipy Partner Dashboard
+
+// ──────────────────────────────────────────────
+// Music Notifications
+// ──────────────────────────────────────────────
+
+app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const notifications = await db.musicNotification.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+        });
+        res.json(notifications);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/music/notifications/read', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        await db.musicNotification.updateMany({
+            where: { userId, isRead: false },
+            data: { isRead: true },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────────────────────────────────────────────
+// Track Favourites
+// ──────────────────────────────────────────────
+
+// Check if current user has favourited a track
+app.get('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const existing = await db.trackFavourite.findUnique({
+            where: { userId_trackId: { userId, trackId: req.params.trackId } },
+        });
+        res.json({ favourited: !!existing });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Toggle favourite
+app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackId } = req.params;
+
+        const track = await db.track.findUnique({ where: { id: trackId }, select: { id: true, title: true, slug: true, profile: { select: { userId: true, username: true } } } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        const existing = await db.trackFavourite.findUnique({
+            where: { userId_trackId: { userId, trackId } },
+        });
+
+        if (existing) {
+            await db.trackFavourite.delete({ where: { id: existing.id } });
+            res.json({ favourited: false });
+        } else {
+            await db.trackFavourite.create({ data: { userId, trackId } });
+            // Notify track owner
+            if (track.profile.userId !== userId) {
+                const username = req.session.user.username || 'Someone';
+                db.musicNotification.create({
+                    data: {
+                        userId: track.profile.userId, type: 'favourite',
+                        title: `${username} liked your track`,
+                        message: track.title,
+                        link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                        actorId: userId, actorName: username,
+                    },
+                }).catch(() => {});
+            }
+            res.json({ favourited: true });
+        }
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get current user's favourited tracks
+app.get('/api/my-favourites', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const favourites = await db.trackFavourite.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                track: {
+                    include: { profile: { select: { userId: true, username: true, displayName: true, avatar: true } }, genres: { include: { genre: true } } },
+                },
+            },
+        });
+        res.json(favourites.map(f => f.track).filter(Boolean));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get favourite count for a track
+app.get('/api/tracks/:trackId/favourite-count', async (req: any, res) => {
+    try {
+        const count = await db.trackFavourite.count({ where: { trackId: req.params.trackId } });
+        res.json({ count });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Batch check favourites for multiple tracks
+app.post('/api/tracks/favourites/check', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackIds } = req.body;
+        if (!Array.isArray(trackIds)) return res.status(400).json({ error: 'trackIds array required' });
+        const favourites = await db.trackFavourite.findMany({
+            where: { userId, trackId: { in: trackIds } },
+            select: { trackId: true },
+        });
+        const set = new Set(favourites.map(f => f.trackId));
+        res.json(Object.fromEntries(trackIds.map((id: string) => [id, set.has(id)])));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────────────────────────────────────────────
+// Artist Follows
+// ──────────────────────────────────────────────
+
+// Check if current user follows an artist
+app.get('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => {
+    try {
+        const followerId = req.session.user.id;
+        const existing = await db.artistFollow.findUnique({
+            where: { followerId_artistId: { followerId, artistId: req.params.artistId } },
+        });
+        res.json({ following: !!existing });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Toggle follow
+app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => {
+    try {
+        const followerId = req.session.user.id;
+        const { artistId } = req.params;
+
+        const artist = await db.musicianProfile.findUnique({ where: { id: artistId }, select: { id: true, userId: true, username: true } });
+        if (!artist) return res.status(404).json({ error: 'Artist not found' });
+        if (artist.userId === followerId) return res.status(400).json({ error: 'Cannot follow yourself' });
+
+        const existing = await db.artistFollow.findUnique({
+            where: { followerId_artistId: { followerId, artistId } },
+        });
+
+        if (existing) {
+            await db.artistFollow.delete({ where: { id: existing.id } });
+            res.json({ following: false });
+        } else {
+            await db.artistFollow.create({ data: { followerId, artistId } });
+            // Notify the artist
+            const username = req.session.user.username || 'Someone';
+            db.musicNotification.create({
+                data: {
+                    userId: artist.userId, type: 'follow',
+                    title: `${username} followed you`,
+                    message: 'You have a new follower!',
+                    link: `/profile/${artist.username}`,
+                    actorId: followerId, actorName: username,
+                },
+            }).catch(() => {});
+            res.json({ following: true });
+        }
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get follower count for an artist
+app.get('/api/artists/:artistId/follower-count', async (req: any, res) => {
+    try {
+        const count = await db.artistFollow.count({ where: { artistId: req.params.artistId } });
+        res.json({ count });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get current user's followed artists
+app.get('/api/my-follows', requireAuth, async (req: any, res) => {
+    try {
+        const followerId = req.session.user.id;
+        const follows = await db.artistFollow.findMany({
+            where: { followerId },
+            orderBy: { createdAt: 'desc' },
+            include: { artist: { select: { id: true, userId: true, username: true, displayName: true, avatar: true, bio: true, totalPlays: true } } },
+        });
+        res.json(follows.map(f => f.artist));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────────────────────────────────────────────
+// Playlists
+// ──────────────────────────────────────────────
+
+function generatePlaylistSlug(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80) || 'playlist';
+}
+
+// Get popular public playlists
+app.get('/api/playlists/popular', async (_req: any, res) => {
+    try {
+        const playlists = await db.playlist.findMany({
+            where: { isPublic: true, trackCount: { gt: 0 } },
+            orderBy: { totalPlays: 'desc' },
+            take: 12,
+            include: {
+                tracks: { orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
+                profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+            },
+        });
+        res.json(playlists);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get current user's playlists
+app.get('/api/my-playlists', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const playlists = await db.playlist.findMany({
+            where: { userId },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                tracks: { orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
+            },
+        });
+        res.json(playlists);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Create playlist
+app.post('/api/playlists', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { name, description, isPublic } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+
+        // Link to profile if exists
+        const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
+
+        let slug = generatePlaylistSlug(name.trim());
+        let suffix = 2;
+        while (await db.playlist.findUnique({ where: { userId_slug: { userId, slug } } })) {
+            slug = `${generatePlaylistSlug(name.trim())}-${suffix++}`;
+        }
+
+        const playlist = await db.playlist.create({
+            data: {
+                userId,
+                profileId: profile?.id || null,
+                name: name.trim(),
+                slug,
+                description: description?.trim() || null,
+                isPublic: isPublic !== false,
+            },
+        });
+        res.json(playlist);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get single playlist
+app.get('/api/playlists/:playlistId', async (req: any, res) => {
+    try {
+        const playlist = await db.playlist.findUnique({
+            where: { id: req.params.playlistId },
+            include: {
+                tracks: {
+                    orderBy: { position: 'asc' },
+                    include: {
+                        track: {
+                            include: { profile: { select: { userId: true, username: true, displayName: true, avatar: true } }, genres: { include: { genre: true } } },
+                        },
+                    },
+                },
+                profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+            },
+        });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+
+        // Private playlists only visible to owner
+        if (!playlist.isPublic) {
+            const userId = req.session?.user?.id;
+            if (userId !== playlist.userId) return res.status(404).json({ error: 'Playlist not found' });
+        }
+
+        res.json(playlist);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Update playlist
+app.put('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const playlist = await db.playlist.findUnique({ where: { id: req.params.playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        const { name, description, isPublic, coverUrl } = req.body;
+        const data: any = {};
+        if (name !== undefined) data.name = name.trim();
+        if (description !== undefined) data.description = description?.trim() || null;
+        if (isPublic !== undefined) data.isPublic = isPublic;
+        if (coverUrl !== undefined) data.coverUrl = coverUrl;
+
+        if (data.name && data.name !== playlist.name) {
+            let slug = generatePlaylistSlug(data.name);
+            let suffix = 2;
+            while (await db.playlist.findFirst({ where: { userId, slug, NOT: { id: playlist.id } } })) {
+                slug = `${generatePlaylistSlug(data.name)}-${suffix++}`;
+            }
+            data.slug = slug;
+        }
+
+        const updated = await db.playlist.update({ where: { id: playlist.id }, data });
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Delete playlist
+app.delete('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const playlist = await db.playlist.findUnique({ where: { id: req.params.playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        await db.playlist.delete({ where: { id: playlist.id } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Add track to playlist
+app.post('/api/playlists/:playlistId/tracks', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { playlistId } = req.params;
+        const { trackId } = req.body;
+
+        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        const track = await db.track.findUnique({ where: { id: trackId }, select: { id: true } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        // Check duplicate
+        const existing = await db.playlistTrack.findUnique({ where: { playlistId_trackId: { playlistId, trackId } } });
+        if (existing) return res.status(400).json({ error: 'Track already in playlist' });
+
+        // Get next position
+        const maxPos = await db.playlistTrack.findFirst({ where: { playlistId }, orderBy: { position: 'desc' }, select: { position: true } });
+        const position = (maxPos?.position ?? -1) + 1;
+
+        await db.playlistTrack.create({ data: { playlistId, trackId, position } });
+        await db.playlist.update({ where: { id: playlistId }, data: { trackCount: { increment: 1 } } });
+
+        // Set cover URL from first track if not set
+        if (!playlist.coverUrl) {
+            const firstTrack = await db.track.findUnique({ where: { id: trackId }, select: { coverUrl: true } });
+            if (firstTrack?.coverUrl) {
+                await db.playlist.update({ where: { id: playlistId }, data: { coverUrl: firstTrack.coverUrl } });
+            }
+        }
+
+        res.json({ success: true, position });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Remove track from playlist
+app.delete('/api/playlists/:playlistId/tracks/:trackId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { playlistId, trackId } = req.params;
+
+        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        const entry = await db.playlistTrack.findUnique({ where: { playlistId_trackId: { playlistId, trackId } } });
+        if (!entry) return res.status(404).json({ error: 'Track not in playlist' });
+
+        await db.playlistTrack.delete({ where: { id: entry.id } });
+        await db.playlist.update({ where: { id: playlistId }, data: { trackCount: { decrement: 1 } } });
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Reorder playlist tracks
+app.put('/api/playlists/:playlistId/reorder', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { playlistId } = req.params;
+        const { trackIds } = req.body; // Ordered array of track IDs
+
+        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        if (!Array.isArray(trackIds)) return res.status(400).json({ error: 'trackIds array required' });
+
+        // Update positions in a transaction
+        await db.$transaction(
+            trackIds.map((trackId: string, index: number) =>
+                db.playlistTrack.updateMany({
+                    where: { playlistId, trackId },
+                    data: { position: index },
+                })
+            )
+        );
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Record playlist play (increments totalPlays)
+app.post('/api/playlists/:playlistId/play', async (req: any, res) => {
+    try {
+        await db.playlist.update({
+            where: { id: req.params.playlistId },
+            data: { totalPlays: { increment: 1 } },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── Klipy GIF Proxy (continued) ────────────────────────────────────────
 
 app.get('/api/klipy/featured', async (_req: any, res) => {
     try {

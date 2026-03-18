@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { 
     Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
     Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, Swords, Award,
-    Headphones, Mic, Waves, Trophy, Users, Timer
+    Headphones, Mic, Waves, Trophy, Users, Timer, ListMusic
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -87,6 +87,7 @@ interface DiscoveryGenre {
 }
 
 interface FeaturedData {
+    featuredType?: string;
     featuredTrackId: string | null;
     featuredLabel: string | null;
     featuredTrack: {
@@ -104,6 +105,35 @@ interface FeaturedData {
             avatar: string | null;
         };
     } | null;
+    featuredArtist?: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatar: string | null;
+        bio: string | null;
+        genres: { genre: { name: string } }[];
+        tracks: { id: string; title: string; slug: string | null; url: string; coverUrl: string | null }[];
+    } | null;
+    featuredPlaylist?: {
+        id: string;
+        name: string;
+        description: string | null;
+        coverUrl: string | null;
+        trackCount: number;
+        totalPlays: number;
+        profile?: { username: string; displayName: string | null } | null;
+        tracks: { track: { id: string; title: string; coverUrl: string | null; url: string; profile: { username: string; displayName: string | null } } }[];
+    } | null;
+}
+
+interface PopularPlaylist {
+    id: string;
+    name: string;
+    coverUrl: string | null;
+    trackCount: number;
+    totalPlays: number;
+    profile?: { username: string; displayName: string | null } | null;
+    tracks: { track: { coverUrl: string | null } }[];
 }
 
 const genreColors = [
@@ -122,6 +152,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
+    const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
     const [currentBattle, setCurrentBattle] = useState<{
         id: string; title: string; status: string;
         description: string | null; bannerUrl: string | null;
@@ -146,6 +177,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     useEffect(() => {
         axios.get('/api/discovery/genres').then(res => setGenres(res.data)).catch(() => {});
         axios.get('/api/discovery/settings').then(res => setFeatured(res.data)).catch(() => {});
+        axios.get('/api/playlists/popular').then(res => setPopularPlaylists(res.data)).catch(() => {});
         // Load current battle for the widget
         fetch('/api/beat-battle/battles?guildId=default-guild')
             .then(r => r.ok ? r.json() : [])
@@ -217,12 +249,21 @@ export const ArtistDiscoveryPage: React.FC = () => {
             <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1600px', margin: '0 auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
                     
-                    {/* Featured Track Hero */}
+                    {/* Featured Hero */}
                     <div style={{ ...styles.widgetCard, ...styles.playerGradient, gridColumn: isMobile ? 'span 12' : 'span 8', padding: isMobile ? '20px' : '28px', overflow: 'hidden', position: 'relative' }}>
-                        {featured?.featuredTrack?.coverUrl && (
+                        {/* Background blur */}
+                        {featured?.featuredTrack?.coverUrl && featured?.featuredType !== 'artist' && featured?.featuredType !== 'playlist' && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredTrack.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
-                        {featured?.featuredTrack ? (
+                        {featured?.featuredType === 'artist' && featured?.featuredArtist?.avatar && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredArtist.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                        )}
+                        {featured?.featuredType === 'playlist' && featured?.featuredPlaylist?.coverUrl && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                        )}
+
+                        {/* Featured Track (default) */}
+                        {(!featured?.featuredType || featured.featuredType === 'track') && featured?.featuredTrack ? (
                         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
                             <div style={{ position: 'relative', flexShrink: 0 }}>
                                 <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ 
@@ -273,6 +314,105 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        ) : featured?.featuredType === 'artist' && featured?.featuredArtist ? (
+                        /* Featured Artist hero */
+                        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
+                            <div style={{ flexShrink: 0 }}>
+                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{
+                                    width: isMobile ? '160px' : '200px', height: isMobile ? '160px' : '200px', borderRadius: '50%', overflow: 'hidden',
+                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: `3px solid ${colors.primary}44`, cursor: 'pointer',
+                                    display: 'block', textDecoration: 'none'
+                                }}>
+                                    {featured.featuredArtist.avatar ? (
+                                        <img src={featured.featuredArtist.avatar} alt="Featured Artist" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', color: 'white' }}>
+                                            {featured.featuredArtist.username.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                </Link>
+                            </div>
+                            <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
+                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                    <span style={{ backgroundColor: '#A855F7', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        {featured.featuredLabel || 'Featured Artist'}
+                                    </span>
+                                    <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Zap size={14} /> SPOTLIGHT
+                                    </span>
+                                </div>
+                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                    <h2 style={{ fontSize: isMobile ? '22px' : '34px', fontWeight: '900', margin: '0 0 6px 0', lineHeight: 1.1, cursor: 'pointer' }}>
+                                        {featured.featuredArtist.displayName || featured.featuredArtist.username}
+                                    </h2>
+                                </Link>
+                                <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '12px', lineHeight: 1.4 }}>
+                                    {featured.featuredArtist.bio || 'Discover this artist\'s music'}
+                                </p>
+                                {featured.featuredArtist.genres?.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                        {featured.featuredArtist.genres.slice(0, 3).map((g, i) => (
+                                            <span key={i} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}4D`, color: colors.primary, padding: '3px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }}>{g.genre.name}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{
+                                    backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none',
+                                    fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                    boxShadow: `0 4px 15px ${colors.primary}44`, textDecoration: 'none'
+                                }}>View Artist</Link>
+                            </div>
+                        </div>
+
+                        ) : featured?.featuredType === 'playlist' && featured?.featuredPlaylist ? (
+                        /* Featured Playlist hero */
+                        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
+                            <div style={{ flexShrink: 0 }}>
+                                <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{
+                                    width: isMobile ? '160px' : '200px', height: isMobile ? '160px' : '200px', borderRadius: '12px', overflow: 'hidden',
+                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                                    display: 'block', textDecoration: 'none'
+                                }}>
+                                    {featured.featuredPlaylist.coverUrl ? (
+                                        <img src={featured.featuredPlaylist.coverUrl} alt="Featured Playlist" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#242C3D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ListMusic size={80} color={colors.primary} style={{ opacity: 0.2 }} />
+                                        </div>
+                                    )}
+                                </Link>
+                            </div>
+                            <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
+                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                    <span style={{ backgroundColor: '#3B82F6', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        {featured.featuredLabel || 'Featured Playlist'}
+                                    </span>
+                                    <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <ListMusic size={14} /> CURATED
+                                    </span>
+                                </div>
+                                <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                    <h2 style={{ fontSize: isMobile ? '22px' : '34px', fontWeight: '900', margin: '0 0 6px 0', lineHeight: 1.1, cursor: 'pointer' }}>
+                                        {featured.featuredPlaylist.name}
+                                    </h2>
+                                </Link>
+                                <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '18px', lineHeight: 1.4 }}>
+                                    {featured.featuredPlaylist.description || `${featured.featuredPlaylist.trackCount} tracks`}
+                                    {featured.featuredPlaylist.profile && ` • by ${featured.featuredPlaylist.profile.displayName || featured.featuredPlaylist.profile.username}`}
+                                </p>
+                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', gap: '16px' }}>
+                                    <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{
+                                        backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none',
+                                        fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                        boxShadow: `0 4px 15px ${colors.primary}44`, textDecoration: 'none'
+                                    }}>
+                                        <Play size={16} fill="white" /> Play Playlist
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+
                         ) : (
                         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#B9C3CE' }}>
                             <Disc size={48} opacity={0.2} style={{ marginBottom: '12px' }} />
@@ -544,6 +684,60 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
                         </Link>
                     ))}
+
+                    {/* Popular Playlists — section header */}
+                    {popularPlaylists.length > 0 && (
+                        <>
+                            <div style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginTop: '8px' }}>
+                                <ListMusic size={18} color={colors.accentOrange} />
+                                <div>
+                                    <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textPrimary }}>Popular Playlists</span>
+                                    <span style={{ marginLeft: '12px', fontSize: '11px', color: '#B9C3CE', letterSpacing: '0.05em' }}>Community curated collections</span>
+                                </div>
+                            </div>
+
+                            {/* Popular Playlists — cards */}
+                            {popularPlaylists.map(playlist => (
+                                <Link
+                                    key={playlist.id}
+                                    to={`/playlist/${playlist.id}`}
+                                    style={{ gridColumn: isMobile ? 'span 6' : 'span 2', textDecoration: 'none', color: 'inherit' }}
+                                >
+                                    <div
+                                        style={{ ...styles.widgetCard, padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
+                                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}55`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
+                                    >
+                                        {/* Cover */}
+                                        <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                            {playlist.coverUrl ? (
+                                                <img src={playlist.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <ListMusic size={24} color={colors.primary} style={{ opacity: 0.3 }} />
+                                                </div>
+                                            )}
+                                            {/* Track count badge */}
+                                            <div style={{ position: 'absolute', bottom: '6px', right: '6px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, color: 'white', backdropFilter: 'blur(4px)' }}>
+                                                {playlist._count.tracks} tracks
+                                            </div>
+                                        </div>
+
+                                        {/* Text */}
+                                        <div style={{ width: '100%', minWidth: 0 }}>
+                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{playlist.name}</p>
+                                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>by {playlist.profile.displayName || playlist.profile.username}</p>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                                <span style={{ fontSize: '10px', color: '#B9C3CE', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                    <Play size={9} /> {playlist.plays.toLocaleString()} plays
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </>
+                    )}
 
                 </div>
             </div>

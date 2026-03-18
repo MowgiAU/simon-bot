@@ -8,7 +8,7 @@ import {
     Music, Share2, Hammer, Globe, Instagram, Youtube, MessageCircle, Radio, 
     ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
     Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check,
-    Swords, Trophy, Flame
+    Swords, Trophy, Flame, UserPlus, UserCheck
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 
@@ -53,6 +53,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [copied, setCopied] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followerCount, setFollowerCount] = useState(0);
 
     // Battle submissions
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
@@ -65,6 +67,15 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         navigator.clipboard.writeText(`${window.location.origin}/profile/${profile.username}`);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const toggleFollow = async () => {
+        if (!profile) return;
+        try {
+            const { data } = await axios.post(`/api/artists/${profile.id}/follow`, {}, { withCredentials: true });
+            setIsFollowing(data.following);
+            setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
+        } catch { /* not logged in */ }
     };
 
     useEffect(() => {
@@ -102,6 +113,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     });
                 }
                 setProfile(data);
+                // Load follow data
+                try {
+                    const countRes = await axios.get(`/api/artists/${data.id}/follower-count`);
+                    setFollowerCount(countRes.data.count);
+                    const followRes = await axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true });
+                    setIsFollowing(followRes.data.following);
+                } catch { /* not logged in or error */ }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
             } finally {
@@ -143,7 +161,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; }
     });
     const stats = [
-        { label: 'Listeners', value: '1.2K' },
+        { label: 'Followers', value: followerCount.toLocaleString() },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
         { label: 'Releases', value: profile.tracks?.length.toString() || '0' }
     ];
@@ -354,6 +372,22 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 >
                                     {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
                                 </button>
+                                {!isOwnProfile && (
+                                    <button
+                                        onClick={toggleFollow}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            backgroundColor: isFollowing ? `${colors.primary}25` : colors.primary,
+                                            color: isFollowing ? colors.primary : 'white',
+                                            border: isFollowing ? `1px solid ${colors.primary}4D` : 'none',
+                                            borderRadius: '6px', padding: '5px 12px',
+                                            cursor: 'pointer', fontSize: '11px', fontWeight: 'bold',
+                                            transition: 'all 0.2s', whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {isFollowing ? <><UserCheck size={13} /> Following</> : <><UserPlus size={13} /> Follow</>}
+                                    </button>
+                                )}
                             </div>
                             <p style={{ color: '#B9C3CE', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>Electronic Artist & Sonic Architect</p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', gap: '8px' }}>

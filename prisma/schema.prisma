@@ -689,6 +689,8 @@ model MusicianProfile {
   featuredTrack   Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
 
   comments        Comment[]
+  followers       ArtistFollow[]
+  playlists       Playlist[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -736,6 +738,8 @@ model Track {
   genres          TrackGenre[]
   battleEntries   BattleEntry[]
   comments        Comment[]
+  favourites      TrackFavourite[]
+  playlistTracks  PlaylistTrack[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -814,7 +818,10 @@ model TrackGenre {
 
 model DiscoverySettings {
   id              String   @id @default("singleton")
+  featuredType    String   @default("track") // 'track' | 'artist' | 'playlist'
   featuredTrackId String?  // Global featured track on the discovery page
+  featuredArtistId String? // Featured artist userId
+  featuredPlaylistId String? // Featured playlist ID
   featuredLabel   String?  // Custom label for the featured section
   updatedAt       DateTime @updatedAt
 
@@ -1154,4 +1161,100 @@ model CommentLog {
 
   @@index([commentId])
   @@map("comment_logs")
+}
+
+// ──────────────────────────────────────────────
+// Track Favourites (Likes)
+// ──────────────────────────────────────────────
+
+model TrackFavourite {
+  id        String   @id @default(cuid())
+  userId    String   // Discord user ID
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, trackId])
+  @@index([trackId])
+  @@index([userId])
+  @@map("track_favourites")
+}
+
+// ──────────────────────────────────────────────
+// Artist Follows
+// ──────────────────────────────────────────────
+
+model ArtistFollow {
+  id        String          @id @default(cuid())
+  followerId String         // Discord user ID of follower
+  artistId  String          // MusicianProfile ID being followed
+  artist    MusicianProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([followerId, artistId])
+  @@index([artistId])
+  @@index([followerId])
+  @@map("artist_follows")
+}
+
+// ──────────────────────────────────────────────
+// Music Notifications
+// ──────────────────────────────────────────────
+
+model MusicNotification {
+  id          String   @id @default(cuid())
+  userId      String   // Recipient Discord user ID
+  type        String   // 'comment' | 'reply' | 'follow' | 'favourite'
+  title       String
+  message     String
+  link        String?  // Path to redirect to (e.g. '/track/user/slug')
+  actorId     String?  // Who caused the notification
+  actorName   String?  // Cached actor display name
+  actorAvatar String?  // Cached actor avatar URL
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("music_notifications")
+}
+
+// ──────────────────────────────────────────────
+// Playlists
+// ──────────────────────────────────────────────
+
+model Playlist {
+  id          String          @id @default(cuid())
+  userId      String          // Discord user ID of creator
+  profileId   String?         // Optional link to MusicianProfile
+  profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  name        String
+  slug        String?
+  description String?         @db.Text
+  coverUrl    String?
+  isPublic    Boolean         @default(true)
+  trackCount  Int             @default(0)
+  totalPlays  Int             @default(0)
+  tracks      PlaylistTrack[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([isPublic, totalPlays])
+  @@map("playlists")
+}
+
+model PlaylistTrack {
+  id         String   @id @default(cuid())
+  playlistId String
+  trackId    String
+  position   Int      // Sort order
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now())
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId, position])
+  @@map("playlist_tracks")
 }

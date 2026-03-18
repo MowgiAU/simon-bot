@@ -6,10 +6,29 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
 import { colors } from '../theme/theme';
+import axios from 'axios';
 
 export const GlobalPlayer: React.FC = () => {
     const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode } = usePlayer();
     const navigate = useNavigate();
+    const [isFavourited, setIsFavourited] = React.useState(false);
+    const lastCheckedTrackId = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if (!player.currentTrack || player.currentTrack.id === lastCheckedTrackId.current) return;
+        lastCheckedTrackId.current = player.currentTrack.id;
+        axios.get(`/api/tracks/${player.currentTrack.id}/favourite`, { withCredentials: true })
+            .then(res => setIsFavourited(res.data.favourited))
+            .catch(() => setIsFavourited(false));
+    }, [player.currentTrack?.id]);
+
+    const toggleFavourite = async () => {
+        if (!player.currentTrack) return;
+        try {
+            const { data } = await axios.post(`/api/tracks/${player.currentTrack.id}/favourite`, {}, { withCredentials: true });
+            setIsFavourited(data.favourited);
+        } catch { /* not logged in */ }
+    };
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
 
     React.useEffect(() => {
@@ -111,6 +130,15 @@ export const GlobalPlayer: React.FC = () => {
                         {player.currentTrack.artist}
                     </Link>
                 </div>
+                {!isMobile && (
+                    <button
+                        onClick={toggleFavourite}
+                        aria-label={isFavourited ? 'Remove from favourites' : 'Add to favourites'}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px', flexShrink: 0, color: isFavourited ? '#EF4444' : '#B9C3CE', transition: 'color 0.2s' }}
+                    >
+                        <Heart size={18} fill={isFavourited ? '#EF4444' : 'none'} />
+                    </button>
+                )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: isMobile ? '40%' : '40%' }}>

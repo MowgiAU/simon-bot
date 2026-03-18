@@ -25,6 +25,11 @@ interface DiscoveryConfig {
     featuredTrackId: string | null;
     featuredLabel: string | null;
     featuredTrack: TrackResult | null;
+    featuredType: string;
+    featuredArtistId: string | null;
+    featuredArtist: { id: string; displayName: string | null; username: string; avatar: string | null } | null;
+    featuredPlaylistId: string | null;
+    featuredPlaylist: { id: string; name: string; coverUrl: string | null; _count: { tracks: number }; profile: { displayName: string | null; username: string } } | null;
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
@@ -44,11 +49,17 @@ export const MusicianProfileAdmin: React.FC = () => {
     }, []);
 
     // Discovery settings state
-    const [discoveryConfig, setDiscoveryConfig] = useState<DiscoveryConfig>({ featuredTrackId: null, featuredLabel: null, featuredTrack: null });
+    const [discoveryConfig, setDiscoveryConfig] = useState<DiscoveryConfig>({ featuredTrackId: null, featuredLabel: null, featuredTrack: null, featuredType: 'track', featuredArtistId: null, featuredArtist: null, featuredPlaylistId: null, featuredPlaylist: null });
     const [trackSearch, setTrackSearch] = useState('');
     const [trackResults, setTrackResults] = useState<TrackResult[]>([]);
     const [searchingTracks, setSearchingTracks] = useState(false);
     const [featuredLabel, setFeaturedLabel] = useState('');
+    const [artistSearch, setArtistSearch] = useState('');
+    const [artistResults, setArtistResults] = useState<any[]>([]);
+    const [searchingArtists, setSearchingArtists] = useState(false);
+    const [playlistSearch, setPlaylistSearch] = useState('');
+    const [playlistResults, setPlaylistResults] = useState<any[]>([]);
+    const [searchingPlaylists, setSearchingPlaylists] = useState(false);
 
     // Admin wipe state
     const [adminSearch, setAdminSearch] = useState('');
@@ -149,7 +160,8 @@ export const MusicianProfileAdmin: React.FC = () => {
         try {
             await axios.post('/api/discovery/settings', { 
                 featuredTrackId: trackId, 
-                featuredLabel: featuredLabel || null 
+                featuredLabel: featuredLabel || null,
+                featuredType: 'track'
             }, { withCredentials: true });
             setMsg({ type: 'success', text: trackId ? 'Featured track updated!' : 'Featured track removed.' });
             fetchDiscoverySettings();
@@ -162,12 +174,95 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
+    const handleSearchArtists = async (query: string) => {
+        setArtistSearch(query);
+        if (query.length < 2) { setArtistResults([]); return; }
+        setSearchingArtists(true);
+        try {
+            const res = await axios.get('/api/admin/musician/profiles/search', { params: { search: query }, withCredentials: true });
+            setArtistResults(res.data);
+        } catch (err) {
+            console.error('Failed to search artists');
+        } finally {
+            setSearchingArtists(false);
+        }
+    };
+
+    const handleSetFeaturedArtist = async (artistId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { 
+                featuredArtistId: artistId, 
+                featuredLabel: featuredLabel || null,
+                featuredType: 'artist'
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: artistId ? 'Featured artist updated!' : 'Featured artist removed.' });
+            fetchDiscoverySettings();
+            setArtistSearch('');
+            setArtistResults([]);
+        } catch (err: any) {
+            setMsg({ type: 'error', text: 'Failed to update featured artist' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSearchPlaylists = async (query: string) => {
+        setPlaylistSearch(query);
+        if (query.length < 2) { setPlaylistResults([]); return; }
+        setSearchingPlaylists(true);
+        try {
+            const res = await axios.get('/api/playlists/popular', { params: { limit: 20 }, withCredentials: true });
+            setPlaylistResults(res.data.filter((p: any) => p.name.toLowerCase().includes(query.toLowerCase())));
+        } catch (err) {
+            console.error('Failed to search playlists');
+        } finally {
+            setSearchingPlaylists(false);
+        }
+    };
+
+    const handleSetFeaturedPlaylist = async (playlistId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { 
+                featuredPlaylistId: playlistId, 
+                featuredLabel: featuredLabel || null,
+                featuredType: 'playlist'
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: playlistId ? 'Featured playlist updated!' : 'Featured playlist removed.' });
+            fetchDiscoverySettings();
+            setPlaylistSearch('');
+            setPlaylistResults([]);
+        } catch (err: any) {
+            setMsg({ type: 'error', text: 'Failed to update featured playlist' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleChangeFeaturedType = async (type: string) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { 
+                featuredType: type, 
+                featuredLabel: featuredLabel || null 
+            }, { withCredentials: true });
+            fetchDiscoverySettings();
+            setMsg({ type: 'success', text: `Featured type changed to ${type}.` });
+        } catch (err: any) {
+            setMsg({ type: 'error', text: 'Failed to change featured type' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSaveFeaturedLabel = async () => {
         setSaving(true);
         try {
             await axios.post('/api/discovery/settings', { 
                 featuredTrackId: discoveryConfig.featuredTrackId, 
-                featuredLabel: featuredLabel || null 
+                featuredLabel: featuredLabel || null,
+                featuredType: discoveryConfig.featuredType
             }, { withCredentials: true });
             setMsg({ type: 'success', text: 'Featured label updated!' });
             fetchDiscoverySettings();
@@ -366,72 +461,208 @@ export const MusicianProfileAdmin: React.FC = () => {
                     <Star size={20} color={colors.primary} /> Discovery Page Settings
                 </h3>
                 
-                {/* Current Featured Track */}
+                {/* Featured Type Selector */}
                 <div style={{ marginBottom: spacing.lg }}>
-                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Featured Track (Hero Section)</label>
-                    {discoveryConfig.featuredTrack ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            {discoveryConfig.featuredTrack.coverUrl ? (
-                                <img src={discoveryConfig.featuredTrack.coverUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Music size={24} color={colors.textSecondary} />
-                                </div>
-                            )}
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{discoveryConfig.featuredTrack.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
-                                    by {discoveryConfig.featuredTrack.profile?.displayName || discoveryConfig.featuredTrack.profile?.username}
-                                    {' '}&bull; {discoveryConfig.featuredTrack.playCount} plays
-                                </div>
-                            </div>
-                            <button onClick={() => handleSetFeaturedTrack(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
-                                <X size={18} />
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>Featured Type (Hero Section)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {(['track', 'artist', 'playlist'] as const).map(type => (
+                            <button key={type} onClick={() => handleChangeFeaturedType(type)}
+                                style={{
+                                    padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.sm, border: `1px solid ${discoveryConfig.featuredType === type ? colors.primary : 'rgba(255,255,255,0.1)'}`,
+                                    backgroundColor: discoveryConfig.featuredType === type ? `${colors.primary}20` : 'transparent', color: discoveryConfig.featuredType === type ? colors.primary : colors.textSecondary,
+                                    cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', textTransform: 'capitalize', transition: 'all 0.15s'
+                                }}>
+                                {type}
                             </button>
-                        </div>
-                    ) : (
-                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginTop: '8px', color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                            No featured track set. The hero section will display a placeholder.
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
 
-                {/* Search for tracks */}
-                <div style={{ marginBottom: spacing.lg }}>
-                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search for a track to feature</label>
-                    <div style={{ position: 'relative' }}>
-                        <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                        <input
-                            type="text"
-                            value={trackSearch}
-                            onChange={(e) => handleSearchTracks(e.target.value)}
-                            placeholder="Search by track title, artist name..."
-                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }}
-                        />
-                    </div>
-                    {trackResults.length > 0 && (
-                        <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '240px', overflowY: 'auto' }}>
-                            {trackResults.map(track => (
-                                <div key={track.id} onClick={() => handleSetFeaturedTrack(track.id)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
-                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                    {track.coverUrl ? (
-                                        <img src={track.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
+                {/* Featured Track (shown when type = track) */}
+                {discoveryConfig.featuredType === 'track' && (
+                    <>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Featured Track</label>
+                            {discoveryConfig.featuredTrack ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {discoveryConfig.featuredTrack.coverUrl ? (
+                                        <img src={discoveryConfig.featuredTrack.coverUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover' }} />
                                     ) : (
-                                        <div style={{ width: 32, height: 32, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                                        <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={24} color={colors.textSecondary} />
+                                        </div>
                                     )}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
-                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{track.profile?.displayName || track.profile?.username} &bull; {track.playCount} plays</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{discoveryConfig.featuredTrack.title}</div>
+                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+                                            by {discoveryConfig.featuredTrack.profile?.displayName || discoveryConfig.featuredTrack.profile?.username}
+                                            {' '}&bull; {discoveryConfig.featuredTrack.playCount} plays
+                                        </div>
                                     </div>
+                                    <button onClick={() => handleSetFeaturedTrack(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                        <X size={18} />
+                                    </button>
                                 </div>
-                            ))}
+                            ) : (
+                                <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginTop: '8px', color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                    No featured track set. The hero section will display a placeholder.
+                                </div>
+                            )}
                         </div>
-                    )}
-                    {searchingTracks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
-                </div>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search for a track to feature</label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input type="text" value={trackSearch} onChange={(e) => handleSearchTracks(e.target.value)} placeholder="Search by track title, artist name..."
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                            </div>
+                            {trackResults.length > 0 && (
+                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '240px', overflowY: 'auto' }}>
+                                    {trackResults.map(track => (
+                                        <div key={track.id} onClick={() => handleSetFeaturedTrack(track.id)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                                            onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {track.coverUrl ? (
+                                                <img src={track.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: 32, height: 32, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                                <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{track.profile?.displayName || track.profile?.username} &bull; {track.playCount} plays</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {searchingTracks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                        </div>
+                    </>
+                )}
+
+                {/* Featured Artist (shown when type = artist) */}
+                {discoveryConfig.featuredType === 'artist' && (
+                    <>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Featured Artist</label>
+                            {discoveryConfig.featuredArtist ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {discoveryConfig.featuredArtist.avatar ? (
+                                        <img src={discoveryConfig.featuredArtist.avatar} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={24} color={colors.textSecondary} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{discoveryConfig.featuredArtist.displayName || discoveryConfig.featuredArtist.username}</div>
+                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>@{discoveryConfig.featuredArtist.username}</div>
+                                    </div>
+                                    <button onClick={() => handleSetFeaturedArtist(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginTop: '8px', color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                    No featured artist set.
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search for an artist to feature</label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input type="text" value={artistSearch} onChange={(e) => handleSearchArtists(e.target.value)} placeholder="Search by artist name..."
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                            </div>
+                            {artistResults.length > 0 && (
+                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '240px', overflowY: 'auto' }}>
+                                    {artistResults.map((artist: any) => (
+                                        <div key={artist.id} onClick={() => handleSetFeaturedArtist(artist.userId)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                                            onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {artist.avatar ? (
+                                                <img src={artist.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist.displayName || artist.username}</div>
+                                                <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>@{artist.username}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {searchingArtists && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                        </div>
+                    </>
+                )}
+
+                {/* Featured Playlist (shown when type = playlist) */}
+                {discoveryConfig.featuredType === 'playlist' && (
+                    <>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Featured Playlist</label>
+                            {discoveryConfig.featuredPlaylist ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {discoveryConfig.featuredPlaylist.coverUrl ? (
+                                        <img src={discoveryConfig.featuredPlaylist.coverUrl} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={24} color={colors.textSecondary} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{discoveryConfig.featuredPlaylist.name}</div>
+                                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+                                            by {discoveryConfig.featuredPlaylist.profile?.displayName || discoveryConfig.featuredPlaylist.profile?.username}
+                                            {' '}&bull; {discoveryConfig.featuredPlaylist._count?.tracks ?? 0} tracks
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleSetFeaturedPlaylist(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginTop: '8px', color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                                    No featured playlist set.
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search for a playlist to feature</label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input type="text" value={playlistSearch} onChange={(e) => handleSearchPlaylists(e.target.value)} placeholder="Search by playlist name..."
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                            </div>
+                            {playlistResults.length > 0 && (
+                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '240px', overflowY: 'auto' }}>
+                                    {playlistResults.map((pl: any) => (
+                                        <div key={pl.id} onClick={() => handleSetFeaturedPlaylist(pl.id)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                                            onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {pl.coverUrl ? (
+                                                <img src={pl.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: 32, height: 32, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textSecondary} /></div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{pl.profile?.displayName || pl.profile?.username} &bull; {pl._count?.tracks ?? 0} tracks</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {searchingPlaylists && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                        </div>
+                    </>
+                )}
 
                 {/* Featured Label */}
                 <div>

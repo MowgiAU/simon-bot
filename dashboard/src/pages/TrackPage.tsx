@@ -10,10 +10,11 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
-    Edit3, X, Save, Upload, Download
+    Edit3, X, Save, Upload, Download, Heart, ListPlus
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
+import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ArrangementViewer, ProjectInfoPanel, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint } from '../components/ArrangementViewer';
 
 interface TrackSample {
@@ -92,6 +93,9 @@ export const TrackPage: React.FC = () => {
     const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
     const [editProjectFile, setEditProjectFile] = useState<File | null>(null);
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
+    const [isFavourited, setIsFavourited] = useState(false);
+    const [favouriteCount, setFavouriteCount] = useState(0);
+    const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -118,6 +122,13 @@ export const TrackPage: React.FC = () => {
                 ]);
                 setTrackData(res.data);
                 setAllGenres(genresRes.data);
+                // Load favourite data
+                try {
+                    const countRes = await axios.get(`/api/tracks/${res.data.id}/favourite-count`);
+                    setFavouriteCount(countRes.data.count);
+                    const favRes = await axios.get(`/api/tracks/${res.data.id}/favourite`, { withCredentials: true });
+                    setIsFavourited(favRes.data.favourited);
+                } catch { /* not logged in or error */ }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Track not found' : 'Failed to load track');
             } finally {
@@ -135,6 +146,17 @@ export const TrackPage: React.FC = () => {
 
     const openEditMode = () => {
         if (!track) return;
+
+    const toggleFavourite = async () => {
+        if (!track || !user) return;
+        try {
+            const { data } = await axios.post(`/api/tracks/${track.id}/favourite`, {}, { withCredentials: true });
+            setIsFavourited(data.favourited);
+            setFavouriteCount(prev => data.favourited ? prev + 1 : prev - 1);
+        } catch {
+            showToast('Login to favourite tracks', 'error');
+        }
+    };
         setEditForm({
             title: track.title || '',
             description: track.description || '',
@@ -271,6 +293,23 @@ export const TrackPage: React.FC = () => {
                             >
                                 {isPlaying ? <Pause size={isMobile ? 24 : 32} fill="white" /> : <Play size={isMobile ? 24 : 32} fill="white" style={{ marginLeft: '4px' }} />}
                             </button>
+                            <button
+                                onClick={toggleFavourite}
+                                title={isFavourited ? 'Remove from favourites' : 'Add to favourites'}
+                                style={{
+                                    position: 'absolute', bottom: '20px', left: '20px',
+                                    width: isMobile ? '44px' : '48px', height: isMobile ? '44px' : '48px', borderRadius: '50%',
+                                    backgroundColor: isFavourited ? '#EF4444' : 'rgba(0,0,0,0.6)',
+                                    color: 'white', border: '2px solid rgba(255,255,255,0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                }}
+                                onMouseEnter={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.7)'; }}
+                                onMouseLeave={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)'; }}
+                            >
+                                <Heart size={isMobile ? 18 : 22} fill={isFavourited ? 'white' : 'none'} />
+                            </button>
                         </div>
 
                         {/* Quick Stats Banner */}
@@ -283,6 +322,11 @@ export const TrackPage: React.FC = () => {
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Duration</div>
                                 <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{formatDuration(track.duration)}</div>
+                            </div>
+                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                            <div style={{ textAlign: 'center', flex: 1 }}>
+                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Favourites</div>
+                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{favouriteCount.toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
@@ -368,6 +412,14 @@ export const TrackPage: React.FC = () => {
                             >
                                 <Share2 size={18} /> Share Track
                             </button>
+                            {user && (
+                                <button 
+                                    onClick={() => setShowPlaylistModal(true)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    <ListPlus size={18} /> Add to Playlist
+                                </button>
+                            )}
                             {canEdit && (
                                 <button 
                                     onClick={openEditMode}
@@ -658,6 +710,7 @@ export const TrackPage: React.FC = () => {
                     </div>
                 )}
             </div>
+            {track && <AddToPlaylistModal trackId={track.id} open={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} />}
         </DiscoveryLayout>
     );
 };
