@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { X, Upload, Music, Check, Loader2, Library, FileArchive, Image } from 'lucide-react';
 
@@ -27,6 +28,8 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     const [tab, setTab] = useState<Tab>('upload');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStage, setUploadStage] = useState<'uploading' | 'processing' | null>(null);
 
     // Upload tab
     const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -55,6 +58,8 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
         if (open) {
             setError('');
             setSubmitting(false);
+            setUploadProgress(0);
+            setUploadStage(null);
         }
     }, [open]);
 
@@ -83,6 +88,9 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     const handleSubmit = async () => {
         setError('');
         setSubmitting(true);
+        setUploadProgress(0);
+        setUploadStage(null);
+        let scanTimer: ReturnType<typeof setTimeout> | null = null;
 
         try {
             if (tab === 'library') {
@@ -94,15 +102,20 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                 formData.append('title', selectedTrack?.title || 'Untitled');
                 if (libraryDescription.trim()) formData.append('description', libraryDescription.trim());
                 if (libraryProjectFile) formData.append('project', libraryProjectFile);
-                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/submit`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData,
+                setUploadStage('uploading');
+                await axios.post(`${API}/api/beat-battle/battles/${battleId}/submit`, formData, {
+                    withCredentials: true,
+                    onUploadProgress: (evt) => {
+                        if (evt.total) {
+                            const pct = Math.round((evt.loaded / evt.total) * 100);
+                            setUploadProgress(pct);
+                            if (pct >= 100) {
+                                setUploadStage('processing');
+                                scanTimer = setTimeout(() => {}, 0);
+                            }
+                        }
+                    },
                 });
-                if (!res.ok) {
-                    const data = await res.json().catch(() => ({}));
-                    throw new Error(data.error || 'Submission failed');
-                }
             } else {
                 if (!audioFile) { setError('Please select an audio file.'); setSubmitting(false); return; }
                 if (!title.trim()) { setError('Please enter a track title.'); setSubmitting(false); return; }
@@ -113,22 +126,31 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                 if (description.trim()) formData.append('description', description.trim());
                 if (coverFile) formData.append('cover', coverFile);
                 if (projectFile) formData.append('project', projectFile);
-
-                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/submit`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData,
+                setUploadStage('uploading');
+                await axios.post(`${API}/api/beat-battle/battles/${battleId}/submit`, formData, {
+                    withCredentials: true,
+                    onUploadProgress: (evt) => {
+                        if (evt.total) {
+                            const pct = Math.round((evt.loaded / evt.total) * 100);
+                            setUploadProgress(pct);
+                            if (pct >= 100) {
+                                setUploadStage('processing');
+                                scanTimer = setTimeout(() => {}, 4000);
+                            }
+                        }
+                    },
                 });
-                if (!res.ok) {
-                    const data = await res.json().catch(() => ({}));
-                    throw new Error(data.error || 'Submission failed');
-                }
             }
             onSubmitted();
             onClose();
         } catch (err: any) {
-            setError(err.message || 'Something went wrong');
-        } finally { setSubmitting(false); }
+            setError(err.response?.data?.error || err.message || 'Something went wrong');
+        } finally {
+            if (scanTimer) clearTimeout(scanTimer);
+            setSubmitting(false);
+            setUploadStage(null);
+            setUploadProgress(0);
+        }
     };
 
     if (!open) return null;
@@ -295,6 +317,32 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     )}
 
                     {/* Submit button */}
+                    {submitting && uploadStage && (
+                        <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(43,140,113,0.08)', border: '1px solid rgba(43,140,113,0.25)', borderRadius: borderRadius.md }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: colors.primary }}>
+                                    {uploadStage === 'uploading' ? `Uploading… ${uploadProgress}%` : '⚙️ Processing & converting…'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                    {uploadStage === 'uploading' ? 'Transferring to server' : 'Scanning, converting audio & artwork'}
+                                </span>
+                            </div>
+                            <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%',
+                                    backgroundColor: colors.primary,
+                                    borderRadius: '3px',
+                                    transition: 'width 0.3s ease',
+                                    width: uploadStage === 'uploading' ? `${uploadProgress}%` : '100%',
+                                    opacity: uploadStage !== 'uploading' ? 0.6 : 1,
+                                    backgroundImage: uploadStage !== 'uploading' ? 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)' : 'none',
+                                    animation: uploadStage !== 'uploading' ? 'stripe-slide 1s linear infinite' : 'none',
+                                    backgroundSize: '32px 32px',
+                                }} />
+                            </div>
+                            <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
+                        </div>
+                    )}
                     <button onClick={handleSubmit} disabled={submitting}
                         style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         {submitting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</> : 'Submit Entry'}
