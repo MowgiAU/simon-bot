@@ -5,7 +5,7 @@ import { useAuth } from './AuthProvider';
 import { showToast } from './Toast';
 import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
-    Search, Loader2, ChevronDown
+    Search, Loader2, ChevronDown, Reply
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -21,6 +21,8 @@ interface Comment {
     gifUrl: string | null;
     editedAt: string | null;
     createdAt: string;
+    parentId?: string | null;
+    replies?: Comment[];
 }
 
 interface CommentSectionProps {
@@ -244,6 +246,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
     const [editGifUrl, setEditGifUrl] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const pickerRef = useRef<HTMLDivElement>(null);
+    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    const [replyContent, setReplyContent] = useState('');
+    const [replySending, setReplySending] = useState(false);
+    const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+    const [showReplyEmoji, setShowReplyEmoji] = useState(false);
 
     const fetchComments = useCallback(async (cursor?: string) => {
         try {
@@ -303,24 +310,36 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         }
     };
 
-    const handleEdit = async (commentId: string) => {
+    const handleEdit = async (commentId: string, parentId?: string) => {
         if (!editContent.trim() && !editGifUrl) return;
         try {
             const res = await axios.put(`${API}/api/comments/${commentId}`, {
                 content: editContent.trim(),
                 gifUrl: editGifUrl,
             }, { withCredentials: true });
-            setComments(prev => prev.map(c => c.id === commentId ? res.data : c));
+            if (parentId) {
+                setComments(prev => prev.map(c => c.id === parentId
+                    ? { ...c, replies: (c.replies || []).map(r => r.id === commentId ? res.data : r) }
+                    : c));
+            } else {
+                setComments(prev => prev.map(c => c.id === commentId ? res.data : c));
+            }
             setEditingId(null);
         } catch (e: any) {
             showToast(e?.response?.data?.error || 'Failed to update comment', 'error');
         }
     };
 
-    const handleDelete = async (commentId: string) => {
+    const handleDelete = async (commentId: string, parentId?: string) => {
         try {
             await axios.delete(`${API}/api/comments/${commentId}`, { withCredentials: true });
-            setComments(prev => prev.filter(c => c.id !== commentId));
+            if (parentId) {
+                setComments(prev => prev.map(c => c.id === parentId
+                    ? { ...c, replies: (c.replies || []).filter(r => r.id !== commentId) }
+                    : c));
+            } else {
+                setComments(prev => prev.filter(c => c.id !== commentId));
+            }
         } catch (e: any) {
             showToast(e?.response?.data?.error || 'Failed to delete comment', 'error');
         }
@@ -331,6 +350,28 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         if (comment.userId === user.id) return true;
         if (ownerId && user.id === ownerId) return true;
         return false;
+    };
+
+    const handleReply = async (parentId: string) => {
+        if (!replyContent.trim() || replySending) return;
+        setReplySending(true);
+        try {
+            const res = await axios.post(`${API}/api/comments`, {
+                content: replyContent.trim(),
+                parentId,
+            }, { withCredentials: true });
+            setComments(prev => prev.map(c => c.id === parentId
+                ? { ...c, replies: [...(c.replies || []), res.data] }
+                : c));
+            setReplyContent('');
+            setReplyingTo(null);
+            setShowReplyEmoji(false);
+            setExpandedReplies(prev => new Set([...prev, parentId]));
+        } catch (e: any) {
+            showToast(e?.response?.data?.error || 'Failed to post reply', 'error');
+        } finally {
+            setReplySending(false);
+        }
     };
 
     const formatTime = (iso: string) => {
@@ -509,6 +550,126 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                 <Trash2 size={12} /> Delete
                                             </button>
+                                        )}
+                                        <button onClick={() => { setReplyingTo(replyingTo === comment.id ? null : comment.id); setReplyContent(''); setShowReplyEmoji(false); }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: replyingTo === comment.id ? colors.primary : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                            <Reply size={12} /> Reply
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Reply Input */}
+                                {user && replyingTo === comment.id && (
+                                    <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                        <img src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : ''}
+                                            alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, marginTop: '4px', backgroundColor: 'rgba(255,255,255,0.1)', objectFit: 'cover' }} />
+                                        <div style={{ flex: 1, position: 'relative' }}>
+                                            <textarea
+                                                autoFocus
+                                                value={replyContent}
+                                                onChange={e => setReplyContent(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(comment.id); } }}
+                                                placeholder={`Reply to @${comment.username}\u2026`}
+                                                rows={1}
+                                                style={{ width: '100%', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.primary}40`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '6px', marginTop: '5px', alignItems: 'center' }}>
+                                                <button onClick={() => setShowReplyEmoji(v => !v)}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: showReplyEmoji ? colors.primary : colors.textSecondary, display: 'flex' }}>
+                                                    <Smile size={14} />
+                                                </button>
+                                                <div style={{ flex: 1 }} />
+                                                <button onClick={() => { setReplyingTo(null); setReplyContent(''); setShowReplyEmoji(false); }}
+                                                    style={{ padding: '4px 10px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px' }}>
+                                                    Cancel
+                                                </button>
+                                                <button onClick={() => handleReply(comment.id)} disabled={replySending || !replyContent.trim()}
+                                                    style={{ padding: '4px 12px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '4px', cursor: (replySending || !replyContent.trim()) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600, opacity: (replySending || !replyContent.trim()) ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Send size={12} /> {replySending ? '\u2026' : 'Reply'}
+                                                </button>
+                                            </div>
+                                            {showReplyEmoji && (
+                                                <EmojiPicker onSelect={em => setReplyContent(prev => prev + em)} onClose={() => setShowReplyEmoji(false)} />
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Replies */}
+                                {comment.replies && comment.replies.length > 0 && (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <button onClick={() => setExpandedReplies(prev => { const s = new Set(prev); s.has(comment.id) ? s.delete(comment.id) : s.add(comment.id); return s; })}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0' }}>
+                                            <ChevronDown size={13} style={{ transform: expandedReplies.has(comment.id) ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                                            {expandedReplies.has(comment.id) ? 'Hide' : `${comment.replies.length}`} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                                        </button>
+                                        {expandedReplies.has(comment.id) && (
+                                            <div style={{ marginTop: '8px', paddingLeft: '14px', borderLeft: `2px solid ${colors.primary}30`, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {comment.replies.map(reply => (
+                                                    <div key={reply.id} style={{ display: 'flex', gap: '10px' }}>
+                                                        <div style={{ flexShrink: 0 }}>
+                                                            {reply.avatarUrl ? (
+                                                                <img src={reply.avatarUrl} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+                                                            ) : (
+                                                                <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>
+                                                                    {reply.username.charAt(0).toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                                                <span style={{ fontWeight: 600, fontSize: '13px', color: colors.textPrimary }}>{reply.username}</span>
+                                                                <span style={{ fontSize: '11px', color: colors.textSecondary }}>{formatTime(reply.createdAt)}</span>
+                                                                {reply.editedAt && <span style={{ fontSize: '10px', color: colors.textSecondary, fontStyle: 'italic' }}>(edited)</span>}
+                                                            </div>
+                                                            {editingId === reply.id ? (
+                                                                <div>
+                                                                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
+                                                                        style={{ width: '100%', padding: '7px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: colors.textPrimary, fontSize: '12px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box' }}
+                                                                        rows={2} />
+                                                                    <div style={{ display: 'flex', gap: '6px', marginTop: '5px' }}>
+                                                                        <button onClick={() => handleEdit(reply.id, comment.id)}
+                                                                            style={{ padding: '3px 10px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
+                                                                            Save
+                                                                        </button>
+                                                                        <button onClick={() => setEditingId(null)}
+                                                                            style={{ padding: '3px 10px', backgroundColor: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    {reply.content && (
+                                                                        <p style={{ margin: '0 0 3px', fontSize: '13px', color: '#CBD5E1', lineHeight: 1.5, wordBreak: 'break-word' }}>
+                                                                            {renderContent(reply.content)}
+                                                                        </p>
+                                                                    )}
+                                                                    {reply.gifUrl && (
+                                                                        <img src={reply.gifUrl} alt="GIF" style={{ maxWidth: '200px', maxHeight: '160px', borderRadius: '8px', marginTop: '4px' }} />
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            {user && editingId !== reply.id && (
+                                                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                                    {reply.userId === user.id && (
+                                                                        <button onClick={() => { setEditingId(reply.id); setEditContent(reply.content); setEditGifUrl(reply.gifUrl); }}
+                                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                                            <Edit3 size={11} /> Edit
+                                                                        </button>
+                                                                    )}
+                                                                    {canDelete(reply) && (
+                                                                        <button onClick={() => handleDelete(reply.id, comment.id)}
+                                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                                            <Trash2 size={11} /> Delete
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 )}

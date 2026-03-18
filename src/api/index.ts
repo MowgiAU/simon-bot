@@ -6453,7 +6453,7 @@ app.get('/api/comments', async (req: any, res) => {
         if (!trackId && !profileId) return res.status(400).json({ error: 'trackId or profileId is required' });
 
         const limit = Math.min(Number(rawLimit) || 50, 100);
-        const where: any = {};
+        const where: any = { parentId: null }; // top-level only
         if (trackId) where.trackId = trackId;
         if (profileId) where.profileId = profileId;
 
@@ -6462,6 +6462,9 @@ app.get('/api/comments', async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
             take: limit + 1,
             ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
+            include: {
+                replies: { orderBy: { createdAt: 'asc' } },
+            },
         });
 
         const hasMore = comments.length > limit;
@@ -6477,11 +6480,24 @@ app.get('/api/comments', async (req: any, res) => {
 app.post('/api/comments', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl, trackId, profileId } = req.body;
+        const { content, gifUrl, trackId, profileId, parentId } = req.body;
 
         if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
-        if (!trackId && !profileId) return res.status(400).json({ error: 'trackId or profileId is required' });
-        if (trackId && profileId) return res.status(400).json({ error: 'Specify only one of trackId or profileId' });
+
+        let resolvedTrackId = trackId;
+        let resolvedProfileId = profileId;
+
+        if (parentId) {
+            // Reply — inherit context from parent, prevent nested replies
+            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, parentId: true } });
+            if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
+            if (parent.parentId) return res.status(400).json({ error: 'Cannot reply to a reply' });
+            resolvedTrackId = parent.trackId;
+            resolvedProfileId = parent.profileId;
+        } else {
+            if (!resolvedTrackId && !resolvedProfileId) return res.status(400).json({ error: 'trackId or profileId is required' });
+            if (resolvedTrackId && resolvedProfileId) return res.status(400).json({ error: 'Specify only one of trackId or profileId' });
+        }
 
         // Resolve username and avatar
         let username = req.session.user.username || 'Unknown';
@@ -6503,8 +6519,9 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 avatarUrl,
                 content: (content || '').trim(),
                 gifUrl: gifUrl || null,
-                ...(trackId ? { trackId } : {}),
-                ...(profileId ? { profileId } : {}),
+                ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
+                ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
+                ...(parentId ? { parentId } : {}),
             },
         });
 

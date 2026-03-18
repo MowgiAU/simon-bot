@@ -1125,14 +1125,20 @@ model Comment {
   trackId         String?  // Comment on a track
   profileId       String?  // Comment on a musician profile
 
+  // Self-referential reply thread (one level deep)
+  parentId        String?
+
   track           Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
   profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  parent          Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[]        @relation("CommentReplies")
 
   createdAt       DateTime @default(now())
 
   @@index([trackId])
   @@index([profileId])
   @@index([userId])
+  @@index([parentId])
   @@map("comments")
 }
 
