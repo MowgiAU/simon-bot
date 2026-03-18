@@ -82,6 +82,7 @@ interface Battle {
     submissionEnd: string | null;
     votingStart: string | null;
     votingEnd: string | null;
+    slug?: string | null;
     winnerEntryId: string | null;
     bannerUrl: string | null;
     requireProjectFile?: boolean;
@@ -176,8 +177,40 @@ export const BattleDetailPage: React.FC = () => {
     }, [battleId]);
 
     useEffect(() => {
-        if (battle) document.title = `${battle.title} | Beat Battle | Fuji Studio`;
+        if (!battle) return;
+        document.title = `${battle.title} | Beat Battle | Fuji Studio`;
+        const setMeta = (prop: string, content: string) => {
+            let el = document.querySelector(`meta[property="${prop}"]`) as HTMLMetaElement | null;
+            if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+            el.setAttribute('content', content);
+        };
+        setMeta('og:title', `${battle.title} | Beat Battle`);
+        setMeta('og:description', battle.description || 'Join the beat battle on Fuji Studio — submit your track and win prizes.');
+        setMeta('og:image', battle.bannerUrl ? `${API}${battle.bannerUrl}` : 'https://fujistudio.app/og-default.png');
+        setMeta('og:url', window.location.href);
+        setMeta('og:type', 'website');
+        setMeta('og:site_name', 'Fuji Studio');
     }, [battle]);
+
+    const forceDownload = async (url: string, filename: string) => {
+        try {
+            const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+            const res = await fetch(fullUrl);
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        } catch {
+            const a = document.createElement('a');
+            a.href = url.startsWith('http') ? url : `${API}${url}`;
+            a.download = filename;
+            a.click();
+        }
+    };
 
     const vote = async (entryId: string) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
@@ -443,7 +476,7 @@ export const BattleDetailPage: React.FC = () => {
 
                 {/* ── SPONSOR STRIP ── */}
                 {battle.sponsor && (
-                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
+                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '40px 24px', backgroundColor: 'rgba(255,255,255,0.015)', marginBottom: '16px' }}>
                         <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                             <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
                             <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
@@ -471,7 +504,7 @@ export const BattleDetailPage: React.FC = () => {
                 )}
 
                 {/* ── RULES + PRIZES ── */}
-                <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
+                <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
 
                         {/* Rules card */}
@@ -515,10 +548,10 @@ export const BattleDetailPage: React.FC = () => {
                                                                         </button>
                                                                         <Music size={12} color={isThis ? colors.primary : colors.textSecondary} style={{ flexShrink: 0 }} />
                                                                         <span style={{ fontSize: '12px', color: isThis ? colors.textPrimary : colors.textSecondary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample.name}</span>
-                                                                        <a href={fullUrl} download={sample.name} onClick={e => e.stopPropagation()}
-                                                                            style={{ color: colors.textSecondary, display: 'flex', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Download">
+                                                                                                        <button onClick={e => { e.stopPropagation(); forceDownload(sample.url, sample.name); }}
+                                                                            style={{ color: colors.textSecondary, background: 'none', border: 'none', display: 'flex', padding: '4px', borderRadius: '4px', cursor: 'pointer' }} title="Download">
                                                                             <Download size={12} />
-                                                                        </a>
+                                                                        </button>
                                                                     </div>
                                                                 );
                                                             })}
@@ -740,7 +773,7 @@ export const BattleDetailPage: React.FC = () => {
             </div>
             {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
                 setLoading(true);
-                fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
+                fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include' })
                     .then(r => r.ok ? r.json() : null)
                     .then(data => { if (data) setBattle(data); })
                     .catch(() => {})

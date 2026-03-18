@@ -946,6 +946,7 @@ model SampleCollectionItem {
 
 model BeatBattle {
   id                  String   @id @default(cuid())
+  slug                String?  @unique
   guildId             String
   title               String
   description         String?  @db.Text

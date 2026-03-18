@@ -5222,8 +5222,9 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
 // --- Public: Get single battle with entries ---
 app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     try {
-        const battle = await db.beatBattle.findUnique({
-            where: { id: req.params.id },
+        const idOrSlug = req.params.id;
+        const battle = await db.beatBattle.findFirst({
+            where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
             include: {
                 sponsor: { include: { links: true } },
                 entries: {
@@ -5590,10 +5591,19 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 
         const effectiveGuildId = guildId || 'default-guild';
 
+        // Generate unique slug from title
+        const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        let slug = baseSlug;
+        let suffix = 2;
+        while (await db.beatBattle.findUnique({ where: { slug } })) {
+            slug = `${baseSlug}-${suffix++}`;
+        }
+
         const battle = await db.beatBattle.create({
             data: {
                 guildId: effectiveGuildId,
                 title,
+                slug,
                 description,
                 rules: rules || (Array.isArray(rulesData) ? rulesData.map((r: any) => r.text || '').filter(Boolean).join('\n') : null),
                 rulesData: rulesData || null,
@@ -5640,7 +5650,17 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (!oldBattle) return res.status(404).json({ error: 'Battle not found' });
 
         const data: any = {};
-        if (title !== undefined) data.title = title;
+        if (title !== undefined) {
+            data.title = title;
+            // Regenerate slug; allow collision suffix
+            const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            let slug = baseSlug;
+            let suffix = 2;
+            while (await db.beatBattle.findFirst({ where: { slug, NOT: { id: req.params.id } } })) {
+                slug = `${baseSlug}-${suffix++}`;
+            }
+            data.slug = slug;
+        }
         if (description !== undefined) data.description = description;
         if (rules !== undefined) data.rules = rules;
         if (rulesData !== undefined) {
@@ -6178,6 +6198,7 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
                 description,
                 status: 'completed',
                 sponsorId,
+                slug: (() => { const b = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); return `${b}-${Date.now()}`; })(),
                 createdBy: req.session.user.id,
                 submissionStart: completedAt ? new Date(completedAt) : new Date(),
                 submissionEnd: completedAt ? new Date(completedAt) : new Date(),

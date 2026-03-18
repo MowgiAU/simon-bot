@@ -33,6 +33,7 @@ const placeEmoji = (i: number) => i === 0 ? MEDAL_GOLD : i === 1 ? MEDAL_SILVER 
 
 interface Battle {
     id: string;
+    slug?: string | null;
     title: string;
     description: string | null;
     status: string;
@@ -238,7 +239,7 @@ export const BattlesPage: React.FC = () => {
                                     <Flame size={13} />
                                     {currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
                                 </div>
-                                <Link to={`/battles/${currentBattle.id}`} style={{ textDecoration: 'none' }}>
+                                <Link to={`/battles/${currentBattle.slug || currentBattle.id}`} style={{ textDecoration: 'none' }}>
                                     <h2 style={{ margin: '0 0 12px', fontSize: isMobile ? '28px' : '52px', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
                                         {currentBattle.title}
                                     </h2>
@@ -286,12 +287,12 @@ export const BattlesPage: React.FC = () => {
                                         </button>
                                     )}
                                     {currentBattle.status === 'upcoming' && (
-                                        <Link to={`/battles/${currentBattle.id}`}
+                                        <Link to={`/battles/${currentBattle.slug || currentBattle.id}`}
                                             style={{ backgroundColor: 'rgba(96,165,250,0.15)', color: '#60A5FA', padding: isMobile ? '11px 22px' : '14px 32px', borderRadius: '8px', fontWeight: 700, fontSize: isMobile ? '13px' : '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(96,165,250,0.25)' }}>
                                             <Swords size={16} /> View Details
                                         </Link>
                                     )}
-                                    <Link to={`/battles/${currentBattle.id}`}
+                                    <Link to={`/battles/${currentBattle.slug || currentBattle.id}`}
                                         style={{ color: 'rgba(255,255,255,0.45)', fontSize: isMobile ? '12px' : '13px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: isMobile ? '11px 18px' : '14px 24px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
                                         View Details
                                     </Link>
@@ -353,12 +354,14 @@ export const BattlesPage: React.FC = () => {
                                 ) : activeBattles.map(b => {
                                     const cfg = statusConfig[b.status] || statusConfig.upcoming;
                                     return (
-                                        <Link key={b.id} to={`/battles/${b.id}`} style={{ textDecoration: 'none', display: 'block', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', transition: 'border-color 0.2s' }}
+                                        <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ textDecoration: 'none', display: 'block', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px', transition: 'border-color 0.2s' }}
                                             onMouseEnter={e => (e.currentTarget.style.borderColor = `${colors.primary}50`)}
                                             onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                                 {b.sponsor ? (
-                                                    <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{b.sponsor.name}</span>
+                                                    b.sponsor.logoUrl
+                                                        ? <img src={b.sponsor.logoUrl} alt={b.sponsor.name} style={{ height: '20px', objectFit: 'contain', opacity: 0.75, maxWidth: '80px' }} />
+                                                        : <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{b.sponsor.name}</span>
                                                 ) : <span />}
                                                 <span style={{ fontSize: '10px', fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
                                             </div>
@@ -366,6 +369,17 @@ export const BattlesPage: React.FC = () => {
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
                                                 <Users size={12} /> {b._count?.entries || 0} Participants
                                             </span>
+                                            {b.prizes && b.prizes.length > 0 && (
+                                                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    {b.prizes.slice(0, 2).map((p, i) => (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.textSecondary }}>
+                                                            <span>{i === 0 ? '🥇' : '🥈'}</span>
+                                                            <span style={{ fontWeight: 600, color: colors.textPrimary }}>{p.place}</span>
+                                                            {p.description && <span style={{ color: colors.primary, fontWeight: 600 }}>– {p.description}</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </Link>
                                     );
                                 })}
@@ -401,7 +415,7 @@ export const BattlesPage: React.FC = () => {
                                     if (user && activeBattle) {
                                         return (
                                             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                                <Link to={`/battles/${activeBattle.id}`}
+                                                <Link to={`/battles/${activeBattle.slug || activeBattle.id}`}
                                                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', backgroundColor: `${colors.primary}12`, color: colors.primary, padding: '10px', borderRadius: '8px', textDecoration: 'none', fontSize: '12px', fontWeight: 600, border: `1px solid ${colors.primary}20` }}>
                                                     <Swords size={14} /> View Active Battle
                                                 </Link>
