@@ -29,7 +29,7 @@ const GEAR_CATEGORIES = [
 ];
 
 export const ProfileSetupWizard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isGuildMember } = useAuth();
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
@@ -108,6 +108,7 @@ export const ProfileSetupWizard: React.FC = () => {
     };
 
     const canAdvance = () => {
+        if (step === 0) return isGuildMember;
         if (step === 1) return displayName.trim().length > 0 && !nameError;
         return true;
     };
@@ -147,6 +148,27 @@ export const ProfileSetupWizard: React.FC = () => {
                                 Let's set up your musician profile. This only takes a minute and helps other producers discover your music.
                             </p>
                         </div>
+
+                        {/* Guild membership gate */}
+                        {!isGuildMember && (
+                            <div style={{ padding: '16px', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>
+                                <AlertCircle size={24} color="#FBBF24" style={{ marginBottom: '8px' }} />
+                                <p style={{ margin: '0 0 8px', color: '#FBBF24', fontWeight: 700, fontSize: '14px' }}>Join our Discord server to continue</p>
+                                <p style={{ margin: '0 0 14px', color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
+                                    You must be a member of the Fuji Studio Discord server to create a profile, upload tracks, and participate in battles.
+                                </p>
+                                <a
+                                    href="https://discord.gg/flstudio"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#5865F2', color: 'white', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '14px' }}
+                                >
+                                    <MessageCircle size={16} /> Join Discord Server
+                                </a>
+                                <p style={{ margin: '10px 0 0', color: colors.textSecondary, fontSize: '11px' }}>After joining, log out and log back in to refresh your status.</p>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '24px' }}>
                             {[
                                 { icon: <User size={18} />, text: 'Choose your artist name & bio' },

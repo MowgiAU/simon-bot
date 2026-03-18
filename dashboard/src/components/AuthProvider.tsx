@@ -24,6 +24,7 @@ interface AuthContextType {
   selectedGuild: Guild | null;
   setSelectedGuild: (guild: Guild) => void;
   permissions: Permissions;
+  isGuildMember: boolean;
   loading: boolean;
   login: () => void;
   logout: () => void;
@@ -36,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [mutualAdminGuilds, setMutualAdminGuilds] = useState<Guild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
   const [permissions, setPermissions] = useState<Permissions>({ canManagePlugins: false, accessiblePlugins: [] });
+  const [isGuildMember, setIsGuildMember] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fetch permissions when guild changes
@@ -79,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             canManagePlugins: true,
             accessiblePlugins: ['musician-profile', 'moderation', 'economy', 'roles', 'bot-identity', 'logs', 'welcome-gate', 'ticket-system', 'feedback', 'word-filter']
         });
+        setIsGuildMember(true);
         setLoading(false);
         return;
     }
@@ -89,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.authenticated) {
           setUser(data.user);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
+          setIsGuildMember(data.isGuildMember ?? false);
           if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
               // Prefer user's last choice or first one? For simplicity first one
               // Just picking first one for now
@@ -112,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

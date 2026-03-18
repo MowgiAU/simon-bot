@@ -688,6 +688,8 @@ model MusicianProfile {
   featuredTrackId String?  @unique
   featuredTrack   Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
 
+  comments        Comment[]
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -733,6 +735,7 @@ model Track {
   plays           TrackPlay[]
   genres          TrackGenre[]
   battleEntries   BattleEntry[]
+  comments        Comment[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1097,4 +1100,46 @@ model BeatBattleSettings {
   guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("beat_battle_settings")
+}
+
+// ──────────────────────────────────────────────
+// Comments (Tracks + Profiles)
+// ──────────────────────────────────────────────
+
+model Comment {
+  id              String   @id @default(cuid())
+  userId          String   // Discord user ID of commenter
+  username        String   // Cached display name
+  avatarUrl       String?  // Cached avatar URL
+  content         String   @db.Text // Text content (may contain emoji shortcodes)
+  gifUrl          String?  // Tenor/Giphy GIF URL if attached
+  editedAt        DateTime? // Set when edited
+
+  // Polymorphic target: exactly one of these should be set
+  trackId         String?  // Comment on a track
+  profileId       String?  // Comment on a musician profile
+
+  track           Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@index([trackId])
+  @@index([profileId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model CommentLog {
+  id              String   @id @default(cuid())
+  commentId       String   // Original comment ID
+  action          String   // "created" | "edited" | "deleted"
+  userId          String   // Who performed the action
+  content         String?  @db.Text // Snapshot of content at time of action
+  gifUrl          String?  // Snapshot of gif
+  metadata        Json?    // Extra context (e.g. reason for delete)
+  createdAt       DateTime @default(now())
+
+  @@index([commentId])
+  @@map("comment_logs")
 }

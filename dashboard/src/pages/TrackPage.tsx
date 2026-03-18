@@ -13,6 +13,7 @@ import {
     Edit3, X, Save, Upload, Download
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { CommentSection } from '../components/CommentSection';
 
 interface NoteData {
     key: number;
@@ -448,6 +449,9 @@ export const TrackPage: React.FC = () => {
                         <ProjectInfoPanel projectInfo={track.arrangement.projectInfo} />
                     )
                 )}
+
+                {/* Comments */}
+                <CommentSection trackId={track.id} ownerId={track.profile.userId} />
 
                 {/* Edit Message Banner */}
                 {editMsg && !editing && (

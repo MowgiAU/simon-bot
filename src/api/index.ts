@@ -704,6 +704,15 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
+
+    // Check if user is a member of the primary community Discord server
+    const primaryGuildId = process.env.GUILD_ID;
+    let isGuildMember = false;
+    if (primaryGuildId) {
+      isGuildMember = userGuilds.some((g: any) => g.id === primaryGuildId);
+    }
+    req.session.isGuildMember = isGuildMember;
+
     // Save session before redirecting to ensure cookie is set
     req.session.save((err) => {
       if (err) {
@@ -739,7 +748,8 @@ app.get('/api/auth/status', (req, res) => {
     res.json({
       authenticated: true,
       user: req.session.user,
-      mutualAdminGuilds: req.session.mutualAdminGuilds || []
+      mutualAdminGuilds: req.session.mutualAdminGuilds || [],
+      isGuildMember: req.session.isGuildMember ?? false,
     });
   } else {
     res.json({ authenticated: false });
@@ -3312,6 +3322,11 @@ app.post('/api/musician/tracks', upload.fields([
     try {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+        // Guild membership gate
+        if (process.env.GUILD_ID && !req.session.isGuildMember) {
+            return res.status(403).json({ error: 'You must be a member of the Discord server to upload tracks.' });
+        }
         
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const audioFile = files['audio']?.[0];
@@ -4259,10 +4274,15 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
 });
 
 // Update Profile (Auth should be handled by a middleware, but for now we follow context guild patterns)
-app.post('/api/musician/profile/:userId', async (req, res) => {
+app.post('/api/musician/profile/:userId', async (req: any, res) => {
     try {
         const { userId } = req.params;
         const data = req.body;
+
+        // Guild membership gate
+        if (process.env.GUILD_ID && !req.session?.isGuildMember) {
+            return res.status(403).json({ error: 'You must be a member of the Discord server to create a profile.' });
+        }
         
         // Validate displayName against word filters if provided
         if (data.displayName && typeof data.displayName === 'string' && data.displayName.trim()) {
@@ -5265,6 +5285,18 @@ app.get('/api/beat-battle/entries/:entryId', async (req: any, res) => {
                 battle: {
                     select: { id: true, title: true, status: true, description: true, guildId: true },
                 },
+                track: {
+                    select: {
+                        id: true, title: true, slug: true, url: true, coverUrl: true,
+                        description: true, artist: true, album: true, year: true,
+                        bpm: true, key: true, duration: true, playCount: true,
+                        allowAudioDownload: true, allowProjectDownload: true,
+                        projectFileUrl: true, projectZipUrl: true,
+                        arrangement: true, createdAt: true,
+                        profile: { select: { id: true, username: true, displayName: true, userId: true, avatar: true } },
+                        genres: { include: { genre: true } },
+                    },
+                },
             },
         });
 
@@ -5371,6 +5403,11 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const title = req.body.title;
         const trackId = req.body.trackId; // optional — library track submission
         const description = req.body.description || null;
+
+        // Guild membership gate
+        if (process.env.GUILD_ID && !req.session.isGuildMember) {
+            return res.status(403).json({ error: 'You must be a member of the Discord server to submit battle entries.' });
+        }
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -6327,6 +6364,231 @@ async function runBeatBattleLifecycle(): Promise<void> {
 // Run lifecycle immediately on start, then every 60 seconds
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
+
+// ─── Comment System ─────────────────────────────────────────────────────
+
+// GET comments for a track or profile
+app.get('/api/comments', async (req: any, res) => {
+    try {
+        const { trackId, profileId, cursor, limit: rawLimit } = req.query;
+        if (!trackId && !profileId) return res.status(400).json({ error: 'trackId or profileId is required' });
+
+        const limit = Math.min(Number(rawLimit) || 50, 100);
+        const where: any = {};
+        if (trackId) where.trackId = trackId;
+        if (profileId) where.profileId = profileId;
+
+        const comments = await db.comment.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
+        });
+
+        const hasMore = comments.length > limit;
+        if (hasMore) comments.pop();
+
+        res.json({ comments, hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST create a comment
+app.post('/api/comments', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { content, gifUrl, trackId, profileId } = req.body;
+
+        if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+        if (!trackId && !profileId) return res.status(400).json({ error: 'trackId or profileId is required' });
+        if (trackId && profileId) return res.status(400).json({ error: 'Specify only one of trackId or profileId' });
+
+        // Resolve username and avatar
+        let username = req.session.user.username || 'Unknown';
+        let avatarUrl: string | null = null;
+        try {
+            const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+            });
+            username = userRes.data.global_name || userRes.data.username || username;
+            if (userRes.data.avatar) {
+                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=128`;
+            }
+        } catch {}
+
+        const comment = await db.comment.create({
+            data: {
+                userId,
+                username,
+                avatarUrl,
+                content: (content || '').trim(),
+                gifUrl: gifUrl || null,
+                ...(trackId ? { trackId } : {}),
+                ...(profileId ? { profileId } : {}),
+            },
+        });
+
+        // Audit log
+        await db.commentLog.create({
+            data: {
+                commentId: comment.id,
+                action: 'created',
+                userId,
+                content: comment.content,
+                gifUrl: comment.gifUrl,
+            },
+        }).catch(() => {});
+
+        res.json(comment);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// PUT edit a comment (own only)
+app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { commentId } = req.params;
+        const { content, gifUrl } = req.body;
+
+        const comment = await db.comment.findUnique({ where: { id: commentId } });
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+        if (comment.userId !== userId) return res.status(403).json({ error: 'You can only edit your own comments' });
+
+        if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+
+        const updated = await db.comment.update({
+            where: { id: commentId },
+            data: {
+                content: (content || '').trim(),
+                gifUrl: gifUrl || null,
+                editedAt: new Date(),
+            },
+        });
+
+        // Audit log
+        await db.commentLog.create({
+            data: {
+                commentId,
+                action: 'edited',
+                userId,
+                content: updated.content,
+                gifUrl: updated.gifUrl,
+                metadata: { previousContent: comment.content, previousGifUrl: comment.gifUrl },
+            },
+        }).catch(() => {});
+
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// DELETE a comment (own comment, or comment on own track/profile)
+app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { commentId } = req.params;
+
+        const comment = await db.comment.findUnique({ where: { id: commentId } });
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+        let canDelete = comment.userId === userId; // Own comment
+
+        // Check if user owns the track this comment is on
+        if (!canDelete && comment.trackId) {
+            const track = await db.track.findUnique({ where: { id: comment.trackId }, select: { profile: { select: { userId: true } } } });
+            if (track?.profile?.userId === userId) canDelete = true;
+        }
+
+        // Check if user owns the profile this comment is on
+        if (!canDelete && comment.profileId) {
+            const profile = await db.musicianProfile.findUnique({ where: { id: comment.profileId }, select: { userId: true } });
+            if (profile?.userId === userId) canDelete = true;
+        }
+
+        // Admins can always delete
+        if (!canDelete && req.session.mutualAdminGuilds?.length > 0) canDelete = true;
+
+        if (!canDelete) return res.status(403).json({ error: 'You do not have permission to delete this comment' });
+
+        await db.comment.delete({ where: { id: commentId } });
+
+        // Audit log
+        await db.commentLog.create({
+            data: {
+                commentId,
+                action: 'deleted',
+                userId,
+                content: comment.content,
+                gifUrl: comment.gifUrl,
+                metadata: { deletedByOwner: comment.userId === userId },
+            },
+        }).catch(() => {});
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET Discord server emojis (for emoji picker)
+app.get('/api/discord/emojis', async (_req: any, res) => {
+    try {
+        const guildId = process.env.GUILD_ID;
+        if (!guildId) return res.json([]);
+
+        const emojiRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/emojis`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+        });
+
+        const emojis = emojiRes.data.map((e: any) => ({
+            id: e.id,
+            name: e.name,
+            animated: e.animated,
+            url: `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}?size=48`,
+        }));
+
+        res.json(emojis);
+    } catch (e: any) {
+        res.json([]);
+    }
+});
+
+// ─── Tenor GIF Proxy (safe search enforced) ─────────────────────────────
+
+app.get('/api/tenor/featured', async (_req: any, res) => {
+    try {
+        const key = process.env.TENOR_API_KEY;
+        if (!key) return res.json({ results: [] });
+
+        const tenorRes = await axios.get('https://tenor.googleapis.com/v2/featured', {
+            params: { key, limit: 30, contentfilter: 'medium', media_filter: 'tinygif,nanogif,gif' },
+        });
+
+        res.json({ results: tenorRes.data.results || [] });
+    } catch {
+        res.json({ results: [] });
+    }
+});
+
+app.get('/api/tenor/search', async (req: any, res) => {
+    try {
+        const key = process.env.TENOR_API_KEY;
+        const q = req.query.q;
+        if (!key || !q) return res.json({ results: [] });
+
+        const tenorRes = await axios.get('https://tenor.googleapis.com/v2/search', {
+            params: { key, q, limit: 30, contentfilter: 'medium', media_filter: 'tinygif,nanogif,gif' },
+        });
+
+        res.json({ results: tenorRes.data.results || [] });
+    } catch {
+        res.json({ results: [] });
+    }
+});
 
 app.listen(PORT, () => {
   logger.info(`API server running on port ${PORT}`);

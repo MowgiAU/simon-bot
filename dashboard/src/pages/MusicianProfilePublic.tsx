@@ -10,6 +10,7 @@ import {
     Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check,
     Swords, Trophy, Flame
 } from 'lucide-react';
+import { CommentSection } from '../components/CommentSection';
 
 interface MusicianProfile {
     id: string;
@@ -592,6 +593,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     </div>
                 )}
 
+            </div>
+
+            {/* Comments */}
+            <div style={{ maxWidth: '900px', margin: '0 auto', padding: `0 ${spacing.md}` }}>
+                <CommentSection profileId={profile.id} ownerId={profile.userId} />
             </div>
 
             {/* Back to Edit Button (Owner only) */}

@@ -18,7 +18,7 @@ interface Genre {
 }
 
 export const MyTracksPage: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, isGuildMember } = useAuth();
     const navigate = useNavigate();
     const [tracks, setTracks] = useState<any[]>([]);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
@@ -553,6 +553,15 @@ export const MyTracksPage: React.FC = () => {
                             <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); }}
                                 style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
                         </div>
+                    </div>
+                ) : !isGuildMember ? (
+                    <div style={{ padding: '20px', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: borderRadius.sm, textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 8px', color: colors.textPrimary, fontWeight: 600 }}>Discord Server Membership Required</p>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>You must be a member of our Discord server to upload tracks.</p>
+                        <a href="https://discord.gg/flstudio" target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', backgroundColor: '#5865F2', color: 'white', borderRadius: borderRadius.sm, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
+                            Join Discord Server
+                        </a>
                     </div>
                 ) : (
                     <button onClick={() => setIsAddingTrack(true)}
