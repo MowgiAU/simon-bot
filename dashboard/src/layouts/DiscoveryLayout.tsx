@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -186,6 +186,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                             <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ExternalLink size={13} /> View Profile</Link>
                                             <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Edit3 size={13} /> Edit Profile</Link>
                                             <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Upload size={13} /> Upload Tracks</Link>
+                                            <Link to="/feed" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Rss size={13} /> Feed</Link>
                                             <Link to="/my-favourites" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Heart size={13} /> Favourites</Link>
                                             <Link to="/my-playlists" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ListMusic size={13} /> Playlists</Link>
                                             <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
@@ -296,6 +297,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {[
                         { key: 'discover', label: 'Home', icon: <Home size={20} />, path: '/' },
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
+                        { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
                         { key: 'genres', label: 'Discover', icon: <Zap size={20} />, path: '/genres' },
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
@@ -354,10 +356,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
                         {/* Nav items at radial positions */}
                         {([
-                            { key: 'discover',  label: 'HOME',    icon: <Home size={22} />,   path: '/',        angle: 225 },
-                            { key: 'artists',   label: 'ARTISTS', icon: <User size={22} />,   path: '/artists', angle: 315 },
-                            { key: 'genres',    label: 'GENRES',  icon: <Zap size={22} />,    path: '/genres',  angle: 135 },
-                            { key: 'battles',   label: 'BATTLES', icon: <Swords size={22} />, path: '/battles', angle: 45  },
+                            { key: 'discover',  label: 'HOME',      icon: <Home size={22} />,      path: '/',             angle: 210 },
+                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,      path: '/artists',      angle: 270 },
+                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,       path: '/genres',       angle: 330 },
+                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,    path: '/battles',      angle: 30  },
+                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,       path: '/feed',         angle: 90  },
+                            { key: 'playlists', label: 'PLAYLISTS', icon: <ListMusic size={22} />, path: '/my-playlists', angle: 150 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);
                             const r = 110;

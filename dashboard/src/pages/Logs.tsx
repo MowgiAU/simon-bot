@@ -23,7 +23,10 @@ import {
   ChevronRight,
   Users,
   Plus,
-  Music
+  Music,
+  MessageCircle,
+  Heart,
+  ListMusic
 } from 'lucide-react';
 
 interface LogComment {
@@ -73,6 +76,9 @@ const CATEGORIES = [
   { id: 'PIRACY', label: 'Piracy', icon: <Skull size={16} /> },
   { id: 'ERROR', label: 'Errors', icon: <AlertTriangle size={16} /> },
   { id: 'PROFILES', label: 'Profiles', icon: <Music size={16} /> },
+  { id: 'COMMENTS', label: 'Comments', icon: <MessageCircle size={16} /> },
+  { id: 'SOCIAL', label: 'Social', icon: <Heart size={16} /> },
+  { id: 'PLAYLISTS', label: 'Playlists', icon: <ListMusic size={16} /> },
 ];
 
 interface LogsProps {
@@ -764,6 +770,18 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 track_uploaded:         { label: 'Track Uploaded',          color: colors.primary },
                                 profile_updated:        { label: 'Profile Updated',         color: colors.primary },
                                 avatar_uploaded:        { label: 'Avatar Uploaded',         color: colors.primary },
+                                comment_created:        { label: 'Comment Posted',          color: '#60A5FA' },
+                                comment_replied:        { label: 'Comment Replied',         color: '#60A5FA' },
+                                comment_reacted:        { label: 'Comment Reacted',         color: '#A78BFA' },
+                                comment_reaction_removed: { label: 'Reaction Removed',      color: '#9CA3AF' },
+                                track_favourited:       { label: 'Track Favourited',        color: '#F87171' },
+                                track_unfavourited:     { label: 'Track Unfavourited',      color: '#9CA3AF' },
+                                artist_followed:        { label: 'Artist Followed',         color: '#34D399' },
+                                artist_unfollowed:      { label: 'Artist Unfollowed',       color: '#9CA3AF' },
+                                playlist_created:       { label: 'Playlist Created',        color: '#FBBF24' },
+                                playlist_deleted:       { label: 'Playlist Deleted',        color: '#F87171' },
+                                playlist_track_added:   { label: 'Track Added to Playlist', color: '#34D399' },
+                                playlist_track_removed: { label: 'Track Removed from Playlist', color: '#F87171' },
                             };
                             if (profileActionLabels[log.action]) {
                                 const meta = profileActionLabels[log.action];

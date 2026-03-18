@@ -1078,7 +1078,10 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         'LINK': ['link_deleted', 'link_filtered'],
         'PIRACY': ['piracy_detected'],
         'ERROR': ['error', 'command_error'],
-        'PROFILES': ['profile_status_changed', 'track_status_changed', 'profile_wiped', 'track_uploaded', 'profile_updated', 'avatar_uploaded']
+        'PROFILES': ['profile_status_changed', 'track_status_changed', 'profile_wiped', 'track_uploaded', 'profile_updated', 'avatar_uploaded'],
+        'COMMENTS': ['comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed'],
+        'SOCIAL': ['track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed'],
+        'PLAYLISTS': ['playlist_created', 'playlist_deleted', 'playlist_track_added', 'playlist_track_removed'],
     };
 
     if (action && action !== 'all') {
@@ -6480,14 +6483,36 @@ app.get('/api/comments', async (req: any, res) => {
             take: limit + 1,
             ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
             include: {
-                replies: { orderBy: { createdAt: 'asc' } },
+                replies: {
+                    orderBy: { createdAt: 'asc' },
+                    include: {
+                        likes: { select: { userId: true, type: true } },
+                    },
+                },
+                likes: { select: { userId: true, type: true } },
             },
         });
 
         const hasMore = comments.length > limit;
         if (hasMore) comments.pop();
 
-        res.json({ comments, hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null });
+        // Transform likes into counts + user's vote
+        const currentUserId = req.session?.user?.id || null;
+        const transformComment = (c: any) => {
+            const likeCount = (c.likes || []).filter((l: any) => l.type === 'like').length;
+            const dislikeCount = (c.likes || []).filter((l: any) => l.type === 'dislike').length;
+            const userVote = currentUserId ? (c.likes || []).find((l: any) => l.userId === currentUserId)?.type || null : null;
+            const { likes: _likes, ...rest } = c;
+            return {
+                ...rest,
+                likeCount,
+                dislikeCount,
+                userVote,
+                replies: (c.replies || []).map(transformComment),
+            };
+        };
+
+        res.json({ comments: comments.map(transformComment), hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -6551,6 +6576,14 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 content: comment.content,
                 gifUrl: comment.gifUrl,
             },
+        }).catch(() => {});
+
+        // Action log for audit trail
+        const actionType = parentId ? 'comment_replied' : 'comment_created';
+        await logAction('GLOBAL', actionType, userId, resolvedTrackId || resolvedProfileId || comment.id, {
+            username,
+            content: (content || '').trim().slice(0, 120),
+            ...(parentId ? { parentId } : {}),
         }).catch(() => {});
 
         // Notifications (fire-and-forget)
@@ -6687,6 +6720,52 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
     }
 });
 
+// POST react to a comment (like/dislike toggle)
+app.post('/api/comments/:commentId/react', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { commentId } = req.params;
+        const { type } = req.body;
+
+        if (!type || !['like', 'dislike'].includes(type)) {
+            return res.status(400).json({ error: 'type must be "like" or "dislike"' });
+        }
+
+        const comment = await db.comment.findUnique({ where: { id: commentId } });
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+        const existing = await db.commentLike.findUnique({
+            where: { userId_commentId: { userId, commentId } },
+        });
+
+        if (existing) {
+            if (existing.type === type) {
+                // Same type — remove the reaction
+                await db.commentLike.delete({ where: { id: existing.id } });
+                // Log removal
+                await logAction('GLOBAL', 'comment_reaction_removed', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
+            } else {
+                // Different type — switch
+                await db.commentLike.update({ where: { id: existing.id }, data: { type } });
+                await logAction('GLOBAL', 'comment_reacted', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
+            }
+        } else {
+            await db.commentLike.create({ data: { userId, commentId, type } });
+            await logAction('GLOBAL', 'comment_reacted', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
+        }
+
+        // Return updated counts
+        const likes = await db.commentLike.findMany({ where: { commentId }, select: { type: true, userId: true } });
+        const likeCount = likes.filter(l => l.type === 'like').length;
+        const dislikeCount = likes.filter(l => l.type === 'dislike').length;
+        const userVote = likes.find(l => l.userId === userId)?.type || null;
+
+        res.json({ likeCount, dislikeCount, userVote });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // GET Discord server emojis (for emoji picker)
 app.get('/api/discord/emojis', async (_req: any, res) => {
     try {
@@ -6777,9 +6856,11 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) =>
 
         if (existing) {
             await db.trackFavourite.delete({ where: { id: existing.id } });
+            await logAction('GLOBAL', 'track_unfavourited', userId, trackId, { title: track.title }).catch(() => {});
             res.json({ favourited: false });
         } else {
             await db.trackFavourite.create({ data: { userId, trackId } });
+            await logAction('GLOBAL', 'track_favourited', userId, trackId, { title: track.title }).catch(() => {});
             // Notify track owner
             if (track.profile.userId !== userId) {
                 const username = req.session.user.username || 'Someone';
@@ -6879,9 +6960,11 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
 
         if (existing) {
             await db.artistFollow.delete({ where: { id: existing.id } });
+            await logAction('GLOBAL', 'artist_unfollowed', followerId, artistId, { artist: artist.username }).catch(() => {});
             res.json({ following: false });
         } else {
             await db.artistFollow.create({ data: { followerId, artistId } });
+            await logAction('GLOBAL', 'artist_followed', followerId, artistId, { artist: artist.username }).catch(() => {});
             // Notify the artist
             const username = req.session.user.username || 'Someone';
             db.musicNotification.create({
@@ -6920,6 +7003,51 @@ app.get('/api/my-follows', requireAuth, async (req: any, res) => {
             include: { artist: { select: { id: true, userId: true, username: true, displayName: true, avatar: true, bio: true, totalPlays: true } } },
         });
         res.json(follows.map(f => f.artist));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Feed: tracks from followed artists, ordered by newest
+app.get('/api/feed', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { cursor, limit: rawLimit } = req.query;
+        const limit = Math.min(Number(rawLimit) || 30, 50);
+
+        // Get followed artist profile IDs
+        const follows = await db.artistFollow.findMany({
+            where: { followerId: userId },
+            select: { artistId: true },
+        });
+
+        if (follows.length === 0) {
+            return res.json({ tracks: [], hasMore: false, nextCursor: null });
+        }
+
+        const profileIds = follows.map(f => f.artistId);
+
+        const tracks = await db.track.findMany({
+            where: {
+                profileId: { in: profileIds },
+                isPublic: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
+            include: {
+                profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                genres: { include: { genre: true } },
+            },
+        });
+
+        const hasMore = tracks.length > limit;
+        if (hasMore) tracks.pop();
+
+        // Filter out suspended
+        const activeTracks = tracks.filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'));
+
+        res.json({ tracks: activeTracks, hasMore, nextCursor: hasMore ? activeTracks[activeTracks.length - 1]?.id : null });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -6994,6 +7122,7 @@ app.post('/api/playlists', requireAuth, async (req: any, res) => {
                 isPublic: isPublic !== false,
             },
         });
+        await logAction('GLOBAL', 'playlist_created', userId, playlist.id, { name: playlist.name }).catch(() => {});
         res.json(playlist);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -7071,6 +7200,7 @@ app.delete('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
         if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
 
         await db.playlist.delete({ where: { id: playlist.id } });
+        await logAction('GLOBAL', 'playlist_deleted', userId, playlist.id, { name: playlist.name }).catch(() => {});
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -7101,6 +7231,7 @@ app.post('/api/playlists/:playlistId/tracks', requireAuth, async (req: any, res)
 
         await db.playlistTrack.create({ data: { playlistId, trackId, position } });
         await db.playlist.update({ where: { id: playlistId }, data: { trackCount: { increment: 1 } } });
+        await logAction('GLOBAL', 'playlist_track_added', userId, playlistId, { trackId, playlist: playlist.name }).catch(() => {});
 
         // Set cover URL from first track if not set
         if (!playlist.coverUrl) {
@@ -7131,6 +7262,7 @@ app.delete('/api/playlists/:playlistId/tracks/:trackId', requireAuth, async (req
 
         await db.playlistTrack.delete({ where: { id: entry.id } });
         await db.playlist.update({ where: { id: playlistId }, data: { trackCount: { decrement: 1 } } });
+        await logAction('GLOBAL', 'playlist_track_removed', userId, playlistId, { trackId, playlist: playlist.name }).catch(() => {});
 
         res.json({ success: true });
     } catch (e: any) {

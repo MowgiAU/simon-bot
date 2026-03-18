@@ -5,7 +5,7 @@ import { useAuth } from './AuthProvider';
 import { showToast } from './Toast';
 import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
-    Search, Loader2, ChevronDown, Reply
+    Search, Loader2, ChevronDown, Reply, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -23,6 +23,9 @@ interface Comment {
     createdAt: string;
     parentId?: string | null;
     replies?: Comment[];
+    likeCount?: number;
+    dislikeCount?: number;
+    userVote?: 'like' | 'dislike' | null;
 }
 
 interface CommentSectionProps {
@@ -374,6 +377,26 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         }
     };
 
+    const handleReact = async (commentId: string, type: 'like' | 'dislike', parentId?: string) => {
+        if (!user) return;
+        try {
+            const res = await axios.post(`${API}/api/comments/${commentId}/react`, { type }, { withCredentials: true });
+            const updateFn = (c: Comment): Comment => {
+                if (c.id === commentId) {
+                    return { ...c, likeCount: res.data.likeCount, dislikeCount: res.data.dislikeCount, userVote: res.data.userVote };
+                }
+                return c;
+            };
+            if (parentId) {
+                setComments(prev => prev.map(c => c.id === parentId
+                    ? { ...c, replies: (c.replies || []).map(updateFn) }
+                    : c));
+            } else {
+                setComments(prev => prev.map(updateFn));
+            }
+        } catch {}
+    };
+
     const formatTime = (iso: string) => {
         const d = new Date(iso);
         const now = new Date();
@@ -538,7 +561,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
 
                                 {/* Actions */}
                                 {editingId !== comment.id && (
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
+                                        <button onClick={() => handleReact(comment.id, 'like')}
+                                            style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: comment.userVote === 'like' ? colors.primary : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                                            <ThumbsUp size={13} fill={comment.userVote === 'like' ? colors.primary : 'none'} /> {comment.likeCount || 0}
+                                        </button>
+                                        <button onClick={() => handleReact(comment.id, 'dislike')}
+                                            style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: comment.userVote === 'dislike' ? '#EF4444' : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                                            <ThumbsDown size={13} fill={comment.userVote === 'dislike' ? '#EF4444' : 'none'} /> {comment.dislikeCount || 0}
+                                        </button>
                                         {user && comment.userId === user.id && (
                                             <button onClick={() => { setEditingId(comment.id); setEditContent(comment.content); setEditGifUrl(comment.gifUrl); }}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
@@ -650,9 +681,17 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                                     )}
                                                                 </>
                                                             )}
-                                                            {user && editingId !== reply.id && (
-                                                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                                                    {reply.userId === user.id && (
+                                                            {editingId !== reply.id && (
+                                                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
+                                                                    <button onClick={() => handleReact(reply.id, 'like', comment.id)}
+                                                                        style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: reply.userVote === 'like' ? colors.primary : colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                                                                        <ThumbsUp size={11} fill={reply.userVote === 'like' ? colors.primary : 'none'} /> {reply.likeCount || 0}
+                                                                    </button>
+                                                                    <button onClick={() => handleReact(reply.id, 'dislike', comment.id)}
+                                                                        style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: reply.userVote === 'dislike' ? '#EF4444' : colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
+                                                                        <ThumbsDown size={11} fill={reply.userVote === 'dislike' ? '#EF4444' : 'none'} /> {reply.dislikeCount || 0}
+                                                                    </button>
+                                                                    {user && reply.userId === user.id && (
                                                                         <button onClick={() => { setEditingId(reply.id); setEditContent(reply.content); setEditGifUrl(reply.gifUrl); }}
                                                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                                             <Edit3 size={11} /> Edit

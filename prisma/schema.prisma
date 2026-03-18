@@ -1139,6 +1139,7 @@ model Comment {
   profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
   parent          Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies         Comment[]        @relation("CommentReplies")
+  likes           CommentLike[]
 
   createdAt       DateTime @default(now())
 
@@ -1147,6 +1148,21 @@ model Comment {
   @@index([userId])
   @@index([parentId])
   @@map("comments")
+}
+
+model CommentLike {
+  id              String   @id @default(cuid())
+  userId          String   // Discord user ID
+  commentId       String
+  type            String   // "like" | "dislike"
+
+  comment         Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, commentId])
+  @@index([commentId])
+  @@map("comment_likes")
 }
 
 model CommentLog {
