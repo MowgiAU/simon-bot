@@ -976,6 +976,9 @@ model BeatBattle {
   // Media
   bannerUrl           String?  // Admin-uploaded hero banner image
 
+  // Submission options
+  requireProjectFile  Boolean  @default(false) // Require .flp/.zip project upload
+
   createdBy           String   // Admin Discord ID who created
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -999,6 +1002,8 @@ model BattleEntry {
   audioUrl    String   // Path to uploaded audio
   coverUrl    String?  // Optional cover art
   avatarUrl   String?  // Submitter's Discord avatar URL
+  description String?  @db.Text // Optional description
+  projectUrl  String?  // Optional project file (.flp/.zip) URL
   duration    Int      @default(0) // seconds
   voteCount   Int      @default(0) // Denormalized for perf
   trackId     String?  // FK to musician Track (library submission)

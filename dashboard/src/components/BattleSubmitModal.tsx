@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { X, Upload, Music, Check, Loader2, Library } from 'lucide-react';
+import { X, Upload, Music, Check, Loader2, Library, FileArchive, Image } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -15,6 +15,7 @@ interface LibraryTrack {
 
 interface BattleSubmitModalProps {
     battleId: string;
+    requireProjectFile?: boolean;
     open: boolean;
     onClose: () => void;
     onSubmitted: () => void;
@@ -22,7 +23,7 @@ interface BattleSubmitModalProps {
 
 type Tab = 'upload' | 'library';
 
-export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, open, onClose, onSubmitted }) => {
+export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, requireProjectFile, open, onClose, onSubmitted }) => {
     const [tab, setTab] = useState<Tab>('upload');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -30,9 +31,13 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     // Upload tab
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
     const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [coverPreview, setCoverPreview] = useState<string>('');
+    const [projectFile, setProjectFile] = useState<File | null>(null);
     const audioRef = useRef<HTMLInputElement>(null);
     const coverRef = useRef<HTMLInputElement>(null);
+    const projectRef = useRef<HTMLInputElement>(null);
 
     // Library tab
     const [tracks, setTracks] = useState<LibraryTrack[]>([]);
@@ -49,6 +54,17 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
             setSubmitting(false);
         }
     }, [open]);
+
+    const handleCoverChange = (file: File | null) => {
+        setCoverFile(file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => setCoverPreview(e.target?.result as string);
+            reader.readAsDataURL(file);
+        } else {
+            setCoverPreview('');
+        }
+    };
 
     const fetchTracks = async () => {
         setTracksLoading(true);
@@ -72,7 +88,7 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ trackId: selectedTrackId }),
+                    body: JSON.stringify({ trackId: selectedTrackId, title: tracks.find(t => t.id === selectedTrackId)?.title || 'Untitled' }),
                 });
                 if (!res.ok) {
                     const data = await res.json().catch(() => ({}));
@@ -81,10 +97,13 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
             } else {
                 if (!audioFile) { setError('Please select an audio file.'); setSubmitting(false); return; }
                 if (!title.trim()) { setError('Please enter a track title.'); setSubmitting(false); return; }
+                if (requireProjectFile && !projectFile) { setError('This battle requires a project file (.flp or .zip).'); setSubmitting(false); return; }
                 const formData = new FormData();
                 formData.append('audio', audioFile);
                 formData.append('title', title.trim());
+                if (description.trim()) formData.append('description', description.trim());
                 if (coverFile) formData.append('cover', coverFile);
+                if (projectFile) formData.append('project', projectFile);
 
                 const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/submit`, {
                     method: 'POST',
@@ -106,7 +125,7 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     if (!open) return null;
 
     const overlayStyle: React.CSSProperties = { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' };
-    const modalStyle: React.CSSProperties = { backgroundColor: colors.surface, borderRadius: '14px', width: '100%', maxWidth: '520px', maxHeight: '85vh', overflow: 'auto', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' };
+    const modalStyle: React.CSSProperties = { backgroundColor: colors.surface, borderRadius: '14px', width: '100%', maxWidth: '560px', maxHeight: '85vh', overflow: 'auto', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' };
     const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '14px', boxSizing: 'border-box' };
     const labelStyle: React.CSSProperties = { display: 'block', color: colors.textSecondary, fontSize: '12px', fontWeight: 600, marginBottom: '6px' };
 
@@ -141,10 +160,45 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
 
                     {tab === 'upload' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label style={labelStyle}>Track Title *</label>
-                                <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="My Beat" />
+                            {/* Cover Art Preview + Title side by side */}
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                                {/* Cover Art Thumbnail */}
+                                <div style={{ flexShrink: 0 }}>
+                                    <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleCoverChange(e.target.files?.[0] || null)} />
+                                    <button
+                                        onClick={() => coverRef.current?.click()}
+                                        style={{ width: '80px', height: '80px', borderRadius: '10px', border: `2px dashed ${coverPreview ? 'transparent' : 'rgba(255,255,255,0.15)'}`, backgroundColor: coverPreview ? 'transparent' : 'rgba(255,255,255,0.04)', cursor: 'pointer', padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        {coverPreview ? (
+                                            <img src={coverPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ textAlign: 'center' }}>
+                                                <Image size={20} color={colors.textSecondary} style={{ opacity: 0.5 }} />
+                                                <p style={{ margin: '4px 0 0', fontSize: '9px', color: colors.textSecondary, opacity: 0.6 }}>Cover</p>
+                                            </div>
+                                        )}
+                                    </button>
+                                </div>
+                                {/* Title + Description */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    <div>
+                                        <label style={labelStyle}>Track Title *</label>
+                                        <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="My Beat" />
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Description</label>
+                                        <textarea
+                                            style={{ ...inputStyle, minHeight: '48px', resize: 'vertical', fontFamily: 'inherit' }}
+                                            value={description}
+                                            onChange={e => setDescription(e.target.value)}
+                                            placeholder="Tell us about this beat..."
+                                            rows={2}
+                                        />
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Audio File */}
                             <div>
                                 <label style={labelStyle}>Audio File * (MP3, WAV, FLAC)</label>
                                 <input ref={audioRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => setAudioFile(e.target.files?.[0] || null)} />
@@ -152,12 +206,17 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                     <Music size={14} /> {audioFile ? audioFile.name : 'Choose audio file...'}
                                 </button>
                             </div>
+
+                            {/* Project File */}
                             <div>
-                                <label style={labelStyle}>Cover Art (optional)</label>
-                                <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setCoverFile(e.target.files?.[0] || null)} />
-                                <button onClick={() => coverRef.current?.click()} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: coverFile ? colors.textPrimary : colors.textSecondary }}>
-                                    <Upload size={14} /> {coverFile ? coverFile.name : 'Choose cover image...'}
+                                <label style={labelStyle}>Project File (.flp, .zip){requireProjectFile ? ' *' : ''}</label>
+                                <input ref={projectRef} type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setProjectFile(e.target.files?.[0] || null)} />
+                                <button onClick={() => projectRef.current?.click()} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: projectFile ? colors.textPrimary : colors.textSecondary }}>
+                                    <FileArchive size={14} /> {projectFile ? projectFile.name : requireProjectFile ? 'Choose project file (required)...' : 'Choose project file (optional)...'}
                                 </button>
+                                {requireProjectFile && (
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.warning || '#F97316' }}>This battle requires a project file upload.</p>
+                                )}
                             </div>
                         </div>
                     )}

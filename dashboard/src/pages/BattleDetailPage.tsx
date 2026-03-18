@@ -82,6 +82,7 @@ interface Battle {
     votingEnd: string | null;
     winnerEntryId: string | null;
     bannerUrl: string | null;
+    requireProjectFile?: boolean;
     discordInviteUrl: string | null;
     sponsor: {
         id: string;
@@ -104,6 +105,8 @@ interface Entry {
     audioUrl: string;
     coverUrl: string | null;
     avatarUrl: string | null;
+    description?: string | null;
+    projectUrl?: string | null;
     duration?: number;
     voteCount: number;
     source: string;
@@ -560,8 +563,8 @@ export const BattleDetailPage: React.FC = () => {
                                             {/* Cover + title */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : '300px', flexShrink: 0 }}>
                                                 <div style={{ width: '72px', height: '72px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                                                    {(entry.avatarUrl || entry.coverUrl) ? (
-                                                        <img src={entry.avatarUrl || entry.coverUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    {(entry.coverUrl || entry.avatarUrl) ? (
+                                                        <img src={(entry.coverUrl || entry.avatarUrl)!.startsWith('http') ? (entry.coverUrl || entry.avatarUrl)! : `${API}${entry.coverUrl || entry.avatarUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             <Swords size={24} color={colors.textSecondary} style={{ opacity: 0.3 }} />
@@ -589,7 +592,7 @@ export const BattleDetailPage: React.FC = () => {
                                                 <div
                                                     onClick={() => {
                                                         if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${API}${entry.audioUrl}` });
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}` });
                                                     }}
                                                     style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '48px', width: '100%', cursor: 'pointer' }}>
                                                     {bars.map((h, bi) => (
@@ -610,7 +613,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         <button
                                                             onClick={() => {
                                                                 if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${API}${entry.audioUrl}` });
+                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}` });
                                                             }}
                                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: colors.textPrimary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                                                             {isCurrentlyPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} fill="currentColor" /> Play</>}
@@ -649,7 +652,7 @@ export const BattleDetailPage: React.FC = () => {
                     )}
                 </section>
             </div>
-            {battle && <BattleSubmitModal battleId={battle.id} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
+            {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
                 setLoading(true);
                 fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
                     .then(r => r.ok ? r.json() : null)

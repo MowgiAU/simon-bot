@@ -111,6 +111,7 @@ export const BeatBattlePage: React.FC = () => {
         sponsorId: '', announcementChannelId: '',
         prizes: [{ place: '1st Place', description: '' }] as { place: string; description: string }[],
         maxVotesPerUser: 0,
+        requireProjectFile: false,
     });
 
     // Sponsor form
@@ -189,7 +190,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0 });
+    const resetForm = () => setForm({ title: '', description: '', rules: '', submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', description: '' }], maxVotesPerUser: 0, requireProjectFile: false });
 
     const handleCreateBattle = async () => {
         try {
@@ -407,6 +408,7 @@ export const BeatBattlePage: React.FC = () => {
                 ? (b.prizes as { place: string; description: string }[])
                 : [{ place: '1st Place', description: '' }],
             maxVotesPerUser: (b as any).maxVotesPerUser || 0,
+            requireProjectFile: (b as any).requireProjectFile || false,
         });
         setBannerFile(null);
         setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
@@ -626,6 +628,28 @@ export const BeatBattlePage: React.FC = () => {
                                     <label style={labelStyle}>Max Votes Per User</label>
                                     <input type="number" min={0} style={inputStyle} value={form.maxVotesPerUser} onChange={(e) => setForm({ ...form, maxVotesPerUser: Number(e.target.value) })} placeholder="0 = unlimited" />
                                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>0 = unlimited votes</p>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Require Project File Upload</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                                        <button
+                                            onClick={() => setForm({ ...form, requireProjectFile: !form.requireProjectFile })}
+                                            style={{
+                                                width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                                                backgroundColor: form.requireProjectFile ? colors.primary : 'rgba(255,255,255,0.15)',
+                                                position: 'relative', transition: 'background-color 0.2s',
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#fff',
+                                                position: 'absolute', top: '3px', left: form.requireProjectFile ? '23px' : '3px',
+                                                transition: 'left 0.2s',
+                                            }} />
+                                        </button>
+                                        <span style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                            {form.requireProjectFile ? 'Submitters must upload .flp or .zip project file' : 'Project files optional'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>

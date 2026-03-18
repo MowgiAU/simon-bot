@@ -92,8 +92,8 @@ export const BattleEntryPage: React.FC = () => {
                 artist: entry.username,
                 username: entry.username,
                 slug: '',
-                cover: entry.coverUrl ? `${API}${entry.coverUrl}` : entry.avatarUrl || '',
-                url: `${API}${entry.audioUrl}`,
+                cover: entry.coverUrl ? (entry.coverUrl.startsWith('http') ? entry.coverUrl : `${API}${entry.coverUrl}`) : entry.avatarUrl || '',
+                url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`,
             });
         }
     };
@@ -177,7 +177,7 @@ export const BattleEntryPage: React.FC = () => {
                     {/* Cover / accent */}
                     {(entry.coverUrl || entry.avatarUrl) ? (
                         <div style={{ height: '200px', overflow: 'hidden', position: 'relative' }}>
-                            <img src={entry.coverUrl ? `${API}${entry.coverUrl}` : entry.avatarUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src={entry.coverUrl ? (entry.coverUrl.startsWith('http') ? entry.coverUrl : `${API}${entry.coverUrl}`) : entry.avatarUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #242C3D 0%, transparent 60%)' }} />
                         </div>
                     ) : (
