@@ -55,6 +55,7 @@ interface Battle {
     votingStart: string | null;
     votingEnd: string | null;
     winnerEntryId: string | null;
+    bannerUrl: string | null;
     discordInviteUrl: string | null;
     sponsor: {
         id: string;
@@ -295,18 +296,32 @@ export const BattleDetailPage: React.FC = () => {
                             <div style={{ position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: '-4px', background: `linear-gradient(135deg, ${colors.primary}, ${ACCENT})`, borderRadius: borderRadius.lg, opacity: 0.18, filter: 'blur(20px)', pointerEvents: 'none' }} />
                                 <div style={{ position: 'relative', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, overflow: 'hidden', aspectRatio: '16/9', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
-                                    <div style={{ width: '100%', height: '100%', background: `linear-gradient(135deg, ${colors.primary}18 0%, #242C3D 45%, ${ACCENT}12 100%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '32px' }}>
-                                        <Swords size={56} color={colors.primary} style={{ opacity: 0.25 }} />
-                                        <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '8px' }}>{cfg.label}</div>
-                                            <div style={{ fontSize: '20px', fontWeight: 900, color: colors.textPrimary, lineHeight: 1.25 }}>{battle.title}</div>
-                                        </div>
-                                        {battle._count && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
-                                                <Users size={13} /> {battle._count.entries} participants
+                                    {battle.bannerUrl ? (
+                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                            <img src={`${API}${battle.bannerUrl}`} alt={battle.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(16,19,29,0.8) 0%, transparent 60%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', padding: '24px' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '6px' }}>{cfg.label}</div>
+                                                {battle._count && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
+                                                        <Users size={13} /> {battle._count.entries} participants
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', background: `linear-gradient(135deg, ${colors.primary}18 0%, #242C3D 45%, ${ACCENT}12 100%)`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '32px' }}>
+                                            <Swords size={56} color={colors.primary} style={{ opacity: 0.25 }} />
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '8px' }}>{cfg.label}</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 900, color: colors.textPrimary, lineHeight: 1.25 }}>{battle.title}</div>
+                                            </div>
+                                            {battle._count && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
+                                                    <Users size={13} /> {battle._count.entries} participants
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

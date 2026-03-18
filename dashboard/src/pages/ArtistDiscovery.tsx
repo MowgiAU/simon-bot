@@ -410,7 +410,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ padding: '16px', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
                                     <p style={{ fontSize: '11px', color: '#B9C3CE', margin: 0 }}>No battle running right now.</p>
-                                    <p style={{ fontSize: '9px', color: 'rgba(185, 195, 206, 0.5)', marginTop: '4px' }}>Watch Discord for announcements!</p>
+                                    <p style={{ fontSize: '9px', color: 'rgba(185, 195, 206, 0.5)', marginTop: '4px' }}>Check back later for new battles!</p>
                                 </div>
                                 <Link to="/battles" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: colors.primary, textDecoration: 'none', alignSelf: 'flex-start' }}>
                                     View archive →
