@@ -1274,3 +1274,35 @@ model PlaylistTrack {
   @@index([playlistId, position])
   @@map("playlist_tracks")
 }
+
+// ─── Charts System ───────────────────────────────────────────────────────────
+// Snapshots taken periodically (e.g. daily) to track position changes over time.
+
+model ChartSnapshot {
+  id          String   @id @default(cuid())
+  period      String   // "daily" | "weekly" | "alltime"
+  takenAt     DateTime @default(now()) // When this snapshot was generated
+  entries     ChartEntry[]
+
+  @@index([period, takenAt])
+  @@map("chart_snapshots")
+}
+
+model ChartEntry {
+  id           String   @id @default(cuid())
+  snapshotId   String
+  trackId      String
+  position     Int      // Rank in this snapshot (1 = #1)
+  playCount    Int      // Play count at time of snapshot
+  playsInPeriod Int     @default(0) // Plays gained during this period
+  prevPosition Int?     // Position in the previous snapshot (null = new entry)
+  peakPosition Int      @default(1) // Best position ever achieved
+  weeksOnChart Int      @default(1) // How many snapshots this track appeared
+
+  snapshot     ChartSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, trackId])
+  @@unique([snapshotId, position])
+  @@index([trackId])
+  @@map("chart_entries")
+}

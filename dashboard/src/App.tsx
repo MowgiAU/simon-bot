@@ -33,7 +33,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { FeedPage } from './pages/FeedPage';import { UniversalSearch } from "./components/UniversalSearch";
+import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { FeedPage } from './pages/FeedPage';import { ChartsPage } from './pages/ChartsPage';import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -551,6 +551,11 @@ const AppInternal: React.FC = () => {
   // /my-playlists → User's playlists
   if (currentPath === '/my-playlists') {
     return <MyPlaylistsPage />;
+  }
+
+  // /charts → Music charts page
+  if (currentPath === '/charts') {
+    return <ChartsPage />;
   }
 
   // /battles/entry/:entryId → Battle entry track page

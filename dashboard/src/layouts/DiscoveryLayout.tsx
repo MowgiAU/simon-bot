@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -59,6 +59,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const navItems = [
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'genres', label: 'GENRES', icon: <Zap size={14} />, path: '/genres' },
+        { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
         { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
     ];
@@ -305,8 +306,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {[
                         { key: 'discover', label: 'Home', icon: <Home size={20} />, path: '/' },
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
+                        { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
                         { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
-                        { key: 'genres', label: 'Discover', icon: <Zap size={20} />, path: '/genres' },
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
@@ -364,12 +365,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
                         {/* Nav items at radial positions */}
                         {([
-                            { key: 'discover',  label: 'HOME',      icon: <Home size={22} />,      path: '/',             angle: 210 },
-                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,      path: '/artists',      angle: 270 },
-                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,       path: '/genres',       angle: 330 },
-                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,    path: '/battles',      angle: 30  },
-                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,       path: '/feed',         angle: 90  },
-                            { key: 'playlists', label: 'PLAYLISTS', icon: <ListMusic size={22} />, path: '/my-playlists', angle: 150 },
+                            { key: 'discover',  label: 'HOME',      icon: <Home size={22} />,       path: '/',             angle: 180 },
+                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,       path: '/artists',      angle: 240 },
+                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,        path: '/genres',       angle: 300 },
+                            { key: 'charts',    label: 'CHARTS',    icon: <BarChart3 size={22} />,  path: '/charts',       angle: 0   },
+                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 60  },
+                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 120 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);
                             const r = 110;

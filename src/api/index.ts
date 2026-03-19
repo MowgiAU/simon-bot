@@ -20,6 +20,7 @@ import { Resend } from 'resend';
 import { EmailService } from '../services/EmailService.js';
 import { ProfileService } from '../services/ProfileService.js';
 import { AudioService } from '../services/AudioService.js';
+import { ChartService } from '../services/ChartService.js';
 import * as mm from 'music-metadata';
 import { FLPParser } from '../bot/utils/FLPParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
@@ -268,6 +269,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 const emailService = new EmailService();
 const profileService = new ProfileService(db);
 const audioService = new AudioService(db);
+const chartService = new ChartService(db);
 
 
 // DEBUG: Log Database Connection Info
@@ -6463,6 +6465,97 @@ async function runBeatBattleLifecycle(): Promise<void> {
 // Run lifecycle immediately on start, then every 60 seconds
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
+
+// ─── Charts System ──────────────────────────────────────────────────────
+
+// Get the latest chart for a period
+app.get('/api/charts/:period', async (req: any, res) => {
+    try {
+        const period = req.params.period;
+        if (!['daily', 'weekly', 'alltime'].includes(period)) {
+            return res.status(400).json({ error: 'period must be daily, weekly, or alltime' });
+        }
+        const limit = Math.min(Number(req.query.limit) || 50, 100);
+        const chart = await chartService.getLatestChart(period as any, limit);
+        if (!chart) {
+            return res.json({ entries: [], period, takenAt: null });
+        }
+        res.json(chart);
+    } catch (e: any) {
+        logger.error(`Charts GET /${req.params.period}: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get chart history for a specific track
+app.get('/api/charts/:period/track/:trackId', async (req: any, res) => {
+    try {
+        const { period, trackId } = req.params;
+        if (!['daily', 'weekly', 'alltime'].includes(period)) {
+            return res.status(400).json({ error: 'period must be daily, weekly, or alltime' });
+        }
+        const history = await chartService.getTrackChartHistory(trackId, period as any, 30);
+        res.json(history);
+    } catch (e: any) {
+        logger.error(`Charts history error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Manually trigger chart generation (admin only)
+app.post('/api/charts/generate', async (req: any, res) => {
+    try {
+        if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
+        // Only allow admins
+        const isAdmin = req.session.user.isAdmin || false;
+        if (!isAdmin) return res.status(403).json({ error: 'Forbidden' });
+        const period = req.body.period || 'daily';
+        if (!['daily', 'weekly', 'alltime'].includes(period)) {
+            return res.status(400).json({ error: 'Invalid period' });
+        }
+        const snapshotId = await chartService.generateSnapshot(period as any);
+        res.json({ success: true, snapshotId });
+    } catch (e: any) {
+        logger.error(`Charts generate error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Scheduled chart generation
+let lastDailyChart: string | null = null;
+let lastWeeklyChart: string | null = null;
+
+async function runChartGeneration() {
+    try {
+        const now = new Date();
+        const todayKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const weekKey = `${now.getFullYear()}-W${Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay()) / 7)}`;
+
+        // Daily chart: generate once per day
+        if (lastDailyChart !== todayKey) {
+            await chartService.generateSnapshot('daily');
+            await chartService.generateSnapshot('alltime');
+            lastDailyChart = todayKey;
+            logger.info(`[Charts] Generated daily + alltime snapshots for ${todayKey}`);
+        }
+
+        // Weekly chart: generate once per week
+        if (lastWeeklyChart !== weekKey) {
+            await chartService.generateSnapshot('weekly');
+            lastWeeklyChart = weekKey;
+            logger.info(`[Charts] Generated weekly snapshot for ${weekKey}`);
+        }
+
+        // Prune old snapshots (keep 90 per period)
+        await chartService.pruneSnapshots(90);
+    } catch (err: any) {
+        logger.error(`[Charts] Generation error: ${err.message}`);
+    }
+}
+
+// Run chart generation on startup and every hour
+runChartGeneration();
+setInterval(runChartGeneration, 60 * 60 * 1000);
 
 // ─── Comment System ─────────────────────────────────────────────────────
 

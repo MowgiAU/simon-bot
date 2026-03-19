@@ -146,6 +146,7 @@ const genreIcons = [Music, Disc, Radio, Volume2, Headphones, Mic, Waves, Play];
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
+    const [chartEntries, setChartEntries] = useState<{ trackId: string; positionChange: number | null; isNew: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -204,6 +205,18 @@ export const ArtistDiscoveryPage: React.FC = () => {
             ]);
             setArtists(profilesRes.data);
             setTopTracks(tracksRes.data);
+
+            // Fetch real chart data for position changes
+            try {
+                const chartRes = await axios.get('/api/charts/daily');
+                if (chartRes.data?.entries) {
+                    setChartEntries(chartRes.data.entries.map((e: any) => ({
+                        trackId: e.track.id,
+                        positionChange: e.positionChange,
+                        isNew: e.prevPosition == null,
+                    })));
+                }
+            } catch { /* charts may not have snapshots yet */ }
         } catch (err) {
             console.error('Failed to fetch artists', err);
         } finally {
@@ -426,19 +439,20 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <h3 style={styles.headerLabel}><TrendingUp size={16} color={colors.accentOrange} /> Trending Songs</h3>
-                            <Link to="/library" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
+                            <Link to="/charts" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {topTracks.slice(0, 5).map((track, idx) => {
                                 const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : '#B9C3CE';
-                                // Derive a stable pseudo position-change from the track id
-                                const idSum = track.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-                                const delta = (idSum % 7) - 3; // -3 to +3
-                                const isUp = delta > 0;
-                                const isDown = delta < 0;
-                                const trendBg = isUp ? 'rgba(74,222,128,0.15)' : isDown ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.06)';
-                                const trendColor = isUp ? '#4ADE80' : isDown ? '#F87171' : '#B9C3CE';
-                                const trendLabel = isUp ? `+${delta}` : isDown ? `${delta}` : 'NEW';
+                                // Use real chart data for position changes
+                                const chartEntry = chartEntries.find(e => e.trackId === track.id);
+                                const delta = chartEntry?.positionChange ?? null;
+                                const isNew = chartEntry?.isNew ?? (chartEntries.length === 0); // If no chart data yet, show NEW
+                                const isUp = !isNew && delta != null && delta > 0;
+                                const isDown = !isNew && delta != null && delta < 0;
+                                const trendBg = isNew ? 'rgba(59,168,134,0.2)' : isUp ? 'rgba(74,222,128,0.15)' : isDown ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.06)';
+                                const trendColor = isNew ? colors.primary : isUp ? '#4ADE80' : isDown ? '#F87171' : '#B9C3CE';
+                                const trendLabel = isNew ? 'NEW' : isUp ? `+${delta}` : isDown ? `${delta}` : '—';
                                 return (
                                 <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
                                     onMouseEnter={(e) => {
