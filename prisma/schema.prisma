@@ -837,9 +837,10 @@ model DiscoverySettings {
   featuredBattleDescription String?  @db.Text // Custom blurb for the battle card
 
   // Featured Tutorial
-  featuredTutorialUrl       String?  // YouTube/video embed URL
-  featuredTutorialTitle     String?
-  featuredTutorialThumbnail String?  // Thumbnail image URL
+  featuredTutorialUrl         String?  // YouTube/video embed URL
+  featuredTutorialTitle       String?
+  featuredTutorialDescription String?  @db.Text // Short blurb shown on the tutorial card
+  featuredTutorialThumbnail   String?  // Thumbnail image URL
 
   updatedAt       DateTime @updatedAt
 

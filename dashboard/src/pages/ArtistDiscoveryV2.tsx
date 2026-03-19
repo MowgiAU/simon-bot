@@ -72,6 +72,7 @@ interface FeaturedData {
     featuredProducerNote?: string | null;
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
+    featuredTutorialDescription?: string | null;
     featuredTutorialThumbnail?: string | null;
     featuredBattle?: {
         id: string; title: string; status: string;
@@ -451,9 +452,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     {artists[0].genres.slice(0, 3).map(g => g.genre.name).join(' · ')}
                                                 </div>
                                             )}
-                                            <div style={{ fontSize: '11px', color: colors.primary, fontWeight: 600 }}>
+                                            <div style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, marginBottom: '6px' }}>
                                                 {artists[0].totalPlays?.toLocaleString() || 0} plays
                                             </div>
+                                            {artists[0].bio && (
+                                                <div style={{ fontSize: '10px', color: colors.textSecondary, lineHeight: 1.4, maxWidth: '180px', margin: '0 auto', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                    {artists[0].bio}
+                                                </div>
+                                            )}
                                         </div>
                                     </Link>
                                 </div>
@@ -467,70 +473,60 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Popular Playlists */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><ListMusic size={16} color={colors.primary} /> Popular Playlists</h3>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', flex: 1 }}>
-                            {popularPlaylists.slice(0, 2).map(playlist => (
-                                <Link key={playlist.id} to={`/playlist/${playlist.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', background: '#1B212E', borderRadius: '10px', padding: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px',
-                                        background: 'linear-gradient(45deg, #2d3748, #4a5568)', position: 'relative', border: '1px solid rgba(255,255,255,0.05)',
-                                    }}>
-                                        {playlist.coverUrl ? (
-                                            <img src={playlist.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <ListMusic size={30} color={colors.primary} style={{ opacity: 0.2 }} />
-                                            </div>
-                                        )}
-                                        <div style={{ position: 'absolute', bottom: '6px', right: '6px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 7px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, color: 'white' }}>
-                                            {playlist.trackCount} tracks
-                                        </div>
-                                    </div>
-                                    <div style={{ fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{playlist.name}</div>
-                                    <div style={{ fontSize: '10px', color: colors.textSecondary }}>by {playlist.profile?.displayName || playlist.profile?.username || 'Unknown'}</div>
-                                </Link>
-                            ))}
-                            {popularPlaylists.length === 0 && (
-                                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary, fontSize: '12px' }}>
-                                    No playlists yet
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Featured Tutorial */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
+                    {/* Featured Tutorial — 2 cols wide */}
+                    <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px' }}>
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><MonitorPlay size={16} color={colors.primary} /> Featured Tutorial</h3>
                         </div>
 
                         {featured?.featuredTutorialUrl ? (
-                            <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'stretch' }}>
+                                {/* Thumbnail left */}
                                 <div style={{
-                                    minHeight: '120px', flex: 1, borderRadius: '8px', overflow: 'hidden', position: 'relative',
-                                    background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    marginBottom: '10px', border: '1px solid rgba(255,255,255,0.05)',
+                                    width: isMobile ? '120px' : '200px', flexShrink: 0,
+                                    borderRadius: '10px', overflow: 'hidden', position: 'relative',
+                                    background: '#1f2937', border: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
-                                    {getTutorialThumbnail() ? (
+                                    {getTutorialThumbnail() && (
                                         <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                                    ) : null}
+                                    )}
                                     <div style={{
-                                        position: 'absolute', width: '50px', height: '50px',
-                                        background: 'rgba(0,0,0,0.6)', borderRadius: '50%',
+                                        position: 'absolute', width: '44px', height: '44px',
+                                        background: 'rgba(0,0,0,0.65)', borderRadius: '50%',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        <Play size={24} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                        <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
                                     </div>
                                 </div>
-                                <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '2px', lineHeight: 1.3, color: colors.textPrimary, flexShrink: 0 }}>
-                                    {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                {/* Text + button right */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
+                                    <div style={{ fontSize: '10px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Video Tutorial</div>
+                                    <div style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.3, color: colors.textPrimary }}>
+                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                    </div>
+                                    {featured.featuredTutorialDescription && (
+                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {featured.featuredTutorialDescription}
+                                        </div>
+                                    )}
+                                    <a
+                                        href={featured.featuredTutorialUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            marginTop: '4px', padding: '8px 18px',
+                                            background: `${colors.primary}20`, color: colors.primary,
+                                            border: `1px solid ${colors.primary}40`, borderRadius: '7px',
+                                            fontWeight: 700, fontSize: '12px', textDecoration: 'none',
+                                            alignSelf: 'flex-start', letterSpacing: '0.03em',
+                                        }}
+                                    >
+                                        <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
+                                    </a>
                                 </div>
-                                <div style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0 }}>Video Tutorial</div>
-                            </a>
+                            </div>
                         ) : (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: colors.textSecondary }}>
                                 <MonitorPlay size={32} style={{ opacity: 0.15 }} />

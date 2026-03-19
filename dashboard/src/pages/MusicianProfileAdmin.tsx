@@ -35,7 +35,7 @@ interface DiscoveryConfig {
     featuredProducerNote?: string | null;
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
-    featuredBattle?: { id: string; title: string; status: string; bannerUrl: string | null } | null;
+    featuredTutorialDescription?: string | null;
     featuredBattleDescription?: string | null;
 }
 
@@ -83,6 +83,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     // V2 — Tutorial state
     const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
     const [featuredTutorialTitle, setFeaturedTutorialTitle] = useState('');
+    const [featuredTutorialDesc, setFeaturedTutorialDesc] = useState('');
 
     // V2 — Featured Battle state
     const [battleList, setBattleList] = useState<any[]>([]);
@@ -167,6 +168,7 @@ export const MusicianProfileAdmin: React.FC = () => {
             setFeaturedProducerNote(res.data.featuredProducerNote || '');
             setFeaturedTutorialUrl(res.data.featuredTutorialUrl || '');
             setFeaturedTutorialTitle(res.data.featuredTutorialTitle || '');
+            setFeaturedTutorialDesc(res.data.featuredTutorialDescription || '');
             setFeaturedBattleDesc(res.data.featuredBattleDescription || '');
             setFeaturedHeroDesc(res.data.featuredDescription || '');
         } catch (err) {
@@ -414,6 +416,7 @@ export const MusicianProfileAdmin: React.FC = () => {
             await axios.post('/api/discovery/settings', {
                 featuredTutorialUrl: featuredTutorialUrl || null,
                 featuredTutorialTitle: featuredTutorialTitle || null,
+                featuredTutorialDescription: featuredTutorialDesc || null,
             }, { withCredentials: true });
             setMsg({ type: 'success', text: 'Tutorial updated!' });
             fetchDiscoverySettings();
@@ -977,6 +980,13 @@ export const MusicianProfileAdmin: React.FC = () => {
                             <input type="text" value={featuredTutorialTitle} onChange={(e) => setFeaturedTutorialTitle(e.target.value)}
                                 placeholder='e.g. "How to make FL Studio beats"'
                                 style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial Description</label>
+                            <textarea value={featuredTutorialDesc} onChange={(e) => setFeaturedTutorialDesc(e.target.value)}
+                                placeholder="Brief description shown on the tutorial card..."
+                                rows={3}
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                         </div>
                         <div>
                             <button onClick={handleSaveTutorial} disabled={saving}

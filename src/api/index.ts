@@ -4473,6 +4473,7 @@ app.get('/api/discovery/settings', async (req, res) => {
         // Featured tutorial
         result.featuredTutorialUrl = settings.featuredTutorialUrl;
         result.featuredTutorialTitle = settings.featuredTutorialTitle;
+        result.featuredTutorialDescription = (settings as any).featuredTutorialDescription;
         result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
 
         // Featured battle
@@ -4503,7 +4504,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel,
             featuredDescription,
             editorPickTrackIds, featuredProducerId, featuredProducerNote,
-            featuredTutorialUrl, featuredTutorialTitle, featuredTutorialThumbnail,
+            featuredTutorialUrl, featuredTutorialTitle, featuredTutorialDescription, featuredTutorialThumbnail,
             featuredBattleId, featuredBattleDescription
         } = req.body;
 
@@ -4514,6 +4515,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredProducerNote !== undefined) updateData.featuredProducerNote = featuredProducerNote;
         if (featuredTutorialUrl !== undefined) updateData.featuredTutorialUrl = featuredTutorialUrl;
         if (featuredTutorialTitle !== undefined) updateData.featuredTutorialTitle = featuredTutorialTitle;
+        if (featuredTutorialDescription !== undefined) updateData.featuredTutorialDescription = featuredTutorialDescription;
         if (featuredTutorialThumbnail !== undefined) updateData.featuredTutorialThumbnail = featuredTutorialThumbnail;
         if (featuredBattleId !== undefined) updateData.featuredBattleId = featuredBattleId;
         if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
