@@ -455,30 +455,28 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         </div>
 
                         {featured?.featuredTutorialUrl ? (
-                            <>
-                                <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                <div style={{
+                                    minHeight: '120px', flex: 1, borderRadius: '8px', overflow: 'hidden', position: 'relative',
+                                    background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    marginBottom: '10px', border: '1px solid rgba(255,255,255,0.05)',
+                                }}>
+                                    {getTutorialThumbnail() ? (
+                                        <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                                    ) : null}
                                     <div style={{
-                                        flex: 1, borderRadius: '8px', overflow: 'hidden', position: 'relative',
-                                        background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        marginBottom: '14px', border: '1px solid rgba(255,255,255,0.05)',
+                                        position: 'absolute', width: '50px', height: '50px',
+                                        background: 'rgba(0,0,0,0.6)', borderRadius: '50%',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        {getTutorialThumbnail() ? (
-                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : null}
-                                        <div style={{
-                                            position: 'absolute', width: '50px', height: '50px',
-                                            background: 'rgba(0,0,0,0.6)', borderRadius: '50%',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            <Play size={24} fill="white" color="white" style={{ marginLeft: '3px' }} />
-                                        </div>
+                                        <Play size={24} fill="white" color="white" style={{ marginLeft: '3px' }} />
                                     </div>
-                                </a>
-                                <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px', lineHeight: 1.3 }}>
+                                </div>
+                                <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '2px', lineHeight: 1.3, color: colors.textPrimary, flexShrink: 0 }}>
                                     {featured.featuredTutorialTitle || 'Watch Tutorial'}
                                 </div>
-                                <div style={{ fontSize: '11px', color: colors.textSecondary }}>Video Tutorial</div>
-                            </>
+                                <div style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0 }}>Video Tutorial</div>
+                            </a>
                         ) : (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: colors.textSecondary }}>
                                 <MonitorPlay size={32} style={{ opacity: 0.15 }} />

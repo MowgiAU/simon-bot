@@ -428,7 +428,6 @@ export const MusicianProfileAdmin: React.FC = () => {
         try {
             await axios.post('/api/discovery/settings', {
                 featuredBattleId: battleId,
-                featuredBattleDescription: battleId ? (featuredBattleDesc || null) : null,
             }, { withCredentials: true });
             setMsg({ type: 'success', text: battleId ? 'Featured battle updated!' : 'Featured battle removed.' });
             fetchDiscoverySettings();
