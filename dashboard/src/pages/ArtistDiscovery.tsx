@@ -260,7 +260,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
             onSearchChange={setSearch}
             activeTab="discover"
         >
-            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1600px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1220px', margin: '0 auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
                     
                     {/* Featured Hero */}
@@ -500,8 +500,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <Link to="/artists" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><UserSearch size={16} color={colors.primary} /> ARTISTS</h3></Link>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', alignItems: 'start' }}>
-                            {artists.slice(0, 9).map(artist => (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', alignItems: 'start' }}>
+                            {artists.slice(0, 7).map(artist => (
                                 <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', minWidth: 0 }}>
                                     <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
                                         {artist.avatar ? (
@@ -523,7 +523,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     </div>
 
                     {/* Genre Exploration */}
-                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
+                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                             <Link to="/genres" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3></Link>
                         </div>
