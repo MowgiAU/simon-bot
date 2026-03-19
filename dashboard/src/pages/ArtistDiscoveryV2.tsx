@@ -197,15 +197,15 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
         : null;
 
     // Tracks to show in the hero track list (up to 4)
-    const heroTrackList: { title: string; artist: string }[] = [];
+    const heroTrackList: { title: string; artist: string; coverUrl: string | null }[] = [];
     if (heroType === 'playlist' && heroPlaylist?.tracks) {
-        heroPlaylist.tracks.slice(0, 4).forEach(pt => heroTrackList.push({ title: pt.track.title, artist: pt.track.profile.displayName || pt.track.profile.username }));
+        heroPlaylist.tracks.slice(0, 4).forEach(pt => heroTrackList.push({ title: pt.track.title, artist: pt.track.profile.displayName || pt.track.profile.username, coverUrl: pt.track.coverUrl }));
     } else if (heroType === 'artist' && heroArtist?.tracks) {
-        heroArtist.tracks.slice(0, 4).forEach(t => heroTrackList.push({ title: t.title, artist: heroArtist.displayName || heroArtist.username }));
+        heroArtist.tracks.slice(0, 4).forEach(t => heroTrackList.push({ title: t.title, artist: heroArtist.displayName || heroArtist.username, coverUrl: t.coverUrl }));
     } else if (heroType === 'track' && heroTrack) {
-        heroTrackList.push({ title: heroTrack.title, artist: heroTrack.profile.displayName || heroTrack.profile.username });
+        heroTrackList.push({ title: heroTrack.title, artist: heroTrack.profile.displayName || heroTrack.profile.username, coverUrl: heroTrack.coverUrl });
         // Fill with top tracks
-        topTracks.filter(t => t.id !== heroTrack.id).slice(0, 3).forEach(t => heroTrackList.push({ title: t.title, artist: t.profile.displayName || t.profile.username }));
+        topTracks.filter(t => t.id !== heroTrack.id).slice(0, 3).forEach(t => heroTrackList.push({ title: t.title, artist: t.profile.displayName || t.profile.username, coverUrl: t.coverUrl }));
     }
 
     const heroLabel = featured?.featuredLabel || (heroType === 'artist' ? 'Featured Artist' : heroType === 'playlist' ? 'Hero Playlist' : 'Featured Track');
@@ -270,10 +270,12 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '4px' }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '8px' }}>
                                     {heroTrackList.map((t, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '4px', background: 'linear-gradient(45deg, #2d3748, #4a5568)', flexShrink: 0 }} />
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(45deg, #2d3748, #4a5568)' }}>
+                                                {t.coverUrl && <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                            </div>
                                             <div style={{ minWidth: 0 }}>
                                                 <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
                                                 <div style={{ fontSize: '10px', color: colors.textSecondary }}>{t.artist}</div>
@@ -357,9 +359,11 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                         padding: '12px', borderRadius: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px',
-                                        cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', width: '100%',
-                                        background: 'rgba(255,255,255,0.05)', color: colors.textPrimary, fontSize: '12px', textDecoration: 'none',
+                                        cursor: 'pointer', textAlign: 'center', width: '100%', fontSize: '12px', textDecoration: 'none',
                                         marginTop: 'auto',
+                                        background: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.15)' : currentBattle.status === 'active' ? `${colors.primary}20` : 'rgba(255,255,255,0.05)',
+                                        color: currentBattle.status === 'voting' ? '#FBBF24' : currentBattle.status === 'active' ? colors.primary : colors.textPrimary,
+                                        border: `1px solid ${currentBattle.status === 'voting' ? 'rgba(251,191,36,0.35)' : currentBattle.status === 'active' ? `${colors.primary}35` : 'rgba(255,255,255,0.1)'}`,
                                     }}
                                 >
                                     {currentBattle.status === 'voting' ? 'VOTE NOW' : currentBattle.status === 'active' ? 'SUBMIT A BEAT' : 'VIEW BATTLE'}
@@ -379,11 +383,11 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><TrendingUp size={16} color={colors.primary} /> Trending Artists</h3>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center', flex: 1, alignContent: 'start' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '1fr', gap: '8px', textAlign: 'center', flex: 1 }}>
                             {artists.slice(0, 8).map(artist => (
                                 <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                     <div style={{
-                                        width: '50px', height: '50px', borderRadius: '50%', margin: '0 auto 6px', overflow: 'hidden',
+                                        width: '100%', aspectRatio: '1', borderRadius: '50%', overflow: 'hidden',
                                         border: `2px solid ${colors.primary}44`, background: '#4a5568',
                                     }}
                                         onMouseEnter={e => (e.currentTarget.style.borderColor = colors.primary)}
@@ -396,7 +400,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                             ))}
                             <Link to="/artists" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                 <div style={{
-                                    width: '50px', height: '50px', borderRadius: '50%', margin: '0 auto 6px',
+                                    width: '100%', aspectRatio: '1', borderRadius: '50%',
                                     border: '1px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     <Plus size={18} color={colors.textSecondary} />
@@ -450,10 +454,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 ? featured.editorPicks.slice(0, 2)
                                 : topTracks.slice(0, 2)
                             ).map(track => (
-                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
+                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', background: '#1B212E', borderRadius: '10px', padding: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px',
-                                        background: 'linear-gradient(45deg, #2d3748, #4a5568)', position: 'relative', border: '1px solid rgba(255,255,255,0.05)',
+                                        width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px',
+                                        background: 'linear-gradient(45deg, #2d3748, #4a5568)', position: 'relative',
                                     }}>
                                         {track.coverUrl ? (
                                             <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -477,7 +481,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', flex: 1 }}>
                             {popularPlaylists.slice(0, 2).map(playlist => (
-                                <Link key={playlist.id} to={`/playlist/${playlist.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column' }}>
+                                <Link key={playlist.id} to={`/playlist/${playlist.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', background: '#1B212E', borderRadius: '10px', padding: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <div style={{
                                         width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px',
                                         background: 'linear-gradient(45deg, #2d3748, #4a5568)', position: 'relative', border: '1px solid rgba(255,255,255,0.05)',

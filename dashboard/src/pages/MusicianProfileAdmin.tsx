@@ -30,6 +30,11 @@ interface DiscoveryConfig {
     featuredArtist: { id: string; displayName: string | null; username: string; avatar: string | null } | null;
     featuredPlaylistId: string | null;
     featuredPlaylist: { id: string; name: string; coverUrl: string | null; _count: { tracks: number }; profile: { displayName: string | null; username: string } } | null;
+    editorPicks?: { id: string; title: string; coverUrl: string | null; profile: { username: string; displayName: string | null } }[];
+    featuredProducer?: { userId: string; username: string; displayName: string | null; avatar: string | null } | null;
+    featuredProducerNote?: string | null;
+    featuredTutorialUrl?: string | null;
+    featuredTutorialTitle?: string | null;
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
@@ -60,6 +65,21 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [playlistSearch, setPlaylistSearch] = useState('');
     const [playlistResults, setPlaylistResults] = useState<any[]>([]);
     const [searchingPlaylists, setSearchingPlaylists] = useState(false);
+
+    // V2 — Editor's Picks state
+    const [editorPickSearch, setEditorPickSearch] = useState('');
+    const [editorPickResults, setEditorPickResults] = useState<TrackResult[]>([]);
+    const [searchingEditorPicks, setSearchingEditorPicks] = useState(false);
+
+    // V2 — Featured Producer state
+    const [producerSearch, setProducerSearch] = useState('');
+    const [producerResults, setProducerResults] = useState<any[]>([]);
+    const [searchingProducer, setSearchingProducer] = useState(false);
+    const [featuredProducerNote, setFeaturedProducerNote] = useState('');
+
+    // V2 — Tutorial state
+    const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
+    const [featuredTutorialTitle, setFeaturedTutorialTitle] = useState('');
 
     // Admin wipe state
     const [adminSearch, setAdminSearch] = useState('');
@@ -136,6 +156,9 @@ export const MusicianProfileAdmin: React.FC = () => {
             const res = await axios.get('/api/discovery/settings', { withCredentials: true });
             setDiscoveryConfig(res.data);
             setFeaturedLabel(res.data.featuredLabel || '');
+            setFeaturedProducerNote(res.data.featuredProducerNote || '');
+            setFeaturedTutorialUrl(res.data.featuredTutorialUrl || '');
+            setFeaturedTutorialTitle(res.data.featuredTutorialTitle || '');
         } catch (err) {
             console.error('Failed to load discovery settings');
         }
@@ -268,6 +291,112 @@ export const MusicianProfileAdmin: React.FC = () => {
             fetchDiscoverySettings();
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to update label' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── V2 Editor's Picks handlers ──
+    const handleSearchEditorPicks = async (query: string) => {
+        setEditorPickSearch(query);
+        if (query.length < 2) { setEditorPickResults([]); return; }
+        setSearchingEditorPicks(true);
+        try {
+            const res = await axios.get('/api/discovery/tracks/search', { params: { search: query }, withCredentials: true });
+            setEditorPickResults(res.data);
+        } catch (err) {
+            console.error('Failed to search tracks for editor picks');
+        } finally {
+            setSearchingEditorPicks(false);
+        }
+    };
+
+    const handleAddEditorPick = async (trackId: string) => {
+        const current = (discoveryConfig.editorPicks || []).map((t: any) => t.id);
+        if (current.includes(trackId)) return;
+        const updated = [...current, trackId];
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { editorPickTrackIds: updated }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Editor\'s pick added!' });
+            fetchDiscoverySettings();
+            setEditorPickSearch('');
+            setEditorPickResults([]);
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to update editor\'s picks' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleRemoveEditorPick = async (trackId: string) => {
+        const updated = (discoveryConfig.editorPicks || []).map((t: any) => t.id).filter((id: string) => id !== trackId);
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { editorPickTrackIds: updated }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Editor\'s pick removed.' });
+            fetchDiscoverySettings();
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to update editor\'s picks' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── V2 Featured Producer handlers ──
+    const handleSearchProducer = async (query: string) => {
+        setProducerSearch(query);
+        if (query.length < 2) { setProducerResults([]); return; }
+        setSearchingProducer(true);
+        try {
+            const res = await axios.get('/api/admin/musician/profiles/search', { params: { search: query }, withCredentials: true });
+            setProducerResults(res.data);
+        } catch (err) {
+            console.error('Failed to search producers');
+        } finally {
+            setSearchingProducer(false);
+        }
+    };
+
+    const handleSetFeaturedProducer = async (userId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { featuredProducerId: userId }, { withCredentials: true });
+            setMsg({ type: 'success', text: userId ? 'Featured producer updated!' : 'Featured producer removed.' });
+            fetchDiscoverySettings();
+            setProducerSearch('');
+            setProducerResults([]);
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to update featured producer' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveProducerNote = async () => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { featuredProducerNote: featuredProducerNote || null }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Producer note saved!' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to save producer note' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── V2 Tutorial handler ──
+    const handleSaveTutorial = async () => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', {
+                featuredTutorialUrl: featuredTutorialUrl || null,
+                featuredTutorialTitle: featuredTutorialTitle || null,
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Tutorial updated!' });
+            fetchDiscoverySettings();
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to save tutorial' });
         } finally {
             setSaving(false);
         }
@@ -679,6 +808,162 @@ export const MusicianProfileAdmin: React.FC = () => {
                             style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
                             Save
                         </button>
+                    </div>
+                </div>
+
+                {/* ── V2: Editor's Picks ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <Star size={16} color="#FBBF24" /> V2 — Editor's Picks
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>
+                        Up to 4 tracks hand-picked for the V2 homepage "Editor's Picks" panel.
+                    </p>
+                    {/* Current picks */}
+                    {(discoveryConfig.editorPicks || []).length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: spacing.md }}>
+                            {(discoveryConfig.editorPicks || []).map((t: any) => (
+                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    {t.coverUrl ? (
+                                        <img src={t.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 36, height: 36, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={16} color={colors.textSecondary} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{t.profile?.displayName || t.profile?.username}</div>
+                                    </div>
+                                    <button onClick={() => handleRemoveEditorPick(t.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '4px' }}>
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {(discoveryConfig.editorPicks || []).length < 4 && (
+                        <div style={{ marginBottom: spacing.md }}>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input type="text" value={editorPickSearch} onChange={(e) => handleSearchEditorPicks(e.target.value)} placeholder="Search for a track to add..."
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                            </div>
+                            {editorPickResults.length > 0 && (
+                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
+                                    {editorPickResults.map(track => (
+                                        <div key={track.id} onClick={() => handleAddEditorPick(track.id)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                            onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {track.coverUrl ? (
+                                                <img src={track.coverUrl} alt="" style={{ width: 30, height: 30, borderRadius: 4, objectFit: 'cover' }} />
+                                            ) : (
+                                                <div style={{ width: 30, height: 30, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} /></div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                                <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{track.profile?.displayName || track.profile?.username}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {searchingEditorPicks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── V2: Featured Producer ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <Star size={16} color={colors.primary} /> V2 — Featured Producer
+                    </h4>
+                    {/* Current */}
+                    {discoveryConfig.featuredProducer ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)' }}>
+                            {discoveryConfig.featuredProducer.avatar ? (
+                                <img src={discoveryConfig.featuredProducer.avatar.startsWith('http') ? discoveryConfig.featuredProducer.avatar : `https://cdn.discordapp.com/avatars/${discoveryConfig.featuredProducer.userId}/${discoveryConfig.featuredProducer.avatar}.png`} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={18} color={colors.textSecondary} /></div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600 }}>{discoveryConfig.featuredProducer.displayName || discoveryConfig.featuredProducer.username}</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>@{discoveryConfig.featuredProducer.username}</div>
+                            </div>
+                            <button onClick={() => handleSetFeaturedProducer(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginBottom: spacing.md, color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            No featured producer set.
+                        </div>
+                    )}
+                    {/* Search */}
+                    <div style={{ position: 'relative', marginBottom: spacing.sm }}>
+                        <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <input type="text" value={producerSearch} onChange={(e) => handleSearchProducer(e.target.value)} placeholder="Search artist by name..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                    </div>
+                    {producerResults.length > 0 && (
+                        <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
+                            {producerResults.map((p: any) => (
+                                <div key={p.id} onClick={() => handleSetFeaturedProducer(p.userId)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                    {p.avatar ? (
+                                        <img src={p.avatar.startsWith('http') ? p.avatar : `https://cdn.discordapp.com/avatars/${p.userId}/${p.avatar}.png`} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} /></div>
+                                    )}
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.displayName || p.username}</div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>@{p.username}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {searchingProducer && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '8px' }}>Searching...</div>}
+                    {/* Note */}
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Producer Note (shown on V2 homepage)</label>
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <textarea value={featuredProducerNote} onChange={(e) => setFeaturedProducerNote(e.target.value)} placeholder='e.g. "Making beats since 2019..."'
+                            rows={2}
+                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+                        <button onClick={handleSaveProducerNote} disabled={saving}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                            Save
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── V2: Featured Tutorial ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <Star size={16} color={colors.primary} /> V2 — Featured Tutorial
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial URL (YouTube or any link)</label>
+                            <input type="url" value={featuredTutorialUrl} onChange={(e) => setFeaturedTutorialUrl(e.target.value)}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial Title</label>
+                            <input type="text" value={featuredTutorialTitle} onChange={(e) => setFeaturedTutorialTitle(e.target.value)}
+                                placeholder='e.g. "How to make FL Studio beats"'
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }} />
+                        </div>
+                        <div>
+                            <button onClick={handleSaveTutorial} disabled={saving}
+                                style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                Save Tutorial
+                            </button>
+                        </div>
                     </div>
                 </div>
 
