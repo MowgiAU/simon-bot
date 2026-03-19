@@ -457,7 +457,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* New Artists */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <Link to="/artists" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><UserSearch size={16} color={colors.primary} /> ARTISTS</h3></Link>
+                            <Link to="/artists" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><UserSearch size={16} color={colors.primary} /> ARTISTS</h3></Link>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', alignItems: 'start' }}>
                             {artists.slice(0, 9).map(artist => (
@@ -484,7 +484,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* Genre Exploration */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <Link to="/genres" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3></Link>
+                            <Link to="/genres" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3></Link>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                             {(() => {
@@ -542,7 +542,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         <div style={{ position: 'relative', zIndex: 1, padding: '20px', display: 'flex', flexDirection: 'column', flex: 1, gap: '11px' }}>
                             {/* Header row */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Link to="/battles" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, fontSize: '9px', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><Swords size={14} color={colors.primary} /> BATTLES</h3></Link>
+                                <Link to="/battles" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, fontSize: '9px', color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><Swords size={14} color={colors.primary} /> BATTLES</h3></Link>
                                 {currentBattle && (
                                     <span style={{
                                         display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
