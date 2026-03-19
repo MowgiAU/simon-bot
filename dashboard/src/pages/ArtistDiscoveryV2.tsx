@@ -223,7 +223,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* ═══════════════ ROW 1: HERO / BATTLE / ARTISTS ═══════════════ */}
 
                     {/* Hero/Featured */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 2' }}>
                         {heroCover && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(14px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
@@ -370,8 +370,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         );
                     })()}
 
+                    {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
+
                     {/* Trending Artists */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><TrendingUp size={16} color={colors.primary} /> Trending Artists</h3>
                         </div>
@@ -399,38 +401,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 </div>
                                 <div style={{ fontSize: '10px', color: colors.textSecondary }}>Explore</div>
                             </Link>
-                        </div>
-                    </div>
-
-                    {/* ═══════════════ ROW 2: EDITOR'S PICKS / PLAYLISTS / TUTORIAL ═══════════════ */}
-
-                    {/* Editor's Picks */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><Star size={16} color="#FBBF24" /> Editor's Picks</h3>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', flex: 1 }}>
-                            {(featured?.editorPicks && featured.editorPicks.length > 0
-                                ? featured.editorPicks.slice(0, 2)
-                                : topTracks.slice(0, 2)
-                            ).map(track => (
-                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', background: '#1B212E', borderRadius: '10px', padding: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px',
-                                        background: 'linear-gradient(45deg, #2d3748, #4a5568)', position: 'relative',
-                                    }}>
-                                        {track.coverUrl ? (
-                                            <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <FujiLogo size={30} color={colors.primary} opacity={0.2} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div style={{ fontWeight: 600, fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                                    <div style={{ fontSize: '10px', color: colors.textSecondary }}>{track.profile.displayName || track.profile.username}</div>
-                                </Link>
-                            ))}
                         </div>
                     </div>
 
