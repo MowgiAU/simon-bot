@@ -27,6 +27,7 @@ import Logs from "./pages/Logs";
 import { StagingTest } from "./pages/StagingTest";
 import { PluginManagementPage } from "./pages/PluginManagement";
 import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
+import { ArtistDiscoveryV2Page } from "./pages/ArtistDiscoveryV2";
 import { ArtistsPage } from "./pages/ArtistsPage";
 import { GenresPage } from "./pages/GenresPage";
 import { TermsPage } from "./pages/TermsPage";
@@ -494,6 +495,11 @@ const AppInternal: React.FC = () => {
   // Artist Discovery homepage
   if (currentPath === '/') {
     return <ArtistDiscoveryPage />;
+  }
+
+  // V2 homepage test
+  if (currentPath === '/v2') {
+    return <ArtistDiscoveryV2Page />;
   }
 
   // /artists → Full artists list

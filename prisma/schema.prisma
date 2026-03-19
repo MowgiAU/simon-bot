@@ -823,6 +823,19 @@ model DiscoverySettings {
   featuredArtistId String? // Featured artist userId
   featuredPlaylistId String? // Featured playlist ID
   featuredLabel   String?  // Custom label for the featured section
+
+  // Editor's Picks (JSON array of track IDs curated by admins)
+  editorPickTrackIds Json?  @default("[]")
+
+  // Featured Producer (separate from the hero featured artist)
+  featuredProducerId   String?  // userId of highlighted producer
+  featuredProducerNote String?  @db.Text // Custom blurb about the producer
+
+  // Featured Tutorial
+  featuredTutorialUrl       String?  // YouTube/video embed URL
+  featuredTutorialTitle     String?
+  featuredTutorialThumbnail String?  // Thumbnail image URL
+
   updatedAt       DateTime @updatedAt
 
   @@map("discovery_settings")

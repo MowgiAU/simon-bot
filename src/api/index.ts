@@ -4442,6 +4442,38 @@ app.get('/api/discovery/settings', async (req, res) => {
             result.featuredPlaylist = featuredPlaylist;
         }
 
+        // Editor's picks
+        const editorPickIds = (settings.editorPickTrackIds as string[] | null) || [];
+        if (editorPickIds.length > 0) {
+            const editorPicks = await db.track.findMany({
+                where: { id: { in: editorPickIds }, isPublic: true },
+                include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } },
+            });
+            result.editorPicks = editorPicks;
+        } else {
+            result.editorPicks = [];
+        }
+
+        // Featured producer
+        if (settings.featuredProducerId) {
+            const featuredProducer = await db.musicianProfile.findUnique({
+                where: { userId: settings.featuredProducerId },
+                include: {
+                    tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 1 },
+                    genres: { include: { genre: true } },
+                },
+            });
+            result.featuredProducer = featuredProducer;
+            result.featuredProducerNote = settings.featuredProducerNote;
+        } else {
+            result.featuredProducer = null;
+        }
+
+        // Featured tutorial
+        result.featuredTutorialUrl = settings.featuredTutorialUrl;
+        result.featuredTutorialTitle = settings.featuredTutorialTitle;
+        result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
+
         res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4451,12 +4483,24 @@ app.get('/api/discovery/settings', async (req, res) => {
 // Update discovery settings (admin only)
 app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
     try {
-        const { featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel } = req.body;
+        const {
+            featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel,
+            editorPickTrackIds, featuredProducerId, featuredProducerNote,
+            featuredTutorialUrl, featuredTutorialTitle, featuredTutorialThumbnail
+        } = req.body;
+
+        const updateData: any = { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel };
+        if (editorPickTrackIds !== undefined) updateData.editorPickTrackIds = editorPickTrackIds;
+        if (featuredProducerId !== undefined) updateData.featuredProducerId = featuredProducerId;
+        if (featuredProducerNote !== undefined) updateData.featuredProducerNote = featuredProducerNote;
+        if (featuredTutorialUrl !== undefined) updateData.featuredTutorialUrl = featuredTutorialUrl;
+        if (featuredTutorialTitle !== undefined) updateData.featuredTutorialTitle = featuredTutorialTitle;
+        if (featuredTutorialThumbnail !== undefined) updateData.featuredTutorialThumbnail = featuredTutorialThumbnail;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },
-            create: { id: 'singleton', featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel },
-            update: { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel }
+            create: { id: 'singleton', ...updateData },
+            update: updateData
         });
         res.json(settings);
     } catch (e: any) {
@@ -7404,6 +7448,96 @@ app.post('/api/playlists/:playlistId/play', async (req: any, res) => {
             data: { totalPlays: { increment: 1 } },
         });
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── Public Activity Feed ───────────────────────────────────────────────
+app.get('/api/activity/public', async (_req: any, res) => {
+    try {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // last 7 days
+
+        const [recentTracks, recentFollows, recentBattleEntries, recentFavourites] = await Promise.all([
+            db.track.findMany({
+                where: { isPublic: true, status: 'active', createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: { profile: { select: { userId: true, username: true, displayName: true, avatar: true } } },
+            }),
+            db.artistFollow.findMany({
+                where: { createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: { artist: { select: { userId: true, username: true, displayName: true, avatar: true } } },
+            }),
+            db.battleEntry.findMany({
+                where: { createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: { id: true, userId: true, username: true, avatarUrl: true, trackTitle: true, coverUrl: true, battleId: true, createdAt: true },
+            }),
+            db.trackFavourite.findMany({
+                where: { createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                include: { track: { select: { id: true, title: true, coverUrl: true, profile: { select: { username: true, displayName: true } } } } },
+            }),
+        ]);
+
+        const items: any[] = [];
+
+        for (const t of recentTracks) {
+            items.push({
+                type: 'track_upload',
+                actorId: t.profile.userId,
+                actorName: t.profile.displayName || t.profile.username,
+                actorAvatar: t.profile.avatar,
+                target: { id: t.id, title: t.title, coverUrl: t.coverUrl, slug: t.slug, artistUsername: t.profile.username },
+                createdAt: t.createdAt,
+            });
+        }
+
+        for (const f of recentFollows) {
+            // Look up follower profile for display
+            const followerProfile = await db.musicianProfile.findUnique({ where: { userId: f.followerId }, select: { username: true, displayName: true, avatar: true } });
+            items.push({
+                type: 'follow',
+                actorId: f.followerId,
+                actorName: followerProfile?.displayName || followerProfile?.username || 'Someone',
+                actorAvatar: followerProfile?.avatar || null,
+                target: { id: f.artist.userId, name: f.artist.displayName || f.artist.username },
+                createdAt: f.createdAt,
+            });
+        }
+
+        for (const e of recentBattleEntries) {
+            items.push({
+                type: 'battle_entry',
+                actorId: e.userId,
+                actorName: e.username,
+                actorAvatar: e.avatarUrl,
+                target: { id: e.battleId, title: e.trackTitle, coverUrl: e.coverUrl },
+                createdAt: e.createdAt,
+            });
+        }
+
+        for (const fav of recentFavourites) {
+            // Look up who favourited
+            const favProfile = await db.musicianProfile.findUnique({ where: { userId: fav.userId }, select: { username: true, displayName: true, avatar: true } });
+            items.push({
+                type: 'favourite',
+                actorId: fav.userId,
+                actorName: favProfile?.displayName || favProfile?.username || 'Someone',
+                actorAvatar: favProfile?.avatar || null,
+                target: { id: fav.track.id, title: fav.track.title, coverUrl: fav.track.coverUrl },
+                createdAt: fav.createdAt,
+            });
+        }
+
+        // Sort by date descending and return top 20
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        res.json(items.slice(0, 20));
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
