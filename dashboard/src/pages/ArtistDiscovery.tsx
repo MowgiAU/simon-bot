@@ -267,13 +267,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...styles.widgetCard, ...styles.playerGradient, gridColumn: isMobile ? 'span 12' : 'span 8', padding: isMobile ? '20px' : '28px', overflow: 'hidden', position: 'relative' }}>
                         {/* Background blur */}
                         {featured?.featuredTrack?.coverUrl && featured?.featuredType !== 'artist' && featured?.featuredType !== 'playlist' && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredTrack.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredTrack.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
                         {featured?.featuredType === 'artist' && featured?.featuredArtist?.avatar && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredArtist.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredArtist.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
                         {featured?.featuredType === 'playlist' && featured?.featuredPlaylist?.coverUrl && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, filter: 'blur(32px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
 
                         {/* Featured Track (default) */}
