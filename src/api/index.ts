@@ -7353,6 +7353,37 @@ app.put('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
     }
 });
 
+// Upload playlist cover art
+app.post('/api/playlists/:playlistId/cover', requireAuth, upload.single('cover'), async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { playlistId } = req.params;
+        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+        if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
+
+        const coverFile = req.file as Express.Multer.File | undefined;
+        if (!coverFile) return res.status(400).json({ error: 'No cover image provided' });
+
+        await scanFileForViruses(coverFile.path, 'cover');
+
+        const finalPath = await MediaConverter.optimizeImage(coverFile.path);
+        const localUrl = `/uploads/artwork/${path.basename(finalPath)}`;
+        const r2Key = `playlists/${playlistId}/cover/${path.basename(finalPath)}`;
+        const coverUrl = await uploadToR2OrLocal(finalPath, r2Key, 'image/webp', localUrl);
+
+        // Delete old cover from storage if it exists
+        if (playlist.coverUrl) {
+            await deleteFromStorage(playlist.coverUrl).catch(() => {});
+        }
+
+        await db.playlist.update({ where: { id: playlistId }, data: { coverUrl } });
+        res.json({ coverUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Delete playlist
 app.delete('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
     try {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -6,7 +6,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
-import { Play, Pause, Trash2, GripVertical, Share2, Lock, Globe, Clock, Music, ArrowLeft, Check, Copy } from 'lucide-react';
+import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check } from 'lucide-react';
 
 interface PlaylistTrack {
     id: string;
@@ -55,11 +55,22 @@ export const PlaylistPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [copied, setCopied] = useState(false);
+    const [coverHovered, setCoverHovered] = useState(false);
+    const [coverUploading, setCoverUploading] = useState(false);
+    const coverInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        if (document.querySelector('#playlist-spin-style')) return;
+        const style = document.createElement('style');
+        style.id = 'playlist-spin-style';
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
     }, []);
 
     useEffect(() => {
@@ -108,6 +119,24 @@ export const PlaylistPage: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleCoverUpload = async (file: File) => {
+        if (!playlist) return;
+        setCoverUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('cover', file);
+            const { data } = await axios.post(`/api/playlists/${playlist.id}/cover`, formData, {
+                withCredentials: true,
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setPlaylist(prev => prev ? { ...prev, coverUrl: data.coverUrl } : prev);
+        } catch {
+            // silently fail; UI stays as-is
+        } finally {
+            setCoverUploading(false);
+        }
+    };
+
     if (loading) return <DiscoveryLayout><div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>Loading playlist...</div></DiscoveryLayout>;
     if (error || !playlist) return <DiscoveryLayout><div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: '#EF4444' }}>{error || 'Playlist not found'}</div></DiscoveryLayout>;
 
@@ -119,14 +148,21 @@ export const PlaylistPage: React.FC = () => {
             <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1000px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', marginBottom: '32px' }}>
-                    {/* Cover */}
-                    <div style={{ 
-                        width: isMobile ? '200px' : '240px', height: isMobile ? '200px' : '240px',
-                        borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
-                        backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                        alignSelf: isMobile ? 'center' : 'flex-start',
-                    }}>
+                {/* Cover */}
+                    <div
+                        style={{ 
+                            width: isMobile ? '200px' : '240px', height: isMobile ? '200px' : '240px',
+                            borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+                            backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                            alignSelf: isMobile ? 'center' : 'flex-start',
+                            position: 'relative',
+                            cursor: isOwner ? 'pointer' : 'default',
+                        }}
+                        onClick={() => isOwner && coverInputRef.current?.click()}
+                        onMouseEnter={() => isOwner && setCoverHovered(true)}
+                        onMouseLeave={() => setCoverHovered(false)}
+                    >
                         {playlist.coverUrl ? (
                             <img src={playlist.coverUrl} alt={playlist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
@@ -134,6 +170,33 @@ export const PlaylistPage: React.FC = () => {
                                 <Music size={64} color={colors.primary} style={{ opacity: 0.3 }} />
                             </div>
                         )}
+                        {isOwner && (coverHovered || coverUploading) && (
+                            <div style={{
+                                position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+                            }}>
+                                {coverUploading ? (
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: `3px solid ${colors.primary}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                                ) : (
+                                    <>
+                                        <Camera size={28} color="white" />
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Change Cover</span>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        <input
+                            ref={coverInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) handleCoverUpload(file);
+                                e.target.value = '';
+                            }}
+                        />
                     </div>
 
                     {/* Info */}
