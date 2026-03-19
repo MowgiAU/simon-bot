@@ -58,6 +58,7 @@ export const PlaylistPage: React.FC = () => {
     const [coverHovered, setCoverHovered] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
+    const modalCoverInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
 
     // Edit modal state
@@ -225,8 +226,11 @@ export const PlaylistPage: React.FC = () => {
                         {playlist.coverUrl ? (
                             <img src={playlist.coverUrl} alt={playlist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${colors.primary}33, ${colors.primaryDark}33)` }}>
-                                <Music size={64} color={colors.primary} style={{ opacity: 0.3 }} />
+                            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', background: `linear-gradient(135deg, ${colors.primary}22, ${colors.primaryDark}22)` }}>
+                                <Music size={48} color={colors.primary} style={{ opacity: isOwner ? 0.25 : 0.3 }} />
+                                {isOwner && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 }}>Add Cover</span>
+                                )}
                             </div>
                         )}
                         {isOwner && (coverHovered || coverUploading) && (
@@ -240,7 +244,7 @@ export const PlaylistPage: React.FC = () => {
                                 ) : (
                                     <>
                                         <Camera size={28} color="white" />
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Change Cover</span>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{playlist.coverUrl ? 'Change Cover' : 'Add Cover'}</span>
                                     </>
                                 )}
                             </div>
@@ -472,21 +476,52 @@ export const PlaylistPage: React.FC = () => {
                     </div>
 
                     {/* Cover art */}
-                    {playlist.coverUrl && (
-                        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <img src={playlist.coverUrl} alt="" style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '3px' }}>Cover Image</div>
-                                <div style={{ fontSize: '11px', color: '#B9C3CE' }}>Click the cover on the page to change it</div>
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Cover Art</label>
+                        {playlist.coverUrl ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <img src={playlist.coverUrl} alt="" style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '3px' }}>Cover Image</div>
+                                    <div style={{ fontSize: '11px', color: '#B9C3CE' }}>JPG, PNG, GIF or WebP</div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                    <button
+                                        onClick={() => modalCoverInputRef.current?.click()}
+                                        style={{ background: 'none', border: `1px solid ${colors.primary}55`, borderRadius: '7px', color: colors.primary, cursor: 'pointer', padding: '6px 12px', fontSize: '11px', fontWeight: 600 }}
+                                    >
+                                        Change
+                                    </button>
+                                    <button
+                                        onClick={handleRemoveCover}
+                                        style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '7px', color: '#EF4444', cursor: 'pointer', padding: '6px 12px', fontSize: '11px', fontWeight: 600 }}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
+                        ) : (
                             <button
-                                onClick={handleRemoveCover}
-                                style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '7px', color: '#EF4444', cursor: 'pointer', padding: '6px 12px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
+                                onClick={() => modalCoverInputRef.current?.click()}
+                                style={{ width: '100%', padding: '20px', borderRadius: '10px', border: `2px dashed ${colors.primary}44`, background: `${colors.primary}08`, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', boxSizing: 'border-box' }}
                             >
-                                Remove
+                                <Camera size={24} color={colors.primary} style={{ opacity: 0.7 }} />
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: colors.primary }}>Upload Cover Art</span>
+                                <span style={{ fontSize: '11px', color: '#B9C3CE' }}>JPG, PNG, GIF or WebP</span>
                             </button>
-                        </div>
-                    )}
+                        )}
+                        <input
+                            ref={modalCoverInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) handleCoverUpload(file);
+                                e.target.value = '';
+                            }}
+                        />
+                    </div>
 
                     {/* Save / Cancel */}
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
