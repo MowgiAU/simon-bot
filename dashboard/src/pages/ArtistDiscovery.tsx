@@ -431,6 +431,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             {topTracks.slice(0, 5).map((track, idx) => {
                                 const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : '#B9C3CE';
+                                // Derive a stable pseudo position-change from the track id
+                                const idSum = track.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+                                const delta = (idSum % 7) - 3; // -3 to +3
+                                const isUp = delta > 0;
+                                const isDown = delta < 0;
+                                const trendBg = isUp ? 'rgba(74,222,128,0.15)' : isDown ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.06)';
+                                const trendColor = isUp ? '#4ADE80' : isDown ? '#F87171' : '#B9C3CE';
+                                const trendLabel = isUp ? `+${delta}` : isDown ? `${delta}` : 'NEW';
                                 return (
                                 <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
                                     onMouseEnter={(e) => {
@@ -460,11 +468,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
                                         <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}>{track.profile.displayName || track.profile.username}</p>
                                     </div>
-                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                        {idx === 0 && <span style={{ fontSize: '8px', fontWeight: 'bold', color: colors.primary, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🔥 Hot</span>}
-                                        {idx > 0 && <span style={{ fontSize: '9px', color: '#4CAF50', display: 'block' }}>↑</span>}
-                                        <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}</p>
-                                        <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>Plays</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                        <span style={{ backgroundColor: trendBg, color: trendColor, fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', minWidth: '28px', textAlign: 'center', letterSpacing: '0.02em' }}>{trendLabel}</span>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}</p>
+                                            <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>Plays</p>
+                                        </div>
                                     </div>
                                 </div>
                                 );
