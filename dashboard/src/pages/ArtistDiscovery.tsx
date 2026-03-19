@@ -241,7 +241,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
     return (
         <DiscoveryLayout 
-            sidebar={sidebarContent} 
+            sidebar={isMobile ? undefined : sidebarContent} 
             search={search} 
             onSearchChange={setSearch}
             activeTab="discover"
