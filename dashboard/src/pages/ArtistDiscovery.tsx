@@ -591,11 +591,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     {/* Prizes */}
                                     {currentBattle.prizes && currentBattle.prizes.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                            {currentBattle.prizes.slice(0, 2).map((p, i) => (
+                                            {currentBattle.prizes.slice(0, 3).map((p, i) => (
                                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#B9C3CE' }}>
-                                                    <span>{i === 0 ? '🥇' : '🥈'}</span>
-                                                    <span style={{ fontWeight: 600, color: 'white' }}>{p.place}</span>
-                                                    {p.description && <span style={{ color: colors.primary, fontWeight: 600 }}>– {p.description}</span>}
+                                                    <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                                                    <span style={{ fontWeight: 600, color: 'white' }}>{p.place}:</span>
+                                                    {p.title && <span style={{ color: colors.primary, fontWeight: 600 }}>{p.title}</span>}
                                                 </div>
                                             ))}
                                         </div>
