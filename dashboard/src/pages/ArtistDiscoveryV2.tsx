@@ -372,36 +372,45 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
 
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
-                    {/* Trending Artists */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><TrendingUp size={16} color={colors.primary} /> Trending Artists</h3>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', flex: 1, alignContent: 'start' }}>
-                            {artists.slice(0, 8).map(artist => (
-                                <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                                    <div style={{
-                                        width: '100%', maxWidth: '70px', aspectRatio: '1', borderRadius: '50%', overflow: 'hidden',
-                                        margin: '0 auto 4px', border: `2px solid ${colors.primary}44`, background: '#4a5568',
-                                    }}
-                                        onMouseEnter={e => (e.currentTarget.style.borderColor = colors.primary)}
-                                        onMouseLeave={e => (e.currentTarget.style.borderColor = `${colors.primary}44`)}
-                                    >
-                                        <img src={getAvatarUrl(artist.avatar, artist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.discordapp.com/embed/avatars/0.png`; }} />
+                    {/* Trending Artist */}
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden' }}>
+                        {artists[0] && (
+                            <>
+                                <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${getAvatarUrl(artists[0].avatar, artists[0].userId)})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.12, filter: 'blur(20px)', transform: 'scale(1.2)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    <div style={panelHeader}>
+                                        <h3 style={panelTitle}><TrendingUp size={16} color={colors.primary} /> Trending Artist</h3>
+                                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#FBBF24', background: 'rgba(251,191,36,0.15)', padding: '2px 6px', borderRadius: '4px' }}>#1</span>
                                     </div>
-                                    <div style={{ fontSize: '10px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</div>
-                                </Link>
-                            ))}
-                            <Link to="/artists" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                                <div style={{
-                                    width: '100%', maxWidth: '70px', aspectRatio: '1', borderRadius: '50%',
-                                    margin: '0 auto 4px', border: '1px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <Plus size={18} color={colors.textSecondary} />
+                                    <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                        <div style={{
+                                            width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden',
+                                            border: `3px solid ${colors.primary}`, boxShadow: `0 0 20px ${colors.primary}33`,
+                                            background: '#4a5568',
+                                        }}>
+                                            <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.discordapp.com/embed/avatars/0.png`; }} />
+                                        </div>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '2px' }}>{artists[0].displayName || artists[0].username}</div>
+                                            {artists[0].genres?.length > 0 && (
+                                                <div style={{ fontSize: '10px', color: colors.textSecondary, marginBottom: '4px' }}>
+                                                    {artists[0].genres.slice(0, 3).map(g => g.genre.name).join(' · ')}
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '11px', color: colors.primary, fontWeight: 600 }}>
+                                                {artists[0].totalPlays?.toLocaleString() || 0} plays
+                                            </div>
+                                        </div>
+                                    </Link>
                                 </div>
-                                <div style={{ fontSize: '10px', color: colors.textSecondary }}>Explore</div>
-                            </Link>
-                        </div>
+                            </>
+                        )}
+                        {!artists[0] && (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <TrendingUp size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
+                                <p style={{ fontSize: '12px', color: colors.textSecondary }}>No artists yet</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Popular Playlists */}
