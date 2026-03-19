@@ -228,12 +228,32 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         {heroCover && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(14px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
-                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            {/* Top section: cover + track list */}
-                            <div style={{ display: 'flex', gap: '14px', marginBottom: '14px', flex: 1 }}>
+                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'row', gap: '20px' }}>
+                            {/* Left: label, title, description, play button */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                                <div style={{ color: colors.primary, fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>{heroLabel}</div>
+                                <h2 style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 4px', lineHeight: 1.2 }}>{heroTitle}</h2>
+                                {heroSubtitle && <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '4px' }}>{heroSubtitle}</div>}
+                                {featured?.featuredDescription && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '8px', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</div>}
+                                <button
+                                    onClick={handleHeroPlay}
+                                    style={{
+                                        backgroundColor: colors.primary, color: 'white', padding: '12px 20px', borderRadius: '8px', border: 'none',
+                                        fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
+                                        display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start',
+                                        marginTop: '18px', boxShadow: `0 4px 15px ${colors.primary}44`,
+                                    }}
+                                >
+                                    {isHeroPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
+                                    {isHeroPlaying ? 'Pause' : 'Play Now'}
+                                </button>
+                            </div>
+
+                            {/* Right: album art + track list */}
+                            <div style={{ display: 'flex', flexDirection: 'row', gap: '14px', flexShrink: 0, alignItems: 'flex-start' }}>
                                 <div style={{
-                                    width: '120px', height: '120px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
-                                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
+                                    width: '140px', height: '140px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
                                     background: 'linear-gradient(45deg, #2d3748, #4a5568)',
                                 }}>
                                     {heroCover ? (
@@ -244,7 +264,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '8px', width: '180px' }}>
                                     {heroTrackList.map((t, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(45deg, #2d3748, #4a5568)' }}>
@@ -263,28 +283,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-
-                            {/* Label + title */}
-                            <div style={{ marginBottom: '14px' }}>
-                                <div style={{ color: colors.primary, fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>{heroLabel}</div>
-                                <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 2px', lineHeight: 1.2 }}>{heroTitle}</h2>
-                                {heroSubtitle && <div style={{ fontSize: '12px', color: colors.textSecondary }}>{heroSubtitle}</div>}
-                                {featured?.featuredDescription && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '6px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</div>}
-                            </div>
-
-                            {/* Play Now button */}
-                            <button
-                                onClick={handleHeroPlay}
-                                style={{
-                                    backgroundColor: colors.primary, color: 'white', padding: '12px', borderRadius: '8px', border: 'none',
-                                    fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
-                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    marginTop: 'auto', boxShadow: `0 4px 15px ${colors.primary}44`,
-                                }}
-                            >
-                                {isHeroPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-                                {isHeroPlaying ? 'Pause' : 'Play Now'}
-                            </button>
                         </div>
                     </div>
 
