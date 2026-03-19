@@ -31,6 +31,9 @@ interface PlayerContextType {
   prevTrack: () => void;
   toggleShuffle: () => void;
   setRepeatMode: (mode: 'none' | 'one' | 'all') => void;
+  addToQueue: (track: any) => void;
+  removeFromQueue: (index: number) => void;
+  jumpToIndex: (index: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -158,7 +161,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const nextT = prev.queue[nextIndex];
       hasRecordedPlay.current = null;
-      audio.src = nextT.url || nextT.coverUrl;
+      audio.src = nextT.url || '';
       audio.play().catch(() => {});
       
       return {
@@ -200,7 +203,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const prevT = prev.queue[prevIndex];
       hasRecordedPlay.current = null;
-      audio.src = prevT.url || prevT.coverUrl;
+      audio.src = prevT.url || '';
       audio.play().catch(() => {});
 
       return {
@@ -229,6 +232,44 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPlayer(prev => ({ ...prev, repeatMode: mode }));
   };
 
+  const addToQueue = (track: any) => {
+    setPlayer(prev => ({ ...prev, queue: [...prev.queue, track] }));
+  };
+
+  const removeFromQueue = (index: number) => {
+    setPlayer(prev => {
+      if (index === prev.currentIndex) return prev; // can't remove currently playing
+      const newQueue = prev.queue.filter((_, i) => i !== index);
+      const newIndex = index < prev.currentIndex ? prev.currentIndex - 1 : prev.currentIndex;
+      return { ...prev, queue: newQueue, currentIndex: newIndex };
+    });
+  };
+
+  const jumpToIndex = (index: number) => {
+    setPlayer(prev => {
+      if (index < 0 || index >= prev.queue.length) return prev;
+      const t = prev.queue[index];
+      hasRecordedPlay.current = null;
+      audio.src = t.url || '';
+      audio.play().catch(() => {});
+      return {
+        ...prev,
+        currentTrack: {
+          id: t.id,
+          title: t.title,
+          artist: t.artist || t.profile?.displayName || t.profile?.username || 'Unknown Artist',
+          username: t.profile?.username || t.username || '',
+          slug: t.slug || '',
+          cover: t.coverUrl || t.cover || '',
+          url: t.url,
+        },
+        currentIndex: index,
+        isPlaying: true,
+        currentTime: 0,
+      };
+    });
+  };
+
   const togglePlay = () => {
     if (!player.currentTrack) return;
     setPlayer(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
@@ -246,7 +287,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   return (
     <PlayerContext.Provider value={{ 
       player, setTrack, togglePlay, setVolume, seek, 
-      nextTrack, prevTrack, toggleShuffle, setRepeatMode 
+      nextTrack, prevTrack, toggleShuffle, setRepeatMode,
+      addToQueue, removeFromQueue, jumpToIndex,
     }}>
       {children}
     </PlayerContext.Provider>
