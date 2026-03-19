@@ -2,15 +2,14 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import {
-    Play, Plus, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, Swords,
-    Award, Headphones, Mic, Waves, Trophy, Users, Timer, ListMusic,
-    Music, Disc, Radio, Volume2, Star, MonitorPlay, User
+    Play, Plus, Pause, TrendingUp, Swords,
+    Award, Trophy, Users, Timer, ListMusic,
+    Star, MonitorPlay
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
-import { ActivityFeed, ActivityItem } from '../components/ActivityFeed';
 
 interface ArtistProfile {
     userId: string;
@@ -39,13 +38,6 @@ interface TrackInfo {
     description?: string;
     artist?: string;
     genres?: { genre: { name: string } }[];
-}
-
-interface DiscoveryGenre {
-    id: string;
-    name: string;
-    slug: string;
-    _count: { profiles: number };
 }
 
 interface FeaturedData {
@@ -89,12 +81,6 @@ interface PopularPlaylist {
     tracks: { track: { coverUrl: string | null } }[];
 }
 
-const genreColors = [
-    '#2B8C71', '#F27B13', '#A855F7', '#3B82F6', '#EF4444',
-    '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#10B981'
-];
-const genreIcons = [Music, Disc, Radio, Volume2, Headphones, Mic, Waves, Play];
-
 const panel: React.CSSProperties = {
     backgroundColor: '#242C3D',
     backdropFilter: 'blur(12px)',
@@ -129,10 +115,8 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
-    const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
     const [currentBattle, setCurrentBattle] = useState<{
         id: string; title: string; status: string;
         description: string | null; bannerUrl: string | null;
@@ -150,10 +134,8 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        axios.get('/api/discovery/genres').then(r => setGenres(r.data)).catch(() => {});
         axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
         axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
-        axios.get('/api/activity/public').then(r => setActivityItems(r.data)).catch(() => {});
         fetch('/api/beat-battle/battles?guildId=default-guild')
             .then(r => r.ok ? r.json() : [])
             .then((battles: any[]) => {
@@ -410,39 +392,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ═══════════════ ROW 2: GENRES / EDITOR'S PICKS / PLAYLISTS ═══════════════ */}
-
-                    {/* Genres */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><LayoutGrid size={16} color={colors.primary} /> Genres</h3>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', flex: 1 }}>
-                            {genres.slice(0, 6).map((genre, idx) => {
-                                const GenreIcon = genreIcons[idx % genreIcons.length];
-                                const gColor = genreColors[idx % genreColors.length];
-                                return (
-                                    <Link
-                                        key={genre.id}
-                                        to={`/category/${genre.slug}`}
-                                        style={{
-                                            borderRadius: '8px', border: `1px solid ${gColor}33`, background: `${gColor}12`,
-                                            fontWeight: 600, fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: gColor, textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
-                                            transition: 'transform 0.15s', position: 'relative', overflow: 'hidden',
-                                        }}
-                                        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
-                                        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                    >
-                                        <div style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.1, pointerEvents: 'none' }}>
-                                            <GenreIcon size={40} />
-                                        </div>
-                                        <span style={{ position: 'relative', zIndex: 1 }}>{genre.name}</span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    {/* ═══════════════ ROW 2: EDITOR'S PICKS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
                     {/* Editor's Picks */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
@@ -564,90 +514,8 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ═══════════════ ROW 3: FEATURED PRODUCER / TUTORIAL / ACTIVITY ═══════════════ */}
-
-                    {/* Featured Producer */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><User size={16} color={colors.primary} /> Featured Producer</h3>
-                        </div>
-
-                        {featured?.featuredProducer ? (() => {
-                            const producer = featured.featuredProducer!;
-                            const topTrack = producer.tracks?.[0];
-                            return (
-                                <>
-                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1, marginBottom: '14px' }}>
-                                        <Link to={`/profile/${producer.username}`} style={{ flexShrink: 0 }}>
-                                            <div style={{ width: '70px', height: '70px', borderRadius: '50%', overflow: 'hidden', background: '#4a5568', border: `2px solid ${colors.primary}44` }}>
-                                                <img src={getAvatarUrl(producer.avatar, producer.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.discordapp.com/embed/avatars/0.png`; }} />
-                                            </div>
-                                        </Link>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px' }}>Producer of the Week</h4>
-                                            <Link to={`/profile/${producer.username}`} style={{ fontSize: '12px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>
-                                                {producer.displayName || producer.username}
-                                            </Link>
-                                            <p style={{ fontSize: '11px', color: colors.textSecondary, lineHeight: 1.5, margin: '6px 0 0', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
-                                                {featured.featuredProducerNote || producer.bio || 'Check out this incredible producer!'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {topTrack && (
-                                        <div
-                                            style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: 'auto', cursor: 'pointer' }}
-                                            onClick={() => setTrack(topTrack as any, producer.tracks as any[])}
-                                        >
-                                            <div style={{ width: '50px', height: '50px', borderRadius: '8px', overflow: 'hidden', background: '#2d3748', flexShrink: 0 }}>
-                                                {topTrack.coverUrl ? (
-                                                    <img src={topTrack.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <FujiLogo size={20} color={colors.primary} opacity={0.2} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <Play size={18} fill="white" color="white" style={{ flexShrink: 0, cursor: 'pointer' }} />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topTrack.title}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </>
-                            );
-                        })() : (
-                            /* Fallback: show top artist from the community */
-                            artists.length > 0 ? (() => {
-                                const topArtist = artists[0];
-                                return (
-                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flex: 1 }}>
-                                        <Link to={`/profile/${topArtist.username}`} style={{ flexShrink: 0 }}>
-                                            <div style={{ width: '70px', height: '70px', borderRadius: '50%', overflow: 'hidden', background: '#4a5568', border: `2px solid ${colors.primary}44` }}>
-                                                <img src={getAvatarUrl(topArtist.avatar, topArtist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.discordapp.com/embed/avatars/0.png`; }} />
-                                            </div>
-                                        </Link>
-                                        <div>
-                                            <h4 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 4px' }}>Top Producer</h4>
-                                            <Link to={`/profile/${topArtist.username}`} style={{ fontSize: '12px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>
-                                                {topArtist.displayName || topArtist.username}
-                                            </Link>
-                                            <p style={{ fontSize: '11px', color: colors.textSecondary, lineHeight: 1.5, margin: '6px 0 0' }}>
-                                                {topArtist.bio || 'One of the most active producers in the community.'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })() : (
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.textSecondary, fontSize: '12px' }}>
-                                    No featured producer set
-                                </div>
-                            )
-                        )}
-                    </div>
-
                     {/* Featured Tutorial */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px' }}>
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><MonitorPlay size={16} color={colors.primary} /> Featured Tutorial</h3>
                         </div>
@@ -683,16 +551,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 <p style={{ fontSize: '12px', margin: 0 }}>No tutorial featured right now</p>
                             </div>
                         )}
-                    </div>
-
-                    {/* Activity Feed */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><Users size={16} color={colors.primary} /> Activity Feed</h3>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                            <ActivityFeed items={activityItems} maxItems={10} />
-                        </div>
                     </div>
 
                 </div>
