@@ -270,15 +270,15 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>{heroSubtitle}</div>
                                 )}
                                 {featured?.featuredDescription && (
-                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</p>
+                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</p>
                                 )}
                             </div>
 
                             {/* Bottom: track strip + play button */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
-                                {/* Track pills */}
-                                <div style={{ flex: 1, display: 'flex', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
-                                    {heroTrackList.slice(0, isMobile ? 2 : 4).map((t, i) => (
+                                {/* Track pills — horizontally scrollable */}
+                                <div style={{ flex: 1, display: 'flex', gap: '6px', overflowX: 'auto', minWidth: 0, paddingBottom: '2px', scrollbarWidth: 'none' } as React.CSSProperties}>
+                                    {heroTrackList.map((t, i) => (
                                         <div key={i} style={{
                                             display: 'flex', alignItems: 'center', gap: '6px',
                                             background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
@@ -295,11 +295,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             <span style={{ fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,0.85)' }}>{t.title}</span>
                                         </div>
                                     ))}
-                                    {heroType === 'playlist' && heroPlaylist?._count?.tracks && heroPlaylist._count.tracks > (isMobile ? 2 : 4) && (
-                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: '4px' }}>
-                                            +{heroPlaylist._count.tracks - (isMobile ? 2 : 4)}
-                                        </div>
-                                    )}
                                 </div>
                                 {/* Play button */}
                                 <button onClick={handleHeroPlay} style={{
