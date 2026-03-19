@@ -405,10 +405,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', gap: '16px' }}>
                                     <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{
                                         backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none',
-                                        fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                        fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
                                         boxShadow: `0 4px 15px ${colors.primary}44`, textDecoration: 'none'
                                     }}>
-                                        <Play size={16} fill="white" /> Play Playlist
+                                        <Play size={16} fill="white" /> Play Now
                                     </Link>
                                 </div>
                             </div>
@@ -429,10 +429,22 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <Link to="/library" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {topTracks.slice(0, 5).map((track, idx) => (
-                                <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#B9C3CE', width: '16px' }}>{idx + 1}</span>
-                                    <div style={{ width: '40px', height: '40px', backgroundColor: '#1A1E2E', borderRadius: '4px', overflow: 'hidden' }}>
+                            {topTracks.slice(0, 5).map((track, idx) => {
+                                const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : '#B9C3CE';
+                                return (
+                                <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                        const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
+                                        if (overlay) overlay.style.opacity = '1';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
+                                        if (overlay) overlay.style.opacity = '0';
+                                    }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: rankColor, width: '18px', textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                                    <div style={{ position: 'relative', width: '40px', height: '40px', backgroundColor: '#1A1E2E', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
                                         {track.coverUrl ? (
                                             <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
@@ -440,17 +452,23 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 <FujiLogo size={20} color={colors.primary} opacity={0.2} />
                                             </div>
                                         )}
+                                        <div data-play-overlay="" style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.15s' }}>
+                                            <Play size={14} fill="white" color="white" />
+                                        </div>
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
                                         <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}>{track.profile.displayName || track.profile.username}</p>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                        {idx === 0 && <span style={{ fontSize: '8px', fontWeight: 'bold', color: colors.primary, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🔥 Hot</span>}
+                                        {idx > 0 && <span style={{ fontSize: '9px', color: '#4CAF50', display: 'block' }}>↑</span>}
                                         <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}</p>
                                         <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>Plays</p>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

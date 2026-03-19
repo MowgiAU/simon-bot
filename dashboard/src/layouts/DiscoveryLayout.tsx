@@ -57,7 +57,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     }, []);
 
     const navItems = [
-        { key: 'discover', label: 'HOME', icon: <Search size={14} />, path: '/' },
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'genres', label: 'GENRES', icon: <Zap size={14} />, path: '/genres' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
@@ -96,8 +95,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 <div style={{
                     height: '56px', display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: '12px',
+                    position: 'relative',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '32px', minWidth: 0 }}>
+                    {/* Left: logo */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                         {isMobile && (
                             <button
                                 onClick={() => setIsPieMenuOpen(true)}
@@ -113,27 +114,28 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 <h1 style={{ margin: 0, fontSize: '17px', fontWeight: 'bold', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>FUJI STUDIO</h1>
                             )}
                         </Link>
-                        {!isMobile && (
-                            <nav style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                {navItems.map(item => {
-                                    const navStyle: React.CSSProperties = {
-                                        padding: '6px 16px', borderRadius: '4px',
-                                        backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
-                                        color: activeTab === item.key ? colors.primary : '#B9C3CE',
-                                        fontSize: '10px', fontWeight: 'bold',
-                                        display: 'flex', alignItems: 'center', gap: '8px',
-                                        opacity: item.comingSoon ? 0.6 : 1,
-                                    };
-                                    if (item.comingSoon || !item.path) {
-                                        return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
-                                    }
-                                    return (
-                                        <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
-                                    );
-                                })}
-                            </nav>
-                        )}
                     </div>
+                    {/* Center: nav (desktop only, absolutely centered) */}
+                    {!isMobile && (
+                        <nav style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', zIndex: 1 }}>
+                            {navItems.map(item => {
+                                const navStyle: React.CSSProperties = {
+                                    padding: '6px 16px', borderRadius: '4px',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : '#B9C3CE',
+                                    fontSize: '10px', fontWeight: 'bold',
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    opacity: item.comingSoon ? 0.6 : 1,
+                                };
+                                if (item.comingSoon || !item.path) {
+                                    return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
+                                }
+                                return (
+                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
+                                );
+                            })}
+                        </nav>
+                    )}
                     {/* Right-side actions */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '12px', flexShrink: 0 }}>
                     {/* Mobile: compact icon buttons */}
@@ -162,7 +164,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                     {isMobile && !user && (
                         <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
-                            <LogIn size={14} /> LOG IN
+                            Sign Up
                         </a>
                     )}
 
@@ -200,9 +202,14 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </>
                     )}
                     {!isMobile && !user && (
-                        <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 18px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
-                            <LogIn size={14} /> LOG IN
-                        </a>
+                        <>
+                            <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', boxShadow: `0 0 14px ${colors.primary}55`, letterSpacing: '0.01em' }}>
+                                Sign Up
+                            </a>
+                            <a href="/api/auth/discord/login" style={{ color: '#B9C3CE', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                <LogIn size={13} /> Log In
+                            </a>
+                        </>
                     )}
                     {!isMobile && onSearchChange && (
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
