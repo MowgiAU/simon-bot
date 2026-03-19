@@ -511,7 +511,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         )}
                     </div>
 
-                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */
+                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
 
                     <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', height: 'auto', padding: '24px' }}>
                         <h2 style={{
