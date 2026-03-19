@@ -212,6 +212,28 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
         return null;
     };
 
+    useEffect(() => {
+        const id = 'hero-marquee-style';
+        if (!document.getElementById(id)) {
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = `
+                @keyframes hero-marquee {
+                    0%   { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                }
+                .hero-marquee-track {
+                    display: flex;
+                    gap: 6px;
+                    animation: hero-marquee 28s linear infinite;
+                    width: max-content;
+                }
+                .hero-marquee-track:hover { animation-play-state: paused; }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
+
     return (
         <DiscoveryLayout activeTab="discover">
             <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1300px', margin: '0 auto' }}>
@@ -276,25 +298,27 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
 
                             {/* Bottom: track strip + play button */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
-                                {/* Track pills — horizontally scrollable */}
-                                <div style={{ flex: 1, display: 'flex', gap: '6px', overflowX: 'auto', minWidth: 0, paddingBottom: '2px', scrollbarWidth: 'none' } as React.CSSProperties}>
-                                    {heroTrackList.map((t, i) => (
-                                        <div key={i} style={{
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
-                                            borderRadius: '6px', padding: '5px 8px 5px 5px', flexShrink: 0,
-                                            border: '1px solid rgba(255,255,255,0.06)',
-                                        }}>
-                                            {t.coverUrl ? (
-                                                <div style={{ width: '22px', height: '22px', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
-                                                    <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            ) : (
-                                                <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
-                                            )}
-                                            <span style={{ fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,0.85)' }}>{t.title}</span>
-                                        </div>
-                                    ))}
+                                {/* Track pills — infinite marquee */}
+                                <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)' } as React.CSSProperties}>
+                                    <div className="hero-marquee-track">
+                                        {[...heroTrackList, ...heroTrackList].map((t, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
+                                                borderRadius: '6px', padding: '5px 8px 5px 5px', flexShrink: 0,
+                                                border: '1px solid rgba(255,255,255,0.06)',
+                                            }}>
+                                                {t.coverUrl ? (
+                                                    <div style={{ width: '22px', height: '22px', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
+                                                        <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                                                )}
+                                                <span style={{ fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,0.85)' }}>{t.title}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                                 {/* Play button */}
                                 <button onClick={handleHeroPlay} style={{
