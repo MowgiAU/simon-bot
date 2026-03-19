@@ -224,64 +224,94 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* ═══════════════ ROW 1: HERO / BATTLE / ARTISTS ═══════════════ */}
 
                     {/* Hero/Featured */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 2' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 2', padding: 0 }}>
+                        {/* Full-bleed background image */}
                         {heroCover && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(14px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                         )}
-                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'row', gap: '20px' }}>
-                            {/* Left: label, title, description, play button */}
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-                                <div style={{ color: colors.primary, fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>{heroLabel}</div>
-                                <h2 style={{ fontSize: '26px', fontWeight: 800, margin: '0 0 4px', lineHeight: 1.2 }}>{heroTitle}</h2>
-                                {heroSubtitle && <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '4px' }}>{heroSubtitle}</div>}
-                                {featured?.featuredDescription && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '8px', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</div>}
-                                <button
-                                    onClick={handleHeroPlay}
-                                    style={{
-                                        backgroundColor: colors.primary, color: 'white', padding: '12px 20px', borderRadius: '8px', border: 'none',
-                                        fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
-                                        display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start',
-                                        marginTop: '18px', boxShadow: `0 4px 15px ${colors.primary}44`,
-                                    }}
-                                >
-                                    {isHeroPlaying ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}
-                                    {isHeroPlaying ? 'Pause' : 'Play Now'}
-                                </button>
+                        {/* Dark gradient overlay — heavier on left for text legibility */}
+                        <div style={{ position: 'absolute', inset: 0, background: heroCover
+                            ? 'linear-gradient(to right, rgba(14,18,26,0.97) 30%, rgba(14,18,26,0.6) 65%, rgba(14,18,26,0.25) 100%), linear-gradient(to top, rgba(14,18,26,0.6) 0%, transparent 50%)'
+                            : 'rgba(14,18,26,0.98)'
+                        }} />
+
+                        {/* Cover art — floated to the right, vertically centred */}
+                        {heroCover && !isMobile && (
+                            <div style={{
+                                position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
+                                width: '190px', height: '190px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0,
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)',
+                            }}>
+                                <img src={heroCover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                        )}
+
+                        {/* Main content — full height flex column, padded, right side offset to avoid cover art */}
+                        <div style={{
+                            position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            height: '100%', boxSizing: 'border-box',
+                            padding: isMobile ? '24px 20px' : '28px 32px',
+                            paddingRight: (heroCover && !isMobile) ? '248px' : (isMobile ? '20px' : '32px'),
+                        }}>
+                            {/* Top: label badge */}
+                            <div>
+                                <span style={{
+                                    display: 'inline-block', fontSize: '10px', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.12em',
+                                    color: colors.primary, background: `${colors.primary}25`,
+                                    padding: '4px 10px', borderRadius: '4px',
+                                }}>{heroLabel}</span>
                             </div>
 
-                            {/* Right: album art + track list */}
-                            <div style={{ display: 'flex', flexDirection: 'row', gap: '14px', flexShrink: 0, alignItems: 'flex-start' }}>
-                                <div style={{
-                                    width: '140px', height: '140px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
-                                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
-                                    background: 'linear-gradient(45deg, #2d3748, #4a5568)',
-                                }}>
-                                    {heroCover ? (
-                                        <img src={heroCover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <FujiLogo size={50} color={colors.primary} opacity={0.2} />
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: '8px', width: '180px' }}>
-                                    {heroTrackList.map((t, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(45deg, #2d3748, #4a5568)' }}>
-                                                {t.coverUrl && <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                            </div>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-                                                <div style={{ fontSize: '10px', color: colors.textSecondary }}>{t.artist}</div>
-                                            </div>
+                            {/* Middle: title + subtitle + description */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 0' }}>
+                                <h2 style={{ fontSize: isMobile ? '24px' : '34px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff' }}>{heroTitle}</h2>
+                                {heroSubtitle && (
+                                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>{heroSubtitle}</div>
+                                )}
+                                {featured?.featuredDescription && (
+                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</p>
+                                )}
+                            </div>
+
+                            {/* Bottom: track strip + play button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+                                {/* Track pills */}
+                                <div style={{ flex: 1, display: 'flex', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
+                                    {heroTrackList.slice(0, isMobile ? 2 : 4).map((t, i) => (
+                                        <div key={i} style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
+                                            borderRadius: '6px', padding: '5px 8px 5px 5px', flexShrink: 0,
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                        }}>
+                                            {t.coverUrl ? (
+                                                <div style={{ width: '22px', height: '22px', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            ) : (
+                                                <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                                            )}
+                                            <span style={{ fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,0.85)' }}>{t.title}</span>
                                         </div>
                                     ))}
-                                    {heroType === 'playlist' && heroPlaylist?._count?.tracks && heroPlaylist._count.tracks > heroTrackList.length && (
-                                        <div style={{ fontSize: '10px', color: colors.textSecondary, fontStyle: 'italic', paddingTop: '2px' }}>
-                                            +{heroPlaylist._count.tracks - heroTrackList.length} more tracks
+                                    {heroType === 'playlist' && heroPlaylist?._count?.tracks && heroPlaylist._count.tracks > (isMobile ? 2 : 4) && (
+                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: '4px' }}>
+                                            +{heroPlaylist._count.tracks - (isMobile ? 2 : 4)}
                                         </div>
                                     )}
                                 </div>
+                                {/* Play button */}
+                                <button onClick={handleHeroPlay} style={{
+                                    backgroundColor: colors.primary, color: 'white', padding: '11px 20px',
+                                    borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
+                                    boxShadow: `0 4px 20px ${colors.primary}55`,
+                                }}>
+                                    {isHeroPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                                    {isHeroPlaying ? 'Pause' : 'Play Now'}
+                                </button>
                             </div>
                         </div>
                     </div>
