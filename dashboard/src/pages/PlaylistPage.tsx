@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
-import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check } from 'lucide-react';
+import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X } from 'lucide-react';
 
 interface PlaylistTrack {
     id: string;
@@ -58,6 +58,16 @@ export const PlaylistPage: React.FC = () => {
     const [coverHovered, setCoverHovered] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
+    const navigate = useNavigate();
+
+    // Edit modal state
+    const [editOpen, setEditOpen] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editDesc, setEditDesc] = useState('');
+    const [editIsPublic, setEditIsPublic] = useState(true);
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -137,6 +147,54 @@ export const PlaylistPage: React.FC = () => {
         }
     };
 
+    const openEdit = () => {
+        if (!playlist) return;
+        setEditName(playlist.name);
+        setEditDesc(playlist.description || '');
+        setEditIsPublic(playlist.isPublic);
+        setEditError(null);
+        setConfirmDelete(false);
+        setEditOpen(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!playlist || !editName.trim()) return;
+        setEditSaving(true);
+        setEditError(null);
+        try {
+            const { data } = await axios.put(`/api/playlists/${playlist.id}`, {
+                name: editName.trim(),
+                description: editDesc.trim() || null,
+                isPublic: editIsPublic,
+            }, { withCredentials: true });
+            setPlaylist(prev => prev ? { ...prev, name: data.name, description: data.description, isPublic: data.isPublic, slug: data.slug } : prev);
+            document.title = `${data.name} | Fuji Studio Playlist`;
+            setEditOpen(false);
+        } catch (e: any) {
+            setEditError(e.response?.data?.error || 'Failed to save changes');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const handleRemoveCover = async () => {
+        if (!playlist) return;
+        try {
+            await axios.put(`/api/playlists/${playlist.id}`, { coverUrl: null }, { withCredentials: true });
+            setPlaylist(prev => prev ? { ...prev, coverUrl: null } : prev);
+        } catch {}
+    };
+
+    const handleDeletePlaylist = async () => {
+        if (!playlist) return;
+        try {
+            await axios.delete(`/api/playlists/${playlist.id}`, { withCredentials: true });
+            navigate('/');
+        } catch (e: any) {
+            setEditError(e.response?.data?.error || 'Failed to delete playlist');
+        }
+    };
+
     if (loading) return <DiscoveryLayout><div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>Loading playlist...</div></DiscoveryLayout>;
     if (error || !playlist) return <DiscoveryLayout><div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: '#EF4444' }}>{error || 'Playlist not found'}</div></DiscoveryLayout>;
 
@@ -144,6 +202,7 @@ export const PlaylistPage: React.FC = () => {
     const totalDuration = sortedTracks.reduce((sum, pt) => sum + (pt.track.duration || 0), 0);
 
     return (
+        <>
         <DiscoveryLayout>
             <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1000px', margin: '0 auto' }}>
                 {/* Header */}
@@ -246,6 +305,19 @@ export const PlaylistPage: React.FC = () => {
                             >
                                 {copied ? <><Check size={14} /> Copied!</> : <><Share2 size={14} /> Share</>}
                             </button>
+                            {isOwner && (
+                                <button
+                                    onClick={openEdit}
+                                    style={{
+                                        backgroundColor: 'rgba(255,255,255,0.05)', color: 'white',
+                                        border: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '8px',
+                                        fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                    }}
+                                >
+                                    <Pencil size={14} /> Edit
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -334,5 +406,137 @@ export const PlaylistPage: React.FC = () => {
                 </div>
             </div>
         </DiscoveryLayout>
+
+        {/* ── Edit Playlist Modal ── */}
+        {editOpen && (
+            <div
+                style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}
+                onClick={e => { if (e.target === e.currentTarget) { setEditOpen(false); setConfirmDelete(false); } }}
+            >
+                <div style={{ backgroundColor: '#1E2533', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '480px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Edit Playlist</h2>
+                        <button onClick={() => { setEditOpen(false); setConfirmDelete(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B9C3CE', padding: '4px', display: 'flex' }}>
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {editError && (
+                        <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#EF4444', fontSize: '13px' }}>
+                            {editError}
+                        </div>
+                    )}
+
+                    {/* Name */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Name</label>
+                        <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            maxLength={100}
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '10px 14px', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description</label>
+                        <textarea
+                            value={editDesc}
+                            onChange={e => setEditDesc(e.target.value)}
+                            rows={3}
+                            placeholder="Add a description..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '10px 14px', color: 'white', fontSize: '14px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                        />
+                    </div>
+
+                    {/* Visibility */}
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Visibility</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setEditIsPublic(true)}
+                                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${editIsPublic ? colors.primary : 'rgba(255,255,255,0.12)'}`, background: editIsPublic ? `${colors.primary}20` : 'rgba(255,255,255,0.03)', color: editIsPublic ? colors.primary : '#B9C3CE', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                            >
+                                <Globe size={14} /> Public
+                            </button>
+                            <button
+                                onClick={() => setEditIsPublic(false)}
+                                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${!editIsPublic ? '#FBBF24' : 'rgba(255,255,255,0.12)'}`, background: !editIsPublic ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)', color: !editIsPublic ? '#FBBF24' : '#B9C3CE', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}
+                            >
+                                <Lock size={14} /> Private
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Cover art */}
+                    {playlist.coverUrl && (
+                        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <img src={playlist.coverUrl} alt="" style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '3px' }}>Cover Image</div>
+                                <div style={{ fontSize: '11px', color: '#B9C3CE' }}>Click the cover on the page to change it</div>
+                            </div>
+                            <button
+                                onClick={handleRemoveCover}
+                                style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '7px', color: '#EF4444', cursor: 'pointer', padding: '6px 12px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Save / Cancel */}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                        <button
+                            onClick={handleSaveEdit}
+                            disabled={editSaving || !editName.trim()}
+                            style={{ flex: 1, padding: '12px', borderRadius: '8px', background: colors.primary, color: 'white', border: 'none', fontWeight: 700, fontSize: '14px', cursor: editSaving || !editName.trim() ? 'not-allowed' : 'pointer', opacity: editSaving || !editName.trim() ? 0.6 : 1 }}
+                        >
+                            {editSaving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                        <button
+                            onClick={() => { setEditOpen(false); setConfirmDelete(false); }}
+                            style={{ padding: '12px 20px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+
+                    {/* Danger zone */}
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
+                        {!confirmDelete ? (
+                            <button
+                                onClick={() => setConfirmDelete(true)}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(239,68,68,0.07)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.22)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                                <Trash2 size={14} /> Delete Playlist
+                            </button>
+                        ) : (
+                            <div style={{ backgroundColor: 'rgba(239,68,68,0.07)', borderRadius: '10px', padding: '14px', border: '1px solid rgba(239,68,68,0.25)' }}>
+                                <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#EF4444', fontWeight: 600 }}>Delete "{playlist.name}"? This cannot be undone.</p>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={handleDeletePlaylist}
+                                        style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#EF4444', color: 'white', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                                    >
+                                        Yes, Delete
+                                    </button>
+                                    <button
+                                        onClick={() => setConfirmDelete(false)}
+                                        style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
