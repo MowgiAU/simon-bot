@@ -4435,8 +4435,9 @@ app.get('/api/discovery/settings', async (req, res) => {
             const featuredPlaylist = await db.playlist.findUnique({
                 where: { id: settings.featuredPlaylistId },
                 include: {
-                    tracks: { orderBy: { position: 'asc' }, take: 5, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
+                    tracks: { orderBy: { position: 'asc' }, take: 10, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
                     profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+                    _count: { select: { tracks: true } },
                 },
             });
             result.featuredPlaylist = featuredPlaylist;
@@ -4500,12 +4501,14 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
     try {
         const {
             featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel,
+            featuredDescription,
             editorPickTrackIds, featuredProducerId, featuredProducerNote,
             featuredTutorialUrl, featuredTutorialTitle, featuredTutorialThumbnail,
             featuredBattleId, featuredBattleDescription
         } = req.body;
 
         const updateData: any = { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel };
+        if (featuredDescription !== undefined) updateData.featuredDescription = featuredDescription;
         if (editorPickTrackIds !== undefined) updateData.editorPickTrackIds = editorPickTrackIds;
         if (featuredProducerId !== undefined) updateData.featuredProducerId = featuredProducerId;
         if (featuredProducerNote !== undefined) updateData.featuredProducerNote = featuredProducerNote;

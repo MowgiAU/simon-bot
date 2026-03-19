@@ -61,6 +61,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [trackResults, setTrackResults] = useState<TrackResult[]>([]);
     const [searchingTracks, setSearchingTracks] = useState(false);
     const [featuredLabel, setFeaturedLabel] = useState('');
+    const [featuredHeroDesc, setFeaturedHeroDesc] = useState('');
     const [artistSearch, setArtistSearch] = useState('');
     const [artistResults, setArtistResults] = useState<any[]>([]);
     const [searchingArtists, setSearchingArtists] = useState(false);
@@ -167,6 +168,7 @@ export const MusicianProfileAdmin: React.FC = () => {
             setFeaturedTutorialUrl(res.data.featuredTutorialUrl || '');
             setFeaturedTutorialTitle(res.data.featuredTutorialTitle || '');
             setFeaturedBattleDesc(res.data.featuredBattleDescription || '');
+            setFeaturedHeroDesc(res.data.featuredDescription || '');
         } catch (err) {
             console.error('Failed to load discovery settings');
         }
@@ -299,6 +301,18 @@ export const MusicianProfileAdmin: React.FC = () => {
             fetchDiscoverySettings();
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to update label' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveFeaturedDescription = async () => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { featuredDescription: featuredHeroDesc || null }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Description saved!' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to save description' });
         } finally {
             setSaving(false);
         }
@@ -844,7 +858,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                 )}
 
                 {/* Featured Label */}
-                <div>
+                <div style={{ marginBottom: spacing.lg }}>
                     <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Hero Section Label (optional)</label>
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <input
@@ -861,68 +875,24 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── V2: Editor's Picks ── */}
-                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
-                        <Star size={16} color="#FBBF24" /> V2 — Editor's Picks
-                    </h4>
-                    <p style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>
-                        Up to 4 tracks hand-picked for the V2 homepage "Editor's Picks" panel.
-                    </p>
-                    {/* Current picks */}
-                    {(discoveryConfig.editorPicks || []).length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: spacing.md }}>
-                            {(discoveryConfig.editorPicks || []).map((t: any) => (
-                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.06)' }}>
-                                    {t.coverUrl ? (
-                                        <img src={t.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: 36, height: 36, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Music size={16} color={colors.textSecondary} />
-                                        </div>
-                                    )}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>{t.profile?.displayName || t.profile?.username}</div>
-                                    </div>
-                                    <button onClick={() => handleRemoveEditorPick(t.id)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '4px' }}>
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {(discoveryConfig.editorPicks || []).length < 4 && (
-                        <div style={{ marginBottom: spacing.md }}>
-                            <div style={{ position: 'relative' }}>
-                                <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                                <input type="text" value={editorPickSearch} onChange={(e) => handleSearchEditorPicks(e.target.value)} placeholder="Search for a track to add..."
-                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
-                            </div>
-                            {editorPickResults.length > 0 && (
-                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
-                                    {editorPickResults.map(track => (
-                                        <div key={track.id} onClick={() => handleAddEditorPick(track.id)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                                            onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                                            onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                            {track.coverUrl ? (
-                                                <img src={track.coverUrl} alt="" style={{ width: 30, height: 30, borderRadius: 4, objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: 30, height: 30, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} /></div>
-                                            )}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 600, fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
-                                                <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{track.profile?.displayName || track.profile?.username}</div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {searchingEditorPicks && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
-                        </div>
-                    )}
+                {/* Featured Description */}
+                <div>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Hero Description (shown under the title on the homepage)</label>
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <textarea
+                            value={featuredHeroDesc}
+                            onChange={(e) => setFeaturedHeroDesc(e.target.value)}
+                            rows={2}
+                            placeholder='e.g. "A collection of our favourite summer vibes from the community..."'
+                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+                        <button onClick={handleSaveFeaturedDescription} disabled={saving}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                            Save
+                        </button>
+                    </div>
                 </div>
+
 
                 {/* ── V2: Featured Producer ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>

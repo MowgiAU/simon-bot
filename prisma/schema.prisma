@@ -823,6 +823,7 @@ model DiscoverySettings {
   featuredArtistId String? // Featured artist userId
   featuredPlaylistId String? // Featured playlist ID
   featuredLabel   String?  // Custom label for the featured section
+  featuredDescription String?  @db.Text // Custom description shown under the hero title
 
   // Editor's Picks (JSON array of track IDs curated by admins)
   editorPickTrackIds Json?  @default("[]")

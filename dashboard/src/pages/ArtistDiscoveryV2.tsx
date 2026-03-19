@@ -44,6 +44,7 @@ interface FeaturedData {
     featuredType?: string;
     featuredTrackId: string | null;
     featuredLabel: string | null;
+    featuredDescription?: string | null;
     featuredTrack: {
         id: string;
         title: string;
@@ -62,7 +63,7 @@ interface FeaturedData {
     } | null;
     featuredPlaylist?: {
         id: string; name: string; description: string | null; coverUrl: string | null;
-        trackCount: number; totalPlays: number;
+        trackCount: number; totalPlays: number; _count?: { tracks: number };
         profile?: { username: string; displayName: string | null } | null;
         tracks: { track: { id: string; title: string; coverUrl: string | null; url: string; profile: { username: string; displayName: string | null } } }[];
     } | null;
@@ -146,7 +147,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     axios.get('/api/musician/profiles'),
                     axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } })
                 ]);
-                setArtists(profilesRes.data);
+                setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
                 setTopTracks(tracksRes.data);
             } catch (err) {
                 console.error('Failed to fetch', err);
@@ -172,7 +173,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     // Tracks to show in the hero track list (up to 4)
     const heroTrackList: { title: string; artist: string; coverUrl: string | null }[] = [];
     if (heroType === 'playlist' && heroPlaylist?.tracks) {
-        heroPlaylist.tracks.slice(0, 4).forEach(pt => heroTrackList.push({ title: pt.track.title, artist: pt.track.profile.displayName || pt.track.profile.username, coverUrl: pt.track.coverUrl }));
+        heroPlaylist.tracks.slice(0, 6).forEach(pt => heroTrackList.push({ title: pt.track.title, artist: pt.track.profile.displayName || pt.track.profile.username, coverUrl: pt.track.coverUrl }));
     } else if (heroType === 'artist' && heroArtist?.tracks) {
         heroArtist.tracks.slice(0, 4).forEach(t => heroTrackList.push({ title: t.title, artist: heroArtist.displayName || heroArtist.username, coverUrl: t.coverUrl }));
     } else if (heroType === 'track' && heroTrack) {
@@ -255,6 +256,11 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
+                                    {heroType === 'playlist' && heroPlaylist?._count?.tracks && heroPlaylist._count.tracks > heroTrackList.length && (
+                                        <div style={{ fontSize: '10px', color: colors.textSecondary, fontStyle: 'italic', paddingTop: '2px' }}>
+                                            +{heroPlaylist._count.tracks - heroTrackList.length} more tracks
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -263,6 +269,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 <div style={{ color: colors.primary, fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>{heroLabel}</div>
                                 <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 2px', lineHeight: 1.2 }}>{heroTitle}</h2>
                                 {heroSubtitle && <div style={{ fontSize: '12px', color: colors.textSecondary }}>{heroSubtitle}</div>}
+                                {featured?.featuredDescription && <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '6px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</div>}
                             </div>
 
                             {/* Play Now button */}
