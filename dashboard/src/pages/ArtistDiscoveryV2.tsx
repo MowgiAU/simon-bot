@@ -383,12 +383,12 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><TrendingUp size={16} color={colors.primary} /> Trending Artists</h3>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '1fr', gap: '8px', textAlign: 'center', flex: 1 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center', flex: 1, alignContent: 'start' }}>
                             {artists.slice(0, 8).map(artist => (
                                 <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                     <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: '50%', overflow: 'hidden',
-                                        border: `2px solid ${colors.primary}44`, background: '#4a5568',
+                                        width: '100%', maxWidth: '70px', aspectRatio: '1', borderRadius: '50%', overflow: 'hidden',
+                                        margin: '0 auto 4px', border: `2px solid ${colors.primary}44`, background: '#4a5568',
                                     }}
                                         onMouseEnter={e => (e.currentTarget.style.borderColor = colors.primary)}
                                         onMouseLeave={e => (e.currentTarget.style.borderColor = `${colors.primary}44`)}
@@ -400,8 +400,8 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                             ))}
                             <Link to="/artists" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
                                 <div style={{
-                                    width: '100%', aspectRatio: '1', borderRadius: '50%',
-                                    border: '1px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '100%', maxWidth: '70px', aspectRatio: '1', borderRadius: '50%',
+                                    margin: '0 auto 4px', border: '1px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     <Plus size={18} color={colors.textSecondary} />
                                 </div>
@@ -686,11 +686,13 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     </div>
 
                     {/* Activity Feed */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px', overflowY: 'auto' }}>
-                        <div style={{ ...panelHeader, position: 'sticky', top: 0, background: '#242C3D', zIndex: 10 }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px' }}>
+                        <div style={panelHeader}>
                             <h3 style={panelTitle}><Users size={16} color={colors.primary} /> Activity Feed</h3>
                         </div>
-                        <ActivityFeed items={activityItems} maxItems={10} />
+                        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                            <ActivityFeed items={activityItems} maxItems={10} />
+                        </div>
                     </div>
 
                 </div>

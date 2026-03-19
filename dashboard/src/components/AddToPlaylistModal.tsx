@@ -23,6 +23,7 @@ export const AddToPlaylistModal: React.FC<Props> = ({ trackId, open, onClose }) 
     const [added, setAdded] = useState<Set<string>>(new Set());
     const [newName, setNewName] = useState('');
     const [creating, setCreating] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -35,23 +36,34 @@ export const AddToPlaylistModal: React.FC<Props> = ({ trackId, open, onClose }) 
 
     const addToPlaylist = async (playlistId: string) => {
         setAdding(playlistId);
+        setErrorMsg(null);
         try {
             await axios.post(`/api/playlists/${playlistId}/tracks`, { trackId }, { withCredentials: true });
             setAdded(prev => new Set(prev).add(playlistId));
-        } catch {}
+        } catch (err: any) {
+            const msg = err.response?.data?.error || 'Failed to add track';
+            if (msg === 'Track already in playlist') {
+                setAdded(prev => new Set(prev).add(playlistId));
+            } else {
+                setErrorMsg(msg);
+            }
+        }
         setAdding(null);
     };
 
     const createAndAdd = async () => {
         if (!newName.trim()) return;
         setCreating(true);
+        setErrorMsg(null);
         try {
             const { data } = await axios.post('/api/playlists', { name: newName.trim() }, { withCredentials: true });
             await axios.post(`/api/playlists/${data.id}/tracks`, { trackId }, { withCredentials: true });
             setPlaylists(prev => [data, ...prev]);
             setAdded(prev => new Set(prev).add(data.id));
             setNewName('');
-        } catch {}
+        } catch (err: any) {
+            setErrorMsg(err.response?.data?.error || 'Something went wrong');
+        }
         setCreating(false);
     };
 
@@ -64,6 +76,11 @@ export const AddToPlaylistModal: React.FC<Props> = ({ trackId, open, onClose }) 
                     <h3 style={{ margin: 0, fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}><ListMusic size={18} color={colors.primary} /> Add to Playlist</h3>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#B9C3CE', cursor: 'pointer', padding: '4px' }}><X size={18} /></button>
                 </div>
+                {errorMsg && (
+                    <div style={{ padding: '8px 20px', backgroundColor: 'rgba(239,68,68,0.12)', borderBottom: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <X size={12} /> {errorMsg}
+                    </div>
+                )}
 
                 {/* Create new */}
                 <div style={{ padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '8px' }}>
