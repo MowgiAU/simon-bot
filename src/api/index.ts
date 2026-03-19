@@ -4508,7 +4508,12 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredBattleId, featuredBattleDescription
         } = req.body;
 
-        const updateData: any = { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel };
+        const updateData: any = {};
+        if (featuredType !== undefined) updateData.featuredType = featuredType;
+        if (featuredTrackId !== undefined) updateData.featuredTrackId = featuredTrackId;
+        if (featuredArtistId !== undefined) updateData.featuredArtistId = featuredArtistId;
+        if (featuredPlaylistId !== undefined) updateData.featuredPlaylistId = featuredPlaylistId;
+        if (featuredLabel !== undefined) updateData.featuredLabel = featuredLabel;
         if (featuredDescription !== undefined) updateData.featuredDescription = featuredDescription;
         if (editorPickTrackIds !== undefined) updateData.editorPickTrackIds = editorPickTrackIds;
         if (featuredProducerId !== undefined) updateData.featuredProducerId = featuredProducerId;
@@ -4522,7 +4527,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },
-            create: { id: 'singleton', ...updateData },
+            create: { id: 'singleton', featuredType: featuredType || 'track', ...updateData },
             update: updateData
         });
         res.json(settings);
