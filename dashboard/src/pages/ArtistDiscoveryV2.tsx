@@ -72,6 +72,15 @@ interface FeaturedData {
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
     featuredTutorialThumbnail?: string | null;
+    featuredBattle?: {
+        id: string; title: string; status: string;
+        bannerUrl: string | null;
+        submissionEnd: string | null; votingEnd: string | null;
+        _count?: { entries: number };
+        sponsor: { id: string; name: string; logoUrl: string | null } | null;
+        prizes: { place: string; title?: string; description: string }[] | null;
+    } | null;
+    featuredBattleDescription?: string | null;
 }
 
 interface PopularPlaylist {
@@ -89,7 +98,6 @@ const panel: React.CSSProperties = {
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
 };
 
 const panelHeader: React.CSSProperties = {
@@ -117,14 +125,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
-    const [currentBattle, setCurrentBattle] = useState<{
-        id: string; title: string; status: string;
-        description: string | null; bannerUrl: string | null;
-        submissionEnd: string | null; votingEnd: string | null;
-        _count?: { entries: number };
-        sponsor: { id: string; name: string; logoUrl: string | null } | null;
-        prizes: { place: string; title?: string; description: string }[] | null;
-    } | null>(null);
     const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
@@ -136,15 +136,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     useEffect(() => {
         axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
         axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
-        fetch('/api/beat-battle/battles?guildId=default-guild')
-            .then(r => r.ok ? r.json() : [])
-            .then((battles: any[]) => {
-                const active = battles.find((b: any) => b.status === 'voting') ||
-                               battles.find((b: any) => b.status === 'active') ||
-                               battles.find((b: any) => b.status === 'upcoming');
-                if (active) setCurrentBattle(active);
-            })
-            .catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -291,57 +282,61 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     </div>
 
                     {/* Battle */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative' }}>
-                        {(currentBattle?.bannerUrl || heroCover) && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${currentBattle?.bannerUrl || heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.12, filter: 'blur(20px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                    {(() => {
+                        const battle = featured?.featuredBattle;
+                        const battleDesc = featured?.featuredBattleDescription;
+                        return (
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden' }}>
+                        {(battle?.bannerUrl || heroCover) && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle?.bannerUrl || heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
                         )}
-                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><Swords size={16} color={colors.primary} /> Battle</h3>
-                            {currentBattle && (
+                            {battle && (
                                 <span style={{
-                                    background: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.18)' : currentBattle.status === 'active' ? 'rgba(52,211,153,0.18)' : 'rgba(96,165,250,0.18)',
-                                    color: currentBattle.status === 'voting' ? '#FBBF24' : currentBattle.status === 'active' ? '#34D399' : '#60A5FA',
+                                    background: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : battle.status === 'active' ? 'rgba(52,211,153,0.18)' : 'rgba(96,165,250,0.18)',
+                                    color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? '#34D399' : '#60A5FA',
                                     padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700,
-                                }}>{currentBattle.status === 'voting' ? 'VOTING NOW' : currentBattle.status === 'active' ? 'OPEN' : 'UPCOMING'}</span>
+                                }}>{battle.status === 'voting' ? 'VOTING NOW' : battle.status === 'active' ? 'OPEN' : 'UPCOMING'}</span>
                             )}
                         </div>
 
-                        {currentBattle ? (
+                        {battle ? (
                             <>
-                                {currentBattle.sponsor && (
-                                    <div style={{ marginBottom: '10px' }}>
+                                {battle.sponsor && (
+                                    <div style={{ marginBottom: '8px' }}>
                                         <span style={{ fontSize: '9px', fontWeight: 600, color: colors.textSecondary, background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                            {currentBattle.sponsor.logoUrl && <img src={currentBattle.sponsor.logoUrl} alt="" style={{ width: '12px', height: '12px', objectFit: 'contain', borderRadius: '2px' }} />}
-                                            Sponsored by {currentBattle.sponsor.name}
+                                            {battle.sponsor.logoUrl && <img src={battle.sponsor.logoUrl} alt="" style={{ width: '12px', height: '12px', objectFit: 'contain', borderRadius: '2px' }} />}
+                                            Sponsored by {battle.sponsor.name}
                                         </span>
                                     </div>
                                 )}
-                                <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>{currentBattle.title}</h2>
-                                {currentBattle.description && (
-                                    <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
-                                        {currentBattle.description}
+                                <h2 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '6px', lineHeight: 1.2 }}>{battle.title}</h2>
+                                {battleDesc && (
+                                    <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '10px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
+                                        {battleDesc}
                                     </p>
                                 )}
 
-                                <div style={{ display: 'flex', gap: '14px', marginBottom: '14px', fontSize: '12px', color: colors.textSecondary }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={13} /> {currentBattle._count?.entries ?? 0} {(currentBattle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}</span>
-                                    {currentBattle.status === 'voting' && currentBattle.votingEnd && (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={13} /> Closes {new Date(currentBattle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                <div style={{ display: 'flex', gap: '14px', marginBottom: '10px', fontSize: '12px', color: colors.textSecondary }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={13} /> {battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}</span>
+                                    {battle.status === 'voting' && battle.votingEnd && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={13} /> Closes {new Date(battle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                     )}
-                                    {currentBattle.status === 'active' && currentBattle.submissionEnd && (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={13} /> Closes {new Date(currentBattle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                    {battle.status === 'active' && battle.submissionEnd && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={13} /> Closes {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                                     )}
                                 </div>
 
                                 {/* Prizes */}
-                                {currentBattle.prizes && currentBattle.prizes.length > 0 && (
-                                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', marginBottom: '14px' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Trophy size={13} color="#FBBF24" /> PRIZE LIST
+                                {battle.prizes && battle.prizes.length > 0 && (
+                                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 700, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Trophy size={12} color="#FBBF24" /> PRIZES
                                         </div>
-                                        {currentBattle.prizes.slice(0, 3).map((p, i) => (
-                                            <div key={i} style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '4px' }}>
+                                        {battle.prizes.slice(0, 3).map((p, i) => (
+                                            <div key={i} style={{ fontSize: '10px', color: colors.textSecondary, marginBottom: '3px' }}>
                                                 <strong style={{ color: colors.textPrimary }}>{p.place}:</strong> {p.title || p.description}
                                             </div>
                                         ))}
@@ -349,29 +344,31 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 )}
 
                                 <Link
-                                    to={`/battles/${currentBattle.id}`}
+                                    to={`/battles/${battle.id}`}
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                        padding: '12px', borderRadius: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px',
+                                        padding: '10px', borderRadius: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px',
                                         cursor: 'pointer', textAlign: 'center', width: '100%', fontSize: '12px', textDecoration: 'none',
-                                        marginTop: 'auto',
-                                        background: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.15)' : currentBattle.status === 'active' ? `${colors.primary}20` : 'rgba(255,255,255,0.05)',
-                                        color: currentBattle.status === 'voting' ? '#FBBF24' : currentBattle.status === 'active' ? colors.primary : colors.textPrimary,
-                                        border: `1px solid ${currentBattle.status === 'voting' ? 'rgba(251,191,36,0.35)' : currentBattle.status === 'active' ? `${colors.primary}35` : 'rgba(255,255,255,0.1)'}`,
+                                        marginTop: 'auto', flexShrink: 0,
+                                        background: battle.status === 'voting' ? 'rgba(251,191,36,0.15)' : battle.status === 'active' ? `${colors.primary}20` : 'rgba(255,255,255,0.05)',
+                                        color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? colors.primary : colors.textPrimary,
+                                        border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.35)' : battle.status === 'active' ? `${colors.primary}35` : 'rgba(255,255,255,0.1)'}`,
                                     }}
                                 >
-                                    {currentBattle.status === 'voting' ? 'VOTE NOW' : currentBattle.status === 'active' ? 'SUBMIT A BEAT' : 'VIEW BATTLE'}
+                                    {battle.status === 'voting' ? 'VOTE NOW' : battle.status === 'active' ? 'SUBMIT A BEAT' : 'VIEW BATTLE'}
                                 </Link>
                             </>
                         ) : (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <Swords size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
-                                <p style={{ fontSize: '12px', color: colors.textSecondary }}>No battle running right now.</p>
+                                <p style={{ fontSize: '12px', color: colors.textSecondary }}>No battle featured right now.</p>
                                 <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
                             </div>
                         )}
                         </div>
                     </div>
+                        );
+                    })()}
 
                     {/* Trending Artists */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '400px' }}>

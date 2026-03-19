@@ -831,6 +831,10 @@ model DiscoverySettings {
   featuredProducerId   String?  // userId of highlighted producer
   featuredProducerNote String?  @db.Text // Custom blurb about the producer
 
+  // Featured Battle
+  featuredBattleId          String?  // BeatBattle ID to show on frontpage
+  featuredBattleDescription String?  @db.Text // Custom blurb for the battle card
+
   // Featured Tutorial
   featuredTutorialUrl       String?  // YouTube/video embed URL
   featuredTutorialTitle     String?

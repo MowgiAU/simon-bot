@@ -3,7 +3,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -35,6 +35,8 @@ interface DiscoveryConfig {
     featuredProducerNote?: string | null;
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
+    featuredBattle?: { id: string; title: string; status: string; bannerUrl: string | null } | null;
+    featuredBattleDescription?: string | null;
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
@@ -81,6 +83,10 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
     const [featuredTutorialTitle, setFeaturedTutorialTitle] = useState('');
 
+    // V2 — Featured Battle state
+    const [battleList, setBattleList] = useState<any[]>([]);
+    const [featuredBattleDesc, setFeaturedBattleDesc] = useState('');
+
     // Admin wipe state
     const [adminSearch, setAdminSearch] = useState('');
     const [adminProfiles, setAdminProfiles] = useState<any[]>([]);
@@ -108,6 +114,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     useEffect(() => {
         fetchGenres();
         fetchDiscoverySettings();
+        fetchBattles();
     }, []);
 
     const handleSearchProfiles = async (query: string) => {
@@ -159,6 +166,7 @@ export const MusicianProfileAdmin: React.FC = () => {
             setFeaturedProducerNote(res.data.featuredProducerNote || '');
             setFeaturedTutorialUrl(res.data.featuredTutorialUrl || '');
             setFeaturedTutorialTitle(res.data.featuredTutorialTitle || '');
+            setFeaturedBattleDesc(res.data.featuredBattleDescription || '');
         } catch (err) {
             console.error('Failed to load discovery settings');
         }
@@ -397,6 +405,49 @@ export const MusicianProfileAdmin: React.FC = () => {
             fetchDiscoverySettings();
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to save tutorial' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── V2 Featured Battle handlers ──
+    const fetchBattles = async () => {
+        try {
+            const res = await fetch('/api/beat-battle/battles?guildId=default-guild');
+            if (res.ok) {
+                const battles = await res.json();
+                setBattleList(battles.filter((b: any) => b.status !== 'completed'));
+            }
+        } catch (err) {
+            console.error('Failed to fetch battles');
+        }
+    };
+
+    const handleSetFeaturedBattle = async (battleId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', {
+                featuredBattleId: battleId,
+                featuredBattleDescription: battleId ? (featuredBattleDesc || null) : null,
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: battleId ? 'Featured battle updated!' : 'Featured battle removed.' });
+            fetchDiscoverySettings();
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to update featured battle' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveBattleDescription = async () => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', {
+                featuredBattleDescription: featuredBattleDesc || null,
+            }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Battle description saved!' });
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to save battle description' });
         } finally {
             setSaving(false);
         }
@@ -964,6 +1015,61 @@ export const MusicianProfileAdmin: React.FC = () => {
                                 Save Tutorial
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                {/* ── V2: Featured Battle ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <Swords size={16} color={colors.primary} /> V2 — Featured Battle
+                    </h4>
+                    {/* Current */}
+                    {discoveryConfig.featuredBattle ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <Swords size={20} color={colors.primary} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600 }}>{discoveryConfig.featuredBattle.title}</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>{discoveryConfig.featuredBattle.status}</div>
+                            </div>
+                            <button onClick={() => handleSetFeaturedBattle(null)} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginBottom: spacing.md, color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            No featured battle set. Select one below.
+                        </div>
+                    )}
+                    {/* Battle list */}
+                    {battleList.length > 0 && (
+                        <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
+                            {battleList.map((b: any) => (
+                                <div key={b.id} onClick={() => handleSetFeaturedBattle(b.id)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', backgroundColor: discoveryConfig.featuredBattle?.id === b.id ? 'rgba(43,140,113,0.1)' : 'transparent' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = discoveryConfig.featuredBattle?.id === b.id ? 'rgba(43,140,113,0.1)' : 'transparent'}>
+                                    <Swords size={14} color={colors.textSecondary} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{b.title}</div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{b.status} &middot; {b._count?.entries ?? 0} entries</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {battleList.length === 0 && (
+                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>No active or upcoming battles found.</div>
+                    )}
+                    {/* Description */}
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Battle Description (shown on V2 homepage card)</label>
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <textarea value={featuredBattleDesc} onChange={(e) => setFeaturedBattleDesc(e.target.value)} placeholder='e.g. "Submit your best beats and compete for prizes!"'
+                            rows={2}
+                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }} />
+                        <button onClick={handleSaveBattleDescription} disabled={saving}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', alignSelf: 'flex-start' }}>
+                            Save
+                        </button>
                     </div>
                 </div>
 

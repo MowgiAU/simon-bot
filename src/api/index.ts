@@ -4474,6 +4474,21 @@ app.get('/api/discovery/settings', async (req, res) => {
         result.featuredTutorialTitle = settings.featuredTutorialTitle;
         result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
 
+        // Featured battle
+        if ((settings as any).featuredBattleId) {
+            const featuredBattle = await db.beatBattle.findUnique({
+                where: { id: (settings as any).featuredBattleId },
+                include: {
+                    sponsor: true,
+                    _count: { select: { entries: true } },
+                },
+            });
+            result.featuredBattle = featuredBattle;
+            result.featuredBattleDescription = (settings as any).featuredBattleDescription;
+        } else {
+            result.featuredBattle = null;
+        }
+
         res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4486,7 +4501,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         const {
             featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel,
             editorPickTrackIds, featuredProducerId, featuredProducerNote,
-            featuredTutorialUrl, featuredTutorialTitle, featuredTutorialThumbnail
+            featuredTutorialUrl, featuredTutorialTitle, featuredTutorialThumbnail,
+            featuredBattleId, featuredBattleDescription
         } = req.body;
 
         const updateData: any = { featuredType: featuredType || 'track', featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel };
@@ -4496,6 +4512,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredTutorialUrl !== undefined) updateData.featuredTutorialUrl = featuredTutorialUrl;
         if (featuredTutorialTitle !== undefined) updateData.featuredTutorialTitle = featuredTutorialTitle;
         if (featuredTutorialThumbnail !== undefined) updateData.featuredTutorialThumbnail = featuredTutorialThumbnail;
+        if (featuredBattleId !== undefined) updateData.featuredBattleId = featuredBattleId;
+        if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },
