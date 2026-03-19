@@ -215,7 +215,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
         if (featured?.featuredTutorialThumbnail) return featured.featuredTutorialThumbnail;
         const url = featured?.featuredTutorialUrl;
         if (!url) return null;
-        const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=))([^?&]+)/);
+        const match = url.match(new RegExp('(?:youtu\\.be/|youtube\\.com/(?:embed/|v/|watch\\?v=))([^?&]+)'));
         if (match) return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
         return null;
     };
