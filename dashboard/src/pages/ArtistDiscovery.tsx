@@ -463,7 +463,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', minWidth: 0 }}>
                                     <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
                                         {artist.avatar ? (
-                                            <img src={artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                            <img src={artist.avatar.startsWith('http') || artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                         ) : (
                                             <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{artist.username.charAt(0).toUpperCase()}</div>
                                         )}
