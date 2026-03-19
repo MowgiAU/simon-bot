@@ -234,7 +234,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* Hero/Featured */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden' }}>
                         {heroCover && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.15, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(14px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
                         )}
                         <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
                             {/* Top section: cover + track list */}
@@ -291,7 +291,11 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     </div>
 
                     {/* Battle */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', position: 'relative' }}>
+                        {(currentBattle?.bannerUrl || heroCover) && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${currentBattle?.bannerUrl || heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.12, filter: 'blur(20px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                        )}
+                        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
                         <div style={panelHeader}>
                             <h3 style={panelTitle}><Swords size={16} color={colors.primary} /> Battle</h3>
                             {currentBattle && (
@@ -305,6 +309,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
 
                         {currentBattle ? (
                             <>
+                                {currentBattle.sponsor && (
+                                    <div style={{ marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '9px', fontWeight: 600, color: colors.textSecondary, background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                            {currentBattle.sponsor.logoUrl && <img src={currentBattle.sponsor.logoUrl} alt="" style={{ width: '12px', height: '12px', objectFit: 'contain', borderRadius: '2px' }} />}
+                                            Sponsored by {currentBattle.sponsor.name}
+                                        </span>
+                                    </div>
+                                )}
                                 <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>{currentBattle.title}</h2>
                                 {currentBattle.description && (
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
@@ -358,6 +370,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
                             </div>
                         )}
+                        </div>
                     </div>
 
                     {/* Trending Artists */}
