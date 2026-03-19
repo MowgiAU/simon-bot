@@ -159,6 +159,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
         submissionEnd: string | null; votingEnd: string | null;
         _count?: { entries: number };
         sponsor: { id: string; name: string; logoUrl: string | null } | null;
+        prizes: { place: string; title?: string; description: string; imageUrl?: string; link?: string }[] | null;
     } | null>(null);
     const { player, setTrack, togglePlay } = usePlayer();
     const navigate = useNavigate();
@@ -456,7 +457,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* New Artists */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={styles.headerLabel}><UserSearch size={16} color={colors.primary} /> Discover Artists</h3>
+                            <Link to="/artists" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><UserSearch size={16} color={colors.primary} /> ARTISTS</h3></Link>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', alignItems: 'start' }}>
                             {artists.slice(0, 9).map(artist => (
@@ -483,8 +484,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* Genre Exploration */}
                     <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : (isMobile ? 'span 12' : 'span 4'), padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={styles.headerLabel}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3>
-                            <Link to="/genres" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
+                            <Link to="/genres" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3></Link>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                             {(() => {
@@ -542,7 +542,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         <div style={{ position: 'relative', zIndex: 1, padding: '20px', display: 'flex', flexDirection: 'column', flex: 1, gap: '11px' }}>
                             {/* Header row */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <h3 style={{ ...styles.headerLabel, fontSize: '9px' }}><Swords size={14} color={colors.primary} /> Beat Battles</h3>
+                                <Link to="/battles" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, fontSize: '9px', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = '')}><Swords size={14} color={colors.primary} /> BATTLES</h3></Link>
                                 {currentBattle && (
                                     <span style={{
                                         display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
@@ -587,6 +587,19 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
+
+                                    {/* Prizes */}
+                                    {currentBattle.prizes && currentBattle.prizes.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                            {currentBattle.prizes.slice(0, 2).map((p, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#B9C3CE' }}>
+                                                    <span>{i === 0 ? '🥇' : '🥈'}</span>
+                                                    <span style={{ fontWeight: 600, color: 'white' }}>{p.place}</span>
+                                                    {p.description && <span style={{ color: colors.primary, fontWeight: 600 }}>– {p.description}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* Sponsor chip */}
                                     {currentBattle.sponsor && (

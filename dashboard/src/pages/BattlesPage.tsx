@@ -369,17 +369,7 @@ export const BattlesPage: React.FC = () => {
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary }}>
                                                 <Users size={12} /> {b._count?.entries || 0} Participants
                                             </span>
-                                            {b.prizes && b.prizes.length > 0 && (
-                                                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                    {b.prizes.slice(0, 2).map((p, i) => (
-                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.textSecondary }}>
-                                                            <span>{i === 0 ? '🥇' : '🥈'}</span>
-                                                            <span style={{ fontWeight: 600, color: colors.textPrimary }}>{p.place}</span>
-                                                            {p.description && <span style={{ color: colors.primary, fontWeight: 600 }}>– {p.description}</span>}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
+
                                         </Link>
                                     );
                                 })}
