@@ -492,6 +492,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             </div>
                         </div>
                         )}
+
+                        {/* Comments */}
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
+                            <CommentSection profileId={profile.id} ownerId={profile.userId} />
+                        </div>
                     </div>
 
                     {/* RIGHT: Sidebar */}
@@ -554,10 +559,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     </div>
                 </div>
 
-                {/* Comments */}
-                <div style={{ marginTop: '32px' }}>
-                    <CommentSection profileId={profile.id} ownerId={profile.userId} />
-                </div>
+
             </div>
 
             {/* Back to Edit Button (Owner only) */}
