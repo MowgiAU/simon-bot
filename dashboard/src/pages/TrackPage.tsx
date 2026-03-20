@@ -282,15 +282,20 @@ export const TrackPage: React.FC = () => {
                             <button 
                                 onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, [track])}
                                 style={{ 
-                                    position: 'absolute', bottom: '20px', right: '20px',
+                                    position: 'absolute',
+                                    top: isMobile ? '50%' : undefined,
+                                    bottom: isMobile ? undefined : '20px',
+                                    left: isMobile ? '50%' : undefined,
+                                    right: isMobile ? undefined : '20px',
+                                    transform: isMobile ? 'translate(-50%, -50%)' : undefined,
                                     width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px', borderRadius: '50%',
                                     backgroundColor: colors.primary, color: 'white',
                                     border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     cursor: 'pointer', boxShadow: `0 4px 20px ${colors.primary}44`,
                                     transition: 'transform 0.2s ease'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                onMouseEnter={(e) => e.currentTarget.style.transform = isMobile ? 'translate(-50%, -50%) scale(1.05)' : 'scale(1.05)'}
+                                onMouseLeave={(e) => e.currentTarget.style.transform = isMobile ? 'translate(-50%, -50%)' : 'scale(1)'}
                             >
                                 {isPlaying ? <Pause size={isMobile ? 24 : 32} fill="white" /> : <Play size={isMobile ? 24 : 32} fill="white" style={{ marginLeft: '4px' }} />}
                             </button>
@@ -298,8 +303,12 @@ export const TrackPage: React.FC = () => {
                                 onClick={toggleFavourite}
                                 title={isFavourited ? 'Remove from favourites' : 'Add to favourites'}
                                 style={{
-                                    position: 'absolute', bottom: '20px', left: '20px',
-                                    width: isMobile ? '44px' : '48px', height: isMobile ? '44px' : '48px', borderRadius: '50%',
+                                    position: 'absolute',
+                                    top: isMobile ? '8px' : undefined,
+                                    bottom: isMobile ? undefined : '20px',
+                                    right: isMobile ? '8px' : undefined,
+                                    left: isMobile ? undefined : '20px',
+                                    width: isMobile ? '36px' : '48px', height: isMobile ? '36px' : '48px', borderRadius: '50%',
                                     backgroundColor: isFavourited ? '#EF4444' : 'rgba(0,0,0,0.6)',
                                     color: 'white', border: '2px solid rgba(255,255,255,0.2)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -309,7 +318,7 @@ export const TrackPage: React.FC = () => {
                                 onMouseEnter={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.7)'; }}
                                 onMouseLeave={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)'; }}
                             >
-                                <Heart size={isMobile ? 18 : 22} fill={isFavourited ? 'white' : 'none'} />
+                                <Heart size={isMobile ? 16 : 22} fill={isFavourited ? 'white' : 'none'} />
                             </button>
                         </div>
 

@@ -275,7 +275,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         flex: 1, 
                         overflowY: 'auto', 
                         backgroundColor: '#161925', 
-                        paddingBottom: isMobile ? (player.currentTrack ? '168px' : '72px') : (player.currentTrack ? '100px' : '24px'),
+                        paddingBottom: isMobile ? (player.currentTrack ? '200px' : '72px') : (player.currentTrack ? '100px' : '24px'),
                         opacity: isMobile && isSidebarOpen ? 0.3 : 1,
                         filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
                     }}>
