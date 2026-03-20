@@ -6,7 +6,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
-import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X } from 'lucide-react';
+import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X, Repeat2 } from 'lucide-react';
 
 interface PlaylistTrack {
     id: string;
@@ -58,6 +58,7 @@ export const PlaylistPage: React.FC = () => {
     const [copied, setCopied] = useState(false);
     const [coverHovered, setCoverHovered] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
+    const [reposts, setReposts] = useState<Record<string, boolean>>({});
     const coverInputRef = useRef<HTMLInputElement>(null);
     const modalCoverInputRef = useRef<HTMLInputElement>(null);
     const navigate = useNavigate();
@@ -96,6 +97,12 @@ export const PlaylistPage: React.FC = () => {
                 const { data } = await axios.get(`/api/playlists/${playlistId}`, { withCredentials: true });
                 setPlaylist(data);
                 document.title = `${data.name} | Fuji Studio Playlist`;
+                if (data.tracks?.length > 0) {
+                    try {
+                        const { data: repostData } = await axios.post('/api/tracks/reposts/check', { trackIds: data.tracks.map((t: any) => t.track.id) }, { withCredentials: true });
+                        setReposts(repostData);
+                    } catch {}
+                }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Playlist not found' : err.response?.status === 403 ? 'This playlist is private' : 'Failed to load playlist');
             } finally {
@@ -338,7 +345,7 @@ export const PlaylistPage: React.FC = () => {
                 {/* Track List */}
                 <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                     {/* Header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr 80px 40px', gap: '12px', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '10px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr 80px 72px', gap: '12px', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '10px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                         <span>#</span>
                         <span>Title</span>
                         <span style={{ display: isMobile ? 'none' : 'block' }}>Artist</span>
@@ -371,7 +378,7 @@ export const PlaylistPage: React.FC = () => {
                                         }
                                     }}
                                     style={{
-                                        display: 'grid', gridTemplateColumns: '40px 1fr 1fr 80px 40px',
+                                        display: 'grid', gridTemplateColumns: '40px 1fr 1fr 80px 72px',
                                         gap: '12px', padding: '10px 20px', alignItems: 'center',
                                         cursor: 'pointer', transition: 'background 0.15s',
                                         backgroundColor: isCurrentTrack ? `${colors.primary}15` : 'transparent',
@@ -400,7 +407,15 @@ export const PlaylistPage: React.FC = () => {
                                         {t.profile?.displayName || t.profile?.username}
                                     </span>
                                     <span style={{ fontSize: '12px', color: '#B9C3CE', textAlign: 'right' }}>{formatDuration(t.duration)}</span>
-                                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); axios.post(`/api/tracks/${t.id}/repost`, {}, { withCredentials: true }).then(res => setReposts(prev => ({ ...prev, [t.id]: res.data.reposted }))).catch(() => {}); }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: reposts[t.id] ? colors.primary : '#B9C3CE', padding: '4px', display: 'flex', opacity: reposts[t.id] ? 1 : 0.5, transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.opacity = '1'; if (!reposts[t.id]) e.currentTarget.style.color = colors.primary; }}
+                                            onMouseLeave={e => { if (!reposts[t.id]) { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = '#B9C3CE'; } }}
+                                        >
+                                            <Repeat2 size={14} />
+                                        </button>
                                         {isOwner && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); removeTrack(t.id); }}

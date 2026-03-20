@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, ArrowLeft, Disc, Music, Play, TrendingUp, Clock, Filter, Search } from 'lucide-react';
+import { LayoutGrid, ArrowLeft, Disc, Music, Play, TrendingUp, Clock, Filter, Search, Repeat2 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
@@ -38,6 +38,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const [genreName, setGenreName] = useState(slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Genre');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -60,6 +61,13 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                     }
                 });
                 setTracks(res.data.tracks || []);
+                // Check repost status
+                if (res.data.tracks?.length > 0) {
+                    try {
+                        const { data: repostData } = await axios.post('/api/tracks/reposts/check', { trackIds: res.data.tracks.map((t: any) => t.id) }, { withCredentials: true });
+                        setReposts(repostData);
+                    } catch {}
+                }
                 
                 if (res.data.genre) {
                     setGenreName(res.data.genre.name);
@@ -286,6 +294,15 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                                     }}>
                                         <Play size={8} fill="white" /> {track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}
                                     </div>
+                                    {/* Repost button */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true }).then(res => setReposts(prev => ({ ...prev, [track.id]: res.data.reposted }))).catch(() => {}); }}
+                                        style={{ position: 'absolute', bottom: '8px', left: '8px', background: reposts[track.id] ? colors.primary : 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', color: 'white', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', transition: 'all 0.2s', opacity: reposts[track.id] ? 1 : 0 }}
+                                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                        onMouseLeave={e => { if (!reposts[track.id]) e.currentTarget.style.opacity = '0'; }}
+                                    >
+                                        <Repeat2 size={14} />
+                                    </button>
                                 </div>
                                 <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
                                 <p style={{ margin: 0, fontSize: '12px', color: '#B9C3CE', fontWeight: 600 }}>{track.profile.displayName || track.profile.username}</p>

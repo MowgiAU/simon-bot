@@ -6,7 +6,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
-import { Heart, Play, Pause } from 'lucide-react';
+import { Heart, Play, Pause, Repeat2 } from 'lucide-react';
 
 interface FavouriteTrack {
     id: string;
@@ -25,6 +25,7 @@ export const MyFavouritesPage: React.FC = () => {
     const [tracks, setTracks] = useState<FavouriteTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -38,6 +39,13 @@ export const MyFavouritesPage: React.FC = () => {
             try {
                 const { data } = await axios.get('/api/my-favourites', { withCredentials: true });
                 setTracks(data);
+                // Check repost status
+                if (data.length > 0) {
+                    try {
+                        const { data: repostData } = await axios.post('/api/tracks/reposts/check', { trackIds: data.map((t: any) => t.id) }, { withCredentials: true });
+                        setReposts(repostData);
+                    } catch {}
+                }
             } catch {}
             setLoading(false);
         })();
@@ -91,7 +99,7 @@ export const MyFavouritesPage: React.FC = () => {
                                 >
                                     <div
                                         style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, tracks); }}
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, tracks); }}
                                     >
                                         {track.coverUrl ? (
                                             <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -105,8 +113,19 @@ export const MyFavouritesPage: React.FC = () => {
                                             onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                                             onMouseLeave={e => e.currentTarget.style.opacity = '0'}
                                         >
-                                            <Play size={20} fill="white" color="white" />
+                                            {player.currentTrack?.id === track.id && player.isPlaying
+                                                ? <Pause size={20} fill="white" color="white" />
+                                                : <Play size={20} fill="white" color="white" />}
                                         </div>
+                                        {/* Repost button */}
+                                        <button
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true }).then(res => setReposts(prev => ({ ...prev, [track.id]: res.data.reposted }))).catch(() => {}); }}
+                                            style={{ position: 'absolute', bottom: '6px', right: '6px', background: reposts[track.id] ? colors.primary : 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', color: 'white', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', transition: 'all 0.2s', opacity: 0 }}
+                                            onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={e => { if (!reposts[track.id]) e.currentTarget.style.opacity = '0'; }}
+                                        >
+                                            <Repeat2 size={14} />
+                                        </button>
                                     </div>
                                     <div style={{ minWidth: 0 }}>
                                         <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>

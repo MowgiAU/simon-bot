@@ -1,7 +1,7 @@
 
 import React from 'react';
 import {
-    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X
+    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
@@ -11,6 +11,7 @@ import axios from 'axios';
 export const GlobalPlayer: React.FC = () => {
     const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode, removeFromQueue, jumpToIndex } = usePlayer();
     const [isFavourited, setIsFavourited] = React.useState(false);
+    const [isReposted, setIsReposted] = React.useState(false);
     const [showQueue, setShowQueue] = React.useState(false);
     const lastCheckedTrackId = React.useRef<string | null>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
@@ -27,6 +28,10 @@ export const GlobalPlayer: React.FC = () => {
         axios.get(`/api/tracks/${player.currentTrack.id}/favourite`, { withCredentials: true })
             .then(res => setIsFavourited(res.data.favourited))
             .catch(() => setIsFavourited(false));
+        const trackId = player.currentTrack.id;
+        axios.post('/api/tracks/reposts/check', { trackIds: [trackId] }, { withCredentials: true })
+            .then((res: any) => setIsReposted(!!res.data[trackId!]))
+            .catch(() => setIsReposted(false));
     }, [player.currentTrack?.id]);
 
     const toggleFavourite = async () => {
@@ -34,6 +39,14 @@ export const GlobalPlayer: React.FC = () => {
         try {
             const { data } = await axios.post(`/api/tracks/${player.currentTrack.id}/favourite`, {}, { withCredentials: true });
             setIsFavourited(data.favourited);
+        } catch { /* not logged in */ }
+    };
+
+    const toggleRepost = async () => {
+        if (!player.currentTrack) return;
+        try {
+            const { data } = await axios.post(`/api/tracks/${player.currentTrack.id}/repost`, {}, { withCredentials: true });
+            setIsReposted(data.reposted);
         } catch { /* not logged in */ }
     };
 
@@ -184,6 +197,9 @@ export const GlobalPlayer: React.FC = () => {
                             <button onClick={toggleFavourite} aria-label={isFavourited ? 'Remove favourite' : 'Add favourite'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
                                 <Heart size={18} fill={isFavourited ? '#EF4444' : 'none'} />
                             </button>
+                            <button onClick={toggleRepost} aria-label={isReposted ? 'Remove repost' : 'Repost'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isReposted ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
+                                <Repeat2 size={18} />
+                            </button>
                             <button onClick={() => setShowQueue(q => !q)} aria-label="Toggle queue" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
                                 <List size={18} />
                             </button>
@@ -248,6 +264,10 @@ export const GlobalPlayer: React.FC = () => {
                             <button onClick={toggleFavourite} aria-label={isFavourited ? 'Remove favourite' : 'Add favourite'}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : '#B9C3CE', padding: '4px', flexShrink: 0, transition: 'color 0.2s' }}>
                                 <Heart size={18} fill={isFavourited ? '#EF4444' : 'none'} />
+                            </button>
+                            <button onClick={toggleRepost} aria-label={isReposted ? 'Remove repost' : 'Repost'}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: isReposted ? colors.primary : '#B9C3CE', padding: '4px', flexShrink: 0, transition: 'color 0.2s' }}>
+                                <Repeat2 size={18} />
                             </button>
                         </div>
 

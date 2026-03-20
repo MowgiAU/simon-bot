@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors } from '../theme/theme';
-import { BarChart3, Play, TrendingUp, TrendingDown, Minus, Clock, Trophy, ChevronDown } from 'lucide-react';
+import { BarChart3, Play, TrendingUp, TrendingDown, Minus, Clock, Trophy, ChevronDown, Repeat2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -57,6 +57,7 @@ export const ChartsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const { setTrack } = usePlayer();
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -67,7 +68,13 @@ export const ChartsPage: React.FC = () => {
     useEffect(() => {
         setLoading(true);
         axios.get(`/api/charts/${period}`)
-            .then(res => setChart(res.data))
+            .then(res => {
+                setChart(res.data);
+                if (res.data?.entries?.length > 0) {
+                    axios.post('/api/tracks/reposts/check', { trackIds: res.data.entries.map((e: any) => e.track.id) }, { withCredentials: true })
+                        .then(r => setReposts(r.data)).catch(() => {});
+                }
+            })
             .catch(() => setChart(null))
             .finally(() => setLoading(false));
     }, [period]);
@@ -271,6 +278,15 @@ export const ChartsPage: React.FC = () => {
                                         <p style={{ fontSize: '13px', fontWeight: 700, margin: 0 }}>{formatPlays(entry.playsInPeriod)}</p>
                                         <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>plays</p>
                                     </div>
+                                    {/* Repost button */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); axios.post(`/api/tracks/${entry.track.id}/repost`, {}, { withCredentials: true }).then(res => setReposts(prev => ({ ...prev, [entry.track.id]: res.data.reposted }))).catch(() => {}); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: reposts[entry.track.id] ? colors.primary : '#B9C3CE', padding: '4px', flexShrink: 0, transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
+                                        onMouseEnter={e => { if (!reposts[entry.track.id]) e.currentTarget.style.color = colors.primary; }}
+                                        onMouseLeave={e => { if (!reposts[entry.track.id]) e.currentTarget.style.color = '#B9C3CE'; }}
+                                    >
+                                        <Repeat2 size={16} />
+                                    </button>
                                 </div>
                             );
                         })}
