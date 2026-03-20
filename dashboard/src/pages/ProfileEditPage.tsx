@@ -29,6 +29,7 @@ interface MusicianProfile {
     gearList: Array<{name: string; category: string}>;
     genres: { id: string; name: string }[];
     featuredTrackId?: string | null;
+    featuredPlaylistId?: string | null;
 }
 
 interface Genre {
@@ -43,6 +44,7 @@ export const ProfileEditPage: React.FC = () => {
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [tracks, setTracks] = useState<any[]>([]);
+    const [playlists, setPlaylists] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -85,6 +87,11 @@ export const ProfileEditPage: React.FC = () => {
                 const rawGear = (data?.hardware || data?.gearList || []) as string[];
                 if (data) data.gearList = rawGear.map((item: string) => { try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; } });
                 if (data && data.tracks) setTracks(data.tracks);
+                // Fetch playlists (releases) for the featured release picker
+                try {
+                    const playlistsRes = await axios.get('/api/my-playlists', { withCredentials: true });
+                    setPlaylists(playlistsRes.data || []);
+                } catch { /* playlists unavailable */ }
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
                         if (s.platform === 'spotify') data.spotifyUrl = s.url;
@@ -387,6 +394,41 @@ export const ProfileEditPage: React.FC = () => {
                             <option key={t.id} value={t.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{t.title}</option>
                         ))}
                     </select>
+                </div>
+
+                {/* Featured Release */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Music size={20} /> Featured Release
+                    </h3>
+                    <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>Showcase an album, EP, single, or playlist at the top of your profile page.</p>
+                    {playlists.filter(p => p.releaseType).length === 0 ? (
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, padding: spacing.md, textAlign: 'center' }}>
+                            <p style={{ color: colors.textSecondary, fontSize: '0.85rem', margin: 0 }}>You haven't marked any playlists as a release yet.</p>
+                            <p style={{ color: colors.textSecondary, fontSize: '0.8rem', margin: '6px 0 0' }}>Go to a playlist → Edit → set the Release Type to Album, EP, or Single.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <select
+                                value={profile?.featuredPlaylistId || ''}
+                                onChange={(e) => setProfile(p => p ? {...p, featuredPlaylistId: e.target.value || null} : null)}
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: 'white', outline: 'none', cursor: 'pointer' }}
+                            >
+                                <option value="" style={{ backgroundColor: '#1A1E2E', color: 'white' }}>No featured release</option>
+                                {playlists.filter(p => p.releaseType).map((p: any) => (
+                                    <option key={p.id} value={p.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{p.name} ({p.releaseType?.toUpperCase()})</option>
+                                ))}
+                            </select>
+                            {profile?.featuredPlaylistId && (
+                                <button
+                                    onClick={() => setProfile(p => p ? {...p, featuredPlaylistId: null} : null)}
+                                    style={{ marginTop: '8px', background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: borderRadius.sm, color: '#EF4444', cursor: 'pointer', padding: '6px 12px', fontSize: '12px', fontWeight: 600 }}
+                                >
+                                    Clear Featured Release
+                                </button>
+                            )}
+                        </>
+                    )}
                 </div>
 
                 {/* Genres */}

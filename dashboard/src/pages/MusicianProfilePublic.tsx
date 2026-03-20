@@ -36,6 +36,18 @@ interface MusicianProfile {
         coverUrl: string | null;
         description: string | null;
     };
+    featuredPlaylistId?: string | null;
+    featuredPlaylist?: {
+        id: string;
+        name: string;
+        description: string | null;
+        coverUrl: string | null;
+        releaseType: string | null;
+        tracks: Array<{
+            position: number;
+            track: { id: string; title: string; url: string; coverUrl: string | null; profile: { username: string; displayName: string | null } };
+        }>;
+    } | null;
     tracks?: Array<{
         id: string;
         title: string;
@@ -82,6 +94,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        if (document.getElementById('marquee-release-style')) return;
+        const style = document.createElement('style');
+        style.id = 'marquee-release-style';
+        style.textContent = '@keyframes marquee-release { from { transform: translateX(0); } to { transform: translateX(-50%); } }';
+        document.head.appendChild(style);
     }, []);
 
     useEffect(() => {
@@ -175,6 +195,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     ];
 
     const featuredTrack = profile.featuredTrack || null;
+    const featuredPlaylist = profile.featuredPlaylist || null;
+    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => pt.track) || [];
     
     // Fallback logic for avatar:
     // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
@@ -195,6 +217,81 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             margin: '0 auto',
             fontFamily: 'Inter, system-ui, sans-serif'
         }}>
+            {/* Featured Release Hero (Playlist/Album/EP/Single) */}
+            {featuredPlaylist && (
+            <div style={{ 
+                borderRadius: '12px', overflow: 'hidden', 
+                border: '1px solid rgba(255,255,255,0.05)',
+                marginBottom: '16px',
+                position: 'relative',
+                minHeight: isMobile ? '260px' : '300px',
+                display: 'flex' 
+            }}>
+                {/* Blurred Background */}
+                {featuredPlaylist.coverUrl && (
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                )}
+                {/* Gradient Overlay */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(20,24,38,0.97) 0%, rgba(20,24,38,0.85) 50%, rgba(20,24,38,0.6) 100%)', pointerEvents: 'none' }} />
+                <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '32px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '20px' : '32px' }}>
+                    {/* Cover Art */}
+                    <div style={{ flexShrink: 0, width: isMobile ? '120px' : '190px', height: isMobile ? '120px' : '190px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px rgba(0,0,0,0.6)' }}>
+                        {featuredPlaylist.coverUrl ? (
+                            <img src={featuredPlaylist.coverUrl} alt={featuredPlaylist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Music size={isMobile ? 40 : 64} color={colors.primary} />
+                            </div>
+                        )}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ backgroundColor: featuredPlaylist.releaseType === 'album' ? '#7C3AED' : featuredPlaylist.releaseType === 'ep' ? '#0369A1' : featuredPlaylist.releaseType === 'single' ? '#B45309' : colors.primary, color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                {featuredPlaylist.releaseType ? featuredPlaylist.releaseType : 'Featured Release'}
+                            </span>
+                        </div>
+                        <h2 style={{ fontSize: isMobile ? '22px' : '38px', fontWeight: '800', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2, wordWrap: 'break-word' }}>
+                            {featuredPlaylist.name}
+                        </h2>
+                        <p style={{ color: '#B9C3CE', fontSize: isMobile ? '12px' : '14px', margin: '0 0 8px' }}>
+                            {profile.displayName || profile.username}
+                        </p>
+                        {featuredPlaylist.description && (
+                            <p style={{ color: 'rgba(185,195,206,0.75)', fontSize: '13px', margin: '0 0 14px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {featuredPlaylist.description}
+                            </p>
+                        )}
+                        {/* Track Marquee Pills */}
+                        {featuredPlaylistTracks.length > 0 && !isMobile && (
+                            <div style={{ overflow: 'hidden', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', gap: '8px', animation: 'marquee-release 20s linear infinite', width: 'max-content' }}>
+                                    {[...featuredPlaylistTracks, ...featuredPlaylistTracks].map((t, i) => (
+                                        <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, color: '#B9C3CE', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                            {t.title}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {/* Play Button */}
+                        <button
+                            onClick={() => {
+                                if (featuredPlaylistTracks.length > 0) {
+                                    const first = featuredPlaylistTracks[0];
+                                    player.currentTrack?.id === first.id ? togglePlay() : setTrack(first, featuredPlaylistTracks);
+                                }
+                            }}
+                            disabled={featuredPlaylistTracks.length === 0}
+                            style={{ padding: isMobile ? '10px 20px' : '12px 32px', borderRadius: '999px', backgroundColor: colors.primary, display: 'inline-flex', alignItems: 'center', gap: '10px', border: 'none', color: 'white', cursor: featuredPlaylistTracks.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: isMobile ? '12px' : '14px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 4px 15px ${colors.primary}44`, opacity: featuredPlaylistTracks.length > 0 ? 1 : 0.5 }}
+                        >
+                            {player.currentTrack?.id === featuredPlaylistTracks[0]?.id && player.isPlaying ? <><Pause size={18} fill="currentColor" /> Pause</> : <><Play size={18} fill="currentColor" /> Play {featuredPlaylist.releaseType === 'album' ? 'Album' : featuredPlaylist.releaseType === 'ep' ? 'EP' : featuredPlaylist.releaseType === 'single' ? 'Single' : 'Release'}</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            )}
+
             {/* Header / Player Section */}
             {featuredTrack && (
             <div style={{ 

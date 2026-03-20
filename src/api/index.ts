@@ -4336,7 +4336,8 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
             ...data,
             socials,
             genreIds,
-            featuredTrackId: data.featuredTrackId
+            featuredTrackId: data.featuredTrackId,
+            featuredPlaylistId: data.featuredPlaylistId
         });
 
         // Log profile creation/update
@@ -7337,12 +7338,13 @@ app.put('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
         if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
         if (playlist.userId !== userId) return res.status(403).json({ error: 'Not your playlist' });
 
-        const { name, description, isPublic, coverUrl } = req.body;
+        const { name, description, isPublic, coverUrl, releaseType } = req.body;
         const data: any = {};
         if (name !== undefined) data.name = name.trim();
         if (description !== undefined) data.description = description?.trim() || null;
         if (isPublic !== undefined) data.isPublic = isPublic;
         if (coverUrl !== undefined) data.coverUrl = coverUrl;
+        if (releaseType !== undefined) data.releaseType = releaseType || null;
 
         if (data.name && data.name !== playlist.name) {
             let slug = generatePlaylistSlug(data.name);

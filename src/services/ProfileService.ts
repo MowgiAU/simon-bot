@@ -36,6 +36,7 @@ export class ProfileService {
         genreIds?: string[];
         gearList?: string[];
         featuredTrackId?: string | null;
+        featuredPlaylistId?: string | null;
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         // Discord handles are not URLs so they bypass URL validation
@@ -65,7 +66,8 @@ export class ProfileService {
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
                     hardware: data.gearList || [],
-                    featuredTrackId: data.featuredTrackId
+                    featuredTrackId: data.featuredTrackId,
+                    featuredPlaylistId: data.featuredPlaylistId
                 },
                 update: {
                     username: data.username,
@@ -79,7 +81,8 @@ export class ProfileService {
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
                     hardware: data.gearList,
-                    featuredTrackId: data.featuredTrackId
+                    featuredTrackId: data.featuredTrackId,
+                    featuredPlaylistId: data.featuredPlaylistId
                 }
             });
 
@@ -122,7 +125,16 @@ export class ProfileService {
                     where: { isPublic: true },
                     orderBy: { createdAt: 'desc' }
                 },
-                featuredTrack: true
+                featuredTrack: true,
+                featuredPlaylist: {
+                    include: {
+                        tracks: {
+                            include: { track: true },
+                            orderBy: { position: 'asc' },
+                            take: 10
+                        }
+                    }
+                }
             }
         });
 

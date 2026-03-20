@@ -30,6 +30,7 @@ interface Playlist {
     description: string | null;
     coverUrl: string | null;
     isPublic: boolean;
+    releaseType: string | null;
     trackCount: number;
     totalPlays: number;
     userId: string;
@@ -66,6 +67,7 @@ export const PlaylistPage: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [editDesc, setEditDesc] = useState('');
     const [editIsPublic, setEditIsPublic] = useState(true);
+    const [editReleaseType, setEditReleaseType] = useState<string>('');
     const [editSaving, setEditSaving] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -153,6 +155,7 @@ export const PlaylistPage: React.FC = () => {
         setEditName(playlist.name);
         setEditDesc(playlist.description || '');
         setEditIsPublic(playlist.isPublic);
+        setEditReleaseType(playlist.releaseType || '');
         setEditError(null);
         setConfirmDelete(false);
         setEditOpen(true);
@@ -167,8 +170,9 @@ export const PlaylistPage: React.FC = () => {
                 name: editName.trim(),
                 description: editDesc.trim() || null,
                 isPublic: editIsPublic,
+                releaseType: editReleaseType || null,
             }, { withCredentials: true });
-            setPlaylist(prev => prev ? { ...prev, name: data.name, description: data.description, isPublic: data.isPublic, slug: data.slug } : prev);
+            setPlaylist(prev => prev ? { ...prev, name: data.name, description: data.description, isPublic: data.isPublic, releaseType: data.releaseType, slug: data.slug } : prev);
             document.title = `${data.name} | Fuji Studio Playlist`;
             setEditOpen(false);
         } catch (e: any) {
@@ -267,8 +271,13 @@ export const PlaylistPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                             {playlist.isPublic ? <Globe size={14} color="#B9C3CE" /> : <Lock size={14} color="#FBBF24" />}
                             <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                {playlist.isPublic ? 'Public Playlist' : 'Private Playlist'}
+                                {playlist.isPublic ? 'Public' : 'Private'} {playlist.releaseType ? playlist.releaseType.toUpperCase() : 'Playlist'}
                             </span>
+                            {playlist.releaseType && (
+                                <span style={{ backgroundColor: playlist.releaseType === 'album' ? '#7C3AED' : playlist.releaseType === 'ep' ? '#0369A1' : '#B45309', color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    {playlist.releaseType}
+                                </span>
+                            )}
                         </div>
                         <h1 style={{ fontSize: isMobile ? '2rem' : '2.5rem', fontWeight: 900, margin: '0 0 8px', lineHeight: 1.1 }}>{playlist.name}</h1>
                         {playlist.description && (
@@ -457,7 +466,7 @@ export const PlaylistPage: React.FC = () => {
                     </div>
 
                     {/* Visibility */}
-                    <div style={{ marginBottom: '24px' }}>
+                    <div style={{ marginBottom: '16px' }}>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Visibility</label>
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button
@@ -473,6 +482,23 @@ export const PlaylistPage: React.FC = () => {
                                 <Lock size={14} /> Private
                             </button>
                         </div>
+                    </div>
+
+                    {/* Release Type */}
+                    <div style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#B9C3CE', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Release Type</label>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {([['', 'Playlist'], ['single', 'Single'], ['ep', 'EP'], ['album', 'Album']] as const).map(([val, label]) => (
+                                <button
+                                    key={val}
+                                    onClick={() => setEditReleaseType(val)}
+                                    style={{ flex: 1, minWidth: '80px', padding: '10px', borderRadius: '8px', border: `1px solid ${editReleaseType === val ? colors.primary : 'rgba(255,255,255,0.12)'}`, background: editReleaseType === val ? `${colors.primary}20` : 'rgba(255,255,255,0.03)', color: editReleaseType === val ? colors.primary : '#B9C3CE', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        <p style={{ fontSize: '11px', color: '#B9C3CE', margin: '6px 0 0' }}>Mark this as a release so artists can feature it on their profile.</p>
                     </div>
 
                     {/* Cover art */}

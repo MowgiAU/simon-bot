@@ -685,8 +685,10 @@ model MusicianProfile {
   genres          ProfileGenre[]
   
   // Featured Content
-  featuredTrackId String?  @unique
-  featuredTrack   Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
+  featuredTrackId    String?  @unique
+  featuredTrack      Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
+  featuredPlaylistId String?
+  featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 
   comments        Comment[]
   followers       ArtistFollow[]
@@ -1268,9 +1270,11 @@ model Playlist {
   description String?         @db.Text
   coverUrl    String?
   isPublic    Boolean         @default(true)
+  releaseType String?         // 'album' | 'ep' | 'single' | null = plain playlist
   trackCount  Int             @default(0)
   totalPlays  Int             @default(0)
   tracks      PlaylistTrack[]
+  featuredByProfiles MusicianProfile[] @relation("ProfileFeaturedPlaylist")
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
