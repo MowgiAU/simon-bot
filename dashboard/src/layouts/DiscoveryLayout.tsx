@@ -158,7 +158,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </Link>
                     )}
                     {isMobile && user && (
-                        <Link to="/profile" style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
+                        <Link to={`/profile/${user.username}`} style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
                             <User size={14} /> ME
                         </Link>
                     )}
@@ -289,7 +289,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
                         { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
-                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? '/profile' : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
+                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.username}` : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
                         const itemStyle: React.CSSProperties = {
