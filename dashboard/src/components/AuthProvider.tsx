@@ -8,6 +8,10 @@ export interface User {
   username: string;
   discriminator: string;
   avatar: string;
+  _localId?: string;
+  _hasPassword?: boolean;
+  _email?: string | null;
+  _emailVerified?: boolean;
 }
 
 export interface Guild {
@@ -29,8 +33,13 @@ interface AuthContextType {
   permissions: Permissions;
   isGuildMember: boolean;
   loading: boolean;
+  hasLocalAccount: boolean;
+  hasPassword: boolean;
+  email: string | null;
+  emailVerified: boolean;
   login: () => void;
   logout: () => void;
+  refreshAccountStatus: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +52,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [permissions, setPermissions] = useState<Permissions>({ canManagePlugins: false, accessiblePlugins: [] });
   const [isGuildMember, setIsGuildMember] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasLocalAccount, setHasLocalAccount] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   // Fetch permissions when guild changes
   useEffect(() => {
@@ -61,35 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .catch(err => console.error(err));
   }, [selectedGuild]);
 
-  useEffect(() => {
-    // DEV MODE BYPASS: Only active during local `npm run dev` (Vite development server).
-    // import.meta.env.DEV is injected at build time; it is false in all production builds.
-    if (import.meta.env.DEV) {
-        setUser({
-            id: 'dev_user_id',
-            username: 'DevMode',
-            discriminator: '0000',
-            avatar: 'https://cdn.discordapp.com/embed/avatars/0.png'
-        });
-        setMutualAdminGuilds([{
-            id: 'dev_guild_id',
-            name: 'Dev Community',
-            icon: ''
-        }]);
-        setSelectedGuild({
-            id: 'dev_guild_id',
-            name: 'Dev Community',
-            icon: ''
-        });
-        setPermissions({
-            canManagePlugins: true,
-            accessiblePlugins: ['musician-profile', 'moderation', 'economy', 'roles', 'bot-identity', 'logs', 'welcome-gate', 'ticket-system', 'feedback', 'word-filter']
-        });
-        setIsGuildMember(true);
-        setLoading(false);
-        return;
-    }
-
+  const loadAuthStatus = () => {
     fetch('/api/auth/status', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -97,10 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(data.user);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
           setIsGuildMember(data.isGuildMember ?? false);
+          setHasLocalAccount(!!data.hasLocalAccount);
+          setHasPassword(!!data.hasPassword);
+          setEmail(data.email || null);
+          setEmailVerified(!!data.emailVerified);
           if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
              setSelectedGuild(data.mutualAdminGuilds[0]);
           }
-          // Redirect back to the page the user was on before login
           const returnTo = localStorage.getItem(RETURN_TO_KEY);
           if (returnTo) {
             localStorage.removeItem(RETURN_TO_KEY);
@@ -115,7 +103,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('[AuthProvider] Failed to fetch auth status:', err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    // DEV MODE BYPASS: Only active during local `npm run dev` (Vite development server).
+    if (import.meta.env.DEV) {
+        setUser({
+            id: 'dev_user_id',
+            username: 'DevMode',
+            discriminator: '0000',
+            avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+            _hasPassword: true,
+            _email: 'dev@example.com',
+            _emailVerified: true,
+        });
+        setMutualAdminGuilds([{ id: 'dev_guild_id', name: 'Dev Community', icon: '' }]);
+        setSelectedGuild({ id: 'dev_guild_id', name: 'Dev Community', icon: '' });
+        setPermissions({
+            canManagePlugins: true,
+            accessiblePlugins: ['musician-profile', 'moderation', 'economy', 'roles', 'bot-identity', 'logs', 'welcome-gate', 'ticket-system', 'feedback', 'word-filter']
+        });
+        setIsGuildMember(true);
+        setHasLocalAccount(true);
+        setHasPassword(true);
+        setEmail('dev@example.com');
+        setEmailVerified(true);
+        setLoading(false);
+        return;
+    }
+
+    loadAuthStatus();
   }, []);
+
+  const refreshAccountStatus = () => {
+    if (!import.meta.env.DEV) loadAuthStatus();
+  };
 
   const login = () => {
     const returnTo = window.location.pathname + window.location.search;
@@ -130,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, login, logout, refreshAccountStatus }}>
       {children}
     </AuthContext.Provider>
   );

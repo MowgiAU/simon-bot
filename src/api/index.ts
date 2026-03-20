@@ -763,6 +763,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         user._localId = dbUser.id;
         user._hasPassword = !!dbUser.passwordHash;
         user._email = dbUser.email;
+        user._emailVerified = !!dbUser.emailVerified;
     } catch (e) {
         logger.warn('[Auth] Failed to upsert local user account', e);
     }
@@ -919,6 +920,7 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
         res.json({
             hasAccount: true,
             email: dbUser.email,
+            emailVerified: !!dbUser.emailVerified,
             hasPassword: !!dbUser.passwordHash,
             lastLoginAt: dbUser.lastLoginAt,
             createdAt: dbUser.createdAt,
@@ -926,6 +928,138 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
     } catch (e) {
         logger.error('[Auth] Failed to get account info', e);
         res.status(500).json({ error: 'Failed to get account info' });
+    }
+});
+
+// Send email verification
+app.post('/api/auth/send-verification', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        if (!dbUser) return res.status(404).json({ error: 'No account found' });
+        if (!dbUser.email) return res.status(400).json({ error: 'No email on file. Re-login with Discord to pull your email.' });
+        if (dbUser.emailVerified) return res.status(400).json({ error: 'Email is already verified' });
+
+        // Rate-limit: allow resend only once per 5 minutes
+        if (dbUser.emailVerificationExpiry && dbUser.emailVerificationExpiry > new Date(Date.now() - 1000 * 60 * 5)) {
+            return res.status(429).json({ error: 'Verification email already sent recently. Please wait a few minutes.' });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { emailVerificationToken: token, emailVerificationExpiry: expiry },
+        });
+
+        const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
+        const verifyUrl = `${dashboardOrigin}/verify-email?token=${token}`;
+
+        // Get Resend key — prefer env var, fall back to email plugin settings
+        let resendKey = process.env.RESEND_API_KEY;
+        if (!resendKey) {
+            try {
+                const emailSettings = await emailService.getSettings();
+                resendKey = emailSettings.resendApiKey;
+            } catch {}
+        }
+        if (!resendKey) return res.status(500).json({ error: 'Email service not configured. Set RESEND_API_KEY in your environment.' });
+
+        const resendClient = new Resend(resendKey);
+        const { error } = await resendClient.emails.send({
+            from: 'Fuji Studio <noreply@fujistud.io>',
+            to: [dbUser.email],
+            subject: 'Verify your Fuji Studio email',
+            html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                    <h2 style="color:#2b8d70;margin-top:0;">Verify your email</h2>
+                    <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
+                    <p>Click the button below to verify your email address for Fuji Studio. This link expires in 24 hours.</p>
+                    <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Verify Email</a>
+                    <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
+                    <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, you can safely ignore this email.</p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            logger.error('[Auth] Failed to send verification email', error);
+            return res.status(500).json({ error: 'Failed to send verification email' });
+        }
+
+        res.json({ success: true, message: `Verification email sent to ${dbUser.email}` });
+    } catch (e) {
+        logger.error('[Auth] send-verification error', e);
+        res.status(500).json({ error: 'Failed to send verification email' });
+    }
+});
+
+// Verify email via token
+app.get('/api/auth/verify-email', async (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Invalid token' });
+
+        const dbUser = await db.user.findFirst({
+            where: {
+                emailVerificationToken: token,
+                emailVerificationExpiry: { gt: new Date() },
+            },
+        });
+
+        if (!dbUser) {
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?verified=false`);
+        }
+
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: {
+                emailVerified: new Date(),
+                emailVerificationToken: null,
+                emailVerificationExpiry: null,
+            },
+        });
+
+        // Update session if the verified user is logged in
+        if (req.session?.user?.id === dbUser.discordId) {
+            req.session.user._emailVerified = true;
+        }
+
+        res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?verified=true`);
+    } catch (e) {
+        logger.error('[Auth] verify-email error', e);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// Change password (requires knowing current password, or can set new one if none set)
+app.post('/api/auth/change-password', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({ error: 'New password must be at least 8 characters' });
+        }
+
+        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        if (!dbUser) return res.status(404).json({ error: 'No account found' });
+
+        // If a password already exists, require current password
+        if (dbUser.passwordHash) {
+            if (!currentPassword) return res.status(400).json({ error: 'Current password is required' });
+            const valid = await verifyPassword(currentPassword, dbUser.passwordHash);
+            if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        const passwordHash = await hashPassword(newPassword);
+        await db.user.update({ where: { id: dbUser.id }, data: { passwordHash } });
+
+        req.session.user._hasPassword = true;
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('[Auth] change-password error', e);
+        res.status(500).json({ error: 'Failed to change password' });
     }
 });
 
@@ -942,6 +1076,7 @@ app.get('/api/auth/status', (req, res) => {
       hasLocalAccount: !!req.session.user._localId,
       hasPassword: !!req.session.user._hasPassword,
       email: req.session.user._email || null,
+      emailVerified: !!req.session.user._emailVerified,
     });
   } else {
     res.json({ authenticated: false });

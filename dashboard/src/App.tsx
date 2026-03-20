@@ -34,7 +34,10 @@ import { TermsPage } from "./pages/TermsPage";
 import { CategoryResultsPage } from "./pages/CategoryResultsPage";
 import { FujiStudio } from "./pages/FujiStudio";
 import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { FeedPage } from './pages/FeedPage';import { ChartsPage } from './pages/ChartsPage';import { UniversalSearch } from "./components/UniversalSearch";
+import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { FeedPage } from './pages/FeedPage';import { ChartsPage } from './pages/ChartsPage';
+import { AccountSettingsPage } from './pages/AccountSettingsPage';
+import { SetupPasswordModal } from './components/SetupPasswordModal';
+import { UniversalSearch } from "./components/UniversalSearch";
 import { NotificationMenu } from "./components/NotificationMenu";
 import { InternalChat } from "./components/InternalChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -348,9 +351,13 @@ const AdminDashboard: React.FC = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
               <NotificationMenu guildId={selectedGuild.id} />
               
-              <div style={{ width: window.innerWidth > 768 ? "38px" : "28px", height: window.innerWidth > 768 ? "38px" : "28px", borderRadius: "8px", background: colors.primary, display: "flex", alignItems: "center", justifyItems: "center", overflow: "hidden", border: "1px solid #1F293A", flexShrink: 0 }}>
-                <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="User" />
-              </div>
+              <a
+                href="/account"
+                title="Account Settings"
+                style={{ display: 'flex', width: window.innerWidth > 768 ? "38px" : "28px", height: window.innerWidth > 768 ? "38px" : "28px", borderRadius: "8px", background: colors.primary, overflow: "hidden", border: "1px solid #1F293A", flexShrink: 0, textDecoration: 'none' }}
+              >
+                <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Account Settings" />
+              </a>
           </div>
         </div>
         
@@ -529,6 +536,16 @@ const AppInternal: React.FC = () => {
     return <TermsPage />;
   }
 
+  // /account → Account settings (password, email verification)
+  if (currentPath === '/account') {
+    return <AccountSettingsPage />;
+  }
+
+  // /verify-email → Redirect from email verification link
+  if (currentPath === '/verify-email') {
+    return <AccountSettingsPage />;
+  }
+
   // /guides/project-cleanup → FL Studio project cleanup guide
   if (currentPath === '/guides/project-cleanup') {
     return <ProjectCleanupGuide />;
@@ -590,6 +607,7 @@ export const App: React.FC = () => {
           <AppInternal />
           <GlobalPlayer />
           <ToastContainer />
+          <SetupPasswordModal />
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>

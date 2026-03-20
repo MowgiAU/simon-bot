@@ -12,16 +12,19 @@ datasource db {
 
 // --- User Accounts (Discord-linked with email/password fallback) ---
 model User {
-  id            String    @id @default(cuid())
-  discordId     String?   @unique
-  email         String?   @unique
-  username      String
-  displayName   String?
-  avatar        String?
-  passwordHash  String?   // For email/password login fallback
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                       String    @id @default(cuid())
+  discordId                String?   @unique
+  email                    String?   @unique
+  emailVerified            DateTime?
+  emailVerificationToken   String?   @unique
+  emailVerificationExpiry  DateTime?
+  username                 String
+  displayName              String?
+  avatar                   String?
+  passwordHash             String?   // For email/password login fallback
+  lastLoginAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   @@map("users")
 }
