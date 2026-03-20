@@ -42,7 +42,8 @@ const Waveform: React.FC<{
     const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width;
-        if (isPlaying) {
+        // Always seek if this is the current track (playing or paused)
+        if (isPlaying || progress > 0) {
             onSeek(x);
         } else {
             onClick();
@@ -97,7 +98,7 @@ const FeedCard: React.FC<{
     onToggleFavourite: (id: string) => void;
     onToggleRepost: (id: string) => void;
 }> = ({ track, allTracks, isMobile, isFavourited, isReposted, onToggleFavourite, onToggleRepost }) => {
-    const { setTrack, player, seek } = usePlayer();
+    const { setTrack, player, seek, togglePlay } = usePlayer();
     const navigate = useNavigate();
     const isCurrentTrack = player.currentTrack?.id === track.id;
     const isPlaying = isCurrentTrack && player.isPlaying;
@@ -127,7 +128,11 @@ const FeedCard: React.FC<{
     const formatCount = (n: number) => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
 
     const handlePlayClick = () => {
-        setTrack(track, allTracks);
+        if (isCurrentTrack) {
+            togglePlay();
+        } else {
+            setTrack(track, allTracks);
+        }
     };
 
     const handleSeek = (pct: number) => {

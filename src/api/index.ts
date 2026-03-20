@@ -4227,6 +4227,29 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                         if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
                     });
                 }
+
+                // Fetch reposts for this user
+                const reposts = await db.trackRepost.findMany({
+                    where: { userId: byUsername.userId },
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        track: {
+                            include: {
+                                profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                                genres: { include: { genre: true } },
+                            },
+                        },
+                    },
+                });
+                byUsername.reposts = reposts
+                    .filter(r => r.track && (r.track.isPublic) && (!r.track.status || r.track.status === 'active'))
+                    .map(r => ({
+                        ...r.track,
+                        _repost: true,
+                        _repostedAt: r.createdAt,
+                        _originalArtist: r.track.profile,
+                    }));
+
                 return res.json(byUsername);
             }
             return res.status(404).json({ error: 'Profile not found' });
@@ -4243,6 +4266,28 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
             });
         }
+
+        // Fetch reposts for this user
+        const reposts = await db.trackRepost.findMany({
+            where: { userId: profileData.userId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                track: {
+                    include: {
+                        profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                        genres: { include: { genre: true } },
+                    },
+                },
+            },
+        });
+        profileData.reposts = reposts
+            .filter(r => r.track && (r.track.isPublic) && (!r.track.status || r.track.status === 'active'))
+            .map(r => ({
+                ...r.track,
+                _repost: true,
+                _repostedAt: r.createdAt,
+                _originalArtist: r.track.profile,
+            }));
         
         res.json(profileData);
     } catch (e: any) {
