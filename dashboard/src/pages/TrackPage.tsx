@@ -10,7 +10,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
-    Edit3, X, Save, Upload, Download, Heart, ListPlus
+    Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -95,6 +95,8 @@ export const TrackPage: React.FC = () => {
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
     const [isFavourited, setIsFavourited] = useState(false);
     const [favouriteCount, setFavouriteCount] = useState(0);
+    const [isReposted, setIsReposted] = useState(false);
+    const [repostCount, setRepostCount] = useState(0);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
     const isOwner = user && track?.profile?.userId === user.id;
@@ -122,12 +124,18 @@ export const TrackPage: React.FC = () => {
                 ]);
                 setTrackData(res.data);
                 setAllGenres(genresRes.data);
-                // Load favourite data
+                // Load favourite and repost data
                 try {
-                    const countRes = await axios.get(`/api/tracks/${res.data.id}/favourite-count`);
+                    const [countRes, favRes, repostCountRes, repostRes] = await Promise.all([
+                        axios.get(`/api/tracks/${res.data.id}/favourite-count`),
+                        axios.get(`/api/tracks/${res.data.id}/favourite`, { withCredentials: true }),
+                        axios.get(`/api/tracks/${res.data.id}/repost-count`),
+                        axios.get(`/api/tracks/${res.data.id}/repost`, { withCredentials: true }),
+                    ]);
                     setFavouriteCount(countRes.data.count);
-                    const favRes = await axios.get(`/api/tracks/${res.data.id}/favourite`, { withCredentials: true });
                     setIsFavourited(favRes.data.favourited);
+                    setRepostCount(repostCountRes.data.count);
+                    setIsReposted(repostRes.data.reposted);
                 } catch { /* not logged in or error */ }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Track not found' : 'Failed to load track');
@@ -174,6 +182,18 @@ export const TrackPage: React.FC = () => {
             setFavouriteCount(prev => data.favourited ? prev + 1 : prev - 1);
         } catch {
             showToast('Login to favourite tracks', 'error');
+        }
+    };
+
+    const toggleRepost = async () => {
+        if (!track || !user) return;
+        try {
+            const { data } = await axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true });
+            setIsReposted(data.reposted);
+            setRepostCount(prev => data.reposted ? prev + 1 : prev - 1);
+            showToast(data.reposted ? 'Reposted!' : 'Removed repost', 'success');
+        } catch {
+            showToast('Login to repost tracks', 'error');
         }
     };
 
@@ -320,6 +340,28 @@ export const TrackPage: React.FC = () => {
                             >
                                 <Heart size={isMobile ? 16 : 22} fill={isFavourited ? 'white' : 'none'} />
                             </button>
+                            {/* Repost button */}
+                            <button
+                                onClick={toggleRepost}
+                                title={isReposted ? 'Remove repost' : 'Repost'}
+                                style={{
+                                    position: 'absolute',
+                                    top: isMobile ? '8px' : undefined,
+                                    bottom: isMobile ? undefined : '20px',
+                                    right: isMobile ? '52px' : undefined,
+                                    left: isMobile ? undefined : '80px',
+                                    width: isMobile ? '36px' : '48px', height: isMobile ? '36px' : '48px', borderRadius: '50%',
+                                    backgroundColor: isReposted ? colors.primary : 'rgba(0,0,0,0.6)',
+                                    color: 'white', border: '2px solid rgba(255,255,255,0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                }}
+                                onMouseEnter={(e) => { if (!isReposted) e.currentTarget.style.backgroundColor = `${colors.primary}B3`; }}
+                                onMouseLeave={(e) => { if (!isReposted) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)'; }}
+                            >
+                                <Repeat2 size={isMobile ? 16 : 22} />
+                            </button>
                         </div>
 
                         {/* Quick Stats Banner */}
@@ -337,6 +379,11 @@ export const TrackPage: React.FC = () => {
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Favourites</div>
                                 <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{favouriteCount.toLocaleString()}</div>
+                            </div>
+                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                            <div style={{ textAlign: 'center', flex: 1 }}>
+                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Reposts</div>
+                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{repostCount.toLocaleString()}</div>
                             </div>
                         </div>
                     </div>

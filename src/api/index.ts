@@ -26,6 +26,7 @@ import { FLPParser } from '../bot/utils/FLPParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
+import { WaveformExtractor } from '../services/WaveformExtractor.js';
 
 // Augment express-session to include custom fields
 declare module 'express-session' {
@@ -3420,6 +3421,14 @@ app.post('/api/musician/tracks', upload.fields([
         const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
         const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
 
+        // Extract waveform peaks for visualisation (200 points for feed display)
+        let waveformPeaks: number[] | null = null;
+        try {
+            waveformPeaks = await WaveformExtractor.extractPeaks(finalAudioPath, 200);
+        } catch (wErr: any) {
+            logger.warn(`Waveform extraction failed: ${wErr.message}`);
+        }
+
         const audioUrl = `/uploads/tracks/${path.basename(finalAudioPath)}`;
         const coverUrl = finalArtworkPath ? `/uploads/artwork/${path.basename(finalArtworkPath)}` : req.body.coverUrl;
 
@@ -3441,6 +3450,7 @@ app.post('/api/musician/tracks', upload.fields([
             key: metadata.key,
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
+            ...(waveformPeaks ? { waveformPeaks } : {}),
             ...(arrangement ? { arrangement } : {}),
             ...(projectFileUrl ? { projectFileUrl } : {}),
             ...(projectZipUrl ? { projectZipUrl } : {}),
@@ -7123,6 +7133,88 @@ app.post('/api/tracks/favourites/check', requireAuth, async (req: any, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Track Reposts
+// ──────────────────────────────────────────────
+
+// Check if current user has reposted a track
+app.get('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const existing = await db.trackRepost.findUnique({
+            where: { userId_trackId: { userId, trackId: req.params.trackId } },
+        });
+        res.json({ reposted: !!existing });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Toggle repost
+app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackId } = req.params;
+
+        const track = await db.track.findUnique({ where: { id: trackId }, select: { id: true, title: true, slug: true, profile: { select: { userId: true, username: true } } } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        const existing = await db.trackRepost.findUnique({
+            where: { userId_trackId: { userId, trackId } },
+        });
+
+        if (existing) {
+            await db.trackRepost.delete({ where: { id: existing.id } });
+            res.json({ reposted: false });
+        } else {
+            await db.trackRepost.create({ data: { userId, trackId } });
+            // Notify track owner
+            if (track.profile.userId !== userId) {
+                const username = req.session.user.username || 'Someone';
+                db.musicNotification.create({
+                    data: {
+                        userId: track.profile.userId, type: 'repost',
+                        title: `${username} reposted your track`,
+                        message: track.title,
+                        link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                        actorId: userId, actorName: username,
+                    },
+                }).catch(() => {});
+            }
+            res.json({ reposted: true });
+        }
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get repost count for a track
+app.get('/api/tracks/:trackId/repost-count', async (req: any, res) => {
+    try {
+        const count = await db.trackRepost.count({ where: { trackId: req.params.trackId } });
+        res.json({ count });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Batch check reposts for multiple tracks
+app.post('/api/tracks/reposts/check', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackIds } = req.body;
+        if (!Array.isArray(trackIds)) return res.status(400).json({ error: 'trackIds array required' });
+        const reposts = await db.trackRepost.findMany({
+            where: { userId, trackId: { in: trackIds } },
+            select: { trackId: true },
+        });
+        const set = new Set(reposts.map(r => r.trackId));
+        res.json(Object.fromEntries(trackIds.map((id: string) => [id, set.has(id)])));
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────────────────────────────────────────────
 // Artist Follows
 // ──────────────────────────────────────────────
 
@@ -7203,17 +7295,17 @@ app.get('/api/my-follows', requireAuth, async (req: any, res) => {
     }
 });
 
-// Feed: tracks from followed artists, ordered by newest
+// Feed: tracks from followed artists + reposts, ordered by newest
 app.get('/api/feed', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { cursor, limit: rawLimit } = req.query;
         const limit = Math.min(Number(rawLimit) || 30, 50);
 
-        // Get followed artist profile IDs
+        // Get followed artist profile IDs and user IDs
         const follows = await db.artistFollow.findMany({
             where: { followerId: userId },
-            select: { artistId: true },
+            select: { artistId: true, artist: { select: { userId: true } } },
         });
 
         logger.info(`[Feed] userId=${userId} followCount=${follows.length}`);
@@ -7223,7 +7315,9 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
         }
 
         const profileIds = follows.map(f => f.artistId);
+        const followedUserIds = follows.map(f => f.artist.userId);
 
+        // Fetch original tracks from followed artists
         const tracks = await db.track.findMany({
             where: {
                 profileId: { in: profileIds },
@@ -7232,9 +7326,12 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
             take: limit + 1,
             ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
-            include: {
+            select: {
+                id: true, title: true, slug: true, url: true, coverUrl: true,
+                playCount: true, createdAt: true, duration: true, waveformPeaks: true,
                 profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
                 genres: { include: { genre: true } },
+                _count: { select: { favourites: true, comments: true, reposts: true } },
             },
         });
 
@@ -7244,9 +7341,62 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
         // Filter out suspended
         const activeTracks = tracks.filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'));
 
-        logger.info(`[Feed] trackCount=${tracks.length} activeCount=${activeTracks.length} profileIds=[${profileIds.join(',')}]`);
+        // Get reposts by followed users (tracks that aren't already in the feed from original artists)
+        const existingTrackIds = new Set(activeTracks.map(t => t.id));
+        const reposts = await db.trackRepost.findMany({
+            where: {
+                userId: { in: followedUserIds },
+                track: { isPublic: true },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            include: {
+                track: {
+                    select: {
+                        id: true, title: true, slug: true, url: true, coverUrl: true,
+                        playCount: true, createdAt: true, duration: true, waveformPeaks: true,
+                        profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                        genres: { include: { genre: true } },
+                        _count: { select: { favourites: true, comments: true, reposts: true } },
+                    },
+                },
+            },
+        });
 
-        res.json({ tracks: activeTracks, hasMore, nextCursor: hasMore ? activeTracks[activeTracks.length - 1]?.id : null });
+        // Add reposts with repost metadata — skip tracks already in feed
+        const repostItems = reposts
+            .filter(r => !existingTrackIds.has(r.trackId))
+            .map(r => ({
+                ...r.track,
+                repostedBy: r.userId,
+                repostedAt: r.createdAt,
+            }));
+
+        // Merge and sort by date (repostedAt for reposts, createdAt for originals)
+        const merged = [
+            ...activeTracks.map(t => ({ ...t, repostedBy: null, repostedAt: null })),
+            ...repostItems,
+        ].sort((a, b) => {
+            const dateA = a.repostedAt || a.createdAt;
+            const dateB = b.repostedAt || b.createdAt;
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+        }).slice(0, limit);
+
+        // Resolve repostedBy usernames
+        const repostUserIds = [...new Set(merged.filter(t => t.repostedBy).map(t => t.repostedBy!))];
+        const repostProfiles = repostUserIds.length > 0
+            ? await db.musicianProfile.findMany({ where: { userId: { in: repostUserIds } }, select: { userId: true, username: true, displayName: true } })
+            : [];
+        const profileMap = new Map(repostProfiles.map(p => [p.userId, p]));
+
+        const finalTracks = merged.map(t => ({
+            ...t,
+            repostedBy: t.repostedBy ? (profileMap.get(t.repostedBy) || { username: 'Someone', displayName: null }) : null,
+        }));
+
+        logger.info(`[Feed] trackCount=${activeTracks.length} repostCount=${repostItems.length} total=${finalTracks.length}`);
+
+        res.json({ tracks: finalTracks, hasMore, nextCursor: hasMore ? activeTracks[activeTracks.length - 1]?.id : null });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

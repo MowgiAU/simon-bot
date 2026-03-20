@@ -732,6 +732,9 @@ model Track {
   projectZipUrl   String?  // URL to the uploaded .zip project package (R2)
   projectFileSizeBytes Int? // Size of uploaded project ZIP in bytes
 
+  // Waveform data (generated on upload from main audio file)
+  waveformPeaks   Json?    // number[] ~200 normalised RMS values, 0.0–1.0
+
   samples         TrackSample[]
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -741,6 +744,7 @@ model Track {
   battleEntries   BattleEntry[]
   comments        Comment[]
   favourites      TrackFavourite[]
+  reposts         TrackRepost[]
   playlistTracks  PlaylistTrack[]
 
   createdAt       DateTime @default(now())
@@ -1216,6 +1220,19 @@ model TrackFavourite {
   @@index([trackId])
   @@index([userId])
   @@map("track_favourites")
+}
+
+model TrackRepost {
+  id        String   @id @default(cuid())
+  userId    String   // Discord user ID of reposter
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, trackId])
+  @@index([trackId])
+  @@index([userId])
+  @@map("track_reposts")
 }
 
 // ──────────────────────────────────────────────
