@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import axios from 'axios';
 import { 
-    Music, Hammer, Instagram, Youtube, MessageCircle,
+    Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
     Swords, Trophy, Flame, UserPlus, UserCheck
 } from 'lucide-react';
