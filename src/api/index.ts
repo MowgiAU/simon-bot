@@ -231,6 +231,10 @@ function setCachedResponse(key: string, data: any): void {
 const memberRoleCache = new Map<string, { roles: string[], timestamp: number }>();
 const MEMBER_ROLE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
+// Cache for plugin settings to avoid repeated DB lookups in checkPluginAccess
+const pluginSettingsCache = new Map<string, { data: any, timestamp: number }>();
+const PLUGIN_SETTINGS_CACHE_TTL = 1000 * 60 * 2; // 2 minutes
+
 const discordCache = new Map<string, { 
     channels?: { data: any, timestamp: number }, 
     roles?: { data: any, timestamp: number } 
@@ -706,38 +710,47 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     
     // Find mutual guilds where user is admin/owner OR has allowed role
     const mutualAdminGuilds = [];
-    const candidateGuilds = userGuilds.filter((g: any) => botGuilds.some(bg => bg.id === g.id));
+    const botGuildIdSet = new Set(botGuilds.map((bg: any) => bg.id));
+    const candidateGuilds = userGuilds.filter((g: any) => botGuildIdSet.has(g.id));
+
+    // Separate admin guilds from guilds needing role checks
+    const adminGuilds: any[] = [];
+    const roleCheckGuilds: any[] = [];
 
     for (const guild of candidateGuilds) {
-        // 1. Admin Check
-        // permissions is a string in v10, but JS bitwise ops convert to 32-bit int which works for 0x8 (8)
-        // For safety/strictness with large bitfields, BigInt is better, but this likely worked before.
         const permissions = BigInt(guild.permissions);
         const isAdmin = guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8);
-
         if (isAdmin) {
-            mutualAdminGuilds.push(guild);
-            continue;
+            adminGuilds.push(guild);
+        } else {
+            roleCheckGuilds.push(guild);
         }
+    }
 
-        // 2. Role Access Check
-        try {
-            const access = await db.dashboardAccess.findUnique({ where: { guildId: guild.id } });
-            if (access && access.allowedRoles.length > 0) {
-                 // Fetch member to get roles
-                 const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guild.id}/members/${user.id}`, {
-                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-                });
-                const memberRoles = memberRes.data.roles || [];
-                const hasRole = memberRoles.some((r: string) => access.allowedRoles.includes(r));
-                
-                if (hasRole) {
-                    mutualAdminGuilds.push(guild);
+    mutualAdminGuilds.push(...adminGuilds);
+
+    // Check role access for non-admin guilds in parallel
+    if (roleCheckGuilds.length > 0) {
+        const roleCheckResults = await Promise.all(roleCheckGuilds.map(async (guild) => {
+            try {
+                const access = await db.dashboardAccess.findUnique({ where: { guildId: guild.id } });
+                if (access && access.allowedRoles.length > 0) {
+                    const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guild.id}/members/${user.id}`, {
+                        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                        timeout: 5000
+                    });
+                    const memberRoles = memberRes.data.roles || [];
+                    // Populate memberRoleCache for later use by checkPluginAccess
+                    memberRoleCache.set(`${guild.id}:${user.id}`, { roles: memberRoles, timestamp: Date.now() });
+                    const hasRole = memberRoles.some((r: string) => access.allowedRoles.includes(r));
+                    if (hasRole) return guild;
                 }
+            } catch (e) {
+                // Ignore fetch errors
             }
-        } catch (e) {
-            // Ignore fetch errors
-        }
+            return null;
+        }));
+        mutualAdminGuilds.push(...roleCheckResults.filter(Boolean));
     }
 
     // Upsert local User account with Discord data + email
@@ -1108,9 +1121,17 @@ const checkPluginAccess = async (guildId: string, req: any, pluginId: string): P
 
     // 2. Check Role Whitelist
     try {
-        const settings = await db.pluginSettings.findUnique({
-             where: { guildId_pluginId: { guildId, pluginId } }
-        });
+        const settingsKey = `${guildId}:${pluginId}`;
+        const cachedSettings = pluginSettingsCache.get(settingsKey);
+        let settings;
+        if (cachedSettings && (Date.now() - cachedSettings.timestamp < PLUGIN_SETTINGS_CACHE_TTL)) {
+            settings = cachedSettings.data;
+        } else {
+            settings = await db.pluginSettings.findUnique({
+                 where: { guildId_pluginId: { guildId, pluginId } }
+            });
+            pluginSettingsCache.set(settingsKey, { data: settings, timestamp: Date.now() });
+        }
         
         // If settings don't exist or no roles allowed, allow ONLY Admins (which returned above)
         if (!settings || settings.allowedRoles.length === 0) return false;
@@ -1695,63 +1716,80 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Server Stats History
-    const history = await db.serverStats.findMany({
-      where: { guildId },
-      orderBy: { date: 'asc' },
-      take: 30, // Last 30 days
-    });
-
-    // 2. Top Channels (Last 7 days)
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    const topChannelsRaw = await db.channelStats.groupBy({
-      by: ['channelName'],
-      where: { 
-        guildId, 
-        date: { gte: sevenDaysAgo } 
-      },
-      _sum: { messages: true },
-      orderBy: { _sum: { messages: 'desc' } },
-      take: 10,
-    });
-    
+
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+
+    // Run all independent queries in parallel
+    const [
+      history,
+      topChannelsRaw,
+      activeMembers,
+      totalsAgg,
+      recentLogs,
+      openTickets,
+      allEmails,
+      economyAgg,
+      welcomeSettings,
+      filterSettings
+    ] = await Promise.all([
+      // 1. Server Stats History
+      db.serverStats.findMany({
+        where: { guildId },
+        orderBy: { date: 'asc' },
+        take: 30,
+      }),
+      // 2. Top Channels (Last 7 days)
+      db.channelStats.groupBy({
+        by: ['channelName'],
+        where: { guildId, date: { gte: sevenDaysAgo } },
+        _sum: { messages: true },
+        orderBy: { _sum: { messages: 'desc' } },
+        take: 10,
+      }),
+      // 3. Active Members (Last 24h)
+      db.member.count({
+        where: { guildId, lastActiveAt: { gte: yesterday } },
+      }),
+      // 4. Totals
+      db.serverStats.aggregate({
+        where: { guildId },
+        _sum: { messageCount: true, voiceMinutes: true, newBans: true },
+      }),
+      // 5. Recent Logs
+      db.actionLog.findMany({
+        where: { guildId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      // 6. Open Tickets
+      db.ticket.count({ where: { guildId, status: 'open' } }),
+      // 7. Emails
+      emailService.getEmails('inbox'),
+      // 8. Economy
+      db.economyAccount.aggregate({
+        where: { guildId },
+        _sum: { balance: true },
+      }),
+      // 9. Welcome Settings
+      db.welcomeGateSettings.findUnique({ where: { guildId } }),
+      // 10. Filter Settings
+      db.filterSettings.findUnique({ where: { guildId } }),
+    ]);
+
     const topChannels = topChannelsRaw.map(c => ({
         name: c.channelName,
         messages: c._sum.messages || 0
     }));
 
-    // 3. Active Members (Last 24h)
-    const yesterday = new Date();
-    yesterday.setHours(yesterday.getHours() - 24);
-    
-    const activeMembers = await db.member.count({
-      where: {
-        guildId,
-        lastActiveAt: { gte: yesterday },
-      },
-    });
-
-    // 4. Totals
-    const totalsAgg = await db.serverStats.aggregate({
-      where: { guildId },
-      _sum: { messageCount: true, voiceMinutes: true, newBans: true },
-    });
-    
-    // 5. Today's stats
+    // 5b. Today's stats
     const todayStats = history.find(h => h.date.getTime() === today.getTime()) || null;
     
-    // 6. Current Member Count - Last recorded
+    // 5c. Current Member Count - Last recorded
     const latestStat = history[history.length - 1];
     const totalMembers = latestStat?.memberCount || 0;
-
-    // 6.5 Action Logs (Recent Activity)
-    const recentLogs = await db.actionLog.findMany({
-      where: { guildId },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
 
     // Resolve user data for logs
     const resolvedLogs = await Promise.all(recentLogs.map(async log => {
@@ -1762,21 +1800,7 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       };
     }));
 
-    // 7. Plugins Data
-    const openTickets = await db.ticket.count({ where: { guildId, status: 'open' } });
-    
-    // Emails (Global)
-    const allEmails = await emailService.getEmails('inbox');
     const unreadEmails = allEmails.filter(e => !e.read).length;
-
-    // Economy
-    const economyAgg = await db.economyAccount.aggregate({
-        where: { guildId },
-        _sum: { balance: true }
-    });
-
-    const welcomeSettings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
-    const filterSettings = await db.filterSettings.findUnique({ where: { guildId } });
 
     res.json({
       history,
@@ -2066,6 +2090,9 @@ app.post('/api/guilds/:guildId/plugins/:pluginId', async (req, res) => {
             update: { enabled, allowedRoles },
             create: { guildId, pluginId, enabled, allowedRoles }
         });
+
+        // Invalidate plugin settings cache
+        pluginSettingsCache.delete(`${guildId}:${pluginId}`);
         
         res.json(updated);
     } catch (e) {
