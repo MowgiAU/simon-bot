@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock, X, ArrowRight } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
@@ -11,13 +11,15 @@ import { useAuth } from './AuthProvider';
 export const SetupPasswordModal: React.FC = () => {
     const { user, hasPassword, email, refreshAccountStatus } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [dismissed, setDismissed] = useState(() => {
         // Persist dismissal in sessionStorage so it doesn't re-appear on every navigation
         return sessionStorage.getItem('pw_prompt_dismissed') === '1';
     });
 
+    // Don't show during the profile setup wizard — it handles password there
     // Only show to logged-in users who haven't set a password yet
-    if (!user || hasPassword || dismissed || import.meta.env.DEV) return null;
+    if (!user || hasPassword || dismissed || import.meta.env.DEV || location.pathname === '/profile/setup') return null;
 
     const handleDismiss = () => {
         sessionStorage.setItem('pw_prompt_dismissed', '1');

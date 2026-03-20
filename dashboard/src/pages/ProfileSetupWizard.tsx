@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Plus, X, Instagram, Youtube, 
-    MessageCircle, Radio, ChevronRight, ChevronLeft, AlertCircle, Sparkles, Check
+    MessageCircle, Radio, ChevronRight, ChevronLeft, AlertCircle, Sparkles, Check,
+    Lock, Eye, EyeOff
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
@@ -21,6 +22,7 @@ const STEPS = [
     { title: 'Genres', icon: <Music size={20} /> },
     { title: 'Socials', icon: <Share2 size={20} /> },
     { title: 'Gear', icon: <Hammer size={20} /> },
+    { title: 'Security', icon: <Lock size={20} /> },
 ];
 
 const GEAR_CATEGORIES = [
@@ -59,6 +61,12 @@ export const ProfileSetupWizard: React.FC = () => {
     const [validatingName, setValidatingName] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+    // Security step
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
     useEffect(() => {
         axios.get('/api/musician/genres', { withCredentials: true })
             .then(res => setAllGenres(res.data)).catch(() => {});
@@ -78,6 +86,8 @@ export const ProfileSetupWizard: React.FC = () => {
     const handleFinish = async () => {
         if (!user) return;
         if (nameError) { setMessage({ type: 'error', text: 'Please fix the artist name before saving.' }); return; }
+        if (password && password.length < 8) { setMessage({ type: 'error', text: 'Password must be at least 8 characters.' }); return; }
+        if (password && password !== confirmPassword) { setMessage({ type: 'error', text: 'Passwords do not match.' }); return; }
         setSaving(true);
         try {
             const payload = {
@@ -97,6 +107,15 @@ export const ProfileSetupWizard: React.FC = () => {
                     headers: { 'Content-Type': 'multipart/form-data' },
                     withCredentials: true
                 });
+            }
+
+            // Optionally set password if provided
+            if (password) {
+                try {
+                    await axios.post('/api/auth/set-password', { password }, { withCredentials: true });
+                } catch {
+                    // Password save failed — not fatal; user can set it later from /account
+                }
             }
 
             navigate('/profile');
@@ -330,6 +349,64 @@ export const ProfileSetupWizard: React.FC = () => {
                                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '10px', padding: '12px', color: colors.textSecondary, cursor: 'pointer', fontSize: '13px' }}>
                                 <Plus size={16} /> Add Equipment
                             </button>
+                        </div>
+                    </div>
+                );
+
+            case 5: // Security
+                return (
+                    <div style={cardStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                            <div style={{ width: 48, height: 48, borderRadius: '14px', backgroundColor: colors.primary + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Lock size={24} color={colors.primary} />
+                            </div>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700 }}>Backup Password</h2>
+                                <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>Optional — you can always set this later in Account Settings.</p>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '14px 16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `3px solid ${colors.primary}`, marginBottom: '28px' }}>
+                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.6 }}>
+                                Setting a password lets you sign in with your email if Discord is ever unavailable. This step is completely optional — just click <strong style={{ color: colors.textPrimary }}>Finish Setup</strong> below to skip it.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ fontSize: '13px', color: colors.textSecondary, display: 'block', marginBottom: '6px' }}>Password</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder='At least 8 characters...'
+                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '12px 44px 12px 12px', color: colors.textPrimary, fontSize: '14px' }}
+                                    />
+                                    <button onClick={() => setShowPassword(p => !p)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', padding: 0 }}>
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ fontSize: '13px', color: colors.textSecondary, display: 'block', marginBottom: '6px' }}>Confirm Password</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={showConfirm ? 'text' : 'password'}
+                                        value={confirmPassword}
+                                        onChange={e => setConfirmPassword(e.target.value)}
+                                        placeholder='Re-enter your password...'
+                                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${confirmPassword && confirmPassword !== password ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.1)'}`, borderRadius: borderRadius.sm, padding: '12px 44px 12px 12px', color: colors.textPrimary, fontSize: '14px' }}
+                                    />
+                                    <button onClick={() => setShowConfirm(p => !p)} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', padding: 0 }}>
+                                        {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                                {confirmPassword && confirmPassword !== password && (
+                                    <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#ef4444' }}>Passwords do not match</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 );
