@@ -123,7 +123,11 @@ export class ProfileService {
                 },
                 tracks: {
                     where: { isPublic: true },
-                    orderBy: { createdAt: 'desc' }
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        genres: { include: { genre: true } },
+                        _count: { select: { favourites: true, reposts: true, comments: true } },
+                    },
                 },
                 featuredTrack: true,
                 featuredPlaylist: {

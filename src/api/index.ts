@@ -4214,7 +4214,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             // Try fetching by username (the :userId param might be a username)
             const byUsername = (await db.musicianProfile.findFirst({
                 where: { username: { equals: userId, mode: 'insensitive' } },
-                include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } } } } }
+                include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } }, _count: { select: { favourites: true, reposts: true, comments: true } } } } }
             })) as any;
             if (byUsername) {
                 if (byUsername.status && byUsername.status !== 'active') {
@@ -4237,6 +4237,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                             include: {
                                 profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
                                 genres: { include: { genre: true } },
+                                _count: { select: { favourites: true, reposts: true, comments: true } },
                             },
                         },
                     },
@@ -4276,6 +4277,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                     include: {
                         profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
                         genres: { include: { genre: true } },
+                        _count: { select: { favourites: true, reposts: true, comments: true } },
                     },
                 },
             },

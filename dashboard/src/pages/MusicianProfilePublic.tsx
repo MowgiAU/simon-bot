@@ -7,9 +7,10 @@ import axios from 'axios';
 import { 
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
-    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2
+    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
+import { FujiLogo } from '../components/FujiLogo';
 
 interface MusicianProfile {
     id: string;
@@ -56,6 +57,9 @@ interface MusicianProfile {
         description: string | null;
         playCount: number;
         createdAt?: string;
+        waveformPeaks?: number[] | null;
+        genres?: { genre: { name: string; slug: string } }[];
+        _count?: { favourites: number; reposts: number; comments: number };
     }>;
     reposts?: Array<{
         id: string;
@@ -69,6 +73,9 @@ interface MusicianProfile {
         _repost: true;
         _repostedAt: string;
         _originalArtist: { userId: string; username: string; displayName: string | null; avatar: string | null };
+        waveformPeaks?: number[] | null;
+        genres?: { genre: { name: string; slug: string } }[];
+        _count?: { favourites: number; reposts: number; comments: number };
     }>;
 }
 
@@ -81,12 +88,39 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [copied, setCopied] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followerCount, setFollowerCount] = useState(0);
+    const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts'>('all');
+    const [favourites, setFavourites] = useState<Record<string, boolean>>({});
+    const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     // Battle submissions
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
 
     // Player Context
-    const { player, setTrack, togglePlay } = usePlayer();
+    const { player, setTrack, togglePlay, seek } = usePlayer();
+
+    const toggleFavourite = async (trackId: string) => {
+        try {
+            const { data } = await axios.post(`/api/tracks/${trackId}/favourite`, {}, { withCredentials: true });
+            setFavourites(prev => ({ ...prev, [trackId]: data.favourited }));
+        } catch {}
+    };
+
+    const toggleRepost = async (trackId: string) => {
+        try {
+            const { data } = await axios.post(`/api/tracks/${trackId}/repost`, {}, { withCredentials: true });
+            setReposts(prev => ({ ...prev, [trackId]: data.reposted }));
+        } catch {}
+    };
+
+    const formatTime = (iso: string) => {
+        const d = new Date(iso);
+        const now = new Date();
+        const diff = (now.getTime() - d.getTime()) / 1000;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+        return d.toLocaleDateString();
+    };
 
     const handleCopyProfileLink = () => {
         if (!profile?.username) return;
@@ -154,6 +188,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     const followRes = await axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true });
                     setIsFollowing(followRes.data.following);
                 } catch { /* not logged in or error */ }
+                // Load favourite/repost status for all tracks
+                const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id)];
+                if (allTrackIds.length > 0) {
+                    try {
+                        const [favRes, repRes] = await Promise.all([
+                            axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }),
+                            axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }),
+                        ]);
+                        setFavourites(favRes.data);
+                        setReposts(repRes.data);
+                    } catch { /* not logged in */ }
+                }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
             } finally {
@@ -420,79 +466,241 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         {/* Discography */}
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                        <div>
+                            {/* Header + Filter Tabs */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <Award size={20} color="#F27B13" /> Discography
                                 </h3>
-                                <span style={{ fontSize: '11px', color: '#B9C3CE' }}>{profile.tracks?.length || 0} tracks{(profile.reposts?.length || 0) > 0 ? ` · ${profile.reposts!.length} reposts` : ''}</span>
+                                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#1A1E2E', borderRadius: '8px', padding: '3px' }}>
+                                    {(['all', 'tracks', 'reposts'] as const).map(tab => (
+                                        <button key={tab} onClick={() => setDiscographyFilter(tab)} style={{
+                                            padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                                            fontSize: '12px', fontWeight: 600, transition: 'all 0.2s',
+                                            backgroundColor: discographyFilter === tab ? colors.primary : 'transparent',
+                                            color: discographyFilter === tab ? 'white' : colors.textSecondary,
+                                        }}>
+                                            {tab === 'all' ? `All (${(profile.tracks?.length || 0) + (profile.reposts?.length || 0)})` :
+                                             tab === 'tracks' ? `Tracks (${profile.tracks?.length || 0})` :
+                                             `Reposts (${profile.reposts?.length || 0})`}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                             {(() => {
-                                // Merge own tracks + reposts, sorted by date
                                 const ownTracks = (profile.tracks || []).map(t => ({ ...t, _repost: false as const, _repostedAt: null as string | null, _originalArtist: null as any }));
                                 const repostedTracks = (profile.reposts || []).map(t => ({ ...t, _repost: true as const }));
-                                const allItems = [...ownTracks, ...repostedTracks].sort((a, b) => {
+                                let filtered = discographyFilter === 'tracks' ? ownTracks
+                                             : discographyFilter === 'reposts' ? repostedTracks
+                                             : [...ownTracks, ...repostedTracks];
+                                filtered.sort((a, b) => {
                                     const dateA = a._repostedAt || a.createdAt || '';
                                     const dateB = b._repostedAt || b.createdAt || '';
                                     return new Date(dateB).getTime() - new Date(dateA).getTime();
                                 });
-                                if (allItems.length === 0) return (
-                                    <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+
+                                if (filtered.length === 0) return (
+                                    <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                         <Music size={40} color="#B9C3CE" style={{ opacity: 0.2, marginBottom: '12px' }} />
-                                        <p style={{ color: '#B9C3CE', fontSize: '13px', margin: 0 }}>No tracks uploaded yet.</p>
+                                        <p style={{ color: '#B9C3CE', fontSize: '13px', margin: 0 }}>
+                                            {discographyFilter === 'reposts' ? 'No reposts yet.' : discographyFilter === 'tracks' ? 'No tracks uploaded yet.' : 'No tracks uploaded yet.'}
+                                        </p>
                                     </div>
                                 );
+
+                                const defaultPeaks = (id: string) => {
+                                    const seed = id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+                                    return Array.from({ length: 120 }, (_, i) => {
+                                        const v = Math.sin(i * 0.15 + seed) * 0.3 + Math.sin(i * 0.05 + seed * 2) * 0.2 + 0.4;
+                                        return Math.max(0.05, Math.min(1, v));
+                                    });
+                                };
+
                                 return (
-                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
-                                        {allItems.map(track => {
-                                            const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {filtered.map(track => {
+                                            const isCurrentTrack = player.currentTrack?.id === track.id;
+                                            const isPlaying = isCurrentTrack && player.isPlaying;
+                                            const progress = isCurrentTrack ? (player.currentTime / (player.duration || 1)) : 0;
                                             const trackArtistUsername = track._repost && track._originalArtist ? track._originalArtist.username : profile.username;
+                                            const trackArtistDisplay = track._repost && track._originalArtist
+                                                ? (track._originalArtist.displayName || track._originalArtist.username)
+                                                : (profile.displayName || profile.username);
+                                            const trackArtistAvatar = track._repost && track._originalArtist ? track._originalArtist.avatar : profile.avatar;
+                                            const peaks = (track.waveformPeaks as number[] | null) || defaultPeaks(track.id);
+                                            const isFav = !!favourites[track.id];
+                                            const isRep = !!reposts[track.id];
+                                            const counts = track._count || { favourites: 0, reposts: 0, comments: 0 };
+
+                                            const handlePlayClick = () => {
+                                                if (isCurrentTrack) togglePlay();
+                                                else setTrack(track, filtered);
+                                            };
+
+                                            const handleSeek = (pct: number) => {
+                                                seek(pct * (player.duration || 0));
+                                            };
+
                                             return (
-                                                <div key={track.id + (track._repost ? '-repost' : '')}>
-                                                    {/* Repost indicator */}
+                                                <div key={track.id + (track._repost ? '-repost' : '')} style={{
+                                                    backgroundColor: track._repost ? '#1E2A3A' : colors.surface,
+                                                    borderRadius: '8px',
+                                                    border: track._repost ? `1px solid ${colors.primary}22` : '1px solid rgba(255,255,255,0.06)',
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    {/* Repost banner */}
                                                     {track._repost && track._originalArtist && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', fontSize: '10px', color: colors.textSecondary }}>
-                                                            <Repeat2 size={11} />
-                                                            <span>Reposted from </span>
-                                                            <Link to={`/profile/${track._originalArtist.username}`}
-                                                                style={{ color: colors.textSecondary, textDecoration: 'none', fontWeight: 600 }}
-                                                                onMouseEnter={e => e.currentTarget.style.color = colors.primary}
-                                                                onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}>
-                                                                {track._originalArtist.displayName || track._originalArtist.username}
-                                                            </Link>
+                                                        <div style={{
+                                                            padding: '8px 16px', fontSize: '12px', color: colors.primary,
+                                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                                            borderBottom: `1px solid ${colors.primary}15`,
+                                                            backgroundColor: `${colors.primary}08`,
+                                                        }}>
+                                                            <Repeat2 size={13} />
+                                                            <span style={{ color: colors.textSecondary }}>{profile.displayName || profile.username} reposted</span>
                                                         </div>
                                                     )}
-                                                    <div
-                                                        onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, allItems)}
-                                                        style={{ aspectRatio: '1/1', borderRadius: '10px', backgroundColor: '#1e293b', marginBottom: '10px', overflow: 'hidden', position: 'relative', border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`, cursor: 'pointer', transition: 'all 0.2s' }}
-                                                    >
-                                                        {track.coverUrl ? (
-                                                            <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPlaying ? 0.6 : 1 }} />
-                                                        ) : (
-                                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}><Music size={36} /></div>
-                                                        )}
-                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isPlaying ? 'transparent' : 'rgba(0,0,0,0.4)', opacity: isPlaying || isMobile ? 1 : 0, transition: 'opacity 0.2s' }}
-                                                            onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.opacity = '1'; }}
-                                                            onMouseLeave={e => { if (!isPlaying && !isMobile) e.currentTarget.style.opacity = '0'; }}>
-                                                            {isPlaying ? <Pause size={36} color="white" fill="white" /> : <Play size={36} color="white" fill="white" />}
-                                                        </div>
-                                                        {isPlaying && <div style={{ position: 'absolute', bottom: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.primary, boxShadow: `0 0 10px ${colors.primary}` }} />}
-                                                        {/* Repost badge on cover */}
-                                                        {track._repost && (
-                                                            <div style={{ position: 'absolute', top: '6px', left: '6px', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', borderRadius: '4px', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                                <Repeat2 size={10} color={colors.primary} />
+
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        flexDirection: isMobile ? 'column' : 'row',
+                                                        gap: isMobile ? 0 : '16px',
+                                                        padding: isMobile ? 0 : '16px',
+                                                    }}>
+                                                        {/* Cover art + play button */}
+                                                        <div
+                                                            style={{
+                                                                width: isMobile ? '100%' : '130px',
+                                                                height: isMobile ? '180px' : '130px',
+                                                                minWidth: isMobile ? undefined : '130px',
+                                                                borderRadius: isMobile ? 0 : '6px',
+                                                                overflow: 'hidden', position: 'relative',
+                                                                backgroundColor: '#1A1E2E', cursor: 'pointer',
+                                                            }}
+                                                            onClick={handlePlayClick}
+                                                        >
+                                                            {track.coverUrl ? (
+                                                                <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <FujiLogo size={40} color={colors.primary} opacity={0.3} />
+                                                                </div>
+                                                            )}
+                                                            <div style={{
+                                                                position: 'absolute', inset: 0,
+                                                                backgroundColor: isPlaying ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.3)',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s',
+                                                            }}
+                                                                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                                                onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.opacity = '0'; }}
+                                                            >
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+                                                                    {isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />}
+                                                                </div>
                                                             </div>
-                                                        )}
+                                                        </div>
+
+                                                        {/* Right: info + waveform + actions */}
+                                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: isMobile ? '12px' : 0 }}>
+                                                            {/* Artist + time */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                                    <Link to={`/profile/${trackArtistUsername}`}>
+                                                                        {trackArtistAvatar ? (
+                                                                            <img src={trackArtistAvatar} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                                        ) : (
+                                                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: colors.primary + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: colors.primary, fontWeight: 700 }}>
+                                                                                {(trackArtistDisplay || '?')[0].toUpperCase()}
+                                                                            </div>
+                                                                        )}
+                                                                    </Link>
+                                                                    <Link to={`/profile/${trackArtistUsername}`} style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}
+                                                                        onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                                                                        onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}>
+                                                                        {trackArtistDisplay}
+                                                                    </Link>
+                                                                </div>
+                                                                <span style={{ color: colors.textTertiary, fontSize: '10px', whiteSpace: 'nowrap' }}>
+                                                                    {formatTime(track._repostedAt || track.createdAt || '')}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Track title */}
+                                                            <Link to={`/track/${trackArtistUsername}/${track.slug || track.id}`}
+                                                                style={{ color: colors.textPrimary, textDecoration: 'none', fontSize: '14px', fontWeight: 700, marginBottom: '6px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                                                onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                                                                onMouseLeave={e => e.currentTarget.style.color = colors.textPrimary}>
+                                                                {track.title}
+                                                            </Link>
+
+                                                            {/* Waveform */}
+                                                            <div
+                                                                onClick={(e) => {
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    const x = (e.clientX - rect.left) / rect.width;
+                                                                    if (isPlaying || progress > 0) handleSeek(x);
+                                                                    else handlePlayClick();
+                                                                }}
+                                                                style={{ width: '100%', height: '48px', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <svg width="100%" height="48" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 48`} style={{ display: 'block' }}>
+                                                                    {peaks.map((peak, i) => {
+                                                                        const h = Math.max(2, peak * 40);
+                                                                        const y = (48 - h) / 2;
+                                                                        const pct = i / peaks.length;
+                                                                        const played = pct < progress;
+                                                                        return <rect key={i} x={i} y={y} width={0.6} height={h} fill={played ? colors.primary : 'rgba(255,255,255,0.15)'} rx={0.2} />;
+                                                                    })}
+                                                                </svg>
+                                                            </div>
+
+                                                            {/* Genre tags */}
+                                                            {track.genres && track.genres.length > 0 && (
+                                                                <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                                    {track.genres.slice(0, 3).map((g: any) => (
+                                                                        <Link key={g.genre.slug} to={`/category/${g.genre.slug}`}
+                                                                            style={{ padding: '2px 8px', borderRadius: '3px', fontSize: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textTertiary, textDecoration: 'none', fontWeight: 500 }}>
+                                                                            #{g.genre.name}
+                                                                        </Link>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Actions bar */}
+                                                            <div style={{
+                                                                display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px',
+                                                                marginTop: '8px', paddingTop: '8px',
+                                                                borderTop: '1px solid rgba(255,255,255,0.05)',
+                                                            }}>
+                                                                <button onClick={() => toggleFavourite(track.id)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isFav ? '#EF4444' : colors.textTertiary, fontSize: '12px', padding: 0, transition: 'color 0.2s' }}
+                                                                    onMouseEnter={e => { if (!isFav) e.currentTarget.style.color = '#EF4444'; }}
+                                                                    onMouseLeave={e => { if (!isFav) e.currentTarget.style.color = colors.textTertiary; }}>
+                                                                    <Heart size={14} fill={isFav ? '#EF4444' : 'none'} />
+                                                                    <span>{counts.favourites || ''}</span>
+                                                                </button>
+                                                                <button onClick={() => toggleRepost(track.id)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRep ? colors.primary : colors.textTertiary, fontSize: '12px', padding: 0, transition: 'color 0.2s' }}
+                                                                    onMouseEnter={e => { if (!isRep) e.currentTarget.style.color = colors.primary; }}
+                                                                    onMouseLeave={e => { if (!isRep) e.currentTarget.style.color = colors.textTertiary; }}>
+                                                                    <Repeat2 size={14} />
+                                                                    <span>{counts.reposts || ''}</span>
+                                                                </button>
+                                                                <button onClick={() => navigate(`/track/${trackArtistUsername}/${track.slug || track.id}`)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textTertiary, fontSize: '12px', padding: 0 }}
+                                                                    onMouseEnter={e => e.currentTarget.style.color = colors.textPrimary}
+                                                                    onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                                                                    <MessageCircle size={13} />
+                                                                    <span>{counts.comments || ''}</span>
+                                                                </button>
+                                                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textTertiary, fontSize: '11px' }}>
+                                                                    <Play size={10} fill={colors.textTertiary} />
+                                                                    <span>{track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <p onClick={() => window.location.href = `/track/${trackArtistUsername}/${track.slug || track.id}`}
-                                                        onMouseEnter={e => e.currentTarget.style.color = colors.primary}
-                                                        onMouseLeave={e => e.currentTarget.style.color = isPlaying ? colors.primary : 'white'}
-                                                        style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white', cursor: 'pointer', transition: 'color 0.2s' }}>
-                                                        {track.title}
-                                                    </p>
-                                                    <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Zap size={10} /> {track.playCount.toLocaleString()} plays
-                                                    </p>
                                                 </div>
                                             );
                                         })}
