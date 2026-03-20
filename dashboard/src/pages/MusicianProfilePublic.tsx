@@ -527,7 +527,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             const trackArtistDisplay = track._repost && track._originalArtist
                                                 ? (track._originalArtist.displayName || track._originalArtist.username)
                                                 : (profile.displayName || profile.username);
-                                            const trackArtistAvatar = track._repost && track._originalArtist ? track._originalArtist.avatar : profile.avatar;
+                                            const trackArtistAvatar = (() => {
+                                                const raw = track._repost && track._originalArtist ? track._originalArtist.avatar : profile.avatar;
+                                                if (!raw) return null;
+                                                if (raw.startsWith('http') || raw.startsWith('/uploads/')) return raw;
+                                                const uid = track._repost && track._originalArtist ? track._originalArtist.userId : profile.userId;
+                                                return `https://cdn.discordapp.com/avatars/${uid}/${raw}.png?size=256`;
+                                            })();
                                             const peaks = (track.waveformPeaks as number[] | null) || defaultPeaks(track.id);
                                             const isFav = !!favourites[track.id];
                                             const isRep = !!reposts[track.id];

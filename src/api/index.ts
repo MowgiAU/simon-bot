@@ -204,6 +204,10 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
 
 // Memory cache for expensive Discord metadata calls
 // guildId -> { channels: { data: any, timestamp: number }, roles: { data: any, timestamp: number } }
+// Cache member roles: guildId:userId -> { roles, timestamp }
+const memberRoleCache = new Map<string, { roles: string[], timestamp: number }>();
+const MEMBER_ROLE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
 const discordCache = new Map<string, { 
     channels?: { data: any, timestamp: number }, 
     roles?: { data: any, timestamp: number } 
@@ -799,13 +803,21 @@ const checkPluginAccess = async (guildId: string, req: any, pluginId: string): P
         // If settings don't exist or no roles allowed, allow ONLY Admins (which returned above)
         if (!settings || settings.allowedRoles.length === 0) return false;
 
-        // Fetch User Roles from Discord (with 5s timeout)
+        // Fetch User Roles from Discord (with cache)
         try {
-            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                timeout: 5000
-            });
-            const memberRoles = memberRes.data.roles || [];
+            const cacheKey = `${guildId}:${user.id}`;
+            const cachedMember = memberRoleCache.get(cacheKey);
+            let memberRoles: string[];
+            if (cachedMember && (Date.now() - cachedMember.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                memberRoles = cachedMember.roles;
+            } else {
+                const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                    timeout: 5000
+                });
+                memberRoles = memberRes.data.roles || [];
+                memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+            }
             return memberRoles.some((r: string) => settings.allowedRoles.includes(r));
         } catch (discordErr: any) {
              logger.error(`Discord communication failed in checkPluginAccess: ${discordErr.message}`);
@@ -1821,11 +1833,19 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         }
 
         // For non-admins, check role whitelist
-        // 1. Get user roles
-        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
-            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-        });
-        const memberRoles = memberRes.data.roles || [];
+        // 1. Get user roles (with cache)
+        const cacheKey = `${guildId}:${user.id}`;
+        const cachedMember = memberRoleCache.get(cacheKey);
+        let memberRoles: string[];
+        if (cachedMember && (Date.now() - cachedMember.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+            memberRoles = cachedMember.roles;
+        } else {
+            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            });
+            memberRoles = memberRes.data.roles || [];
+            memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+        }
 
         // 2. Get all plugin settings for this guild
         const allSettings = await db.pluginSettings.findMany({
