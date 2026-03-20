@@ -492,13 +492,8 @@ const AppInternal: React.FC = () => {
     return <TrackPage />;
   }
 
-  // Artist Discovery homepage
-  if (currentPath === '/') {
-    return <ArtistDiscoveryPage />;
-  }
-
-  // V2 homepage test
-  if (currentPath === '/v2') {
+  // Artist Discovery homepage (V2 is now default)
+  if (currentPath === '/' || currentPath === '/v2') {
     return <ArtistDiscoveryV2Page />;
   }
 
@@ -579,7 +574,7 @@ const AppInternal: React.FC = () => {
     return <BattlesPage />;
   }
 
-  return <ArtistDiscoveryPage />;
+  return <ArtistDiscoveryV2Page />;
 };
 
 /**
