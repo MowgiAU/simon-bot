@@ -341,15 +341,21 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         const battle = featured?.featuredBattle;
                         const battleDesc = featured?.featuredBattleDescription;
                         return (
-                    <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '400px', position: 'relative', overflow: 'hidden' }}>
-                        {/* Background — banner or gradient */}
-                        {battle?.bannerUrl ? (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
-                        ) : (
-                            <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${colors.primary}28 0%, rgba(90,20,200,0.14) 100%)`, pointerEvents: 'none' }} />
+                    <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden' }}>
+                        {/* Banner image — full card, no blur */}
+                        {battle?.bannerUrl && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                         )}
-                        <div style={{ position: 'relative', zIndex: 1, padding: '20px', display: 'flex', flexDirection: 'column', flex: 1, height: '100%', gap: '11px', boxSizing: 'border-box' }}>
-                            {/* Header row */}
+                        {/* Overlay — gradient from bottom so text is readable */}
+                        <div style={{ position: 'absolute', inset: 0, background: battle?.bannerUrl
+                            ? 'linear-gradient(to bottom, rgba(18,22,36,0.55) 0%, rgba(18,22,36,0.05) 35%, rgba(18,22,36,0.72) 62%, rgba(18,22,36,0.97) 100%)'
+                            : `linear-gradient(135deg, ${colors.primary}28 0%, rgba(90,20,200,0.14) 100%)`,
+                            pointerEvents: 'none',
+                        }} />
+
+                        {/* Content */}
+                        <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+                            {/* Top row: header + status badge */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Link to="/battles" style={{ textDecoration: 'none' }}>
                                     <h3 style={{ ...panelTitle, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}>
@@ -359,9 +365,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 {battle && (
                                     <span style={{
                                         display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
-                                        backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : battle.status === 'active' ? 'rgba(52,211,153,0.18)' : 'rgba(96,165,250,0.18)',
+                                        backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle.status === 'active' ? 'rgba(52,211,153,0.22)' : 'rgba(96,165,250,0.22)',
                                         color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? '#34D399' : '#60A5FA',
                                         fontSize: '8px', fontWeight: 'bold', borderRadius: '999px', letterSpacing: '0.07em',
+                                        backdropFilter: 'blur(6px)',
                                     }}>
                                         <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
                                         {battle.status === 'voting' ? 'VOTING OPEN' : battle.status === 'active' ? 'OPEN' : 'UPCOMING'}
@@ -369,13 +376,16 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 )}
                             </div>
 
+                            {/* Push everything below to the bottom */}
+                            <div style={{ flex: 1 }} />
+
                             {battle ? (
-                                <>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
                                     {/* Title & description */}
                                     <div>
-                                        <p style={{ fontSize: '17px', fontWeight: 800, color: 'white', margin: '0 0 5px', lineHeight: 1.2 }}>{battle.title}</p>
+                                        <p style={{ fontSize: '18px', fontWeight: 800, color: 'white', margin: '0 0 5px', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{battle.title}</p>
                                         {battleDesc && (
-                                            <p style={{ fontSize: '11px', color: 'rgba(185,195,206,0.8)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                            <p style={{ fontSize: '11px', color: 'rgba(210,218,226,0.85)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
                                                 {battleDesc}
                                             </p>
                                         )}
@@ -383,7 +393,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
 
                                     {/* Stats */}
                                     <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#B9C3CE' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#D2DAE2' }}>
                                             <Users size={11} style={{ flexShrink: 0 }} />
                                             {battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
                                         </span>
@@ -405,7 +415,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     {battle.prizes && battle.prizes.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                             {battle.prizes.slice(0, 3).map((p, i) => (
-                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#B9C3CE' }}>
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#D2DAE2' }}>
                                                     <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
                                                     <span style={{ fontWeight: 600, color: 'white' }}>{p.place}:</span>
                                                     {p.title && <span style={{ color: colors.primary, fontWeight: 600 }}>{p.title}</span>}
@@ -414,27 +424,26 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Sponsor chip */}
-                                    {battle.sponsor && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 10px', backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', alignSelf: 'flex-start' }}>
-                                            {battle.sponsor.logoUrl && (
-                                                <img src={battle.sponsor.logoUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '3px', objectFit: 'contain' }} />
-                                            )}
-                                            <span style={{ fontSize: '10px', color: '#B9C3CE' }}>Sponsored by <strong style={{ color: 'white' }}>{battle.sponsor.name}</strong></span>
-                                        </div>
-                                    )}
-
-                                    {/* CTA */}
-                                    <div style={{ marginTop: 'auto', paddingTop: '2px' }}>
+                                    {/* Sponsor chip + CTA row */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                        {battle.sponsor ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 10px', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)' }}>
+                                                {battle.sponsor.logoUrl && (
+                                                    <img src={battle.sponsor.logoUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '3px', objectFit: 'contain' }} />
+                                                )}
+                                                <span style={{ fontSize: '10px', color: '#B9C3CE' }}>Sponsored by <strong style={{ color: 'white' }}>{battle.sponsor.name}</strong></span>
+                                            </div>
+                                        ) : <div />}
                                         <Link
                                             to={`/battles/${battle.id}`}
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 fontSize: '12px', fontWeight: 700, textDecoration: 'none',
                                                 color: battle.status === 'voting' ? '#FBBF24' : colors.primary,
-                                                backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.15)' : `${colors.primary}20`,
+                                                backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : `${colors.primary}25`,
                                                 padding: '8px 16px', borderRadius: '8px',
-                                                border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.35)' : `${colors.primary}35`}`,
+                                                border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.4)' : `${colors.primary}45`}`,
+                                                backdropFilter: 'blur(6px)',
                                             }}
                                         >
                                             {battle.status === 'voting'
@@ -444,9 +453,9 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                 : 'View Battle →'}
                                         </Link>
                                     </div>
-                                </>
+                                </div>
                             ) : (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 0', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No battle running right now.</p>
                                     <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
