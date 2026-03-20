@@ -50,7 +50,7 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/projects');
     } else if (file.fieldname === 'sponsorLogo') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/sponsors');
-    } else if (file.fieldname === 'battleBanner') {
+    } else if (file.fieldname === 'battleBanner' || file.fieldname === 'battleCardImage') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/battle-banners');
     }
 
@@ -6179,6 +6179,27 @@ app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.singl
         await db.beatBattle.update({
             where: { id: req.params.id },
             data: { bannerUrl: finalUrl },
+        });
+        res.json({ url: finalUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Upload battle card image (shown in homepage discovery card)
+app.post('/api/beat-battle/admin/battles/:id/card-image', requireAdmin, upload.single('battleCardImage'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const localUrl = `/uploads/battle-banners/${req.file.filename}`;
+        const finalUrl = await uploadToR2OrLocal(
+            req.file.path,
+            `battle-banners/${req.file.filename}`,
+            req.file.mimetype,
+            localUrl
+        );
+        await db.beatBattle.update({
+            where: { id: req.params.id },
+            data: { cardImageUrl: finalUrl },
         });
         res.json({ url: finalUrl });
     } catch (e: any) {

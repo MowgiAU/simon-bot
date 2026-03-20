@@ -1008,6 +1008,7 @@ model BeatBattle {
 
   // Media
   bannerUrl           String?  // Admin-uploaded hero banner image
+  cardImageUrl        String?  // Homepage card image (shown in battle card on discovery page)
 
   // Submission options
   requireProjectFile  Boolean  @default(false) // Require .flp/.zip project upload

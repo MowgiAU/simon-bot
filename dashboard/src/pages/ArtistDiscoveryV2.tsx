@@ -77,6 +77,7 @@ interface FeaturedData {
     featuredBattle?: {
         id: string; title: string; status: string;
         bannerUrl: string | null;
+        cardImageUrl: string | null;
         submissionEnd: string | null; votingEnd: string | null;
         _count?: { entries: number };
         sponsor: { id: string; name: string; logoUrl: string | null } | null;
@@ -342,19 +343,19 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         const battleDesc = featured?.featuredBattleDescription;
                         return (
                     <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden' }}>
-                        {/* Banner image — full card, no blur */}
+                        {/* Banner image — blurred background */}
                         {battle?.bannerUrl && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
                         )}
-                        {/* Overlay — gradient from bottom so text is readable */}
+                        {/* Gradient overlay */}
                         <div style={{ position: 'absolute', inset: 0, background: battle?.bannerUrl
-                            ? 'linear-gradient(to bottom, rgba(18,22,36,0.55) 0%, rgba(18,22,36,0.05) 35%, rgba(18,22,36,0.72) 62%, rgba(18,22,36,0.97) 100%)'
+                            ? 'rgba(18,22,36,0.55)'
                             : `linear-gradient(135deg, ${colors.primary}28 0%, rgba(90,20,200,0.14) 100%)`,
                             pointerEvents: 'none',
                         }} />
 
                         {/* Content */}
-                        <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+                        <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', height: '100%', gap: '11px', boxSizing: 'border-box' }}>
                             {/* Top row: header + status badge */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Link to="/battles" style={{ textDecoration: 'none' }}>
@@ -376,16 +377,20 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Push everything below to the bottom */}
-                            <div style={{ flex: 1 }} />
-
                             {battle ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                                    {/* Title & description */}
+                                <>
+                                    {/* Title, card image & description */}
                                     <div>
-                                        <p style={{ fontSize: '18px', fontWeight: 800, color: 'white', margin: '0 0 5px', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{battle.title}</p>
+                                        <p style={{ fontSize: '18px', fontWeight: 800, color: 'white', margin: '0 0 8px', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{battle.title}</p>
+                                        {battle.cardImageUrl && (
+                                            <img
+                                                src={battle.cardImageUrl}
+                                                alt={battle.title}
+                                                style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px', display: 'block' }}
+                                            />
+                                        )}
                                         {battleDesc && (
-                                            <p style={{ fontSize: '11px', color: 'rgba(210,218,226,0.85)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
+                                            <p style={{ fontSize: '11px', color: 'rgba(210,218,226,0.85)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
                                                 {battleDesc}
                                             </p>
                                         )}
@@ -453,7 +458,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                 : 'View Battle →'}
                                         </Link>
                                     </div>
-                                </div>
+                                </>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />

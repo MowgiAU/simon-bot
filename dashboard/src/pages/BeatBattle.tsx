@@ -42,6 +42,7 @@ interface Battle {
     sponsorId: string | null;
     winnerEntryId: string | null;
     bannerUrl: string | null;
+    cardImageUrl: string | null;
     createdAt: string;
     sponsor: Sponsor | null;
     entries?: Entry[];
@@ -127,6 +128,8 @@ export const BeatBattlePage: React.FC = () => {
     const [sponsorLogoPreview, setSponsorLogoPreview] = useState<string>('');
     const [bannerFile, setBannerFile] = useState<File | null>(null);
     const [bannerPreview, setBannerPreview] = useState<string>('');
+    const [cardImageFile, setCardImageFile] = useState<File | null>(null);
+    const [cardImagePreview, setCardImagePreview] = useState<string>('');
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
@@ -227,10 +230,17 @@ export const BeatBattlePage: React.FC = () => {
                     fd.append('battleBanner', bannerFile);
                     await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/banner`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
                 }
+                if (cardImageFile) {
+                    const fd = new FormData();
+                    fd.append('battleCardImage', cardImageFile);
+                    await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/card-image`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                }
                 await fetchBattles();
                 setShowCreate(false);
                 setBannerFile(null);
                 setBannerPreview('');
+                setCardImageFile(null);
+                setCardImagePreview('');
                 resetForm();
             }
         } catch {}
@@ -243,6 +253,11 @@ export const BeatBattlePage: React.FC = () => {
                 const fd = new FormData();
                 fd.append('battleBanner', bannerFile);
                 await fetch(`${API}/api/beat-battle/admin/battles/${editingBattle.id}/banner`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+            }
+            if (cardImageFile) {
+                const fd = new FormData();
+                fd.append('battleCardImage', cardImageFile);
+                await fetch(`${API}/api/beat-battle/admin/battles/${editingBattle.id}/card-image`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
             }
             const res = await fetch(`${API}/api/beat-battle/admin/battles/${editingBattle.id}`, {
                 method: 'PATCH',
@@ -269,6 +284,8 @@ export const BeatBattlePage: React.FC = () => {
                 setEditingBattle(null);
                 setBannerFile(null);
                 setBannerPreview('');
+                setCardImageFile(null);
+                setCardImagePreview('');
                 resetForm();
             }
         } catch {}
@@ -474,6 +491,8 @@ export const BeatBattlePage: React.FC = () => {
         });
         setBannerFile(null);
         setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
+        setCardImageFile(null);
+        setCardImagePreview(b.cardImageUrl ? `${API}${b.cardImageUrl}` : '');
         setShowCreate(true);
     };
 
@@ -674,6 +693,29 @@ export const BeatBattlePage: React.FC = () => {
                                         )}
                                     </div>
                                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>Shown as the hero background on the public battles page. Recommended: 1920×600px.</p>
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Homepage Card Image</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>
+                                            <Upload size={14} /> {cardImageFile ? cardImageFile.name : 'Upload Image'}
+                                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                                const f = e.target.files?.[0];
+                                                if (!f) return;
+                                                setCardImageFile(f);
+                                                const reader = new FileReader();
+                                                reader.onload = (ev) => setCardImagePreview(ev.target?.result as string);
+                                                reader.readAsDataURL(f);
+                                            }} />
+                                        </label>
+                                        {cardImagePreview && (
+                                            <img src={cardImagePreview} alt="Card image preview" style={{ height: '60px', width: '120px', objectFit: 'cover', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                        )}
+                                        {cardImagePreview && (
+                                            <button onClick={() => { setCardImageFile(null); setCardImagePreview(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px' }} title="Remove"><X size={16} /></button>
+                                        )}
+                                    </div>
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>Appears as a thumbnail in the homepage discovery card, between the title and description. Recommended: 16:9, min 600×340px.</p>
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Prizes</label>
