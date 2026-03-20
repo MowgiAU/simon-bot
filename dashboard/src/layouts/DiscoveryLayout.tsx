@@ -58,7 +58,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
     const navItems = [
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
-        { key: 'genres', label: 'GENRES', icon: <Zap size={14} />, path: '/genres' },
         { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
         { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },

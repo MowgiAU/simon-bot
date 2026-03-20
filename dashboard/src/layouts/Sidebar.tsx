@@ -22,6 +22,7 @@ import {
   Swords,
   Compass,
   Users,
+  Tag,
   Library,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
@@ -106,6 +107,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           >
             <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
             <span className="nav-label">Artists</span>
+          </button>
+          <button
+            className={`nav-item ${window.location.pathname === '/genres' ? 'active' : ''}`}
+            onClick={() => navigate('/genres')}
+            title={collapsed ? "Genres" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Tag} size={20} /></span>
+            <span className="nav-label">Genres</span>
           </button>
 
         </div>
