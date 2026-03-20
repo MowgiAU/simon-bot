@@ -830,7 +830,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 <button 
                     onClick={onEdit}
                     style={{ 
-                        position: 'fixed', bottom: player.currentTrack ? '104px' : '24px', right: '24px', 
+                        position: 'fixed',
+                        bottom: isMobile
+                            ? (player.currentTrack ? '176px' : '76px')
+                            : (player.currentTrack ? '104px' : '24px'),
+                        right: '24px', 
                         backgroundColor: colors.primary, color: 'white', padding: isMobile ? '12px' : '12px 24px', 
                         borderRadius: '999px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
                         display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 100,
