@@ -10,12 +10,13 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
-    Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2
+    Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
+    Activity, Package, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
-import { ArrangementViewer, ProjectInfoPanel, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint } from '../components/ArrangementViewer';
+import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint } from '../components/ArrangementViewer';
 
 interface TrackSample {
     id: string;
@@ -98,6 +99,7 @@ export const TrackPage: React.FC = () => {
     const [isReposted, setIsReposted] = useState(false);
     const [repostCount, setRepostCount] = useState(0);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+    const [expandedSamples, setExpandedSamples] = useState(false);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -270,247 +272,313 @@ export const TrackPage: React.FC = () => {
     return (
         <DiscoveryLayout activeTab="discovery">
             <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
-                {/* Back Link */}
-                <button 
-                    onClick={() => window.location.href = `/profile/${track.profile.username}`}
-                    style={{ background: 'none', border: 'none', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: spacing.xl, padding: 0 }}
-                >
-                    <ArrowLeft size={16} /> Back to {track.profile.displayName || track.profile.username}'s Profile
-                </button>
+                {/* ═══ HERO SECTION ═══ */}
+                <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
+                    {/* Blurred background */}
+                    {track.coverUrl && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.3)', transform: 'scale(1.2)' }} />
+                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(14,18,26,0.92) 0%, rgba(14,18,26,0.75) 100%)` }} />
+                    
+                    <div style={{ position: 'relative', padding: isMobile ? '20px' : '40px' }}>
+                        {/* Back link */}
+                        <button 
+                            onClick={() => window.location.href = `/profile/${track.profile.username}`}
+                            style={{ background: 'none', border: 'none', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: 0, marginBottom: '24px', fontSize: '13px' }}
+                        >
+                            <ArrowLeft size={14} /> {track.profile.displayName || track.profile.username}
+                        </button>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', gap: isMobile ? '24px' : '40px' }}>
-                    {/* Left: Artwork & Main Action */}
-                    <div style={isMobile ? { display: 'flex', gap: '16px', alignItems: 'flex-start' } : {}}>
-                        <div style={{ 
-                            aspectRatio: '1/1', 
-                            borderRadius: borderRadius.lg, 
-                            overflow: 'hidden', 
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            position: 'relative',
-                            width: isMobile ? '120px' : '100%',
-                            flexShrink: 0
-                        }}>
-                            {track.coverUrl ? (
-                                <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
-                                    <FujiLogo size={isMobile ? 120 : 160} color={colors.primary} opacity={0.2} />
-                                </div>
-                            )}
-                            
-                            <button 
+                        <div style={{ display: 'flex', gap: isMobile ? '16px' : '32px', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start' }}>
+                            {/* Cover art */}
+                            <div style={{ 
+                                width: isMobile ? '200px' : '280px', height: isMobile ? '200px' : '280px', 
+                                borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)',
+                                position: 'relative', cursor: 'pointer',
+                            }}
                                 onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, [track])}
-                                style={{ 
-                                    position: 'absolute',
-                                    top: isMobile ? '50%' : undefined,
-                                    bottom: isMobile ? undefined : '20px',
-                                    left: isMobile ? '50%' : undefined,
-                                    right: isMobile ? undefined : '20px',
-                                    transform: isMobile ? 'translate(-50%, -50%)' : undefined,
-                                    width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px', borderRadius: '50%',
-                                    backgroundColor: colors.primary, color: 'white',
-                                    border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', boxShadow: `0 4px 20px ${colors.primary}44`,
-                                    transition: 'transform 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = isMobile ? 'translate(-50%, -50%) scale(1.05)' : 'scale(1.05)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = isMobile ? 'translate(-50%, -50%)' : 'scale(1)'}
                             >
-                                {isPlaying ? <Pause size={isMobile ? 24 : 32} fill="white" /> : <Play size={isMobile ? 24 : 32} fill="white" style={{ marginLeft: '4px' }} />}
-                            </button>
-                            <button
-                                onClick={toggleFavourite}
-                                title={isFavourited ? 'Remove from favourites' : 'Add to favourites'}
-                                style={{
-                                    position: 'absolute',
-                                    top: isMobile ? '8px' : undefined,
-                                    bottom: isMobile ? undefined : '20px',
-                                    right: isMobile ? '8px' : undefined,
-                                    left: isMobile ? undefined : '20px',
-                                    width: isMobile ? '36px' : '48px', height: isMobile ? '36px' : '48px', borderRadius: '50%',
-                                    backgroundColor: isFavourited ? '#EF4444' : 'rgba(0,0,0,0.6)',
-                                    color: 'white', border: '2px solid rgba(255,255,255,0.2)',
+                                {track.coverUrl ? (
+                                    <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
+                                        <FujiLogo size={isMobile ? 80 : 120} color={colors.primary} opacity={0.2} />
+                                    </div>
+                                )}
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    backgroundColor: isPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', transition: 'all 0.2s ease',
-                                    backdropFilter: 'blur(8px)',
+                                    opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s',
                                 }}
-                                onMouseEnter={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.7)'; }}
-                                onMouseLeave={(e) => { if (!isFavourited) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)'; }}
-                            >
-                                <Heart size={isMobile ? 16 : 22} fill={isFavourited ? 'white' : 'none'} />
-                            </button>
-                            {/* Repost button */}
-                            <button
-                                onClick={toggleRepost}
-                                title={isReposted ? 'Remove repost' : 'Repost'}
-                                style={{
-                                    position: 'absolute',
-                                    top: isMobile ? '8px' : undefined,
-                                    bottom: isMobile ? undefined : '20px',
-                                    right: isMobile ? '52px' : undefined,
-                                    left: isMobile ? undefined : '80px',
-                                    width: isMobile ? '36px' : '48px', height: isMobile ? '36px' : '48px', borderRadius: '50%',
-                                    backgroundColor: isReposted ? colors.primary : 'rgba(0,0,0,0.6)',
-                                    color: 'white', border: '2px solid rgba(255,255,255,0.2)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', transition: 'all 0.2s ease',
-                                    backdropFilter: 'blur(8px)',
-                                }}
-                                onMouseEnter={(e) => { if (!isReposted) e.currentTarget.style.backgroundColor = `${colors.primary}B3`; }}
-                                onMouseLeave={(e) => { if (!isReposted) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)'; }}
-                            >
-                                <Repeat2 size={isMobile ? 16 : 22} />
-                            </button>
-                        </div>
+                                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.opacity = '0'; }}
+                                >
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 24px ${colors.primary}66` }}>
+                                        {isPlaying ? <Pause size={28} fill="white" color="white" /> : <Play size={28} fill="white" color="white" style={{ marginLeft: '3px' }} />}
+                                    </div>
+                                </div>
+                            </div>
 
-                        {/* Quick Stats Banner */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: isMobile ? 0 : spacing.xl, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)', flex: isMobile ? 1 : undefined }}>
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Plays</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{track.playCount.toLocaleString()}</div>
-                            </div>
-                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Duration</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{formatDuration(track.duration)}</div>
-                            </div>
-                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Favourites</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{favouriteCount.toLocaleString()}</div>
-                            </div>
-                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Reposts</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{repostCount.toLocaleString()}</div>
-                            </div>
-                        </div>
-                    </div>
+                            {/* Track info */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
+                                <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{track.title}</h1>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>{track.profile.displayName || track.profile.username}</a>
+                                </div>
 
-                    {/* Right: Info & Metadata */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-                        <div>
-                            <h1 style={{ fontSize: isMobile ? '2rem' : '3rem', margin: '0 0 8px 0', lineHeight: 1.1 }}>{track.title}</h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: isMobile ? '1.1rem' : '1.25rem', color: colors.textSecondary }}>
-                                by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none' }}>{track.profile.displayName || track.profile.username}</a>
-                            </div>
-                        </div>
-
-                        {track.description && (
-                            <div style={{ padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
-                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.9rem' : '1rem' }}>{track.description}</p>
-                            </div>
-                        )}
-
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(200px, 1fr))', gap: spacing.md }}>
-                            {track.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={track.artist} />}
-                            {track.album && <InfoItem icon={<Music size={16}/>} label="Album" value={track.album} />}
-                            {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
-                            {track.bpm && <InfoItem icon={<Zap size={16}/>} label="BPM" value={track.bpm.toString()} />}
-                            {track.key && <InfoItem icon={<Tag size={16}/>} label="Key" value={track.key} />}
-                            <InfoItem icon={<Clock size={16}/>} label="Uploaded" value={new Date(track.createdAt).toLocaleDateString()} />
-                        </div>
-
-                        {track.genres && track.genres.length > 0 && (
-                            <div style={{ marginTop: spacing.md }}>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {track.genres.map(g => (
-                                        <span key={g.genre.id} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                            {g.genre.name}
+                                {/* Quick metadata badges */}
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    {track.bpm && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(242,123,19,0.15)', border: '1px solid rgba(242,123,19,0.3)', fontSize: '13px', fontWeight: 600, color: colors.primary }}>
+                                            <Activity size={13} /> {track.bpm} BPM
                                         </span>
+                                    )}
+                                    {track.key && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '13px', fontWeight: 600, color: '#A78BFA' }}>
+                                            <Tag size={13} /> {track.key}
+                                        </span>
+                                    )}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                        <Clock size={13} /> {formatDuration(track.duration)}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                        <Calendar size={13} /> {new Date(track.createdAt).toLocaleDateString()}
+                                    </span>
+                                </div>
+
+                                {/* Genre tags */}
+                                {track.genres && track.genres.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                        {track.genres.map(g => (
+                                            <span key={g.genre.id} style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                {g.genre.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Stats row */}
+                                <div style={{ display: 'flex', gap: isMobile ? '16px' : '24px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    {[
+                                        { icon: <Play size={14} fill={colors.textSecondary} />, value: track.playCount.toLocaleString(), label: 'plays' },
+                                        { icon: <Heart size={14} fill={isFavourited ? '#EF4444' : 'none'} color={isFavourited ? '#EF4444' : colors.textSecondary} />, value: favouriteCount.toLocaleString(), label: 'likes' },
+                                        { icon: <Repeat2 size={14} color={isReposted ? colors.primary : colors.textSecondary} />, value: repostCount.toLocaleString(), label: 'reposts' },
+                                    ].map((stat, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
+                                            {stat.icon}
+                                            <span style={{ fontWeight: 700, color: colors.textPrimary }}>{stat.value}</span> {stat.label}
+                                        </div>
                                     ))}
                                 </div>
-                            </div>
-                        )}
 
-                        <div style={{ marginTop: 'auto', display: 'flex', gap: spacing.md, flexWrap: 'wrap' }}>
-                            {track.allowAudioDownload && (
-                                <button 
-                                    onClick={() => window.open(track.url, '_blank')}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                    <Download size={18} /> Download Audio
-                                </button>
-                            )}
-                            {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
-                                <>
-                                    <button
-                                        onClick={() => setFlpConfirmOpen(true)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                                    >
-                                        <Download size={18} /> Download .flp
+                                {/* Action buttons */}
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    <button onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, [track])}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px', boxShadow: `0 4px 16px ${colors.primary}44` }}>
+                                        {isPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" />} {isPlaying ? 'Pause' : 'Play'}
                                     </button>
-                                    <ConfirmModal
-                                        open={flpConfirmOpen}
-                                        title="Project File Download"
-                                        message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?`}
-                                        confirmLabel="Download"
-                                        onConfirm={() => { setFlpConfirmOpen(false); window.open(track.projectFileUrl!, '_blank'); }}
-                                        onCancel={() => setFlpConfirmOpen(false)}
-                                    />
-                                </>
-                            )}
-                            {track.projectZipUrl && (track.allowProjectDownload ?? true) && (
-                                <a
-                                    href={`/api/tracks/${track.id}/download-zip`}
-                                    download
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}
-                                >
-                                    <Download size={18} /> Download Loop ZIP
-                                </a>
-                            )}
-                            <button 
-                                onClick={() => {
-                                    navigator.clipboard.writeText(window.location.href);
-                                    showToast('Link copied to clipboard!', 'success');
-                                }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                            >
-                                <Share2 size={18} /> Share Track
-                            </button>
-                            {user && (
-                                <button 
-                                    onClick={() => setShowPlaylistModal(true)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                    <ListPlus size={18} /> Add to Playlist
-                                </button>
-                            )}
-                            {canEdit && (
-                                <button 
-                                    onClick={openEditMode}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                    <Edit3 size={18} /> Edit Track
-                                </button>
-                            )}
+                                    <button onClick={toggleFavourite}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', border: isFavourited ? '1px solid #EF4444' : '1px solid rgba(255,255,255,0.15)', backgroundColor: isFavourited ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)', color: isFavourited ? '#EF4444' : 'white', transition: 'all 0.2s' }}>
+                                        <Heart size={15} fill={isFavourited ? '#EF4444' : 'none'} /> {isFavourited ? 'Liked' : 'Like'}
+                                    </button>
+                                    <button onClick={toggleRepost}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', border: isReposted ? `1px solid ${colors.primary}` : '1px solid rgba(255,255,255,0.15)', backgroundColor: isReposted ? `${colors.primary}22` : 'rgba(255,255,255,0.05)', color: isReposted ? colors.primary : 'white', transition: 'all 0.2s' }}>
+                                        <Repeat2 size={15} /> {isReposted ? 'Reposted' : 'Repost'}
+                                    </button>
+                                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                        <Share2 size={15} /> Share
+                                    </button>
+                                    {user && (
+                                        <button onClick={() => setShowPlaylistModal(true)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                            <ListPlus size={15} /> Playlist
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button onClick={openEditMode}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}11`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                            <Edit3 size={15} /> Edit
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {track.arrangement && track.arrangement.tracks.some(t => t.clips.length > 0) && (
-                    <ArrangementViewer
-                        arrangement={track.arrangement}
-                        duration={track.duration}
-                        currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
-                        isPlaying={isPlaying}
-                        projectFileUrl={track.projectFileUrl}
-                        projectZipUrl={track.projectZipUrl}
-                        trackId={track.id}
-                        zoom={zoom}
-                        setZoom={setZoom}
-                        samplesMap={Object.fromEntries(
-                            (track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])
+                {/* ═══ FL STUDIO PROJECT SECTION ═══ */}
+                {track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo) && (
+                    <div style={{ 
+                        marginBottom: '24px', borderRadius: '16px', overflow: 'hidden',
+                        border: '1px solid rgba(242,123,19,0.2)',
+                        background: 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)',
+                    }}>
+                        {/* Section header */}
+                        <div style={{ 
+                            padding: isMobile ? '16px 20px' : '20px 28px',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '40px', height: '40px', borderRadius: '10px',
+                                    background: `linear-gradient(135deg, ${colors.primary}, #E65100)`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: `0 4px 16px ${colors.primary}44`,
+                                }}>
+                                    <Layers size={20} color="white" />
+                                </div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>FL Studio Project</h2>
+                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                                        {track.arrangement.bpm && `${track.arrangement.bpm} BPM`}
+                                        {track.arrangement.bpm && track.arrangement.tracks.length > 0 && ' · '}
+                                        {track.arrangement.tracks.length > 0 && `${track.arrangement.tracks.filter(t => t.clips.length > 0).length} tracks`}
+                                        {track.arrangement.projectInfo && track.arrangement.projectInfo.plugins.length > 0 && ` · ${track.arrangement.projectInfo.plugins.length} plugins`}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Download buttons */}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
+                                    <>
+                                        <button
+                                            onClick={() => setFlpConfirmOpen(true)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}15`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
+                                            <Download size={14} /> .flp
+                                        </button>
+                                        <ConfirmModal
+                                            open={flpConfirmOpen}
+                                            title="Project File Download"
+                                            message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?`}
+                                            confirmLabel="Download"
+                                            onConfirm={() => { setFlpConfirmOpen(false); window.open(track.projectFileUrl!, '_blank'); }}
+                                            onCancel={() => setFlpConfirmOpen(false)}
+                                        />
+                                    </>
+                                )}
+                                {track.projectZipUrl && (track.allowProjectDownload ?? true) && (
+                                    <a href={`/api/tracks/${track.id}/download-zip`} download
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}>
+                                        <Package size={14} /> Loop ZIP
+                                    </a>
+                                )}
+                                {track.allowAudioDownload && (
+                                    <button onClick={() => window.open(track.url, '_blank')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
+                                        <Download size={14} /> Audio
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Plugins & Samples */}
+                        {track.arrangement.projectInfo && (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr'), gap: '20px' }}>
+                                    {/* Plugins */}
+                                    {track.arrangement.projectInfo.plugins.length > 0 && (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                <Zap size={15} color={colors.primary} />
+                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                    Plugins ({track.arrangement.projectInfo.plugins.length})
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {track.arrangement.projectInfo.plugins.map((plugin, i) => (
+                                                    <span key={i} style={{
+                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                        backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)',
+                                                        color: '#F0A060',
+                                                    }}>{plugin}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Samples */}
+                                    {track.arrangement.projectInfo.samples.length > 0 && (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                <FileAudio size={15} color="#A78BFA" />
+                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                    Samples ({track.arrangement.projectInfo.samples.length})
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {(expandedSamples ? track.arrangement.projectInfo.samples : track.arrangement.projectInfo.samples.slice(0, 12)).map((sample, i) => (
+                                                    <span key={i} style={{
+                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                        backgroundColor: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
+                                                        color: '#C4A8FF', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                    }}>{sample}</span>
+                                                ))}
+                                            </div>
+                                            {track.arrangement.projectInfo.samples.length > 12 && (
+                                                <button onClick={() => setExpandedSamples(!expandedSamples)}
+                                                    style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                    {expandedSamples ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show all {track.arrangement.projectInfo.samples.length} samples</>}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
-                    />
+
+                        {/* Arrangement timeline */}
+                        {track.arrangement.tracks.some(t => t.clips.length > 0) && (
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
+                                <ArrangementViewer
+                                    arrangement={track.arrangement}
+                                    duration={track.duration}
+                                    currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
+                                    isPlaying={isPlaying}
+                                    projectFileUrl={track.projectFileUrl}
+                                    projectZipUrl={track.projectZipUrl}
+                                    trackId={track.id}
+                                    zoom={zoom}
+                                    setZoom={setZoom}
+                                    samplesMap={Object.fromEntries(
+                                        (track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])
+                                    )}
+                                />
+                            </div>
+                        )}
+                    </div>
                 )}
 
-                {track.arrangement?.projectInfo && (
-                    (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
-                        <ProjectInfoPanel projectInfo={track.arrangement.projectInfo} />
-                    )
+                {/* ═══ TRACK DETAILS (no FLP) ═══ */}
+                {!track.arrangement && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                        {track.allowAudioDownload && (
+                            <button onClick={() => window.open(track.url, '_blank')}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                <Download size={16} /> Download Audio
+                            </button>
+                        )}
+                    </div>
                 )}
+
+                {/* Description & metadata */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                    <div>
+                        {track.description && (
+                            <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `4px solid ${colors.primary}`, marginBottom: '16px' }}>
+                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{track.description}</p>
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {track.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={track.artist} />}
+                        {track.album && <InfoItem icon={<Music size={16}/>} label="Album" value={track.album} />}
+                        {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
+                    </div>
+                </div>
 
                 {/* Comments */}
                 <CommentSection trackId={track.id} ownerId={track.profile.userId} />

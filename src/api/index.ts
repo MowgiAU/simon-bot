@@ -5629,6 +5629,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             audioUrl = track.url;
             coverUrl = track.coverUrl || undefined;
             duration = track.duration || 0;
+            arrangement = track.arrangement as object | null;
             // Use profile display name if available
             username = track.profile.displayName || track.profile.username || username;
             avatarUrl = track.profile.avatar || avatarUrl;
