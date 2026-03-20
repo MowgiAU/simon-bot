@@ -386,7 +386,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             <img
                                                 src={battle.cardImageUrl}
                                                 alt={battle.title}
-                                                style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px', display: 'block' }}
+                                                style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px', display: 'block' }}
                                             />
                                         )}
                                         {battleDesc && (
