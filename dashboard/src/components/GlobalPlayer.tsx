@@ -62,7 +62,7 @@ export const GlobalPlayer: React.FC = () => {
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value));
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => setVolume(parseFloat(e.target.value));
 
-    const playerHeight = isMobile ? 88 : 80;
+    const playerHeight = isMobile ? 100 : 80;
     const bottomOffset = isMobile ? 60 : 0;
 
     const t = player.currentTrack as any;
@@ -205,7 +205,7 @@ export const GlobalPlayer: React.FC = () => {
                             </button>
                         </div>
                         {/* Row 2: Prev / Play / Next + seek + duration */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 10px 8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 10px 16px' }}>
                             <button onClick={prevTrack} aria-label="Previous" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '4px', flexShrink: 0 }}>
                                 <SkipBack size={20} />
                             </button>

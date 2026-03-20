@@ -7206,6 +7206,10 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
         const track = await db.track.findUnique({ where: { id: trackId }, select: { id: true, title: true, slug: true, profile: { select: { userId: true, username: true } } } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
 
+        if (track.profile.userId === userId) {
+            return res.status(400).json({ error: "You can't repost your own track" });
+        }
+
         const existing = await db.trackRepost.findUnique({
             where: { userId_trackId: { userId, trackId } },
         });

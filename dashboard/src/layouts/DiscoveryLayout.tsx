@@ -211,28 +211,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             </a>
                         </>
                     )}
-                    {!isMobile && onSearchChange && (
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <Search size={15} color="#B9C3CE" style={{ position: 'absolute', left: '14px' }} />
-                            <input type="text" placeholder={searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search"
-                                style={{ width: '280px', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '999px', padding: '7px 14px 7px 40px', fontSize: '12px', color: 'white', outline: 'none' }} />
-                        </div>
-                    )}
                     </div>
                     {/* end right-side actions */}
                 </div>
                 {/* end main row */}
-
-
-
-                {/* Mobile search row */}
-                {isMobile && onSearchChange && (
-                    <div style={{ padding: '0 12px 10px', display: 'flex', alignItems: 'center', position: 'relative' }}>
-                        <Search size={15} color="#B9C3CE" style={{ position: 'absolute', left: '26px' }} />
-                        <input type="text" placeholder={searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search"
-                            style={{ width: '100%', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '999px', padding: '8px 14px 8px 38px', fontSize: '13px', color: 'white', outline: 'none' }} />
-                    </div>
-                )}
             </header>
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>

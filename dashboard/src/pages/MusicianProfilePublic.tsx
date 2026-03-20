@@ -106,6 +106,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     };
 
     const toggleRepost = async (trackId: string) => {
+        if (isOwnProfile) return;
         try {
             const { data } = await axios.post(`/api/tracks/${trackId}/repost`, {}, { withCredentials: true });
             setReposts(prev => ({ ...prev, [trackId]: data.reposted }));
@@ -680,6 +681,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                     <Heart size={14} fill={isFav ? '#EF4444' : 'none'} />
                                                                     <span>{counts.favourites || ''}</span>
                                                                 </button>
+                                                                {!isOwnProfile && (
                                                                 <button onClick={() => toggleRepost(track.id)}
                                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRep ? colors.primary : colors.textTertiary, fontSize: '12px', padding: 0, transition: 'color 0.2s' }}
                                                                     onMouseEnter={e => { if (!isRep) e.currentTarget.style.color = colors.primary; }}
@@ -687,6 +689,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                     <Repeat2 size={14} />
                                                                     <span>{counts.reposts || ''}</span>
                                                                 </button>
+                                                                )}
                                                                 <button onClick={() => navigate(`/track/${trackArtistUsername}/${track.slug || track.id}`)}
                                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textTertiary, fontSize: '12px', padding: 0 }}
                                                                     onMouseEnter={e => e.currentTarget.style.color = colors.textPrimary}

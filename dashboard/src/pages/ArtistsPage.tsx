@@ -127,8 +127,6 @@ export const ArtistsPage: React.FC = () => {
     return (
         <DiscoveryLayout 
             sidebar={sidebarContent} 
-            search={search} 
-            onSearchChange={setSearch}
             activeTab="artists"
         >
             <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
@@ -155,6 +153,19 @@ export const ArtistsPage: React.FC = () => {
                             {artists.length} artists found {selectedGenre ? `in ${selectedGenre}` : 'in the community'}
                         </p>
                     </div>
+                </div>
+
+                {/* Search bar */}
+                <div style={{ position: 'relative', marginBottom: '24px' }}>
+                    <Search size={15} color="#B9C3CE" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                    <input
+                        type="text"
+                        placeholder="Search artists..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        aria-label="Search artists"
+                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 16px 10px 40px', fontSize: '13px', color: 'white', outline: 'none' }}
+                    />
                 </div>
 
                 {loading ? (

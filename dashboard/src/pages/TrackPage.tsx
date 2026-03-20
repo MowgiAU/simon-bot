@@ -189,6 +189,7 @@ export const TrackPage: React.FC = () => {
 
     const toggleRepost = async () => {
         if (!track || !user) return;
+        if (isOwner) { showToast("You can't repost your own track", 'error'); return; }
         try {
             const { data } = await axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true });
             setIsReposted(data.reposted);
@@ -383,10 +384,12 @@ export const TrackPage: React.FC = () => {
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', border: isFavourited ? '1px solid #EF4444' : '1px solid rgba(255,255,255,0.15)', backgroundColor: isFavourited ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)', color: isFavourited ? '#EF4444' : 'white', transition: 'all 0.2s' }}>
                                         <Heart size={15} fill={isFavourited ? '#EF4444' : 'none'} /> {isFavourited ? 'Liked' : 'Like'}
                                     </button>
+                                    {!isOwner && (
                                     <button onClick={toggleRepost}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', border: isReposted ? `1px solid ${colors.primary}` : '1px solid rgba(255,255,255,0.15)', backgroundColor: isReposted ? `${colors.primary}22` : 'rgba(255,255,255,0.05)', color: isReposted ? colors.primary : 'white', transition: 'all 0.2s' }}>
                                         <Repeat2 size={15} /> {isReposted ? 'Reposted' : 'Repost'}
                                     </button>
+                                    )}
                                     <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); }}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
                                         <Share2 size={15} /> Share
