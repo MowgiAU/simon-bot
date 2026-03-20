@@ -5,9 +5,8 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import axios from 'axios';
 import { 
-    Music, Share2, Hammer, Globe, Instagram, Youtube, MessageCircle, Radio, 
-    ArrowLeft, Edit3, PlayCircle, Pause, SkipBack, SkipForward, 
-    Shuffle, Repeat, Volume2, ExternalLink, Award, Layout, Zap, Search, Heart, Play, Copy, Check,
+    Music, Hammer, Instagram, Youtube, MessageCircle,
+    Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
     Swords, Trophy, Flame, UserPlus, UserCheck
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
@@ -212,523 +211,353 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     return (
         <div style={{ 
             color: '#F8FAFC',
-            padding: isMobile ? '12px' : '24px',
-            maxWidth: '1600px',
-            margin: '0 auto',
             fontFamily: 'Inter, system-ui, sans-serif'
         }}>
-            {/* Featured Release Hero (Playlist/Album/EP/Single) */}
-            {featuredPlaylist && (
-            <div style={{ 
-                borderRadius: '12px', overflow: 'hidden', 
-                border: '1px solid rgba(255,255,255,0.05)',
-                marginBottom: '16px',
-                position: 'relative',
-                minHeight: isMobile ? '260px' : '300px',
-                display: 'flex' 
-            }}>
-                {/* Blurred Background */}
-                {featuredPlaylist.coverUrl && (
-                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+            {/* ── HERO BANNER ── */}
+            <div style={{ position: 'relative', minHeight: isMobile ? '320px' : '380px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
+                {/* Background — uses featured art or avatar as blurred backdrop */}
+                {(trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl) && (
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(60px) saturate(1.8)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
                 )}
-                {/* Gradient Overlay */}
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(20,24,38,0.97) 0%, rgba(20,24,38,0.85) 50%, rgba(20,24,38,0.6) 100%)', pointerEvents: 'none' }} />
-                <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '32px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '20px' : '32px' }}>
-                    {/* Cover Art */}
-                    <div style={{ flexShrink: 0, width: isMobile ? '120px' : '190px', height: isMobile ? '120px' : '190px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px rgba(0,0,0,0.6)' }}>
-                        {featuredPlaylist.coverUrl ? (
-                            <img src={featuredPlaylist.coverUrl} alt={featuredPlaylist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Music size={isMobile ? 40 : 64} color={colors.primary} />
-                            </div>
-                        )}
-                    </div>
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ backgroundColor: featuredPlaylist.releaseType === 'album' ? '#7C3AED' : featuredPlaylist.releaseType === 'ep' ? '#0369A1' : featuredPlaylist.releaseType === 'single' ? '#B45309' : colors.primary, color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                {featuredPlaylist.releaseType ? featuredPlaylist.releaseType : 'Featured Release'}
-                            </span>
-                        </div>
-                        <h2 style={{ fontSize: isMobile ? '22px' : '38px', fontWeight: '800', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.2, wordWrap: 'break-word' }}>
-                            {featuredPlaylist.name}
-                        </h2>
-                        <p style={{ color: '#B9C3CE', fontSize: isMobile ? '12px' : '14px', margin: '0 0 8px' }}>
-                            {profile.displayName || profile.username}
-                        </p>
-                        {featuredPlaylist.description && (
-                            <p style={{ color: 'rgba(185,195,206,0.75)', fontSize: '13px', margin: '0 0 14px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                {featuredPlaylist.description}
-                            </p>
-                        )}
-                        {/* Track Marquee Pills */}
-                        {featuredPlaylistTracks.length > 0 && !isMobile && (
-                            <div style={{ overflow: 'hidden', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', gap: '8px', animation: 'marquee-release 20s linear infinite', width: 'max-content' }}>
-                                    {[...featuredPlaylistTracks, ...featuredPlaylistTracks].map((t, i) => (
-                                        <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '999px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, color: '#B9C3CE', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                            {t.title}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {/* Play Button */}
-                        <button
-                            onClick={() => {
-                                if (featuredPlaylistTracks.length > 0) {
-                                    const first = featuredPlaylistTracks[0];
-                                    player.currentTrack?.id === first.id ? togglePlay() : setTrack(first, featuredPlaylistTracks);
-                                }
-                            }}
-                            disabled={featuredPlaylistTracks.length === 0}
-                            style={{ padding: isMobile ? '10px 20px' : '12px 32px', borderRadius: '999px', backgroundColor: colors.primary, display: 'inline-flex', alignItems: 'center', gap: '10px', border: 'none', color: 'white', cursor: featuredPlaylistTracks.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: isMobile ? '12px' : '14px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 4px 15px ${colors.primary}44`, opacity: featuredPlaylistTracks.length > 0 ? 1 : 0.5 }}
-                        >
-                            {player.currentTrack?.id === featuredPlaylistTracks[0]?.id && player.isPlaying ? <><Pause size={18} fill="currentColor" /> Pause</> : <><Play size={18} fill="currentColor" /> Play {featuredPlaylist.releaseType === 'album' ? 'Album' : featuredPlaylist.releaseType === 'ep' ? 'EP' : featuredPlaylist.releaseType === 'single' ? 'Single' : 'Release'}</>}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            )}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)', pointerEvents: 'none' }} />
 
-            {/* Header / Player Section */}
-            {featuredTrack && (
-            <div style={{ 
-                backgroundColor: '#242C3D', 
-                borderRadius: '12px', 
-                overflow: 'hidden', 
-                border: '1px solid rgba(255,255,255,0.05)',
-                marginBottom: '16px',
-                position: 'relative'
-            }}>
-                <div style={{ 
-                    background: 'linear-gradient(90deg, #242C3D 0%, #1A1E2E 100%)',
-                    padding: isMobile ? '20px' : '32px',
-                    display: 'flex',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: isMobile ? 'flex-start' : 'center',
-                    gap: isMobile ? '20px' : '32px'
-                }}>
-                    {/* Track Cover */}
-                    <div style={{ 
-                        position: 'relative', 
-                        width: isMobile ? '100%' : '192px', 
-                        height: isMobile ? 'auto' : '192px', 
-                        aspectRatio: isMobile ? '1/1' : 'auto',
-                        flexShrink: 0 
-                    }}>
-                        <div style={{ 
-                            width: '100%', height: '100%', 
-                            borderRadius: '8px', overflow: 'hidden',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
-                        }}>
-                            {trackCoverUrl ? (
-                                <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Music size={isMobile ? 80 : 64} color={colors.primary} />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Player Content */}
-                    <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ backgroundColor: '#F27B13', color: 'white', fontSize: isMobile ? '8px' : '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
-                        </div>
-                        <h2 style={{ 
-                            fontSize: isMobile ? '20px' : '36px', 
-                            fontWeight: '800', 
-                            margin: '0 0 4px 0', 
-                            letterSpacing: '-0.02em', 
-                            lineHeight: 1.2,
-                            wordWrap: 'break-word',
-                            overflowWrap: 'break-word'
-                        }}>
-                            {profile.displayName || profile.username} - {featuredTrack?.title || 'No track available'}
-                        </h2>
-                        <p style={{ 
-                            color: '#B9C3CE', 
-                            fontSize: isMobile ? '13px' : '14px', 
-                            marginBottom: isMobile ? '12px' : '24px',
-                            lineHeight: 1.4
-                        }}>{featuredTrack?.description || 'Listen to this featured track below.'}</p>
-                        
-                        {/* Progress Bar */}
-                        {player.currentTrack?.id === featuredTrack?.id ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary }}>
-                                    {Math.floor(player.currentTime/60)}:{(Math.floor(player.currentTime%60)).toString().padStart(2, '0')}
-                                </span>
-                                <div style={{ flex: 1, height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', position: 'relative' }}>
-                                    <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime/player.duration)*100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px', boxShadow: `0 0 10px ${colors.primary}88` }} />
-                                    <div style={{ position: 'absolute', top: '50%', left: `${(player.currentTime/player.duration)*100}%`, width: '12px', height: '12px', backgroundColor: 'white', borderRadius: '50%', transform: 'translate(-50%, -50%)', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                                </div>
-                                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#B9C3CE' }}>
-                                    {Math.floor(player.duration/60)}:{(Math.floor(player.duration%60)).toString().padStart(2, '0')}
-                                </span>
-                            </div>
-                        ) : (
-                            <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', marginBottom: isMobile ? '24px' : '32px' }} />
-                        )}
-
-                        {/* Play Button Only */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-                            <button 
-                                onClick={() => {
-                                    if (featuredTrack) {
-                                        player.currentTrack?.id === featuredTrack.id 
-                                            ? togglePlay() 
-                                            : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
-                                    }
-                                }}
-                                style={{ 
-                                    padding: isMobile ? '12px 24px' : '12px 32px', borderRadius: '999px', 
-                                    backgroundColor: colors.primary, display: 'flex', 
-                                    alignItems: 'center', justifyContent: 'center', gap: '12px',
-                                    border: 'none', color: 'white', cursor: 'pointer',
-                                    fontWeight: 'bold', fontSize: isMobile ? '12px' : '14px', textTransform: 'uppercase', letterSpacing: '0.05em',
-                                    transition: 'transform 0.1s, background-color 0.2s',
-                                    width: isMobile ? '100%' : 'auto',
-                                    boxShadow: `0 4px 15px ${colors.primary}44`
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                                {player.currentTrack?.id === featuredTrack?.id && player.isPlaying ? (
-                                    <><Pause size={20} fill="currentColor" /> Pause</>
-                                ) : (
-                                    <><Play size={20} fill="currentColor" /> Play Featured Track</>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* More Tracks (Hidden on mobile) */}
-                    {!isMobile && profile.tracks && profile.tracks.length > 1 && (
-                        <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', width: '256px' }}>
-                            <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>More Tracks</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {profile.tracks.filter(t => t.id !== featuredTrack?.id).slice(0, 2).map(t => (
-                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => setTrack(t, profile.tracks)}>
-                                        <div style={{ width: '40px', height: '40px', backgroundColor: '#1e293b', borderRadius: '4px', backgroundImage: `url(${t.coverUrl})`, backgroundSize: 'cover' }} />
-                                        <div>
-                                            <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0, color: player.currentTrack?.id === t.id ? colors.primary : 'white' }}>{t.title}</p>
-                                            <p style={{ fontSize: '9px', color: '#B9C3CE', margin: 0 }}>Play Track</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-            )}
-
-            {/* Grid Layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '12px' }}>
-                
-                {/* Artist Info Card */}
-                <div style={{ 
-                    gridColumn: isMobile ? 'span 12' : 'span 5',
-                    backgroundColor: '#242C3D', padding: isMobile ? '20px' : '24px', borderRadius: '12px',
-                    border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-                }}>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'center', textAlign: isMobile ? 'center' : 'left', gap: '24px' }}>
-                        <div style={{ 
-                            width: '128px', height: '128px', borderRadius: '50%', 
-                            border: `4px solid ${colors.primary}33`, padding: '4px', flexShrink: 0
-                        }}>
+                {/* Hero Content */}
+                <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
+                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-end', gap: isMobile ? '20px' : '32px' }}>
+                        {/* Avatar */}
+                        <div style={{ width: isMobile ? '140px' : '180px', height: isMobile ? '140px' : '180px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '4px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
                             {avatarUrl ? (
-                                <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                                <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', fontWeight: 800 }}>
                                     {profile.username.charAt(0).toUpperCase()}
                                 </div>
                             )}
                         </div>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                                <h2 style={{ fontSize: isMobile ? '26px' : '30px', fontWeight: '700', margin: 0, letterSpacing: '-0.02em' }}>{profile.displayName || profile.username}</h2>
-                                <button
-                                    onClick={handleCopyProfileLink}
-                                    title="Share Profile"
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '6px',
-                                        backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.05)',
-                                        color: copied ? '#4caf50' : colors.textSecondary,
-                                        border: `1px solid ${copied ? 'rgba(76,175,80,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                                        borderRadius: '6px', padding: '5px 10px',
-                                        cursor: 'pointer', fontSize: '11px', fontWeight: 'bold',
-                                        transition: 'all 0.2s', whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
-                                </button>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left', minWidth: 0 }}>
+                            <p style={{ fontSize: '11px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
+                            <h1 style={{ fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word' }}>
+                                {profile.displayName || profile.username}
+                            </h1>
+                            {profile.bio && (
+                                <p style={{ color: 'rgba(185,195,206,0.8)', fontSize: '14px', margin: '0 0 14px', lineHeight: 1.5, maxWidth: '520px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {profile.bio}
+                                </p>
+                            )}
+                            {/* Genre Chips + Stats inline */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '16px' }}>
+                                {profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
+                                    <span key={i} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}4D`, color: colors.primary, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{g.genre.name}</span>
+                                ))}
+                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
+                                {stats.map((s, i) => (
+                                    <span key={i} style={{ fontSize: '12px', color: '#B9C3CE' }}>
+                                        <strong style={{ color: 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
+                                    </span>
+                                ))}
+                            </div>
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                 {!isOwnProfile && (
-                                    <button
-                                        onClick={toggleFollow}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            backgroundColor: isFollowing ? `${colors.primary}25` : colors.primary,
-                                            color: isFollowing ? colors.primary : 'white',
-                                            border: isFollowing ? `1px solid ${colors.primary}4D` : 'none',
-                                            borderRadius: '6px', padding: '5px 12px',
-                                            cursor: 'pointer', fontSize: '11px', fontWeight: 'bold',
-                                            transition: 'all 0.2s', whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        {isFollowing ? <><UserCheck size={13} /> Following</> : <><UserPlus size={13} /> Follow</>}
+                                    <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${colors.primary}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : colors.primary, color: isFollowing ? colors.primary : 'white', transition: 'all 0.2s' }}>
+                                        {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
                                     </button>
                                 )}
+                                <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)', color: copied ? '#4caf50' : '#B9C3CE', transition: 'all 0.2s' }}>
+                                    {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
+                                </button>
+                                {/* Social Icons inline */}
+                                {socials.map(s => {
+                                    const url = (profile as any)[s.key];
+                                    if (!url) return null;
+                                    const inner = (
+                                        <div style={{ width: '34px', height: '34px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${s.color}20`; e.currentTarget.style.borderColor = `${s.color}60`; }}
+                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
+                                            {React.cloneElement(s.icon as React.ReactElement, { size: 15, color: s.color })}
+                                        </div>
+                                    );
+                                    return s.isHandle ? (
+                                        <div key={s.key} title={`${s.label}: ${url}`}>{inner}</div>
+                                    ) : (
+                                        <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" title={s.label}>{inner}</a>
+                                    );
+                                })}
                             </div>
-                            <p style={{ color: '#B9C3CE', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>Electronic Artist & Sonic Architect</p>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', gap: '8px' }}>
-                                {profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
-                                    <span key={i} style={{ 
-                                        backgroundColor: `${colors.primary}1A`, 
-                                        border: `1px solid ${colors.primary}4D`,
-                                        color: colors.primary, padding: '4px 12px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'
-                                    }}>{g.genre.name}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── CONTENT ── */}
+            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
+
+                {/* Featured Release Hero */}
+                {featuredPlaylist && (
+                <div style={{ 
+                    borderRadius: '12px', overflow: 'hidden', 
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    marginBottom: '20px',
+                    position: 'relative',
+                    display: 'flex',
+                    background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)'
+                }}>
+                    {featuredPlaylist.coverUrl && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.15, filter: 'blur(40px)', transform: 'scale(1.2)', pointerEvents: 'none' }} />
+                    )}
+                    <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '28px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '24px' }}>
+                        {/* Cover */}
+                        <div style={{ flexShrink: 0, width: isMobile ? '100px' : '130px', height: isMobile ? '100px' : '130px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
+                            {featuredPlaylist.coverUrl ? (
+                                <img src={featuredPlaylist.coverUrl} alt={featuredPlaylist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Music size={40} color={colors.primary} />
+                                </div>
+                            )}
+                        </div>
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0, textAlign: isMobile ? 'center' : 'left' }}>
+                            <span style={{ backgroundColor: featuredPlaylist.releaseType === 'album' ? '#7C3AED' : featuredPlaylist.releaseType === 'ep' ? '#0369A1' : featuredPlaylist.releaseType === 'single' ? '#B45309' : colors.primary, color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                {featuredPlaylist.releaseType ? `Featured ${featuredPlaylist.releaseType}` : 'Featured Release'}
+                            </span>
+                            <h3 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: 800, margin: '8px 0 4px', letterSpacing: '-0.01em' }}>{featuredPlaylist.name}</h3>
+                            {featuredPlaylist.description && (
+                                <p style={{ color: 'rgba(185,195,206,0.7)', fontSize: '12px', margin: '0 0 12px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{featuredPlaylist.description}</p>
+                            )}
+                            {/* Marquee track pills */}
+                            {featuredPlaylistTracks.length > 0 && !isMobile && (
+                                <div style={{ overflow: 'hidden', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', gap: '6px', animation: 'marquee-release 20s linear infinite', width: 'max-content' }}>
+                                        {[...featuredPlaylistTracks, ...featuredPlaylistTracks].map((t, i) => (
+                                            <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '999px', padding: '3px 10px', fontSize: '10px', fontWeight: 600, color: '#B9C3CE', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                {t.title}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {/* Play Button */}
+                        <button
+                            onClick={() => { if (featuredPlaylistTracks.length > 0) { const first = featuredPlaylistTracks[0]; player.currentTrack?.id === first.id ? togglePlay() : setTrack(first, featuredPlaylistTracks); } }}
+                            disabled={featuredPlaylistTracks.length === 0}
+                            style={{ padding: '10px 24px', borderRadius: '999px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: featuredPlaylistTracks.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 4px 15px ${colors.primary}44`, flexShrink: 0, opacity: featuredPlaylistTracks.length > 0 ? 1 : 0.5 }}
+                        >
+                            {player.currentTrack?.id === featuredPlaylistTracks[0]?.id && player.isPlaying ? <><Pause size={16} fill="currentColor" /> Pause</> : <><Play size={16} fill="currentColor" /> Play</>}
+                        </button>
+                    </div>
+                </div>
+                )}
+
+                {/* Featured Track — Compact Player Bar */}
+                {featuredTrack && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px',
+                    padding: isMobile ? '14px' : '16px 20px',
+                    borderRadius: '12px', backgroundColor: '#242C3D',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    marginBottom: '20px',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s'
+                }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#2A3347'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#242C3D'}
+                    onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
+                >
+                    {/* Cover */}
+                    <div style={{ width: isMobile ? '48px' : '56px', height: isMobile ? '48px' : '56px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', flexShrink: 0 }}>
+                        {trackCoverUrl ? (
+                            <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={20} color={colors.primary} /></div>
+                        )}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#F27B13', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Featured Track</span>
+                        <p style={{ margin: '2px 0 0', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: player.currentTrack?.id === featuredTrack.id ? colors.primary : 'white' }}>
+                            {featuredTrack.title}
+                        </p>
+                        {featuredTrack.description && <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#B9C3CE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{featuredTrack.description}</p>}
+                    </div>
+                    {/* Play / Progress */}
+                    {player.currentTrack?.id === featuredTrack.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                            <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary }}>{Math.floor(player.currentTime/60)}:{(Math.floor(player.currentTime%60)).toString().padStart(2, '0')}</span>
+                            <div style={{ width: isMobile ? '60px' : '100px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px', position: 'relative' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime/player.duration)*100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px' }} />
+                            </div>
+                        </div>
+                    ) : null}
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 4px 12px ${colors.primary}44` }}>
+                        {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />}
+                    </div>
+                </div>
+                )}
+
+                {/* ── TWO-COLUMN LAYOUT ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: '20px' }}>
+
+                    {/* LEFT: Main Content */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        {/* Discography */}
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Award size={20} color="#F27B13" /> Discography
+                                </h3>
+                                <span style={{ fontSize: '11px', color: '#B9C3CE' }}>{profile.tracks?.length || 0} tracks</span>
+                            </div>
+                            {profile.tracks && profile.tracks.length > 0 ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
+                                    {profile.tracks.map(track => {
+                                        const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                        return (
+                                            <div key={track.id}>
+                                                <div
+                                                    onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, profile.tracks)}
+                                                    style={{ aspectRatio: '1/1', borderRadius: '10px', backgroundColor: '#1e293b', marginBottom: '10px', overflow: 'hidden', position: 'relative', border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`, cursor: 'pointer', transition: 'all 0.2s' }}
+                                                >
+                                                    {track.coverUrl ? (
+                                                        <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPlaying ? 0.6 : 1 }} />
+                                                    ) : (
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}><Music size={36} /></div>
+                                                    )}
+                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: isPlaying ? 'transparent' : 'rgba(0,0,0,0.4)', opacity: isPlaying || isMobile ? 1 : 0, transition: 'opacity 0.2s' }}
+                                                        onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.opacity = '1'; }}
+                                                        onMouseLeave={e => { if (!isPlaying && !isMobile) e.currentTarget.style.opacity = '0'; }}>
+                                                        {isPlaying ? <Pause size={36} color="white" fill="white" /> : <Play size={36} color="white" fill="white" />}
+                                                    </div>
+                                                    {isPlaying && <div style={{ position: 'absolute', bottom: '6px', right: '6px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.primary, boxShadow: `0 0 10px ${colors.primary}` }} />}
+                                                </div>
+                                                <p onClick={() => window.location.href = `/track/${profile.username}/${track.slug || track.id}`}
+                                                    onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                                                    onMouseLeave={e => e.currentTarget.style.color = isPlaying ? colors.primary : 'white'}
+                                                    style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white', cursor: 'pointer', transition: 'color 0.2s' }}>
+                                                    {track.title}
+                                                </p>
+                                                <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Zap size={10} /> {track.playCount.toLocaleString()} plays
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '10px' }}>
+                                    <Music size={40} color="#B9C3CE" style={{ opacity: 0.2, marginBottom: '12px' }} />
+                                    <p style={{ color: '#B9C3CE', fontSize: '13px', margin: 0 }}>No tracks uploaded yet.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Beat Battle History */}
+                        {battleEntries.length > 0 && (
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
+                            <h3 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Swords size={20} color={colors.primary} /> Beat Battle History
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {battleEntries.map((entry: any) => (
+                                    <div key={entry.id} style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '12px 14px', backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)',
+                                        borderRadius: '8px', border: entry.isWinner ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                                        flexWrap: 'wrap', gap: '8px',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                            {entry.avatarUrl && <img src={entry.avatarUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />}
+                                            <div style={{ minWidth: 0 }}>
+                                                <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
+                                                <p style={{ margin: '1px 0 0', color: colors.textSecondary, fontSize: '11px' }}>{entry.battle.title}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                                            {entry.isWinner && <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 700, color: '#FFD700' }}><Trophy size={13} /> Winner</span>}
+                                            {!entry.isWinner && entry.battle.status === 'completed' && <span style={{ fontSize: '11px', color: colors.textSecondary }}>#{entry.placement}/{entry.totalEntries}</span>}
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 700, color: colors.primary, fontSize: '12px' }}><Flame size={13} /> {entry.voteCount}</span>
+                                            <button
+                                                onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}` }); }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}
+                                            >
+                                                {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? <><Pause size={12} /> Pause</> : <><Play size={12} /> Play</>}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT: Sidebar */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        {/* About Card */}
+                        {(profile.bio || socials.some(s => !!(profile as any)[s.key])) && (
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE' }}>About</h4>
+                            {profile.bio && <p style={{ fontSize: '13px', color: 'rgba(185,195,206,0.85)', margin: '0 0 16px', lineHeight: 1.6 }}>{profile.bio}</p>}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {socials.map(s => {
+                                    const url = (profile as any)[s.key];
+                                    if (!url) return null;
+                                    const inner = (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {React.cloneElement(s.icon as React.ReactElement, { color: s.color, size: 14 })}
+                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 500, color: 'white', flex: 1 }}>{s.label}</span>
+                                            {!s.isHandle && <ExternalLink size={12} color="#B9C3CE" />}
+                                            {s.isHandle && <span style={{ fontSize: '10px', color: '#94a3b8' }}>{url}</span>}
+                                        </div>
+                                    );
+                                    return s.isHandle ? <div key={s.key}>{inner}</div> : <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>;
+                                })}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* Gear Rack */}
+                        {gear.length > 0 && (
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Hammer size={16} color="#7A8C37" /> Gear & Tools
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {gear.map((item: any, i: number) => (
+                                    <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <p style={{ fontSize: '9px', fontWeight: 700, color: '#7A8C37', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{item.category || 'Other'}</p>
+                                        <p style={{ fontSize: '12px', fontWeight: 600, color: 'white', margin: '3px 0 0' }}>{item.name || item}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* Quick Stats Card */}
+                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE' }}>Stats</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {stats.map(s => (
+                                    <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '12px', color: '#B9C3CE' }}>{s.label}</span>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>{s.value}</span>
+                                    </div>
                                 ))}
                             </div>
                         </div>
                     </div>
-
-                    <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '24px' }}>
-                        {stats.map(s => (
-                            <div key={s.label}>
-                                <p style={{ fontSize: '8px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{s.label}</p>
-                                <p style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: 'bold', margin: '4px 0 0' }}>{s.value}</p>
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
-                {/* Socials Card */}
-                <div style={{ 
-                    gridColumn: isMobile ? 'span 12' : 'span 3',
-                    backgroundColor: '#242C3D', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: 'white', textTransform: 'uppercase', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-                        <Globe size={18} color={colors.primary} /> Connect
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {socials.map(s => {
-                            const url = (profile as any)[s.key];
-                            if (!url) return null;
-                            const inner = (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                                    padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(0,0,0,0.2)',
-                                    border: '1px solid rgba(255,255,255,0.05)', color: 'white' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: `${s.color}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {React.cloneElement(s.icon as React.ReactElement, { color: s.color })}
-                                        </div>
-                                        <div>
-                                            <span style={{ fontSize: '12px', fontWeight: '500', display: 'block' }}>{s.label}</span>
-                                            {s.isHandle && <span style={{ fontSize: '11px', color: '#94a3b8' }}>{url}</span>}
-                                        </div>
-                                    </div>
-                                    {!s.isHandle && <ExternalLink size={14} color="#B9C3CE" />}
-                                </div>
-                            );
-                            return s.isHandle ? (
-                                <div key={s.key} style={{ textDecoration: 'none' }}>{inner}</div>
-                            ) : (
-                                <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>
-                            );
-                        })}
-                        {!socials.some(s => !!(profile as any)[s.key]) && (
-                            <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>No links added yet.</p>
-                        )}
-                    </div>
+                {/* Comments */}
+                <div style={{ marginTop: '32px' }}>
+                    <CommentSection profileId={profile.id} ownerId={profile.userId} />
                 </div>
-
-                {/* Artist's Toolkit Card */}
-                <div style={{ 
-                    gridColumn: isMobile ? 'span 12' : 'span 4',
-                    backgroundColor: '#242C3D', padding: '24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: 'white', textTransform: 'uppercase', letterSpacing: '0.2em', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-                        <Hammer size={18} color="#7A8C37" /> Artist's Toolkit
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '12px' }}>
-                        {gear.map((item: any, i: number) => (
-                            <div key={i} style={{ 
-                                padding: '12px', borderRadius: '8px', 
-                                backgroundColor: i % 2 === 0 ? 'rgba(89, 49, 25, 0.1)' : 'rgba(122, 140, 55, 0.1)',
-                                border: `1px solid ${i % 2 === 0 ? 'rgba(89, 49, 25, 0.3)' : 'rgba(122, 140, 55, 0.3)'}`
-                            }}>
-                                <p style={{ fontSize: '9px', fontWeight: 'bold', color: i % 2 === 0 ? '#593119' : '#7A8C37', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-                                    {item.category || 'Other'}
-                                </p>
-                                <p style={{ fontSize: '11px', fontWeight: 'bold', color: 'white', margin: '4px 0 0' }}>{item.name || item}</p>
-                            </div>
-                        ))}
-                        {gear.length === 0 && <p style={{ gridColumn: isMobile ? 'auto' : 'span 2', fontSize: '12px', color: '#B9C3CE' }}>No gear listed yet.</p>}
-                    </div>
-                </div>
-
-                {/* Latest Releases */}
-                <div style={{ 
-                    gridColumn: 'span 12', backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', 
-                    borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px'
-                }}>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '32px', gap: '12px' }}>
-                        <div>
-                            <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Award size={24} color="#F27B13" /> Latest Releases
-                            </h3>
-                            <p style={{ fontSize: '12px', color: '#B9C3CE', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Explore the newest soundscapes by {profile.username}</p>
-                        </div>
-                    </div>
-                    {/* Simplified Release Row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
-                        {profile.tracks && profile.tracks.length > 0 ? (
-                            profile.tracks.map((track) => {
-                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
-                                return (
-                                    <div key={track.id}>
-                                        <div 
-                                            onClick={() => player.currentTrack?.id === track.id ? togglePlay() : setTrack(track, profile.tracks)}
-                                            style={{ 
-                                            aspectRatio: '1/1', borderRadius: '12px', backgroundColor: '#1e293b', 
-                                            marginBottom: '12px', overflow: 'hidden', position: 'relative',
-                                            border: `1px solid ${isPlaying ? colors.primary : 'rgba(255,255,255,0.05)'}`,
-                                            transition: 'all 0.2s ease',
-                                            cursor: 'pointer'
-                                        }}>
-                                            {track.coverUrl ? (
-                                                <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPlaying ? 0.6 : 1 }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.1 }}>
-                                                    <Music size={isMobile ? 32 : 48} />
-                                                </div>
-                                            )}
-                                            <div style={{ 
-                                                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                                backgroundColor: isPlaying ? 'transparent' : 'rgba(0,0,0,0.4)', 
-                                                opacity: isPlaying || isMobile ? 1 : 0,
-                                                transition: 'opacity 0.2s ease'
-                                            }} onMouseEnter={(e) => {
-                                                if (!isPlaying) e.currentTarget.style.opacity = '1';
-                                            }} onMouseLeave={(e) => {
-                                                if (!isPlaying && !isMobile) e.currentTarget.style.opacity = '0';
-                                            }}>
-                                                <div 
-                                                    style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                >
-                                                    {isPlaying ? (
-                                                        <Pause size={isMobile ? 32 : 48} color="white" fill="white" />
-                                                    ) : (
-                                                        <Play size={isMobile ? 32 : 48} color="white" fill="white" />
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {isPlaying && (
-                                                <div style={{ position: 'absolute', bottom: '8px', right: '8px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.primary, boxShadow: `0 0 10px ${colors.primary}` }} />
-                                            )}
-                                        </div>
-                                        <p 
-                                            onClick={() => window.location.href = `/track/${profile.username}/${track.slug || track.id}`}
-                                            onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
-                                            onMouseLeave={(e) => e.currentTarget.style.color = isPlaying ? colors.primary : 'white'}
-                                            style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isPlaying ? colors.primary : 'white', cursor: 'pointer', transition: 'color 0.2s' }}
-                                        >
-                                            {track.title}
-                                        </p>
-                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Zap size={10} /> {track.playCount.toLocaleString()} plays
-                                        </p>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div style={{ gridColumn: 'span 12', textAlign: 'center', padding: '40px', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '12px' }}>
-                                <Music size={48} color="#B9C3CE" style={{ opacity: 0.2, marginBottom: '16px' }} />
-                                <p style={{ color: '#B9C3CE', fontSize: '14px' }}>No tracks uploaded yet.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Beat Battle History */}
-                {battleEntries.length > 0 && (
-                    <div style={{ 
-                        gridColumn: 'span 12', backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', 
-                        borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '20px'
-                    }}>
-                        <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <Swords size={24} color={colors.primary} /> Beat Battle History
-                            </h3>
-                            <p style={{ fontSize: '12px', color: '#B9C3CE', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Competition entries by {profile.username}</p>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {battleEntries.map((entry: any) => (
-                                <div key={entry.id} style={{
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    padding: '14px 16px', backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)',
-                                    borderRadius: '10px', border: entry.isWinner ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)',
-                                    flexWrap: 'wrap', gap: '10px',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                        {entry.avatarUrl && (
-                                            <img src={entry.avatarUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-                                        )}
-                                        <div style={{ minWidth: 0 }}>
-                                            <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '14px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
-                                            <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '12px' }}>{entry.battle.title}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
-                                        {entry.isWinner && (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#FFD700' }}>
-                                                <Trophy size={14} /> Winner
-                                            </span>
-                                        )}
-                                        {!entry.isWinner && entry.battle.status === 'completed' && (
-                                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>
-                                                #{entry.placement}/{entry.totalEntries}
-                                            </span>
-                                        )}
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: colors.primary, fontSize: '13px' }}>
-                                            <Flame size={14} /> {entry.voteCount}
-                                        </span>
-                                        <button
-                                            onClick={() => {
-                                                if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; }
-                                                setTrack({
-                                                    id: `battle-${entry.id}`,
-                                                    title: entry.trackTitle,
-                                                    artist: profile.username,
-                                                    cover: entry.avatarUrl || entry.coverUrl || '',
-                                                    url: `${entry.audioUrl}`,
-                                                });
-                                            }}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
-                                        >
-                                            {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying
-                                                ? <><Pause size={13} /> Pause</>
-                                                : <><Play size={13} /> Play</>}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-            </div>
-
-            {/* Comments */}
-            <div style={{ maxWidth: '900px', margin: '0 auto', padding: `0 ${spacing.md}` }}>
-                <CommentSection profileId={profile.id} ownerId={profile.userId} />
             </div>
 
             {/* Back to Edit Button (Owner only) */}

@@ -260,7 +260,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
             onSearchChange={setSearch}
             activeTab="discover"
         >
-            <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1220px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1300px', margin: '0 auto' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
                     
                     {/* Featured Hero */}

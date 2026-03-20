@@ -84,7 +84,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
 
     return (
         <DiscoveryLayout>
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
+            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
                 {/* Header Section */}
                 <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '40px', gap: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>

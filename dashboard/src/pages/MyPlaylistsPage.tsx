@@ -79,7 +79,7 @@ export const MyPlaylistsPage: React.FC = () => {
 
     return (
         <DiscoveryLayout>
-            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1300px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <ListMusic size={32} color={colors.primary} />

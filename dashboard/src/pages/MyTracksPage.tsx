@@ -267,7 +267,7 @@ export const MyTracksPage: React.FC = () => {
     return (
         <>
         <DiscoveryLayout activeTab="profile">
-        <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ padding: spacing.lg, maxWidth: '1300px', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
                 <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex' }}>

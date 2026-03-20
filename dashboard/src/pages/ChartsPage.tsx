@@ -94,7 +94,7 @@ export const ChartsPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="charts">
-            <div style={{ padding: isMobile ? '16px' : '32px 48px', maxWidth: '960px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '32px 48px', maxWidth: '1300px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '28px', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>

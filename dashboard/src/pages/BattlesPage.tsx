@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -21,7 +21,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 function formatDate(d: string | null) {
-    if (!d) return 'â€”';
+    if (!d) return '—';
     return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -162,7 +162,7 @@ export const BattlesPage: React.FC = () => {
         return () => clearInterval(interval);
     }, [currentBattle]);
 
-    // Hall of Fame â€” fetch top 3 completed battles for winner data
+    // Hall of Fame — fetch top 3 completed battles for winner data
     useEffect(() => {
         const completed = battles.filter(b => b.status === 'completed').slice(0, 3);
         if (!completed.length) return;
@@ -214,8 +214,8 @@ export const BattlesPage: React.FC = () => {
         <DiscoveryLayout activeTab="battles">
             <div style={{ overflowX: 'hidden' }}>
 
-                {/* â”€â”€ HERO â”€â”€ */}
-                <div style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '16px 16px 0' : '32px 24px 0' }}>
+                {/* ── HERO ── */}
+                <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px 16px 0' : '32px 24px 0' }}>
                     {currentBattle ? (
                         <div style={{
                             position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
@@ -303,16 +303,16 @@ export const BattlesPage: React.FC = () => {
                         <div style={{ padding: '60px 40px', textAlign: 'center', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
                             <Swords size={48} color={colors.textSecondary} style={{ opacity: 0.3, marginBottom: '16px' }} />
                             <p style={{ color: colors.textSecondary, fontSize: '16px', margin: 0 }}>No active battle right now.</p>
-                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon — new battles are coming!</p>
+                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: '8px 0 0', opacity: 0.6 }}>Check back soon � new battles are coming!</p>
                         </div>
                     )}
                 </div>
 
-                {/* â”€â”€ SPONSOR STRIP â”€â”€ */}
-                {/* ─── SPONSORS GRID ─── */}
+                {/* ── SPONSOR STRIP ── */}
+                {/* --- SPONSORS GRID --- */}
                 {globalSponsors.length > 0 && (
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '28px 24px', marginTop: '24px', backgroundColor: 'rgba(255,255,255,0.015)' }}>
-                        <div style={{ maxWidth: '1160px', margin: '0 auto' }}>
+                        <div style={{ maxWidth: '1300px', margin: '0 auto' }}>
                             <p style={{ textAlign: 'center', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, marginBottom: '20px' }}>{sponsorSectionTitle}</p>
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                 {globalSponsors.map(s => {
@@ -337,10 +337,10 @@ export const BattlesPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* â”€â”€ MAIN CONTENT â”€â”€ */}
-                <div style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
+                {/* ── MAIN CONTENT ── */}
+                <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
 
-                    {/* â”€â”€ THREE COLUMNS: Active Battles | How To | Hall of Fame â”€â”€ */}
+                    {/* ── THREE COLUMNS: Active Battles | How To | Hall of Fame ── */}
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '24px', marginBottom: '48px' }}>
 
                         {/* Column 1: Active Battles */}
@@ -446,7 +446,7 @@ export const BattlesPage: React.FC = () => {
                                             <div style={{ position: 'absolute', bottom: '-3px', right: '-5px', backgroundColor: ACCENT, color: '#fff', fontSize: '8px', fontWeight: 700, padding: '2px 5px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.username || 'â€”'}</h5>
+                                            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.username || '—'}</h5>
                                             <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.trackTitle || battle.title}</p>
                                         </div>
                                         {winner?.audioUrl && (
@@ -464,7 +464,7 @@ export const BattlesPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* â”€â”€ ENTRIES / VOTING â”€â”€ */}
+                    {/* ── ENTRIES / VOTING ── */}
                     {currentBattle && (currentBattle.status === 'voting' || currentBattle.status === 'active') && currentBattle.entries && currentBattle.entries.length > 0 && (
                         <section id="entries-section" style={{ marginBottom: '48px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
@@ -541,7 +541,7 @@ export const BattlesPage: React.FC = () => {
                         </section>
                     )}
 
-                    {/* â”€â”€ PAST BATTLES TABLE â”€â”€ */}
+                    {/* ── PAST BATTLES TABLE ── */}
                     {pastBattles.length > 0 && (
                         <section>
                             <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -584,7 +584,7 @@ export const BattlesPage: React.FC = () => {
                                                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}>
                                                         <td style={{ padding: '14px 24px', fontWeight: 600, color: colors.textPrimary }}>{b.title}</td>
                                                         <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{formatDate(b.votingEnd)}</td>
-                                                        <td style={{ padding: '14px 24px', fontWeight: 700, color: colors.primary }}>{hof?.winner?.username || '—'}</td>
+                                                        <td style={{ padding: '14px 24px', fontWeight: 700, color: colors.primary }}>{hof?.winner?.username || '�'}</td>
                                                         <td style={{ padding: '14px 24px', color: colors.textSecondary }}>{b._count?.entries || 0}</td>
                                                     </tr>
                                                 );

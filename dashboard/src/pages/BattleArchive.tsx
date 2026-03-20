@@ -45,7 +45,7 @@ export const BattleArchivePage: React.FC<{ onBack?: () => void }> = ({ onBack })
     if (loading) return <div style={{ padding: '40px', color: colors.textSecondary, textAlign: 'center' }}>Loading archive...</div>;
 
     return (
-        <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ padding: '24px', maxWidth: '1300px', margin: '0 auto' }}>
             {onBack && (
                 <button onClick={onBack} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '14px' }}>
                     <ArrowLeft size={16} /> Back

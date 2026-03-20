@@ -80,7 +80,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
             onSearchChange={setSearch}
             searchPlaceholder="Search genres..."
         >
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
+            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '16px', marginBottom: '40px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div style={{ 

@@ -312,7 +312,7 @@ export const BattleDetailPage: React.FC = () => {
             <div style={{ overflowX: 'hidden' }}>
 
                 {/* ── HERO ── */}
-                <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '20px 16px 0' : '40px 24px 0' }}>
+                <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '20px 16px 0' : '40px 24px 0' }}>
 
                     {/* Back */}
                     <Link to="/battles" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: colors.textSecondary, textDecoration: 'none', fontSize: '13px', marginBottom: '28px' }}>
@@ -428,7 +428,7 @@ export const BattleDetailPage: React.FC = () => {
                 </section>
 
                 {/* ── TIMELINE ── */}
-                <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '32px 16px' : '56px 24px' }}>
+                <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '32px 16px' : '56px 24px' }}>
                     <h2 style={{ margin: '0 0 32px', fontSize: '20px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <Calendar size={20} color={colors.primary} /> Battle Details
                     </h2>
@@ -477,7 +477,7 @@ export const BattleDetailPage: React.FC = () => {
                 {/* ── SPONSOR STRIP ── */}
                 {battle.sponsor && (
                     <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '40px 24px', backgroundColor: 'rgba(255,255,255,0.015)', marginBottom: '48px' }}>
-                        <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                             <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
                             <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                 {battle.sponsor.logoUrl && (
@@ -504,7 +504,7 @@ export const BattleDetailPage: React.FC = () => {
                 )}
 
                 {/* ── RULES + PRIZES ── */}
-                <section style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
+                <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
 
                         {/* Rules card */}
@@ -609,7 +609,7 @@ export const BattleDetailPage: React.FC = () => {
                 </section>
 
                 {/* ── COMMUNITY SUBMISSIONS ── */}
-                <section id="submissions" style={{ maxWidth: '1160px', margin: '0 auto', padding: isMobile ? '32px 16px 56px' : '48px 24px 72px' }}>
+                <section id="submissions" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '32px 16px 56px' : '48px 24px 72px' }}>
 
                     {/* Section header */}
                     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '28px' }}>

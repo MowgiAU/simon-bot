@@ -209,7 +209,7 @@ export const PlaylistPage: React.FC = () => {
     return (
         <>
         <DiscoveryLayout>
-            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1300px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px', marginBottom: '32px' }}>
                 {/* Cover */}

@@ -80,7 +80,7 @@ export const FeedPage: React.FC = () => {
 
     return (
         <DiscoveryLayout>
-            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ padding: isMobile ? '16px' : '32px', maxWidth: '1300px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
                     <Rss size={32} color={colors.primary} />
                     <div>

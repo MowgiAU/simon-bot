@@ -220,7 +220,7 @@ export const BattleEntryPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="battles">
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
+            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl, flexWrap: 'wrap', gap: '8px' }}>
                     <Link to="/battles" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.textSecondary, textDecoration: 'none', fontSize: '13px' }}>
                         <ArrowLeft size={14} /> Back to Battles

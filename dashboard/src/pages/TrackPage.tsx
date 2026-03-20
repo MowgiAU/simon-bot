@@ -249,7 +249,7 @@ export const TrackPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="discovery">
-            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
+            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
                 {/* Back Link */}
                 <button 
                     onClick={() => window.location.href = `/profile/${track.profile.username}`}
