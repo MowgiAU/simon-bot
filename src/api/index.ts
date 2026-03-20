@@ -666,7 +666,7 @@ app.get('/api/auth/discord/login', (req, res) => {
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: DISCORD_REDIRECT_URI,
     response_type: 'code',
-    scope: 'identify guilds',
+    scope: 'identify guilds email',
     prompt: 'none'
   });
   logger.info(`[Auth] Redirecting to Discord with redirect_uri: ${DISCORD_REDIRECT_URI}`);
@@ -686,7 +686,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
       grant_type: 'authorization_code',
       code,
       redirect_uri: DISCORD_REDIRECT_URI,
-      scope: 'identify guilds'
+      scope: 'identify guilds email'
     }), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
@@ -740,6 +740,33 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         }
     }
 
+    // Upsert local User account with Discord data + email
+    try {
+        const dbUser = await db.user.upsert({
+            where: { discordId: user.id },
+            update: {
+                username: user.username,
+                displayName: user.global_name || user.username,
+                avatar: user.avatar,
+                email: user.email || undefined,
+                lastLoginAt: new Date(),
+            },
+            create: {
+                discordId: user.id,
+                username: user.username,
+                displayName: user.global_name || user.username,
+                avatar: user.avatar,
+                email: user.email || null,
+                lastLoginAt: new Date(),
+            },
+        });
+        user._localId = dbUser.id;
+        user._hasPassword = !!dbUser.passwordHash;
+        user._email = dbUser.email;
+    } catch (e) {
+        logger.warn('[Auth] Failed to upsert local user account', e);
+    }
+
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
@@ -779,6 +806,129 @@ app.get('/api/auth/logout', (req, res) => {
   });
 });
 
+// --- Password hashing (Node.js built-in crypto.scrypt) ---
+async function hashPassword(password: string): Promise<string> {
+    const salt = crypto.randomBytes(16).toString('hex');
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+            if (err) reject(err);
+            resolve(`${salt}:${derivedKey.toString('hex')}`);
+        });
+    });
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+    const [salt, key] = hash.split(':');
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+            if (err) reject(err);
+            resolve(crypto.timingSafeEqual(Buffer.from(key, 'hex'), derivedKey));
+        });
+    });
+}
+
+// Set password for current user (requires active session)
+app.post('/api/auth/set-password', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { password } = req.body;
+
+        if (!password || typeof password !== 'string' || password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+
+        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        if (!dbUser) return res.status(404).json({ error: 'No local account found. Please log in with Discord first.' });
+        if (!dbUser.email) return res.status(400).json({ error: 'No email on file. Please ensure your Discord account has a verified email and re-login.' });
+
+        const passwordHash = await hashPassword(password);
+        await db.user.update({ where: { id: dbUser.id }, data: { passwordHash } });
+
+        req.session.user._hasPassword = true;
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('[Auth] Failed to set password', e);
+        res.status(500).json({ error: 'Failed to set password' });
+    }
+});
+
+// Email/password login (fallback when Discord is unavailable)
+const emailLoginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts, try again later.' } });
+app.post('/api/auth/email/login', emailLoginLimiter, async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+        const dbUser = await db.user.findUnique({ where: { email: String(email).toLowerCase().trim() } });
+        if (!dbUser || !dbUser.passwordHash) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        const valid = await verifyPassword(password, dbUser.passwordHash);
+        if (!valid) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Update last login
+        await db.user.update({ where: { id: dbUser.id }, data: { lastLoginAt: new Date() } });
+
+        // Build session user object (similar shape to Discord user)
+        req.session.user = {
+            id: dbUser.discordId || dbUser.id,
+            username: dbUser.username,
+            global_name: dbUser.displayName,
+            avatar: dbUser.avatar,
+            email: dbUser.email,
+            _localId: dbUser.id,
+            _hasPassword: true,
+            _email: dbUser.email,
+            _loginMethod: 'email',
+        };
+
+        // For email login, we can't fetch guilds from Discord
+        // Load cached guild data if we have it from a previous Discord login
+        req.session.guilds = [];
+        req.session.mutualAdminGuilds = [];
+        req.session.isGuildMember = false;
+
+        req.session.save((err) => {
+            if (err) {
+                logger.error('[Auth] Session save error during email login', err);
+                return res.status(500).json({ error: 'Login failed' });
+            }
+            res.json({
+                success: true,
+                user: req.session.user,
+                note: 'Logged in via email. Some Discord-specific features (guild management) require Discord login.',
+            });
+        });
+    } catch (e) {
+        logger.error('[Auth] Email login error', e);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Get current account info (email, password status)
+app.get('/api/auth/account', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        if (!dbUser) return res.json({ hasAccount: false });
+
+        res.json({
+            hasAccount: true,
+            email: dbUser.email,
+            hasPassword: !!dbUser.passwordHash,
+            lastLoginAt: dbUser.lastLoginAt,
+            createdAt: dbUser.createdAt,
+        });
+    } catch (e) {
+        logger.error('[Auth] Failed to get account info', e);
+        res.status(500).json({ error: 'Failed to get account info' });
+    }
+});
+
 // Auth status endpoint
 
 // Auth status endpoint (returns user and mutual admin guilds)
@@ -789,6 +939,9 @@ app.get('/api/auth/status', (req, res) => {
       user: req.session.user,
       mutualAdminGuilds: req.session.mutualAdminGuilds || [],
       isGuildMember: req.session.isGuildMember ?? false,
+      hasLocalAccount: !!req.session.user._localId,
+      hasPassword: !!req.session.user._hasPassword,
+      email: req.session.user._email || null,
     });
   } else {
     res.json({ authenticated: false });
