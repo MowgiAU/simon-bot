@@ -353,7 +353,8 @@ export const BattleEntryPage: React.FC = () => {
                                 </>
                             )}
                             {t?.projectZipUrl && (t.allowProjectDownload ?? true) && (
-                                <a href={`/api/tracks/${t.id}/download-zip`} download
+                                <a href={t.projectZipUrl.startsWith('http') ? t.projectZipUrl : `/api/tracks/${t.id}/download-zip`}
+                                    download={`${t.title || 'project'}_loop_package.zip`}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
                                     <Download size={18} /> Download Loop ZIP
                                 </a>

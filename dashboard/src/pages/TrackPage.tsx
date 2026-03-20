@@ -472,7 +472,8 @@ export const TrackPage: React.FC = () => {
                                     </>
                                 )}
                                 {track.projectZipUrl && (track.allowProjectDownload ?? true) && (
-                                    <a href={`/api/tracks/${track.id}/download-zip`} download
+                                    <a href={track.projectZipUrl.startsWith('http') ? track.projectZipUrl : `/api/tracks/${track.id}/download-zip`}
+                                        download={`${track.title || 'project'}_loop_package.zip`}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}>
                                         <Package size={14} /> Download Project
                                     </a>

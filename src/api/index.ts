@@ -4105,18 +4105,18 @@ app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
         if (!track.projectZipUrl) return res.status(404).json({ error: 'No loop package available for this track' });
         if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
 
+        if (track.projectZipUrl.startsWith('http')) {
+            // File is on CDN — redirect directly, no proxying
+            return res.redirect(302, track.projectZipUrl);
+        }
+
+        // Local fallback
         const safeName = (track.title || 'loop_package').replace(/[^a-z0-9_\- ]/gi, '_');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_loop_package.zip"`);
         res.setHeader('Content-Type', 'application/zip');
-
-        if (track.projectZipUrl.startsWith('http')) {
-            const response = await axios.get(track.projectZipUrl, { responseType: 'stream' });
-            response.data.pipe(res);
-        } else {
-            const localPath = path.join(PROJECT_ROOT, 'public', track.projectZipUrl);
-            if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
-            fs.createReadStream(localPath).pipe(res);
-        }
+        const localPath = path.join(PROJECT_ROOT, 'public', track.projectZipUrl);
+        if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
+        fs.createReadStream(localPath).pipe(res);
     } catch (e: any) {
         if (!res.headersSent) res.status(500).json({ error: e.message });
     }
