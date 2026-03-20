@@ -543,18 +543,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                                             return (
                                                 <div key={track.id + (track._repost ? '-repost' : '')} style={{
-                                                    backgroundColor: track._repost ? '#1E2A3A' : colors.surface,
+                                                    backgroundColor: track._repost ? '#2A2518' : colors.surface,
                                                     borderRadius: '8px',
-                                                    border: track._repost ? `1px solid ${colors.primary}22` : '1px solid rgba(255,255,255,0.06)',
+                                                    border: track._repost ? '1px solid rgba(218,165,32,0.15)' : '1px solid rgba(255,255,255,0.06)',
                                                     overflow: 'hidden',
                                                 }}>
                                                     {/* Repost banner */}
                                                     {track._repost && track._originalArtist && (
                                                         <div style={{
-                                                            padding: '8px 16px', fontSize: '12px', color: colors.primary,
+                                                            padding: '8px 16px', fontSize: '12px', color: '#DAA520',
                                                             display: 'flex', alignItems: 'center', gap: '6px',
-                                                            borderBottom: `1px solid ${colors.primary}15`,
-                                                            backgroundColor: `${colors.primary}08`,
+                                                            borderBottom: '1px solid rgba(218,165,32,0.1)',
+                                                            backgroundColor: 'rgba(218,165,32,0.06)',
                                                         }}>
                                                             <Repeat2 size={13} />
                                                             <span style={{ color: colors.textSecondary }}>{profile.displayName || profile.username} reposted</span>
