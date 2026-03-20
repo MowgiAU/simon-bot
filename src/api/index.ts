@@ -33,6 +33,7 @@ declare module 'express-session' {
     interface SessionData {
         user?: any;
         isGuildMember?: boolean;
+        permissionsCache?: Record<string, { data: any, timestamp: number }>;
     }
 }
 
@@ -201,6 +202,28 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
 }
 
 // --- Discord API Helper with Cache and Rate Limit Handling ---
+
+// --- API Response Cache ---
+// Generic in-memory cache for expensive API responses
+const apiResponseCache = new Map<string, { data: any, timestamp: number }>();
+const API_CACHE_TTL: Record<string, number> = {
+    'discovery-settings': 1000 * 60 * 3,   // 3 minutes
+    'musician-profiles': 1000 * 60 * 2,     // 2 minutes
+    'popular-playlists': 1000 * 60 * 3,     // 3 minutes
+    'leaderboards-tracks': 1000 * 60 * 2,   // 2 minutes
+};
+
+function getCachedResponse(key: string): any | null {
+    const entry = apiResponseCache.get(key);
+    if (entry && (Date.now() - entry.timestamp < (API_CACHE_TTL[key] || 60000))) {
+        return entry.data;
+    }
+    return null;
+}
+
+function setCachedResponse(key: string, data: any): void {
+    apiResponseCache.set(key, { data, timestamp: Date.now() });
+}
 
 // Memory cache for expensive Discord metadata calls
 // guildId -> { channels: { data: any, timestamp: number }, roles: { data: any, timestamp: number } }
@@ -577,7 +600,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: true,
-    sameSite: 'lax'
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
   }
 }));
 
@@ -1813,27 +1837,29 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         const user = req.session?.user;
         if (!user) return res.json({ canManagePlugins: false, accessiblePlugins: [] });
 
+        // Check session-cached permissions (10-min TTL)
+        const PERMS_CACHE_TTL = 1000 * 60 * 10;
+        const cachedPerms = req.session.permissionsCache?.[guildId];
+        if (cachedPerms && (Date.now() - cachedPerms.timestamp < PERMS_CACHE_TTL)) {
+            return res.json(cachedPerms.data);
+        }
+
         const isAdmin = isTrueAdmin(guildId, req);
-        const accessiblePlugins: string[] = [];
 
         // If admin, they have everything
         if (isAdmin) {
-            // Get all possible plugin IDs from our list helper or hardcoded
-            // For now, let's just return a special flag or all knowns
-            // To be consistent with the logic in checkPluginAccess, we'll perform a similar check 
-            // but optimised for batch.
-            // Actually, simpler: Frontend asks for features, we say yes/no.
-            // But sidebar needs a list.
-            
-            // Return all plugins for admin
-            return res.json({ 
+            const adminResult = { 
                 canManagePlugins: true, 
                 accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle'] 
-            });
+            };
+            if (!req.session.permissionsCache) req.session.permissionsCache = {};
+            req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };
+            return res.json(adminResult);
         }
 
         // For non-admins, check role whitelist
         // 1. Get user roles (with cache)
+        const accessiblePlugins: string[] = [];
         const cacheKey = `${guildId}:${user.id}`;
         const cachedMember = memberRoleCache.get(cacheKey);
         let memberRoles: string[];
@@ -1863,10 +1889,13 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         // Currently logs are guarded by 'moderation' plugin access in my previous edits? 
         // No, I guarded logs with 'moderation' check in the API, so that's consistent.
 
-        res.json({
+        const permResult = {
             canManagePlugins: false,
             accessiblePlugins
-        });
+        };
+        if (!req.session.permissionsCache) req.session.permissionsCache = {};
+        req.session.permissionsCache[guildId] = { data: permResult, timestamp: Date.now() };
+        res.json(permResult);
 
     } catch (e) {
         logger.error('Failed to fetching permissions', e);
@@ -3963,6 +3992,9 @@ app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
 // Leaderboard: Top Tracks
 app.get('/api/musician/leaderboards/tracks', async (req, res) => {
     try {
+        const cached = getCachedResponse('leaderboards-tracks');
+        if (cached) return res.json(cached);
+
         const topTracks = await audioService.getTrackLeaderboard(12);
         
         // Track permission backfill
@@ -3971,6 +4003,7 @@ app.get('/api/musician/leaderboards/tracks', async (req, res) => {
             if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
         });
 
+        setCachedResponse('leaderboards-tracks', topTracks);
         res.json(topTracks);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4151,6 +4184,13 @@ app.get('/api/musician/profiles', async (req, res) => {
   try {
       const { search, genre, sort = 'newest', limit = 50 } = req.query;
       
+      // Cache unfiltered default requests
+      const isDefaultQuery = !search && !genre && sort === 'newest' && Number(limit) === 50;
+      if (isDefaultQuery) {
+          const cached = getCachedResponse('musician-profiles');
+          if (cached) return res.json(cached);
+      }
+      
       const where: any = {};
       
       if (search) {
@@ -4219,6 +4259,7 @@ app.get('/api/musician/profiles', async (req, res) => {
           }
       });
 
+      if (isDefaultQuery) setCachedResponse('musician-profiles', activeProfiles);
       res.json(activeProfiles);
   } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -4494,89 +4535,100 @@ app.delete('/api/musician/genres/:id', async (req, res) => {
 // Get discovery settings
 app.get('/api/discovery/settings', async (req, res) => {
     try {
+        // Check response cache first
+        const cached = getCachedResponse('discovery-settings');
+        if (cached) return res.json(cached);
+
         let settings = await db.discoverySettings.findUnique({ where: { id: 'singleton' } });
         if (!settings) {
             settings = await db.discoverySettings.create({ data: { id: 'singleton' } });
         }
         const result: any = { ...settings, featuredTrack: null, featuredArtist: null, featuredPlaylist: null };
 
-        // Load featured content based on type
+        // Build parallel queries for all independent data
+        const queries: Promise<void>[] = [];
+
+        // Featured content (track/artist/playlist)
         if (settings.featuredType === 'track' && settings.featuredTrackId) {
-            const featuredTrack = await db.track.findUnique({
+            queries.push(db.track.findUnique({
                 where: { id: settings.featuredTrackId },
                 include: { profile: true }
-            }) as any;
-            if (featuredTrack) {
-                if (featuredTrack.allowAudioDownload === undefined) featuredTrack.allowAudioDownload = true;
-                if (featuredTrack.allowProjectDownload === undefined) featuredTrack.allowProjectDownload = true;
-            }
-            result.featuredTrack = featuredTrack;
+            }).then((featuredTrack: any) => {
+                if (featuredTrack) {
+                    if (featuredTrack.allowAudioDownload === undefined) featuredTrack.allowAudioDownload = true;
+                    if (featuredTrack.allowProjectDownload === undefined) featuredTrack.allowProjectDownload = true;
+                }
+                result.featuredTrack = featuredTrack;
+            }));
         } else if (settings.featuredType === 'artist' && settings.featuredArtistId) {
-            const featuredArtist = await db.musicianProfile.findUnique({
+            queries.push(db.musicianProfile.findUnique({
                 where: { userId: settings.featuredArtistId },
                 include: { tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 5, include: { genres: { include: { genre: true } } } }, genres: { include: { genre: true } } },
-            });
-            result.featuredArtist = featuredArtist;
+            }).then(featuredArtist => { result.featuredArtist = featuredArtist; }));
         } else if (settings.featuredType === 'playlist' && settings.featuredPlaylistId) {
-            const featuredPlaylist = await db.playlist.findUnique({
+            queries.push(db.playlist.findUnique({
                 where: { id: settings.featuredPlaylistId },
                 include: {
                     tracks: { orderBy: { position: 'asc' }, take: 10, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
                     profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
                     _count: { select: { tracks: true } },
                 },
-            });
-            result.featuredPlaylist = featuredPlaylist;
+            }).then(featuredPlaylist => { result.featuredPlaylist = featuredPlaylist; }));
         }
 
         // Editor's picks
         const editorPickIds = (settings.editorPickTrackIds as string[] | null) || [];
         if (editorPickIds.length > 0) {
-            const editorPicks = await db.track.findMany({
+            queries.push(db.track.findMany({
                 where: { id: { in: editorPickIds }, isPublic: true },
                 include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } },
-            });
-            result.editorPicks = editorPicks;
+            }).then(editorPicks => { result.editorPicks = editorPicks; }));
         } else {
             result.editorPicks = [];
         }
 
         // Featured producer
         if (settings.featuredProducerId) {
-            const featuredProducer = await db.musicianProfile.findUnique({
+            queries.push(db.musicianProfile.findUnique({
                 where: { userId: settings.featuredProducerId },
                 include: {
                     tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 1 },
                     genres: { include: { genre: true } },
                 },
-            });
-            result.featuredProducer = featuredProducer;
-            result.featuredProducerNote = settings.featuredProducerNote;
+            }).then(featuredProducer => {
+                result.featuredProducer = featuredProducer;
+                result.featuredProducerNote = settings!.featuredProducerNote;
+            }));
         } else {
             result.featuredProducer = null;
         }
 
-        // Featured tutorial
-        result.featuredTutorialUrl = settings.featuredTutorialUrl;
-        result.featuredTutorialTitle = settings.featuredTutorialTitle;
-        result.featuredTutorialDescription = (settings as any).featuredTutorialDescription;
-        result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
-
         // Featured battle
         if ((settings as any).featuredBattleId) {
-            const featuredBattle = await db.beatBattle.findUnique({
+            queries.push(db.beatBattle.findUnique({
                 where: { id: (settings as any).featuredBattleId },
                 include: {
                     sponsor: true,
                     _count: { select: { entries: true } },
                 },
-            });
-            result.featuredBattle = featuredBattle;
-            result.featuredBattleDescription = (settings as any).featuredBattleDescription;
+            }).then(featuredBattle => {
+                result.featuredBattle = featuredBattle;
+                result.featuredBattleDescription = (settings as any).featuredBattleDescription;
+            }));
         } else {
             result.featuredBattle = null;
         }
 
+        // Run all queries in parallel
+        await Promise.all(queries);
+
+        // Featured tutorial (no DB query needed)
+        result.featuredTutorialUrl = settings.featuredTutorialUrl;
+        result.featuredTutorialTitle = settings.featuredTutorialTitle;
+        result.featuredTutorialDescription = (settings as any).featuredTutorialDescription;
+        result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
+
+        setCachedResponse('discovery-settings', result);
         res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4616,6 +4668,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             create: { id: 'singleton', featuredType: featuredType || 'track', ...updateData },
             update: updateData
         });
+        // Invalidate cached discovery settings
+        apiResponseCache.delete('discovery-settings');
         res.json(settings);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -7485,6 +7539,9 @@ function generatePlaylistSlug(name: string): string {
 // Get popular public playlists
 app.get('/api/playlists/popular', async (_req: any, res) => {
     try {
+        const cached = getCachedResponse('popular-playlists');
+        if (cached) return res.json(cached);
+
         const playlists = await db.playlist.findMany({
             where: { isPublic: true, trackCount: { gt: 0 } },
             orderBy: { totalPlays: 'desc' },
@@ -7494,6 +7551,7 @@ app.get('/api/playlists/popular', async (_req: any, res) => {
                 profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
             },
         });
+        setCachedResponse('popular-playlists', playlists);
         res.json(playlists);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
