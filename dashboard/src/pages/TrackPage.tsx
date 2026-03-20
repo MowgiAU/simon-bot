@@ -409,6 +409,13 @@ export const TrackPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Description */}
+                {track.description && (
+                    <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `4px solid ${colors.primary}`, marginBottom: '24px' }}>
+                        <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{track.description}</p>
+                    </div>
+                )}
+
                 {/* ═══ FL STUDIO PROJECT SECTION ═══ */}
                 {track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo) && (
                     <div style={{ 
@@ -464,7 +471,7 @@ export const TrackPage: React.FC = () => {
                                 {track.projectZipUrl && (track.allowProjectDownload ?? true) && (
                                     <a href={`/api/tracks/${track.id}/download-zip`} download
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}>
-                                        <Package size={14} /> Loop ZIP
+                                        <Package size={14} /> Download Project
                                     </a>
                                 )}
                                 {track.allowAudioDownload && (
@@ -564,21 +571,14 @@ export const TrackPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Description & metadata */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
-                    <div>
-                        {track.description && (
-                            <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `4px solid ${colors.primary}`, marginBottom: '16px' }}>
-                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{track.description}</p>
-                            </div>
-                        )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Additional metadata */}
+                {(track.artist || track.album || track.year) && (
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
                         {track.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={track.artist} />}
                         {track.album && <InfoItem icon={<Music size={16}/>} label="Album" value={track.album} />}
                         {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
                     </div>
-                </div>
+                )}
 
                 {/* Comments */}
                 <CommentSection trackId={track.id} ownerId={track.profile.userId} />
