@@ -27,6 +27,14 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 
+// Augment express-session to include custom fields
+declare module 'express-session' {
+    interface SessionData {
+        user?: any;
+        isGuildMember?: boolean;
+    }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
