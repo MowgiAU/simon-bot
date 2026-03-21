@@ -4591,6 +4591,11 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
+        // Check per-profile cache first
+        const cacheKey = `profile-${userId.toLowerCase()}`;
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
         // Try profileService first (matches by userId or username)
         const profile = await profileService.getProfile(userId);
         
@@ -4598,7 +4603,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             // Fallback: Try fetching by username with different include pattern
             const byUsername = (await db.musicianProfile.findFirst({
                 where: { username: { equals: userId, mode: 'insensitive' } },
-                include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } }, _count: { select: { favourites: true, reposts: true, comments: true } } } } }
+                include: { genres: true, tracks: { where: { isPublic: true }, orderBy: { createdAt: 'desc' }, include: { genres: { include: { genre: true } }, _count: { select: { favourites: true, reposts: true, comments: true } } } } }
             })) as any;
             if (byUsername) {
                 if (byUsername.status && byUsername.status !== 'active') {
@@ -4612,7 +4617,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                     });
                 }
 
-                // Fetch reposts in parallel with response preparation
+                // Fetch reposts
                 const reposts = await db.trackRepost.findMany({
                     where: { userId: byUsername.userId },
                     orderBy: { createdAt: 'desc' },
@@ -4635,6 +4640,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                         _originalArtist: r.track.profile,
                     }));
 
+                setCachedResponse(cacheKey, byUsername);
                 return res.json(byUsername);
             }
             return res.status(404).json({ error: 'Profile not found' });
@@ -4675,6 +4681,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 _originalArtist: r.track.profile,
             }));
         
+        setCachedResponse(cacheKey, profileData);
         res.json(profileData);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4791,6 +4798,10 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 
         // Log profile creation/update
         await logAction('GLOBAL', 'profile_updated', userId, updated.id, { username: updated.username });
+
+        // Invalidate profile cache for this user
+        apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
+        if (updated.username) apiResponseCache.delete(`profile-${updated.username.toLowerCase()}`);
 
         res.json(updated);
     } catch (e: any) {
@@ -6338,15 +6349,28 @@ app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
         });
 
-        // For each entry, determine placement (rank by voteCount in that battle)
-        const enriched = await Promise.all(entries.map(async (entry: any) => {
-            const allEntries = await db.battleEntry.findMany({
-                where: { battleId: entry.battleId },
-                orderBy: { voteCount: 'desc' },
-                select: { id: true, voteCount: true },
-            });
-            const placement = allEntries.findIndex((e: any) => e.id === entry.id) + 1;
-            const totalEntries = allEntries.length;
+        if (entries.length === 0) return res.json([]);
+
+        // Batch: fetch all entries for all relevant battles in ONE query (eliminates N+1)
+        const battleIds = [...new Set(entries.map((e: any) => e.battleId))];
+        const allBattleEntries = await db.battleEntry.findMany({
+            where: { battleId: { in: battleIds } },
+            select: { id: true, battleId: true, voteCount: true },
+            orderBy: { voteCount: 'desc' },
+        });
+
+        // Group by battleId for O(1) lookup
+        const entriesByBattle = new Map<string, { id: string; voteCount: number }[]>();
+        for (const e of allBattleEntries) {
+            const list = entriesByBattle.get(e.battleId) || [];
+            list.push(e);
+            entriesByBattle.set(e.battleId, list);
+        }
+
+        const enriched = entries.map((entry: any) => {
+            const battleEntries = entriesByBattle.get(entry.battleId) || [];
+            const placement = battleEntries.findIndex((e: any) => e.id === entry.id) + 1;
+            const totalEntries = battleEntries.length;
             const isWinner = placement === 1 && entry.battle.status === 'completed' && entry.voteCount > 0;
             return {
                 id: entry.id,
@@ -6361,7 +6385,7 @@ app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
                 totalEntries,
                 isWinner,
             };
-        }));
+        });
 
         res.json(enriched);
     } catch (e: any) {

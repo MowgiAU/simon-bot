@@ -769,6 +769,7 @@ model Track {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([profileId])
   @@map("musician_tracks")
 }
 
@@ -1077,6 +1078,7 @@ model BattleEntry {
 
   @@unique([battleId, userId]) // One entry per battle per user
   @@index([battleId])
+  @@index([userId])
   @@map("battle_entries")
 }
 
