@@ -211,6 +211,11 @@ const API_CACHE_TTL: Record<string, number> = {
     'musician-profiles': 1000 * 60 * 2,     // 2 minutes
     'popular-playlists': 1000 * 60 * 3,     // 3 minutes
     'leaderboards-tracks': 1000 * 60 * 2,   // 2 minutes
+    'charts-daily': 1000 * 60 * 5,          // 5 minutes
+    'charts-weekly': 1000 * 60 * 10,        // 10 minutes
+    'charts-alltime': 1000 * 60 * 15,       // 15 minutes
+    'battles-list': 1000 * 60 * 2,          // 2 minutes
+    'genres': 1000 * 60 * 30,               // 30 minutes
 };
 
 function getCachedResponse(key: string): any | null {
@@ -4585,9 +4590,12 @@ app.get('/api/musician/profiles', async (req, res) => {
 app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
+
+        // Try profileService first (matches by userId or username)
         const profile = await profileService.getProfile(userId);
+        
         if (!profile) {
-            // Try fetching by username (the :userId param might be a username)
+            // Fallback: Try fetching by username with different include pattern
             const byUsername = (await db.musicianProfile.findFirst({
                 where: { username: { equals: userId, mode: 'insensitive' } },
                 include: { genres: true, tracks: { include: { plays: true, genres: { include: { genre: true } }, _count: { select: { favourites: true, reposts: true, comments: true } } } } }
@@ -4604,7 +4612,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                     });
                 }
 
-                // Fetch reposts for this user
+                // Fetch reposts in parallel with response preparation
                 const reposts = await db.trackRepost.findMany({
                     where: { userId: byUsername.userId },
                     orderBy: { createdAt: 'desc' },
@@ -4793,6 +4801,9 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 // Genre Library for Picker
 app.get('/api/musician/genres', async (req, res) => {
     try {
+        const cached = getCachedResponse('genres');
+        if (cached) return res.json(cached);
+
         const genres = await db.genre.findMany({
             include: {
                 _count: {
@@ -4806,9 +4817,7 @@ app.get('/api/musician/genres', async (req, res) => {
             orderBy: { name: 'asc' }
         });
         
-        // Debug logging for the issue reported
-        logger.info(`[API] Fetched ${genres.length} genres. First genre track count: ${genres[0]?._count?.tracks || 0}`);
-        
+        setCachedResponse('genres', genres);
         res.json(genres);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4828,6 +4837,7 @@ app.post('/api/musician/genres', async (req, res) => {
             update: { parentId, slug },
             create: { name, parentId, slug }
         });
+        apiResponseCache.delete('genres');
         res.json(genre);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4839,6 +4849,7 @@ app.delete('/api/musician/genres/:id', async (req, res) => {
     try {
         const { id } = req.params;
         await db.genre.delete({ where: { id } });
+        apiResponseCache.delete('genres');
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -5742,6 +5753,25 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
         if (guildId && guildId !== 'default-guild') where.guildId = guildId;
         if (status) where.status = status;
 
+        // Cache default (unfiltered) battle list
+        const isDefaultQuery = (!guildId || guildId === 'default-guild') && !status;
+        if (isDefaultQuery) {
+            const cached = getCachedResponse('battles-list');
+            if (cached) {
+                res.json(cached);
+                // Still track analytics fire-and-forget
+                if (req.session?.user?.id) {
+                    const activeBattle = cached.find((b: any) => b.status !== 'completed');
+                    if (activeBattle) {
+                        db.battleAnalytics.create({
+                            data: { battleId: activeBattle.id, eventType: 'page_view', userId: req.session.user.id },
+                        }).catch(() => {});
+                    }
+                }
+                return;
+            }
+        }
+
         const battles = await db.beatBattle.findMany({
             where,
             include: {
@@ -5751,17 +5781,19 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
         });
 
-        // Track page view analytics
+        if (isDefaultQuery) setCachedResponse('battles-list', battles);
+
+        res.json(battles);
+
+        // Fire-and-forget analytics (don't block the response)
         if (req.session?.user?.id) {
             const activeBattle = battles.find((b: any) => b.status !== 'completed');
             if (activeBattle) {
-                await db.battleAnalytics.create({
+                db.battleAnalytics.create({
                     data: { battleId: activeBattle.id, eventType: 'page_view', userId: req.session.user.id },
                 }).catch(() => {});
             }
         }
-
-        res.json(battles);
     } catch (e: any) {
         logger.error('Beat Battle API: list battles failed', e);
         res.status(500).json({ error: e.message });
@@ -5788,14 +5820,14 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
         // Include discordInviteUrl from guild settings
         const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } }).catch(() => null);
 
-        // Track page view
+        res.json({ ...battle, discordInviteUrl: guildSettings?.discordInviteUrl || null });
+
+        // Fire-and-forget analytics (don't block the response)
         if (req.session?.user?.id) {
-            await db.battleAnalytics.create({
+            db.battleAnalytics.create({
                 data: { battleId: battle.id, eventType: 'page_view', userId: req.session.user.id },
             }).catch(() => {});
         }
-
-        res.json({ ...battle, discordInviteUrl: guildSettings?.discordInviteUrl || null });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -7025,10 +7057,16 @@ app.get('/api/charts/:period', async (req: any, res) => {
             return res.status(400).json({ error: 'period must be daily, weekly, or alltime' });
         }
         const limit = Math.min(Number(req.query.limit) || 50, 100);
+
+        const cacheKey = `charts-${period}`;
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
         const chart = await chartService.getLatestChart(period as any, limit);
         if (!chart) {
             return res.json({ entries: [], period, takenAt: null });
         }
+        setCachedResponse(cacheKey, chart);
         res.json(chart);
     } catch (e: any) {
         logger.error(`Charts GET /${req.params.period}: ${e.message}`);

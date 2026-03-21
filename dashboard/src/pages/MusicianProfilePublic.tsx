@@ -182,25 +182,26 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     });
                 }
                 setProfile(data);
-                // Load follow data
-                try {
-                    const countRes = await axios.get(`/api/artists/${data.id}/follower-count`);
-                    setFollowerCount(countRes.data.count);
-                    const followRes = await axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true });
-                    setIsFollowing(followRes.data.following);
-                } catch { /* not logged in or error */ }
-                // Load favourite/repost status for all tracks
+
+                // Load all supplementary data in parallel
                 const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id)];
+                const supplementary: Promise<any>[] = [
+                    axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
+                    axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
+                    axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),
+                ];
                 if (allTrackIds.length > 0) {
-                    try {
-                        const [favRes, repRes] = await Promise.all([
-                            axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }),
-                            axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }),
-                        ]);
-                        setFavourites(favRes.data);
-                        setReposts(repRes.data);
-                    } catch { /* not logged in */ }
+                    supplementary.push(
+                        axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
+                        axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
+                    );
                 }
+                const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
+                if (countRes?.data) setFollowerCount(countRes.data.count);
+                if (followRes?.data) setIsFollowing(followRes.data.following);
+                if (entriesRes?.data) setBattleEntries(entriesRes.data);
+                if (favRes?.data) setFavourites(favRes.data);
+                if (repRes?.data) setReposts(repRes.data);
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
             } finally {
@@ -209,17 +210,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         };
         fetchProfile();
     }, [identifier]);
-
-    // Fetch battle submissions once profile is loaded
-    useEffect(() => {
-        if (!profile?.userId) return;
-        (async () => {
-            try {
-                const res = await axios.get(`/api/beat-battle/user/${profile.userId}/entries`);
-                setBattleEntries(res.data);
-            } catch {}
-        })();
-    }, [profile?.userId]);
 
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>
