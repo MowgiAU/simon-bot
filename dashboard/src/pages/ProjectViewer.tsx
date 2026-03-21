@@ -174,8 +174,8 @@ export const ProjectViewer: React.FC = () => {
     );
 
     const Explanation = () => (
-        <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-             <p style={{ margin: 0, color: colors.textPrimary }}>
+        <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+             <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.5' }}>
                 This viewer visualizes the inner structure of DAW projects (FL Studio, Ableton, etc.) synced with their audio renders. 
                 Browse your community's projects below to see how they were built.
              </p>

@@ -85,7 +85,7 @@ export const FeedbackPluginPage: React.FC = () => {
 
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: isMobile ? '16px' : '20px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <MessageSquare size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />

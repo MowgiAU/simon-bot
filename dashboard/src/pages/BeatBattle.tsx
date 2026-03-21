@@ -3,6 +3,7 @@ import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { useMobile } from '../hooks/useMobile';
 import { 
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
@@ -96,6 +97,7 @@ type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
 
 export const BeatBattlePage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const isMobile = useMobile();
     const guildId = selectedGuild?.id || 'default-guild';
 
     const [tab, setTab] = useState<Tab>('battles');
@@ -567,7 +569,7 @@ export const BeatBattlePage: React.FC = () => {
 
     return (
         <>
-        <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Swords size={32} color={colors.primary} style={{ marginRight: '16px' }} />
@@ -578,8 +580,8 @@ export const BeatBattlePage: React.FC = () => {
             </div>
 
             {/* Explanation */}
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
                     Beat Battles are hosted on the website. Create a battle here, and the bot will post announcements to Discord. All submissions and voting happen on the site.
                 </p>
             </div>

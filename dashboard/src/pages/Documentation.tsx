@@ -125,7 +125,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
   );
 
   return (
-    <div style={{ padding: isMobile ? '24px 16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
         <Book size={32} color={colors.primary} style={{ marginRight: '16px' }} />

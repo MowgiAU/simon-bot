@@ -87,7 +87,7 @@ export const EconomyPluginPage: React.FC = () => {
     if (loading) return <div>Loading...</div>;
 
     return (
-        <div style={{ padding: isMobile ? '16px' : '20px', maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <Coins size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />

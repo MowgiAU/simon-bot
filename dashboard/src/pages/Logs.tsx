@@ -394,7 +394,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
 
   return (
     <div style={{ 
-        padding: isMobile ? spacing.md : spacing.xl, 
+        padding: isMobile ? '16px' : '24px', 
         height: 'calc(100vh - 80px)',
         display: 'flex',
         flexDirection: 'column'
@@ -414,7 +414,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
       {isMobile && <p style={{ margin: '0 0 12px', color: colors.textSecondary, flexShrink: 0 }}>Review moderation actions, tracked users, and system events.</p>}
 
       {/* Explanation Block */}
-      <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid ${colors.primary}`, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+      <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid ${colors.primary}`, flexShrink: 0 }}>
         <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
           View and search all moderation actions, AutoMod events, and system logs. Click any log entry to add comments or review details. Use the filter sidebar to narrow results by category.
         </p>

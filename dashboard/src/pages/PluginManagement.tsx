@@ -139,7 +139,7 @@ export const PluginManagementPage: React.FC = () => {
     );
 
     return (
-        <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1000px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Settings size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
@@ -153,8 +153,8 @@ export const PluginManagementPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary }}>Toggle plugins on or off for this server, assign role-based access, and control who can log in to the dashboard. Changes may take up to 30 seconds to apply.</p>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Toggle plugins on or off for this server, assign role-based access, and control who can log in to the dashboard. Changes may take up to 30 seconds to apply.</p>
             </div>
 
             {/* Dashboard Access */}

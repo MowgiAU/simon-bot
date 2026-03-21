@@ -62,7 +62,7 @@ export const BotIdentityPage: React.FC = () => {
     };
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <User size={32} color={colors.primary} style={{ marginRight: '16px' }} />
@@ -87,8 +87,8 @@ export const BotIdentityPage: React.FC = () => {
                 </button>
             </div>
 
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary }}>Configure the bot's Discord username, avatar, and presence status. Changes to username and avatar may take a few minutes to reflect in Discord.</p>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Configure the bot's Discord username, avatar, and presence status. Changes to username and avatar may take a few minutes to reflect in Discord.</p>
             </div>
 
             <div style={sectionStyle}>

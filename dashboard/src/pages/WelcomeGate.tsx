@@ -75,7 +75,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     if (!settings) return null; // Should be handled by error view above
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
             <div style={{ display: 'flex', marginBottom: '24px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center' }}>
                 <AnimatedWrapper icon={Shield} size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>

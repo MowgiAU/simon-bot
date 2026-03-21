@@ -264,7 +264,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
     return (
         <>
-        <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '24px' }}>
              {/* Header */}
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>

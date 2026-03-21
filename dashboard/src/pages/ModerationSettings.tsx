@@ -161,7 +161,7 @@ export const ModerationSettingsPage: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: isMobile ? '16px' : '20px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <AnimatedWrapper icon={Shield} size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />

@@ -592,101 +592,6 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 )}
             </div>
 
-            {/* Compose Modal */}
-            {composing && (
-                <div style={{ 
-                    position: 'absolute', bottom: 0, right: isMobile ? 0 : '24px', 
-                    width: isMobile ? '100%' : '600px', height: isMobile ? '100%' : '600px', 
-                    background: colors.surface, borderRadius: isMobile ? 0 : '8px 8px 0 0', 
-                    boxShadow: '0 0 16px rgba(0,0,0,0.3)', 
-                    display: 'flex', flexDirection: 'column',
-                    zIndex: 100, border: `1px solid ${colors.border}`,
-                    paddingBottom: '16px'
-                }}>
-                    {/* Header */}
-                    <div style={{ background: colors.primary, color: colors.textPrimary, padding: '12px 20px', borderRadius: isMobile ? 0 : '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: colors.textPrimary, cursor: 'pointer' }}><X size={16} /></button>
-                        </div>
-                    </div>
-                    
-                    {/* Fields */}
-                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        <input 
-                            placeholder="To" 
-                            value={composeData.to}
-                            onChange={e => setComposeData({...composeData, to: e.target.value})}
-                            style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
-                        />
-                        <input 
-                            placeholder="Subject" 
-                            value={composeData.subject}
-                            onChange={e => setComposeData({...composeData, subject: e.target.value})}
-                            style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
-                        />
-                        
-                        {/* Attachments List */}
-                        {composeData.attachments.length > 0 && (
-                            <div style={{ padding: '4px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: colors.background }}>
-                                {composeData.attachments.map((f, i) => (
-                                    <div key={i} style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textPrimary }}>
-                                        {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary }}><X size={12}/></button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Toolbar + Editor */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ padding: '0 12px' }}>
-                                <EditorToolbar />
-                            </div>
-                            <div 
-                                contentEditable
-                                onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
-                                style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif', color: colors.textPrimary }}
-                                data-placeholder="Message body..."
-                            />
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.border}` }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
-                                onClick={handleSend}
-                                style={{ 
-                                    background: colors.primary, color: colors.textPrimary, 
-                                    border: 'none', padding: '8px 24px', 
-                                    borderRadius: '18px', fontWeight: 600, 
-                                    cursor: 'pointer', fontSize: '14px' 
-                                }}
-                            >
-                                Send
-                            </button>
-                            <button 
-                                onClick={() => fileInputRef.current?.click()}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '8px' }}
-                                title="Attach files"
-                                className='hover-bg'
-                            >
-                                <Paperclip size={20} />
-                            </button>
-                            <input 
-                                type="file" 
-                                multiple 
-                                ref={fileInputRef} 
-                                style={{ display: 'none' }} 
-                                onChange={handleFileSelect}
-                            />
-                        </div>
-                        <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
     };
@@ -764,9 +669,9 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
 
     return (
         <>
-        <div style={{ padding: '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: isMobile ? '16px' : '24px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
              {/* Header */}
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', marginBottom: '24px', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', marginBottom: '16px', gap: isMobile ? '16px' : '0', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <Mail size={32} color={colors.primary} />
                     <div>
@@ -818,6 +723,10 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 </div>
             </div>
 
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid ${colors.primary}`, flexShrink: 0 }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Send and receive emails from the dashboard. Configure webhook settings and notification preferences in the Settings tab.</p>
+            </div>
+
             <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
@@ -833,6 +742,101 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 </div>
             </div>
         </div>
+        {/* Compose Modal - fixed position to avoid overflow clipping */}
+        {composing && (
+            <div style={{ 
+                position: 'fixed', bottom: 0, right: isMobile ? 0 : '24px', 
+                width: isMobile ? '100%' : '600px', height: isMobile ? '100%' : '600px', 
+                background: colors.surface, borderRadius: isMobile ? 0 : '8px 8px 0 0', 
+                boxShadow: '0 0 16px rgba(0,0,0,0.3)', 
+                display: 'flex', flexDirection: 'column',
+                zIndex: 1000, border: `1px solid ${colors.border}`,
+                paddingBottom: '16px'
+            }}>
+                {/* Header */}
+                <div style={{ background: colors.primary, color: colors.textPrimary, padding: '12px 20px', borderRadius: isMobile ? 0 : '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                       <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: colors.textPrimary, cursor: 'pointer' }}><X size={16} /></button>
+                    </div>
+                </div>
+                
+                {/* Fields */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                    <input 
+                        placeholder="To" 
+                        value={composeData.to}
+                        onChange={e => setComposeData({...composeData, to: e.target.value})}
+                        style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
+                    />
+                    <input 
+                        placeholder="Subject" 
+                        value={composeData.subject}
+                        onChange={e => setComposeData({...composeData, subject: e.target.value})}
+                        style={{ padding: '12px 20px', border: 'none', borderBottom: `1px solid ${colors.border}`, outline: 'none', fontSize: '14px', background: 'transparent', color: colors.textPrimary }}
+                    />
+                    
+                    {/* Attachments List */}
+                    {composeData.attachments.length > 0 && (
+                        <div style={{ padding: '4px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', background: colors.background }}>
+                            {composeData.attachments.map((f, i) => (
+                                <div key={i} style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textPrimary }}>
+                                    {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary }}><X size={12}/></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Toolbar + Editor */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                        <div style={{ padding: '0 12px' }}>
+                            <EditorToolbar />
+                        </div>
+                        <div 
+                            contentEditable
+                            onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
+                            style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif', color: colors.textPrimary, minHeight: '100px' }}
+                            data-placeholder="Message body..."
+                        />
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.border}` }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                            onClick={handleSend}
+                            style={{ 
+                                background: colors.primary, color: colors.textPrimary, 
+                                border: 'none', padding: '8px 24px', 
+                                borderRadius: '18px', fontWeight: 600, 
+                                cursor: 'pointer', fontSize: '14px' 
+                            }}
+                        >
+                            Send
+                        </button>
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '8px' }}
+                            title="Attach files"
+                            className='hover-bg'
+                        >
+                            <Paperclip size={20} />
+                        </button>
+                        <input 
+                            type="file" 
+                            multiple 
+                            ref={fileInputRef} 
+                            style={{ display: 'none' }} 
+                            onChange={handleFileSelect}
+                        />
+                    </div>
+                    <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary }}>
+                        <Trash2 size={16} />
+                    </button>
+                </div>
+            </div>
+        )}
         <ConfirmModal
             open={!!trashConfirm}
             title="Move to Trash"
