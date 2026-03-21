@@ -1429,20 +1429,26 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
 
     const whereClause: any = { guildId };
 
-    // Map frontend categories to database action strings
+    // Map frontend categories to database action strings.
+    // Each list includes the raw category string itself (for logs imported via /logger import)
+    // AND the specific action strings logged by bot plugins / API events.
     const CATEGORY_ACTIONS: Record<string, string[]> = {
-        'MOD': ['kick', 'ban', 'unban', 'timeout', 'untimeout', 'warn', 'purge', 'member_kick', 'member_ban', 'member_timeout'],
-        'AUTOMOD': ['automod_block', 'spam_detected'],
-        'ROLE': ['role_create', 'role_delete', 'role_update', 'member_role_update'],
-        'PROFANITY': ['message_filtered', 'profanity_detected'],
-        'CURRENCY': ['item_bought', 'transaction'],
-        'LINK': ['link_deleted', 'link_filtered'],
-        'PIRACY': ['piracy_detected'],
-        'ERROR': ['error', 'command_error'],
-        'PROFILES': ['profile_status_changed', 'track_status_changed', 'profile_wiped', 'track_uploaded', 'profile_updated', 'avatar_uploaded'],
-        'COMMENTS': ['comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed'],
-        'SOCIAL': ['track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed'],
-        'PLAYLISTS': ['playlist_created', 'playlist_deleted', 'playlist_track_added', 'playlist_track_removed'],
+        'MOD': ['MOD', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'warn', 'purge', 'softban',
+                'member_kick', 'member_ban', 'member_timeout', 'message_approved_web', 'message_rejected_web', 'announcement_posted'],
+        'AUTOMOD': ['AUTOMOD', 'automod_block', 'spam_detected'],
+        'ROLE': ['ROLE', 'role_create', 'role_delete', 'role_update', 'member_role_update'],
+        'PROFANITY': ['PROFANITY', 'message_filtered', 'profanity_detected'],
+        'CURRENCY': ['CURRENCY', 'item_bought', 'transaction'],
+        'LINK': ['LINK', 'link_deleted', 'link_filtered'],
+        'PIRACY': ['PIRACY', 'piracy_detected'],
+        'ERROR': ['ERROR', 'error', 'command_error'],
+        'PROFILES': ['PROFILES', 'profile_status_changed', 'track_status_changed', 'profile_wiped',
+                     'track_uploaded', 'track_edited', 'track_deleted', 'profile_updated', 'avatar_uploaded',
+                     'battle_created', 'battle_updated', 'battle_deleted', 'FEEDBACK_THREAD_CREATED', 'FEEDBACK_APPROVED'],
+        'COMMENTS': ['COMMENTS', 'comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed'],
+        'SOCIAL': ['SOCIAL', 'track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed',
+                   'track_reposted', 'track_unreposted'],
+        'PLAYLISTS': ['PLAYLISTS', 'playlist_created', 'playlist_deleted', 'playlist_track_added', 'playlist_track_removed'],
     };
 
     if (action && action !== 'all') {
@@ -3983,6 +3989,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
             where: { id: trackId },
             include: { genres: { include: { genre: true } } }
         });
+        await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         res.json(fullTrack);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4013,6 +4020,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             data: { featuredTrackId: null }
         });
         await db.track.delete({ where: { id: trackId } });
+        await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -4163,6 +4171,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
             where: { id: trackId },
             include: { profile: true, genres: { include: { genre: true } } }
         });
+        await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
@@ -7667,9 +7676,11 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
 
         if (existing) {
             await db.trackRepost.delete({ where: { id: existing.id } });
+            await logAction('GLOBAL', 'track_unreposted', userId, trackId, { title: track.title }).catch(() => {});
             res.json({ reposted: false });
         } else {
             await db.trackRepost.create({ data: { userId, trackId } });
+            await logAction('GLOBAL', 'track_reposted', userId, trackId, { title: track.title, owner: track.profile?.username }).catch(() => {});
             // Notify track owner
             if (track.profile.userId !== userId) {
                 const username = req.session.user.username || 'Someone';

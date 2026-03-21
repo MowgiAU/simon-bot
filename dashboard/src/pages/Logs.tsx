@@ -478,6 +478,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                     key={cat.id}
                     onClick={() => {
                         setActiveCategory(cat.id);
+                        setPage(1);
                         if (isMobile) setShowFilters(false);
                     }}
                     title={cat.label}
