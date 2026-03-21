@@ -79,10 +79,10 @@ interface MusicianProfile {
     }>;
 }
 
-export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () => void; isOwnProfile: boolean }> = ({ identifier, onEdit, isOwnProfile }) => {
+export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () => void; isOwnProfile: boolean; initialProfile?: any }> = ({ identifier, onEdit, isOwnProfile, initialProfile }) => {
     const navigate = useNavigate();
-    const [profile, setProfile] = useState<MusicianProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState<MusicianProfile | null>(initialProfile || null);
+    const [loading, setLoading] = useState(!initialProfile);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [copied, setCopied] = useState(false);
@@ -167,12 +167,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     useEffect(() => {
         const fetchProfile = async () => {
-            setLoading(true);
-            try {
-                const res = await axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true });
-                const data = res.data;
-                // Map socials JSON array to flat fields for display
-                if (data && data.socials && Array.isArray(data.socials)) {
+            let data: any;
+
+            if (initialProfile) {
+                // Use pre-fetched profile from parent — no duplicate API call
+                data = initialProfile;
+                // Map socials if needed
+                if (data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
                         if (s.platform === 'spotify') data.spotifyUrl = s.url;
                         if (s.platform === 'soundcloud') data.soundcloudUrl = s.url;
@@ -182,31 +183,50 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     });
                 }
                 setProfile(data);
-
-                // Load all supplementary data in parallel
-                const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id)];
-                const supplementary: Promise<any>[] = [
-                    axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
-                    axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
-                    axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),
-                ];
-                if (allTrackIds.length > 0) {
-                    supplementary.push(
-                        axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
-                        axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
-                    );
-                }
-                const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
-                if (countRes?.data) setFollowerCount(countRes.data.count);
-                if (followRes?.data) setIsFollowing(followRes.data.following);
-                if (entriesRes?.data) setBattleEntries(entriesRes.data);
-                if (favRes?.data) setFavourites(favRes.data);
-                if (repRes?.data) setReposts(repRes.data);
-            } catch (err: any) {
-                setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
-            } finally {
                 setLoading(false);
+            } else {
+                // No pre-fetched data — fetch from API
+                setLoading(true);
+                try {
+                    const res = await axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true });
+                    data = res.data;
+                    if (data && data.socials && Array.isArray(data.socials)) {
+                        data.socials.forEach((s: any) => {
+                            if (s.platform === 'spotify') data.spotifyUrl = s.url;
+                            if (s.platform === 'soundcloud') data.soundcloudUrl = s.url;
+                            if (s.platform === 'youtube') data.youtubeUrl = s.url;
+                            if (s.platform === 'instagram') data.instagramUrl = s.url;
+                            if (s.platform === 'discord') data.discordUrl = s.url;
+                        });
+                    }
+                    setProfile(data);
+                    setLoading(false);
+                } catch (err: any) {
+                    setError(err.response?.status === 404 ? 'Profile not found' : 'Failed to load profile');
+                    setLoading(false);
+                    return;
+                }
             }
+
+            // Load all supplementary data in parallel (non-blocking — page already rendered)
+            const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id)];
+            const supplementary: Promise<any>[] = [
+                axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
+                axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
+                axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),
+            ];
+            if (allTrackIds.length > 0) {
+                supplementary.push(
+                    axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
+                    axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
+                );
+            }
+            const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
+            if (countRes?.data) setFollowerCount(countRes.data.count);
+            if (followRes?.data) setIsFollowing(followRes.data.following);
+            if (entriesRes?.data) setBattleEntries(entriesRes.data);
+            if (favRes?.data) setFavourites(favRes.data);
+            if (repRes?.data) setReposts(repRes.data);
         };
         fetchProfile();
     }, [identifier]);

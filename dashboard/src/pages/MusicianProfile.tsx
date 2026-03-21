@@ -124,6 +124,7 @@ export const MusicianProfilePage: React.FC = () => {
                     identifier={identifier} 
                     isOwnProfile={isOwn} 
                     onEdit={() => navigate('/profile/edit')}
+                    initialProfile={profile}
                 />
             </DiscoveryLayout>
         );
