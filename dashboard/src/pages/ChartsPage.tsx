@@ -73,7 +73,7 @@ const MovementBadge: React.FC<{ entry: ChartEntry }> = ({ entry }) => {
 };
 
 // ─── Hero Card for #1 ───
-const HeroCard: React.FC<{ entry: ChartEntry; onPlay: () => void; reposted: boolean; onRepost: () => void }> = ({ entry, onPlay, reposted, onRepost }) => {
+const HeroCard: React.FC<{ entry: ChartEntry; period: string; onPlay: () => void; reposted: boolean; onRepost: () => void }> = ({ entry, period, onPlay, reposted, onRepost }) => {
     const artist = entry.track.profile.displayName || entry.track.profile.username;
     return (
         <div style={{
@@ -142,7 +142,7 @@ const HeroCard: React.FC<{ entry: ChartEntry; onPlay: () => void; reposted: bool
                                 <span style={{ fontSize: '11px', color: colors.textSecondary }}>Peak #1</span>
                             </div>
                         )}
-                        {entry.weeksOnChart > 1 && (
+                        {period === 'weekly' && entry.weeksOnChart > 1 && (
                             <span style={{ fontSize: '11px', color: colors.textTertiary }}>{entry.weeksOnChart} weeks on chart</span>
                         )}
                         <button onClick={e => { e.stopPropagation(); onRepost(); }}
@@ -201,8 +201,8 @@ const PodiumCard: React.FC<{ entry: ChartEntry; medal: string; medalColor: strin
 // ─── Chart Row ───
 const ChartRow: React.FC<{
     entry: ChartEntry; idx: number; isMobile: boolean; reposted: boolean;
-    onPlay: () => void; onRepost: () => void;
-}> = ({ entry, idx, isMobile, reposted, onPlay, onRepost }) => {
+    period: string; onPlay: () => void; onRepost: () => void;
+}> = ({ entry, idx, isMobile, reposted, period, onPlay, onRepost }) => {
     const isTop10 = entry.position <= 10;
     const rankColor = entry.position <= 3 ? ['#FFD700', '#C0C0C0', '#CD7F32'][entry.position - 1] : (isTop10 ? colors.textPrimary : colors.textTertiary);
 
@@ -256,9 +256,11 @@ const ChartRow: React.FC<{
                         <Trophy size={10} color="#FFD700" style={{ opacity: 0.6 }} />
                         <span style={{ fontSize: '12px', color: colors.textTertiary }}>{entry.peakPosition}</span>
                     </div>
-                    <div style={{ width: '40px', textAlign: 'center', flexShrink: 0 }}>
-                        <span style={{ fontSize: '12px', color: colors.textTertiary }}>{entry.weeksOnChart}w</span>
-                    </div>
+                    {period === 'weekly' && (
+                        <div style={{ width: '40px', textAlign: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: '12px', color: colors.textTertiary }}>{entry.weeksOnChart}w</span>
+                        </div>
+                    )}
                 </>
             )}
 
@@ -286,7 +288,7 @@ const ChartRow: React.FC<{
 // Main Charts Page
 // ═══════════════════════════════════════
 export const ChartsPage: React.FC = () => {
-    const [period, setPeriod] = useState<'daily' | 'weekly' | 'alltime'>('daily');
+    const [period, setPeriod] = useState<'daily' | 'weekly' | 'alltime'>('weekly');
     const [chart, setChart] = useState<ChartData | null>(null);
     const [loading, setLoading] = useState(true);
     const { setTrack } = usePlayer();
@@ -405,6 +407,7 @@ export const ChartsPage: React.FC = () => {
                         {hero && (
                             <HeroCard
                                 entry={hero}
+                                period={period}
                                 onPlay={() => playFrom(0)}
                                 reposted={!!reposts[hero.track.id]}
                                 onRepost={() => toggleRepost(hero.track.id)}
@@ -443,7 +446,7 @@ export const ChartsPage: React.FC = () => {
                                     <span style={{ width: isMobile ? '38px' : '44px' }} />
                                     <span style={{ flex: 1, fontSize: '9px', color: colors.textTertiary, fontWeight: 700, textTransform: 'uppercase' }}>Track</span>
                                     {!isMobile && <span style={{ width: '50px', fontSize: '9px', color: colors.textTertiary, fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Peak</span>}
-                                    {!isMobile && <span style={{ width: '40px', fontSize: '9px', color: colors.textTertiary, fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Wks</span>}
+                                    {!isMobile && period === 'weekly' && <span style={{ width: '40px', fontSize: '9px', color: colors.textTertiary, fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Wks</span>}
                                     <span style={{ width: isMobile ? '50px' : '65px', fontSize: '9px', color: colors.textTertiary, fontWeight: 700, textTransform: 'uppercase', textAlign: 'right' }}>Plays</span>
                                     <span style={{ width: '23px' }} />
                                 </div>
@@ -456,6 +459,7 @@ export const ChartsPage: React.FC = () => {
                                             idx={idx + 3}
                                             isMobile={isMobile}
                                             reposted={!!reposts[entry.track.id]}
+                                            period={period}
                                             onPlay={() => playFrom(idx + 3)}
                                             onRepost={() => toggleRepost(entry.track.id)}
                                         />
