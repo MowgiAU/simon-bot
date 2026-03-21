@@ -153,6 +153,10 @@ export const PluginManagementPage: React.FC = () => {
                 </div>
             </div>
 
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary }}>Toggle plugins on or off for this server, assign role-based access, and control who can log in to the dashboard. Changes may take up to 30 seconds to apply.</p>
+            </div>
+
             {/* Dashboard Access */}
             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
                 <h2 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '18px' : '22px' }}>

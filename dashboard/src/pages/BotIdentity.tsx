@@ -87,6 +87,10 @@ export const BotIdentityPage: React.FC = () => {
                 </button>
             </div>
 
+            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary }}>Configure the bot's Discord username, avatar, and presence status. Changes to username and avatar may take a few minutes to reflect in Discord.</p>
+            </div>
+
             <div style={sectionStyle}>
                 <h3 style={{ marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Activity size={20} /> Presence

@@ -20,10 +20,11 @@ import {
   FileText,
   Music,
   Swords,
-  Compass,
-  Users,
-  Tag,
-  Library,
+  ExternalLink,
+  BookOpen,
+  Globe,
+  Bot,
+  Palette,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -91,37 +92,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
       </div>
 
       <div className="sidebar-nav">
-        <div className="nav-group">
-          <h3 className="nav-group-title">Public</h3>
+        {/* Back to public site */}
+        <div style={{ padding: '0 0 12px', marginBottom: '4px' }}>
           <button
-            className={`nav-item ${window.location.pathname === '/' ? 'active' : ''}`}
+            className="nav-item"
             onClick={() => navigate('/')}
-            title={collapsed ? "Home" : ""}
+            title={collapsed ? "Back to Site" : ""}
+            style={{ color: colors.textTertiary, fontSize: '12px' }}
           >
-            <span className="nav-icon"><AnimatedWrapper icon={Compass} size={20} /></span>
-            <span className="nav-label">Home</span>
+            <span className="nav-icon"><ExternalLink size={16} /></span>
+            <span className="nav-label">Back to Site</span>
           </button>
-          <button
-            className={`nav-item ${window.location.pathname === '/artists' ? 'active' : ''}`}
-            onClick={() => navigate('/artists')}
-            title={collapsed ? "Artists" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
-            <span className="nav-label">Artists</span>
-          </button>
-          <button
-            className={`nav-item ${window.location.pathname === '/genres' ? 'active' : ''}`}
-            onClick={() => navigate('/genres')}
-            title={collapsed ? "Genres" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={Tag} size={20} /></span>
-            <span className="nav-label">Genres</span>
-          </button>
-
         </div>
 
+        {/* Bot Management Section */}
         <div className="nav-group">
-          <h3 className="nav-group-title">General</h3>
+          <h3 className="nav-group-title"><Bot size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Bot</h3>
           <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => onNavigate('dashboard')}
@@ -140,54 +126,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Bot Identity</span>
           </button>
 
-          {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
-          <button
-            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
-            onClick={() => onNavigate('logs')}
-            title={collapsed ? "Audit Logs" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
-            <span className="nav-label">Audit Logs</span>
-          </button>
-          )}
-        </div>
-
-        <div className="nav-group">
-          <h3 className="nav-group-title">Plugins</h3>
-
-          {permissions.accessiblePlugins.includes('email-client') && (
-            <button
-                className={`nav-item ${activeSection === 'email-client' ? 'active' : ''}`}
-                onClick={() => onNavigate('email-client')}
-                title={collapsed ? "Email Client" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
-                <span className="nav-label">Email Client</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('tickets') && (
-            <button
-                className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`}
-                onClick={() => onNavigate('tickets')}
-                title={collapsed ? "Ticket System" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
-                <span className="nav-label">Ticket System</span>
-            </button>
-          )}
-          
-          {permissions.accessiblePlugins.includes('word-filter') && (
-            <button
-                className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
-                onClick={() => onNavigate('word-filter-settings')}
-                title={collapsed ? "Word Filter" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
-                <span className="nav-label">Word Filter</span>
-            </button>
-          )}
-
           {permissions.accessiblePlugins.includes('moderation') && (
           <button
             className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
@@ -199,11 +137,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           </button>
           )}
 
+          {permissions.accessiblePlugins.includes('word-filter') && (
+            <button
+                className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
+                onClick={() => onNavigate('word-filter-settings')}
+                title={collapsed ? "Word Filter" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
+                <span className="nav-label">Word Filter</span>
+            </button>
+          )}
+
           {(permissions.accessiblePlugins.includes('channel-rules') || permissions.accessiblePlugins.includes('moderation')) && (
             <button
                 className={`nav-item ${activeSection === 'channel-rules' ? 'active' : ''}`}
                 onClick={() => onNavigate('channel-rules')}
-                title={collapsed ? "Channel Gatekeeper" : ""}
+                title={collapsed ? "Channel Rules" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
                 <span className="nav-label">Channel Rules</span>
@@ -232,14 +181,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           </button>
           )}
 
-          {permissions.accessiblePlugins.includes('fuji-studio') && (
+          {permissions.accessiblePlugins.includes('email-client') && (
             <button
-                className={`nav-item ${activeSection === 'library' ? 'active' : ''}`}
-                onClick={() => onNavigate('library')}
-                title={collapsed ? "Library" : ""}
+                className={`nav-item ${activeSection === 'email-client' ? 'active' : ''}`}
+                onClick={() => onNavigate('email-client')}
+                title={collapsed ? "Email Client" : ""}
             >
-                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
-                <span className="nav-label">Library</span>
+                <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
+                <span className="nav-label">Email Client</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('tickets') && (
+            <button
+                className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`}
+                onClick={() => onNavigate('tickets')}
+                title={collapsed ? "Tickets" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
+                <span className="nav-label">Tickets</span>
             </button>
           )}
 
@@ -254,46 +214,82 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {permissions.accessiblePlugins.includes('beat-battle') && (
-            <button
-                className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
-                onClick={() => onNavigate('beat-battle')}
-                title={collapsed ? "Beat Battle" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
-                <span className="nav-label">Beat Battle</span>
-            </button>
+          {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
+          <button
+            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
+            onClick={() => onNavigate('logs')}
+            title={collapsed ? "Audit Logs" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
+            <span className="nav-label">Audit Logs</span>
+          </button>
           )}
+        </div>
 
+        {/* Website Section */}
+        <div className="nav-group">
+          <h3 className="nav-group-title"><Globe size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Website</h3>
+          
           {permissions.accessiblePlugins.includes('musician-profiles') && (
             <button
                 className={`nav-item ${activeSection === 'musician-profiles-admin' ? 'active' : ''}`}
                 onClick={() => onNavigate('musician-profiles-admin')}
-                title={collapsed ? "Profiles Config" : ""}
+                title={collapsed ? "Discover & Profiles" : ""}
             >
-                <span className="nav-icon"><AnimatedWrapper icon={Settings} size={20} /></span>
-                <span className="nav-label">Profiles Config</span>
+                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
+                <span className="nav-label">Discover & Profiles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('fuji-studio') && (
+            <button
+                className={`nav-item ${activeSection === 'library' ? 'active' : ''}`}
+                onClick={() => onNavigate('library')}
+                title={collapsed ? "Music Library" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
+                <span className="nav-label">Music Library</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('beat-battle') && (
+            <button
+                className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
+                onClick={() => onNavigate('beat-battle')}
+                title={collapsed ? "Beat Battles" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
+                <span className="nav-label">Beat Battles</span>
             </button>
           )}
         </div>
 
+        {/* System Section */}
         <div className="nav-group">
-          <h3 className="nav-group-title">Management</h3>
+          <h3 className="nav-group-title">System</h3>
           {permissions.canManagePlugins && (
           <button
             className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`}
             onClick={() => onNavigate('plugins')}
-            title={collapsed ? "Admin Panel" : ""}
+            title={collapsed ? "Plugin Management" : ""}
           >
             <span className="nav-icon"><AnimatedWrapper icon={Settings} size={18} /></span>
-            <span className="nav-label">Admin Panel</span>
+            <span className="nav-label">Plugin Management</span>
           </button>
           )}
+          <button
+            className={`nav-item ${activeSection === 'docs' ? 'active' : ''}`}
+            onClick={() => onNavigate('docs')}
+            title={collapsed ? "Documentation" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={18} /></span>
+            <span className="nav-label">Documentation</span>
+          </button>
           <button
             className="nav-item"
             onClick={logout}
             title={collapsed ? "Logout" : ""}
-            style={{ color: '#ff4444' }}
+            style={{ color: '#ef4444' }}
           >
             <span className="nav-icon"><LogOut size={18} /></span>
             <span className="nav-label">Logout</span>
@@ -302,7 +298,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
       </div>
 
       <div className="sidebar-footer">
-         <button className="collapse-sidebar-btn" onClick={() => setCollapsed(!collapsed)} style={{ width: '100%', padding: '10px', background: 'transparent', border: 'none', color: '#B9C3CE', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px' }}>
+         <button className="collapse-sidebar-btn" onClick={() => setCollapsed(!collapsed)} style={{ width: '100%', padding: '10px', background: 'transparent', border: 'none', color: colors.textTertiary, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px' }}>
             {collapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /> Collapse Sidebar</>}
          </button>
       </div>
