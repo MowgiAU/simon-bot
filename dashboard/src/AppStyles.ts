@@ -15,7 +15,7 @@ export const AppStyles = `
   body {
     background-color: ${colors.background};
     color: ${colors.textPrimary};
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   .app {
@@ -48,8 +48,8 @@ export const AppStyles = `
 
     .sidebar.collapsed + .main-content,
     .sidebar.collapsed ~ .main-content {
-      margin-left: 80px;
-      width: calc(100% - 80px);
+      margin-left: 72px;
+      width: calc(100% - 72px);
     }
   }
 
@@ -65,41 +65,41 @@ export const AppStyles = `
 
   /* Global scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: ${colors.background};
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: ${colors.border};
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: ${colors.textTertiary};
+    background: rgba(255, 255, 255, 0.14);
   }
 
   /* Dashboard & Grid Layouts */
   .dashboard-grid-split {
     display: grid;
     grid-template-columns: 2fr 1fr;
-    gap: 24px;
-    margin-bottom: 32px;
+    gap: 20px;
+    margin-bottom: 28px;
   }
 
   .dashboard-card-main {
-    background: #252D3E;
-    border-radius: 12px;
-    border: 1px solid #3E455633;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     padding: 24px;
   }
 
   .dashboard-card-activity {
-    background: linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9));
-    border-radius: 12px;
-    border: 1px solid #3E455633;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     padding: 24px;
   }
 
@@ -119,9 +119,9 @@ export const AppStyles = `
     .sidebar-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.6);
       z-index: 999;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(8px);
     }
 
     .dashboard-grid-split {
@@ -140,7 +140,6 @@ export const AppStyles = `
       padding: 16px !important;
     }
 
-    /* Grid splitting for mobile */
     .dashboard-grid-split {
       grid-template-columns: 1fr !important;
     }
@@ -151,7 +150,7 @@ export const AppStyles = `
 
     .stats-grid {
       grid-template-columns: 1fr !important;
-      gap: 12px !important;
+      gap: 10px !important;
     }
 
     .info-banner-hide-mobile {

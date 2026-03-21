@@ -76,49 +76,49 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
     alignItems: "center", 
     height: "100vh", 
     background: colors.background,
-    backgroundImage: "radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.05) 0%, transparent 50%)" 
+    backgroundImage: "radial-gradient(circle at 50% 40%, rgba(16, 185, 129, 0.06) 0%, transparent 50%)" 
   }}>
     <div style={{ 
-      background: "linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))",
+      background: "rgba(255, 255, 255, 0.03)",
+      backdropFilter: "blur(16px)",
       padding: "48px", 
-      borderRadius: "24px", 
-      boxShadow: "0 8px 32px rgba(0,0,0,0.4)", 
+      borderRadius: "20px", 
+      boxShadow: "0 12px 40px rgba(0,0,0,0.5)", 
       textAlign: "center",
-      maxWidth: "440px",
+      maxWidth: "420px",
       width: "90%",
-      border: "1px solid #3E455633",
-      backdropFilter: "blur(10px)"
+      border: "1px solid rgba(255, 255, 255, 0.06)",
     }}>
       <div style={{ 
-        width: "100px", 
-        height: "100px", 
-        background: "rgba(40, 123, 102, 0.1)", 
-        borderRadius: "24px", 
+        width: "88px", 
+        height: "88px", 
+        background: "rgba(16, 185, 129, 0.08)", 
+        borderRadius: "20px", 
         display: "flex", 
         alignItems: "center", 
         justifyContent: "center", 
-        margin: "0 auto 24px",
-        border: "1px solid rgba(40, 123, 102, 0.2)"
+        margin: "0 auto 28px",
+        border: "1px solid rgba(16, 185, 129, 0.15)"
       }}>
-        <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: "64px", height: "64px", filter: "brightness(0) invert(1)" }} />
+        <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: "56px", height: "56px", filter: "brightness(0) invert(1)" }} />
       </div>
       
       <h1 style={{ 
         color: colors.textPrimary, 
-        marginBottom: "12px", 
-        fontSize: "32px", 
-        fontWeight: 800,
-        letterSpacing: "-0.5px"
+        marginBottom: "10px", 
+        fontSize: "28px", 
+        fontWeight: 700,
+        letterSpacing: "-0.02em"
       }}>
         Fuji Studio
       </h1>
       
       <p style={{ 
         color: colors.textSecondary, 
-        marginBottom: "40px",
-        fontSize: "16px",
+        marginBottom: "36px",
+        fontSize: "15px",
         lineHeight: 1.5,
-        padding: "0 20px"
+        padding: "0 16px"
       }}>
         Advanced community management for FL Studio producers
       </p>
@@ -126,34 +126,32 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
       <button 
         onClick={login} 
         style={{ 
-          background: "rgb(40, 123, 102)", 
+          background: "linear-gradient(135deg, #10B981, #059669)", 
           color: "white", 
           border: "none", 
-          padding: "16px 32px", 
-          fontSize: "16px", 
-          fontWeight: 700, 
+          padding: "14px 28px", 
+          fontSize: "15px", 
+          fontWeight: 600, 
           borderRadius: "12px", 
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: "12px",
+          gap: "10px",
           width: "100%",
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          boxShadow: "0 4px 15px rgba(40, 123, 102, 0.3)"
+          boxShadow: "0 0 20px rgba(16, 185, 129, 0.2)"
         }}
         onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
-          e.currentTarget.style.transform = "translateY(-2px)";
-          e.currentTarget.style.boxShadow = "0 6px 20px rgba(40, 123, 102, 0.4)";
-          e.currentTarget.style.background = "rgb(45, 138, 115)";
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.boxShadow = "0 0 30px rgba(16, 185, 129, 0.3)";
         }}
         onMouseOut={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 4px 15px rgba(40, 123, 102, 0.3)";
-          e.currentTarget.style.background = "rgb(40, 123, 102)";
+          e.currentTarget.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.2)";
         }}
       >
-        <span style={{ fontSize: "20px" }}>⚡</span> Login with Discord
+        Login with Discord
       </button>
     </div>
   </div>
@@ -187,7 +185,7 @@ const AdminDashboard: React.FC = () => {
   if (mutualAdminGuilds.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: "center", backgroundColor: colors.background, minHeight: "100vh", color: colors.textPrimary }}>
-        <div style={{ maxWidth: "500px", margin: "100px auto", padding: "40px", borderRadius: "24px", background: "rgba(34, 43, 61, 0.8)", border: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ maxWidth: "500px", margin: "100px auto", padding: "40px", borderRadius: "20px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(12px)" }}>
           <h2>No Admin Communities Found</h2>
           <p style={{ color: colors.textSecondary, marginBottom: "24px" }}>You are not an administrator of any Discord servers where Fuji Studio is present.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -311,16 +309,16 @@ const AdminDashboard: React.FC = () => {
           display: "flex", 
           justifyContent: "space-between", 
           alignItems: "center", 
-          padding: window.innerWidth > 768 ? "12px 24px" : "8px 12px", 
-          background: "rgb(34,43,61)", 
-          borderBottom: "1px solid #1F293A",
+          padding: window.innerWidth > 768 ? "10px 24px" : "8px 12px", 
+          background: "rgba(15, 20, 32, 0.8)", 
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
           position: "relative",
           zIndex: 100,
           margin: "0",
           borderRadius: 0,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
           gap: "8px",
-          minHeight: "56px"
+          minHeight: "52px"
         }}>
           <button
             className="mobile-menu-toggle"
@@ -328,9 +326,9 @@ const AdminDashboard: React.FC = () => {
             aria-label="Toggle menu"
             style={{ 
               display: "flex", 
-              background: "rgba(255,255,255,0.05)", 
-              border: "1px solid rgba(255,255,255,0.1)", 
-              color: "white", 
+              background: "rgba(255,255,255,0.04)", 
+              border: "1px solid rgba(255,255,255,0.06)", 
+              color: "#F8FAFC", 
               padding: "6px", 
               borderRadius: "8px",
               cursor: "pointer",
@@ -354,7 +352,7 @@ const AdminDashboard: React.FC = () => {
               <a
                 href="/account"
                 title="Account Settings"
-                style={{ display: 'flex', width: window.innerWidth > 768 ? "38px" : "28px", height: window.innerWidth > 768 ? "38px" : "28px", borderRadius: "8px", background: colors.primary, overflow: "hidden", border: "1px solid #1F293A", flexShrink: 0, textDecoration: 'none' }}
+                style={{ display: 'flex', width: window.innerWidth > 768 ? "36px" : "28px", height: window.innerWidth > 768 ? "36px" : "28px", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, textDecoration: 'none' }}
               >
                 <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Account Settings" />
               </a>
@@ -369,31 +367,31 @@ const AdminDashboard: React.FC = () => {
                 display: window.innerWidth > 768 ? "flex" : "none", 
                 alignItems: "center", 
                 gap: "12px", 
-                padding: "12px 24px",
+                padding: "10px 20px",
                 color: colors.textSecondary,
                 fontSize: "13px",
-                background: "#253040",
-                border: "1px solid #202A3C",
-                borderRadius: "8px",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: "12px",
                 margin: "16px"
             }}>
                 <div style={{ 
-                    width: "32px", 
-                    height: "32px", 
+                    width: "30px", 
+                    height: "30px", 
                     borderRadius: "8px", 
-                    background: `${colors.primary}15`,
+                    background: "rgba(16, 185, 129, 0.08)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: colors.primary
                 }}>
-                    <Info size={18} />
+                    <Info size={16} />
                 </div>
                 <div>
-                    <span style={{ fontWeight: 700, color: "#FFFFFF", marginRight: "8px" }}>
+                    <span style={{ fontWeight: 600, color: "#F8FAFC", marginRight: "8px" }}>
                         {activeSection === "dashboard" ? "Fuji Studio" : activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace(/-/g, " ")} :
                     </span>
-                    Manage your community, configuration, and automation tools. Changes sync in real-time.
+                    Manage your community, configuration, and automation tools.
                 </div>
                 <div style={{ flex: 1 }} />
                 <button 

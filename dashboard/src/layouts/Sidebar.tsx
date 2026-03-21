@@ -58,33 +58,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
       <div className="sidebar-header">
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
           <div style={{ 
-            width: 42, 
-            height: 42, 
-            background: '#2B8D70', 
-            borderRadius: '12px', 
+            width: 38, 
+            height: 38, 
+            background: 'linear-gradient(135deg, #10B981, #059669)', 
+            borderRadius: '10px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            boxShadow: '0 0 16px rgba(16, 185, 129, 0.2)'
           }}>
-            <img src={logoUrl} alt="Fuji Studio" style={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }} />
+            <img src={logoUrl} alt="Fuji Studio" style={{ width: 22, height: 22, filter: 'brightness(0) invert(1)' }} />
           </div>
-          <div className="logo-text" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <div className="logo-text" style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
             <h1 style={{ 
-                fontSize: '20px', 
-                fontWeight: 800, 
-                color: '#FFFFFF', 
+                fontSize: '18px', 
+                fontWeight: 700, 
+                color: '#F8FAFC', 
                 margin: 0, 
                 lineHeight: 1,
-                letterSpacing: '0.5px'
+                letterSpacing: '-0.01em'
             }}>Fuji Studio</h1>
             <span style={{ 
                 fontSize: '10px', 
-                fontWeight: 700, 
-                color: '#8A92A0', 
-                letterSpacing: '1px',
+                fontWeight: 500, 
+                color: '#64748B', 
+                letterSpacing: '0.5px',
                 textTransform: 'uppercase'
-            }}>Discord Admin</span>
+            }}>Admin Panel</span>
           </div>
         </div>
       </div>

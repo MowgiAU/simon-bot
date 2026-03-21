@@ -115,22 +115,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
 
       <div className="settings-overview-banner">
          <div className="banner-content" style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-               <div style={{ background: 'rgba(43, 140, 113, 0.2)', padding: '10px', borderRadius: '10px' }}>
-                  <Shield size={24} color={colors.primary} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+               <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                  <Shield size={22} color={colors.primary} />
                </div>
                <div>
-                  <h2 style={{ margin: 0, fontSize: '20px' }}>Settings Overview</h2>
-                  <p style={{ margin: 0, fontSize: '13px', opacity: 0.8, maxWidth: '800px' }}>Welcome back to Fuji Studio. Configure your bot identity, plugins, and moderation tools. Changes are synchronized in real-time.</p>
+                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, letterSpacing: '-0.01em' }}>Settings Overview</h2>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textSecondary, maxWidth: '800px' }}>Welcome back to Fuji Studio. Configure your bot identity, plugins, and moderation tools.</p>
                </div>
             </div>
          </div>
          <button 
            className="info-banner-hide-mobile"
            onClick={() => onNavigate('docs')} 
-           style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', padding: '12px' }}
+           style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)', cursor: 'pointer', color: colors.primary, fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px' }}
          >
-           Documentation <ArrowRight size={16} />
+           Docs <ArrowRight size={14} />
          </button>
       </div>
 
@@ -141,14 +141,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
           <div className="dashboard-grid-split">
              {/* Main Chart Card */}
              <div className="dashboard-card-main" style={{ minHeight: '350px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                    <div>
-                      <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Server Growth</h3>
-                      <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8A92A0' }}>Analytics for the last 30 days</p>
+                      <h3 style={{ margin: 0, fontSize: '16px', color: '#F8FAFC', fontWeight: 600, letterSpacing: '-0.01em' }}>Server Growth</h3>
+                      <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748B' }}>Analytics for the last 30 days</p>
                    </div>
                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 700, color: '#FFFFFF' }}>{formatNumber(stats?.totalMembers || 0)}</div>
-                      <div style={{ fontSize: '12px', color: colors.success }}>+12.5%</div>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: '#F8FAFC', letterSpacing: '-0.02em' }}>{formatNumber(stats?.totalMembers || 0)}</div>
                    </div>
                 </div>
                 <div style={{ height: '300px', width: '100%', minWidth: 0 }}>
@@ -160,8 +159,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                             <stop offset="95%" stopColor={colors.primary} stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3E455622" vertical={false} />
-                        <XAxis dataKey="date" stroke="#8A92A0" axisLine={false} tickLine={false} fontSize={10} dy={10} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="date" stroke="#64748B" axisLine={false} tickLine={false} fontSize={10} dy={10} />
                         <YAxis hide />
                         <Tooltip />
                         <Area type="monotone" dataKey="messageCount" stroke={colors.primary} fillOpacity={1} fill="url(#colorMessages)" strokeWidth={3} />
@@ -172,9 +171,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
 
              {/* Recent Activity Card */}
              <div className="dashboard-card-activity">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                   <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Recent Activity</h3>
-                   <FileText size={16} color="#8A92A0" />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                   <h3 style={{ margin: 0, fontSize: '15px', color: '#F8FAFC', fontWeight: 600, letterSpacing: '-0.01em' }}>Recent Activity</h3>
+                   <FileText size={15} color="#64748B" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                    {stats?.recentLogs && stats.recentLogs.length > 0 ? (
@@ -215,13 +214,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                               {getLogIcon(log.pluginId)}
                            </div>
                            <div style={{ overflow: 'hidden' }}>
-                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 500, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                  {log.action.replace(/_/g, ' ').toUpperCase()}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#8A92A0', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div style={{ fontSize: '11px', color: '#94A3B8', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                  By {log.executorName} via {log.pluginId}
                               </div>
-                              <div style={{ fontSize: '10px', color: '#8A92A0', opacity: 0.6 }}>{timeAgo(log.createdAt)}</div>
+                              <div style={{ fontSize: '10px', color: '#64748B' }}>{timeAgo(log.createdAt)}</div>
                            </div>
                         </div>
                       );
@@ -234,7 +233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 </div>
                 <button 
                   onClick={() => onNavigate('logs')}
-                  style={{ width: '100%', marginTop: '24px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '8px', padding: '12px', color: '#FFFFFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ width: '100%', marginTop: '20px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '10px', padding: '10px', color: colors.primary, fontSize: '13px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
                 >
                   View All Logs
                 </button>
@@ -244,7 +243,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
           {/* Stats Grid */}
           <div className="stats-grid" style={{ marginTop: '32px' }}>
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(242, 123, 19, 0.1)' }}>
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)' }}>
                 <MessageSquare size={20} color={colors.highlight} />
               </div>
               <div>
@@ -266,7 +265,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: 'rgba(43, 140, 113, 0.1)' }}>
+              <div className="stat-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
                 <UserPlus size={20} color={colors.primary} />
               </div>
               <div>
@@ -291,17 +290,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
             <div className="dashboard-card">
               <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
                 <h2 style={{ margin: 0 }}>Activity Overview</h2>
-                <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '4px' }}>
+                <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '3px' }}>
                   <button 
                     onClick={() => setActiveChartTab('messages')}
                     style={{
-                      background: activeChartTab === 'messages' ? colors.surfaceLight : 'transparent',
-                      color: activeChartTab === 'messages' ? colors.textPrimary : colors.textSecondary,
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
+                      background: activeChartTab === 'messages' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      color: activeChartTab === 'messages' ? colors.primary : colors.textTertiary,
+                      border: activeChartTab === 'messages' ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid transparent',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: 500,
                       transition: 'all 0.2s ease'
                     }}
@@ -311,13 +310,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                   <button 
                     onClick={() => setActiveChartTab('voice')}
                     style={{
-                      background: activeChartTab === 'voice' ? colors.surfaceLight : 'transparent',
-                      color: activeChartTab === 'voice' ? colors.textPrimary : colors.textSecondary,
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
+                      background: activeChartTab === 'voice' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      color: activeChartTab === 'voice' ? colors.primary : colors.textTertiary,
+                      border: activeChartTab === 'voice' ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid transparent',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: 500,
                       transition: 'all 0.2s ease'
                     }}
@@ -327,13 +326,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                   <button 
                     onClick={() => setActiveChartTab('channels')}
                     style={{
-                      background: activeChartTab === 'channels' ? colors.surfaceLight : 'transparent',
-                      color: activeChartTab === 'channels' ? colors.textPrimary : colors.textSecondary,
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
+                      background: activeChartTab === 'channels' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                      color: activeChartTab === 'channels' ? colors.primary : colors.textTertiary,
+                      border: activeChartTab === 'channels' ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid transparent',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: 500,
                       transition: 'all 0.2s ease'
                     }}
@@ -485,10 +484,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                     ) : null }
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
+                        <div style={{ fontSize: '26px', fontWeight: 700, color: colors.textPrimary, letterSpacing: '-0.02em' }}>
                             {stats?.pluginsData?.email?.unread || 0}
                         </div>
-                        <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Unread emails</div>
+                        <div style={{ color: colors.textTertiary, fontSize: '13px' }}>Unread emails</div>
                   </div>
                   <div onClick={() => onNavigate('email-client')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       Open Inbox <ArrowRight size={16} />
@@ -506,10 +505,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                     </div>
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
+                        <div style={{ fontSize: '26px', fontWeight: 700, color: colors.textPrimary, letterSpacing: '-0.02em' }}>
                             {stats?.pluginsData?.tickets?.open || 0}
                         </div>
-                        <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Open tickets</div>
+                        <div style={{ color: colors.textTertiary, fontSize: '13px' }}>Open tickets</div>
                   </div>
                   <div onClick={() => onNavigate('tickets')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       Manage Tickets <ArrowRight size={16} />
@@ -527,10 +526,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                     </div>
                   </div>
                   <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', padding: '24px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
-                           💎 {formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}
+                        <div style={{ fontSize: '26px', fontWeight: 700, color: colors.textPrimary, letterSpacing: '-0.02em' }}>
+                           {formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}
                         </div>
-                        <div style={{ color: colors.textSecondary, fontSize: '14px' }}>Total currency in circulation</div>
+                        <div style={{ color: colors.textTertiary, fontSize: '13px' }}>Total currency in circulation</div>
                   </div>
                   <div onClick={() => onNavigate('economy')} style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: colors.primaryLight, cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
                       View Economy <ArrowRight size={16} />
@@ -620,7 +619,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 </div>
                 <div className="info-row">
                   <span className="info-label">Database Status</span>
-                  <span className="info-value" style={{ color: '#2B8C71' }}>Connected</span>
+                  <span className="info-value" style={{ color: '#10B981' }}>Connected</span>
                 </div>
               </div>
             </div>

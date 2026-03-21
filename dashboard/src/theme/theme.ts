@@ -1,55 +1,57 @@
 /**
- * Theme configuration for Simon Bot Dashboard
- * Based on Vuexy dark theme with FL Studio music producer color scheme
+ * Theme configuration for Fuji Studio Dashboard
+ * Design system: "Glass Midnight" — ultra-dark glassmorphism with vibrant teal accents
  */
 
 export const colors = {
-  // Primary - Teal (FL Studio inspired)
-  primary: '#2B8C71',
-  primaryLight: '#3BA886',
-  primaryDark: '#1F6451',
+  // Primary — Vibrant Teal
+  primary: '#10B981',
+  primaryLight: '#34D399',
+  primaryDark: '#059669',
   
-  // Secondary - Dark Green
-  secondary: '#3E5922',
-  secondaryLight: '#4F7730',
-  secondaryDark: '#2C3F17',
+  // Secondary — Cool Slate
+  secondary: '#475569',
+  secondaryLight: '#64748B',
+  secondaryDark: '#334155',
   
-  // Accent - Olive Green
-  accent: '#7A8C37',
-  accentLight: '#8FA24D',
-  accentDark: '#636D2B',
+  // Accent — Electric Cyan
+  accent: '#06B6D4',
+  accentLight: '#22D3EE',
+  accentDark: '#0891B2',
   
-  // Highlight - Orange
-  highlight: '#F27B13',
-  highlightLight: '#F5921E',
-  highlightDark: '#C86410',
+  // Highlight — Warm Amber
+  highlight: '#F59E0B',
+  highlightLight: '#FBBF24',
+  highlightDark: '#D97706',
   
-  // Tertiary - Brown
-  tertiary: '#593119',
-  tertiaryLight: '#6F411F',
-  tertiaryDark: '#3F210D',
+  // Tertiary — Soft Rose (for errors/warnings)
+  tertiary: '#F43F5E',
+  tertiaryLight: '#FB7185',
+  tertiaryDark: '#E11D48',
   
-  // Neutrals - Vuexy dark theme
-  background: '#252C3C',
-  surface: 'rgb(34,43,61)',
-  surfaceLight: '#2F3647',
-  border: '#1F293A',
+  // Neutrals — True dark with blue undertone
+  background: '#0B0F19',
+  surface: '#111827',
+  surfaceLight: '#1F2937',
+  border: '#1E293B',
   
-  // Custom for Mockup
-  cardBg: 'rgb(34,43,61)',
-  sidebarBg: '#1A1E2E',
-  headerBg: '#1A1E2E',
+  // Glass effect surfaces
+  cardBg: 'rgba(17, 24, 39, 0.7)',
+  glass: 'rgba(255, 255, 255, 0.03)',
+  glassBorder: 'rgba(255, 255, 255, 0.06)',
+  sidebarBg: '#0F1420',
+  headerBg: '#0F1420',
   
-  // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B9C3CE',
-  textTertiary: '#8A92A0',
+  // Text — Higher contrast hierarchy
+  textPrimary: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textTertiary: '#64748B',
   
-  // Status colors
-  success: '#00D084',
-  warning: '#FFA500',
-  error: '#FF4757',
-  info: '#2196F3',
+  // Status
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
 };
 
 export const spacing = {
@@ -63,22 +65,24 @@ export const spacing = {
 };
 
 export const typography = {
-  fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+  fontFamily: "'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   
   h1: {
-    fontSize: '32px',
-    fontWeight: 600,
+    fontSize: '28px',
+    fontWeight: 700,
     lineHeight: 1.2,
+    letterSpacing: '-0.02em',
   },
   
   h2: {
-    fontSize: '24px',
+    fontSize: '20px',
     fontWeight: 600,
     lineHeight: 1.3,
+    letterSpacing: '-0.01em',
   },
   
   h3: {
-    fontSize: '18px',
+    fontSize: '16px',
     fontWeight: 600,
     lineHeight: 1.4,
   },
@@ -86,7 +90,7 @@ export const typography = {
   body: {
     fontSize: '14px',
     fontWeight: 400,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
   
   small: {
@@ -97,16 +101,19 @@ export const typography = {
 };
 
 export const shadows = {
-  sm: '0 1px 2px rgba(0, 0, 0, 0.16)',
-  md: '0 4px 8px rgba(0, 0, 0, 0.24)',
-  lg: '0 8px 16px rgba(0, 0, 0, 0.32)',
+  sm: '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
+  md: '0 4px 16px rgba(0, 0, 0, 0.4)',
+  lg: '0 12px 40px rgba(0, 0, 0, 0.5)',
+  glow: '0 0 20px rgba(16, 185, 129, 0.15)',
+  glowStrong: '0 0 40px rgba(16, 185, 129, 0.25)',
 };
 
 export const borderRadius = {
-  sm: '4px',
-  md: '6px',
-  lg: '8px',
-  xl: '12px',
+  sm: '6px',
+  md: '8px',
+  lg: '12px',
+  xl: '16px',
+  pill: '9999px',
 };
 
 export const breakpoints = {

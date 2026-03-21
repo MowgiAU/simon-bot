@@ -10,9 +10,9 @@ html, body, #root {
 }
 
 body {
-  background-color: #252C3C;
-  color: #B0B3B8;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #0B0F19;
+  color: #F8FAFC;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -35,7 +35,7 @@ body {
   flex: 1;
   margin-left: 260px;
   overflow-y: auto;
-  background-color: #252C3C;
+  background-color: #0B0F19;
   padding: 32px 32px;
   position: relative;
 }
@@ -44,7 +44,7 @@ body {
   display: none;
   background: none;
   border: none;
-  color: #E4E6EB;
+  color: #F8FAFC;
   font-size: 28px;
   cursor: pointer;
   padding: 8px;
@@ -57,8 +57,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   z-index: 999;
+  backdrop-filter: blur(8px);
 }
 
 /* Tablet */
@@ -81,24 +82,17 @@ body {
 }
 
 /* ============================================================
-   A11Y: Global focus-visible ring (A11Y-01)
-   We use :focus-visible so mouse users never see the ring
-   while keyboard/switch-access users always get one.
-   Inline `outline: 'none'` on inputs is intentionally
-   overridden here — browsers give :focus-visible higher
-   specificity than inline styles only in some engines, so
-   we use a stronger selector `:focus-visible`.
+   A11Y: Global focus-visible ring
    ============================================================ */
 :focus-visible {
-  outline: 2px solid #3BA886 !important;
+  outline: 2px solid #10B981 !important;
   outline-offset: 2px;
-  /* Remove the box-shadow fallback if the host sets its own */
 }
 
 /* Range inputs need a box-shadow ring because outline leaves gaps */
 input[type="range"]:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px #3BA886;
+  box-shadow: 0 0 0 2px #10B981;
   border-radius: 4px;
 }
 
@@ -114,28 +108,28 @@ input[type="range"]:focus-visible {
 
 /* Global scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #252C3C;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2F3746;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3E4556;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Sidebar */
 .sidebar {
   width: 260px;
   height: 100vh;
-  background-color: #171A23;
-  border-right: 1px solid #252D3E;
+  background-color: #0F1420;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -147,7 +141,7 @@ input[type="range"]:focus-visible {
 
 .sidebar-header {
   padding: 24px 16px;
-  border-bottom: 1px solid #252D3E;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .logo {
@@ -164,15 +158,16 @@ input[type="range"]:focus-visible {
 
 .logo-icon {
   font-size: 28px;
-  color: #2B8C71;
+  color: #10B981;
   font-weight: 600;
 }
 
 .logo h1 {
-  color: #E4E6EB;
+  color: #F8FAFC;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .sidebar-nav {
@@ -182,16 +177,16 @@ input[type="range"]:focus-visible {
 }
 
 .nav-group {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .nav-group-title {
   font-size: 11px;
   font-weight: 600;
-  color: #8A92A0;
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   padding: 0;
 }
 
@@ -200,29 +195,27 @@ input[type="range"]:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: transparent;
   border: none;
-  color: #B9C3CE;
+  color: #94A3B8;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 10px;
   transition: all 0.2s;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 14px;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
   font-weight: 500;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 .nav-item:hover {
-  background-color: #2F3647;
-  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #F8FAFC;
 }
 
 .nav-item.active {
-  background-color: rgba(43, 140, 113, 0.2);
-  color: #2B8C71;
-  border-left: 3px solid #2B8C71;
-  padding-left: calc(16px - 3px);
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10B981;
 }
 
 .nav-icon {
@@ -236,7 +229,7 @@ input[type="range"]:focus-visible {
 
 .sidebar-footer {
   padding: 16px 12px;
-  border-top: 1px solid #3E4556;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .user-profile {
@@ -244,20 +237,21 @@ input[type="range"]:focus-visible {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background-color: #2F3647;
-  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .user-profile:hover {
-  background-color: #3E4556;
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .user-profile img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
 }
 
 .user-info {
@@ -266,14 +260,14 @@ input[type="range"]:focus-visible {
 }
 
 .user-name {
-  color: #FFFFFF;
+  color: #F8FAFC;
   font-size: 13px;
   font-weight: 600;
   margin: 0;
 }
 
 .user-status {
-  color: #8A92A0;
+  color: #64748B;
   font-size: 12px;
   margin: 0;
 }
