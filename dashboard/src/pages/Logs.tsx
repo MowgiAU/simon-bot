@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 import { useMobile } from '../hooks/useMobile';
 import { showToast } from '../components/Toast';
 import { 
@@ -403,7 +403,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '16px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
           <ShieldAlert size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Audit Logs</h1>
+          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Audit Logs</h1>
         </div>
         {!isMobile && (
           <div style={{ marginLeft: '16px' }}>
@@ -412,6 +412,13 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
         )}
       </div>
       {isMobile && <p style={{ margin: '0 0 12px', color: colors.textSecondary, flexShrink: 0 }}>Review moderation actions, tracked users, and system events.</p>}
+
+      {/* Explanation Block */}
+      <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md, borderLeft: `4px solid ${colors.primary}`, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>
+          View and search all moderation actions, AutoMod events, and system logs. Click any log entry to add comments or review details. Use the filter sidebar to narrow results by category.
+        </p>
+      </div>
 
       <div style={{ 
         display: 'flex', 

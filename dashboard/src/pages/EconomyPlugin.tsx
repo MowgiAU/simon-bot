@@ -91,7 +91,7 @@ export const EconomyPluginPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <Coins size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Economy Manager</h1>
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Economy Manager</h1>
                 </div>
                  {!isMobile && (
                     <div style={{ marginLeft: '16px' }}>
@@ -149,7 +149,7 @@ export const EconomyPluginPage: React.FC = () => {
                             style={{
                                 padding: '10px 20px',
                                 background: activeTab === tab.id ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
-                                color: 'white',
+                                color: colors.textPrimary,
                                 border: '1px solid #3E455633',
                                 borderRadius: borderRadius.md,
                                 cursor: 'pointer',
@@ -191,7 +191,7 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                     <input 
                         value={data.currencyName} 
                         onChange={e => setData({...data, currencyName: e.target.value})}
-                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                     />
                 </div>
                 <div>
@@ -215,7 +215,7 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                         type="number"
                         value={data.messageReward} 
                         onChange={e => setData({...data, messageReward: Number(e.target.value)})}
-                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                     />
                 </div>
                 <div>
@@ -224,7 +224,7 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                         type="number"
                         value={data.messageCooldown} 
                         onChange={e => setData({...data, messageCooldown: Number(e.target.value)})}
-                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                     />
                 </div>
                 <div>
@@ -233,7 +233,7 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                         type="number"
                         value={data.minMessageLength} 
                         onChange={e => setData({...data, minMessageLength: Number(e.target.value)})}
-                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                     />
                 </div>
             </div>
@@ -266,9 +266,9 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                     marginTop: '20px', 
                     padding: '12px', 
                     background: colors.primary, 
-                    color: 'white', 
+                    color: colors.textPrimary, 
                     border: 'none', 
-                    borderRadius: '4px',
+                    borderRadius: borderRadius.sm,
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                 }}
@@ -307,14 +307,14 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
                 <h3 style={{ margin: 0 }}>Shop Items</h3>
                 <button 
                     onClick={() => setEditing({ name: '', price: 0, type: 'ROLE', description: '' })}
-                    style={{ background: colors.success, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}
+                    style={{ background: colors.success, border: 'none', padding: '8px 16px', color: colors.textPrimary, borderRadius: borderRadius.sm, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}
                 >
                     <Plus size={16} /> Add Item
                 </button>
             </div>
 
             {editing && (
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${colors.border}` }}>
+                <div style={{ background: colors.background, padding: '16px', borderRadius: borderRadius.md, marginBottom: '20px', border: `1px solid ${colors.border}` }}>
                     <h4>{editing.id ? 'Edit Item' : 'New Item'}</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                          <input placeholder="Name" value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} style={inputStyle} />
@@ -430,7 +430,7 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
                             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                                 <button onClick={() => handleUpdate('add')} style={{ ...btnStyle(colors.success), width: isMobile ? '100%' : 'auto' }}>Add {renderCurrency(currency)}</button>
                                 <button onClick={() => handleUpdate('set')} style={{ ...btnStyle(colors.warning), width: isMobile ? '100%' : 'auto' }}>Set Balance</button>
-                                <button onClick={() => setSelectedUser(null)} style={{ ...btnStyle('grey'), width: isMobile ? '100%' : 'auto' }}>Cancel</button>
+                                <button onClick={() => setSelectedUser(null)} style={{ ...btnStyle(colors.surfaceLight), width: isMobile ? '100%' : 'auto' }}>Cancel</button>
                             </div>
                         </div>
                     ) : (
@@ -452,7 +452,7 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
                 {/* Leaderboard Section */}
                 <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '20px' : '0', marginTop: isMobile ? '24px' : '0' }}>
                     <h4>Top Currency Holders</h4>
-                    <div style={{ maxHeight: '400px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto', background: colors.background, borderRadius: borderRadius.md }}>
                         {leaderboard.length === 0 ? (
                             <div style={{ padding: '16px', color: colors.textSecondary, textAlign: 'center' }}>No data</div>
                         ) : (
@@ -481,8 +481,8 @@ const VaultTab = ({ guildId, currency, isMobile }: { guildId: string, currency: 
 };
 
 // Utils
-const inputStyle: any = { padding: '8px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' };
-const btnStyle = (bg: string) => ({ background: bg, border: 'none', padding: '8px 16px', color: 'white', borderRadius: '4px', cursor: 'pointer' });
+const inputStyle: any = { padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm };
+const btnStyle = (bg: string) => ({ background: bg, border: 'none', padding: '8px 16px', color: colors.textPrimary, borderRadius: borderRadius.sm, cursor: 'pointer' });
 
 const renderCurrency = (emoji: string) => {
     if (!emoji) return emoji;

@@ -253,7 +253,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
 
     const getPriorityColor = (p: string) => {
         switch(p) {
-            case 'high': return '#ef4444';
+            case 'high': return colors.error;
             case 'medium': return '#f59e0b';
             case 'low': return '#10b981';
             default: return '#6b7280';
@@ -270,7 +270,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Ticket size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
                     <div>
-                        <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Ticket System</h1>
+                        <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Ticket System</h1>
                         <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage support tickets and configure categories.</p>
                     </div>
                 </div>
@@ -282,7 +282,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '8px 16px', borderRadius: '6px', border: 'none',
                             background: view === 'tickets' ? colors.primary : 'transparent',
-                            color: view === 'tickets' ? '#fff' : colors.textSecondary,
+                            color: view === 'tickets' ? colors.textPrimary : colors.textSecondary,
                             cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
                         }}
                     >
@@ -294,7 +294,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '8px 16px', borderRadius: '6px', border: 'none',
                             background: view === 'settings' ? colors.primary : 'transparent',
-                            color: view === 'settings' ? '#fff' : colors.textSecondary,
+                            color: view === 'settings' ? colors.textPrimary : colors.textSecondary,
                             cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'all 0.2s'
                         }}
                     >
@@ -337,7 +337,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     style={{
                                         flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
                                         background: statusFilter === 'open' ? colors.primary : 'transparent',
-                                        color: '#fff',
+                                        color: colors.textPrimary,
                                         cursor: 'pointer', fontWeight: 600, fontSize: '12px'
                                     }}
                                 >
@@ -348,7 +348,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     style={{
                                         flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
                                         background: statusFilter === 'closed' ? colors.primary : 'transparent',
-                                        color: '#fff',
+                                        color: colors.textPrimary,
                                         cursor: 'pointer', fontWeight: 600, fontSize: '12px'
                                     }}
                                 >
@@ -375,7 +375,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                     }}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '15px', color: '#fff' }}>
+                                        <span style={{ fontWeight: 600, fontSize: '15px', color: colors.textPrimary }}>
                                             {ticket.ownerName || `Ticket #${ticket.id.slice(-4)}`}
                                         </span>
                                         <span style={{ fontSize: '11px', color: colors.textSecondary }}>
@@ -415,7 +415,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             <button onClick={() => setSelectedTicket(null)} style={{ background: 'none', border: 'none', color: colors.textPrimary }}><ArrowLeft size={24} /></button>
                                         )}
                                         <div>
-                                            <h3 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>{selectedTicket.ownerName || 'User'}</h3>
+                                            <h3 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>{selectedTicket.ownerName || 'User'}</h3>
                                             <div style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <User size={12} /> ID: {selectedTicket.ownerId}
                                             </div>
@@ -425,7 +425,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                         <select 
                                             value={selectedTicket.priority}
                                             onChange={(e) => handleUpdatePriority(e.target.value as any)}
-                                            style={{ background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid #3E455633', padding: '8px', borderRadius: '6px', outline: 'none' }}
+                                            style={{ background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, padding: '8px', borderRadius: '6px', outline: 'none' }}
                                         >
                                             <option value="low">Low</option>
                                             <option value="medium">Medium</option>
@@ -434,7 +434,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                         {selectedTicket.status === 'open' && (
                                             <button 
                                                 onClick={() => handleUpdateStatus('closed')}
-                                                style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                                                style={{ background: colors.error, color: colors.textPrimary, border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
                                                 onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
                                                 onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                                             >
@@ -478,7 +478,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                                     )}
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                                                            <span style={{ fontWeight: 600, color: '#fff' }}>{msg.author.username}</span>
+                                                            <span style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.author.username}</span>
                                                             <span style={{ fontSize: '11px', color: colors.textSecondary }}>{new Date(msg.timestamp).toLocaleTimeString()}</span>
                                                         </div>
                                                         <div style={{ 
@@ -507,14 +507,14 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             placeholder="Write a reply..."
                                             style={{ 
                                                 flex: 1, height: '60px', background: 'rgba(0,0,0,0.3)', 
-                                                color: '#fff', border: '1px solid #3E455633', 
+                                                color: colors.textPrimary, border: `1px solid ${colors.border}`, 
                                                 borderRadius: '8px', padding: '12px', resize: 'none',
                                                 outline: 'none'
                                             }}
                                         />
                                         <button 
                                             onClick={handleReply} 
-                                            style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: '8px', padding: '0 24px', cursor: 'pointer', transition: 'transform 0.1s' }}
+                                            style={{ background: colors.primary, color: colors.textPrimary, border: 'none', borderRadius: '8px', padding: '0 24px', cursor: 'pointer', transition: 'transform 0.1s' }}
                                             onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
                                             onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                         >
@@ -536,7 +536,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                     <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, border: '1px solid #3E455633', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                              <Shield size={20} color={colors.primary} />
-                             <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Role Management</h2>
+                             <h2 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>Role Management</h2>
                         </div>
                         <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px', fontWeight: 700 }}>STAFF ROLES TO PING</label>
                         <RoleSelect 
@@ -559,7 +559,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                     <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, border: '1px solid #3E455633', padding: '24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                              <History size={20} color={colors.primary} />
-                             <h2 style={{ margin: 0, fontSize: '18px', color: '#fff' }}>Automation & Logs</h2>
+                             <h2 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>Automation & Logs</h2>
                         </div>
                         <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '12px', fontWeight: 700 }}>TRANSCRIPT LOG CHANNEL</label>
                         <ChannelSelect 
@@ -573,7 +573,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                 onClick={handleSaveSettings}
                                 disabled={savingSettings}
                                 style={{
-                                    width: '100%', padding: '14px', background: colors.primary, color: '#fff',
+                                    width: '100%', padding: '14px', background: colors.primary, color: colors.textPrimary,
                                     border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                 }}

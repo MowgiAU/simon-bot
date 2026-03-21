@@ -220,7 +220,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <FileText size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Channel Gatekeeper</h1>
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Channel Gatekeeper</h1>
                 </div>
                 {!isMobile && (
                     <div style={{ marginLeft: '16px' }}>
@@ -241,7 +241,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                     style={{ 
                         padding: '10px 20px', 
                         background: activeTab === 'rules' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
-                        color: 'white', border: '1px solid #3E455633', borderRadius: 8, cursor: 'pointer',
+                        color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -252,7 +252,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                     style={{ 
                         padding: '10px 20px', 
                         background: activeTab === 'queue' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
-                        color: 'white', border: '1px solid #3E455633', borderRadius: 8, cursor: 'pointer',
+                        color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -457,11 +457,11 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
 
 const styles = {
     primaryBtn: {
-        background: colors.primary, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 4,
+        background: colors.primary, color: colors.textPrimary, border: 'none', padding: '8px 16px', borderRadius: borderRadius.sm,
         cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600
     },
     secondaryBtn: {
-        background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, padding: '8px 16px', borderRadius: 4,
+        background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, padding: '8px 16px', borderRadius: borderRadius.sm,
         cursor: 'pointer'
     },
     iconBtn: {
@@ -472,10 +472,10 @@ const styles = {
     },
     input: {
         width: '100%', background: colors.background, border: `1px solid ${colors.border}`, 
-        color: colors.textPrimary, padding: '8px', borderRadius: 4
+        color: colors.textPrimary, padding: '8px', borderRadius: borderRadius.sm
     },
     select: {
         width: '100%', background: colors.background, border: `1px solid ${colors.border}`, 
-        color: colors.textPrimary, padding: '8px', borderRadius: 4
+        color: colors.textPrimary, padding: '8px', borderRadius: borderRadius.sm
     }
 };

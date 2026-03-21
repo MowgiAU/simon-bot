@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { 
     Swords, Plus, Trophy, Users, BarChart3, Calendar, 
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
@@ -142,6 +143,7 @@ export const BeatBattlePage: React.FC = () => {
         announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'battle' | 'sponsor'; id: string } | null>(null);
     const [settingsSaved, setSettingsSaved] = useState(false);
     const [announcingId, setAnnouncingId] = useState<string | null>(null);
     const [announceMsg, setAnnounceMsg] = useState<{ id: string; ok: boolean; message?: string } | null>(null);
@@ -292,10 +294,21 @@ export const BeatBattlePage: React.FC = () => {
     };
 
     const handleDeleteBattle = async (id: string) => {
-        if (!confirm('Delete this battle? This cannot be undone.')) return;
+        setDeleteConfirm({ type: 'battle', id });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirm) return;
+        const { type, id } = deleteConfirm;
+        setDeleteConfirm(null);
         try {
-            await fetch(`${API}/api/beat-battle/admin/battles/${id}`, { method: 'DELETE', credentials: 'include' });
-            await fetchBattles();
+            if (type === 'battle') {
+                await fetch(`${API}/api/beat-battle/admin/battles/${id}`, { method: 'DELETE', credentials: 'include' });
+                await fetchBattles();
+            } else {
+                await fetch(`${API}/api/beat-battle/admin/sponsors/${id}`, { method: 'DELETE', credentials: 'include' });
+                await fetchSponsors();
+            }
         } catch {}
     };
 
@@ -440,11 +453,7 @@ export const BeatBattlePage: React.FC = () => {
         setShowSponsorForm(true);
     };
     const handleDeleteSponsor = async (id: string) => {
-        if (!confirm('Delete this sponsor?')) return;
-        try {
-            await fetch(`${API}/api/beat-battle/admin/sponsors/${id}`, { method: 'DELETE', credentials: 'include' });
-            await fetchSponsors();
-        } catch {}
+        setDeleteConfirm({ type: 'sponsor', id });
     };
 
     const handleBackfill = async () => {
@@ -517,8 +526,8 @@ export const BeatBattlePage: React.FC = () => {
     const inputStyle: React.CSSProperties = {
         width: '100%',
         padding: '10px 12px',
-        backgroundColor: '#1A1E2E',
-        border: '1px solid rgba(255,255,255,0.1)',
+        backgroundColor: colors.background,
+        border: `1px solid ${colors.border}`,
         borderRadius: borderRadius.md,
         color: colors.textPrimary,
         fontSize: '14px',
@@ -529,7 +538,7 @@ export const BeatBattlePage: React.FC = () => {
     const btnPrimary: React.CSSProperties = {
         padding: '10px 20px',
         backgroundColor: colors.primary,
-        color: '#fff',
+        color: colors.textPrimary,
         border: 'none',
         borderRadius: borderRadius.md,
         cursor: 'pointer',
@@ -557,6 +566,7 @@ export const BeatBattlePage: React.FC = () => {
     if (loading) return <div style={{ padding: '40px', color: colors.textSecondary }}>Loading Beat Battle data...</div>;
 
     return (
+        <>
         <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
@@ -811,7 +821,7 @@ export const BeatBattlePage: React.FC = () => {
                                             }}
                                         >
                                             <div style={{
-                                                width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#fff',
+                                                width: '18px', height: '18px', borderRadius: '50%', backgroundColor: colors.textPrimary,
                                                 position: 'absolute', top: '3px', left: form.requireProjectFile ? '23px' : '3px',
                                                 transition: 'left 0.2s',
                                             }} />
@@ -891,7 +901,7 @@ export const BeatBattlePage: React.FC = () => {
                                         >
                                             <Megaphone size={14} />
                                             {announceMsg?.id === b.id && (
-                                                <span style={{ position: 'absolute', bottom: '110%', right: 0, fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? '#2B8C71' : '#EF4444', color: '#fff', pointerEvents: 'none', maxWidth: '260px', lineHeight: '1.3', textAlign: 'center' }}>
+                                                <span style={{ position: 'absolute', bottom: '110%', right: 0, fontSize: '11px', padding: '4px 8px', borderRadius: '6px', backgroundColor: announceMsg.ok ? colors.success : colors.error, color: colors.textPrimary, pointerEvents: 'none', maxWidth: '260px', lineHeight: '1.3', textAlign: 'center' }}>
                                                     {announceMsg.ok ? 'Posted ✓' : (announceMsg.message || 'Failed ✗')}
                                                 </span>
                                             )}
@@ -913,7 +923,7 @@ export const BeatBattlePage: React.FC = () => {
 
                                 {/* Analytics Report Inline */}
                                 {analyticsFor === b.id && analyticsReport && (
-                                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: '#1A1E2E', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: colors.background, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                             <h4 style={{ margin: 0, color: colors.textPrimary }}>Analytics Report</h4>
                                             <button onClick={() => { setAnalyticsFor(null); setAnalyticsReport(null); }} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={16} /></button>
@@ -1172,7 +1182,7 @@ export const BeatBattlePage: React.FC = () => {
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.requireMusicianProfile ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.requireMusicianProfile ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                                 >
                                     <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.requireMusicianProfile ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s' }}>
-                                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px', left: settings.requireMusicianProfile ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: settings.requireMusicianProfile ? '18px' : '2px', transition: 'left 0.2s' }} />
                                     </div>
                                     {settings.requireMusicianProfile ? 'Required' : 'Not Required'}
                                 </button>
@@ -1227,6 +1237,15 @@ export const BeatBattlePage: React.FC = () => {
                 </>
             )}
         </div>
+        <ConfirmModal
+            open={!!deleteConfirm}
+            title={deleteConfirm?.type === 'battle' ? 'Delete Battle' : 'Delete Sponsor'}
+            message={deleteConfirm?.type === 'battle' ? 'Delete this battle? This cannot be undone.' : 'Delete this sponsor?'}
+            confirmLabel="Delete"
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteConfirm(null)}
+        />
+        </>
     );
 };
 
@@ -1266,7 +1285,7 @@ const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
         <div style={{ marginTop: '16px' }}>
             <h4 style={{ margin: '0 0 8px', color: colors.textSecondary, fontSize: '12px', textTransform: 'uppercase' }}>Entries ({entries.length})</h4>
             {entries.map((e, i) => (
-                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: i % 2 === 0 ? '#1A1E2E' : 'transparent', borderRadius: borderRadius.sm }}>
+                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: i % 2 === 0 ? colors.background : 'transparent', borderRadius: borderRadius.sm }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ color: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : colors.textSecondary, fontWeight: 700, fontSize: '14px', minWidth: '24px' }}>
                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}

@@ -6,6 +6,7 @@ import { colors, borderRadius, spacing } from '../theme/theme';
 import { Shield, Save, Plus, Trash2 } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
+import { showToast } from '../components/Toast';
 
 export const WelcomeGatePluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -47,9 +48,9 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const handleSave = async () => {
         try {
             await axios.post(`/api/guilds/${selectedGuild?.id}/welcome`, settings, { withCredentials: true });
-            alert('Settings saved!');
+            showToast('Settings saved!', 'success');
         } catch (e) {
-            alert('Failed to save settings');
+            showToast('Failed to save settings', 'error');
         }
     };
 
@@ -88,7 +89,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         width: isMobile ? '100%' : 'auto',
                         padding: '10px 20px', 
                         background: colors.primary, 
-                        color: 'white', 
+                        color: colors.textPrimary, 
                         border: 'none', 
                         borderRadius: borderRadius.md,
                         cursor: 'pointer', 
@@ -126,12 +127,12 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         />
                         <span style={{ 
                             position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                            backgroundColor: settings.enabled ? colors.primary : '#ccc', 
+                            backgroundColor: settings.enabled ? colors.primary : colors.textTertiary, 
                             transition: '.4s', borderRadius: '34px' 
                         }}>
                             <span style={{ 
                                 position: 'absolute', content: "", height: '16px', width: '16px', left: '4px', bottom: '4px', 
-                                backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                 transform: settings.enabled ? 'translateX(26px)' : 'translateX(0)'
                             }}/>
                         </span>
@@ -145,7 +146,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         <select 
                             value={settings.unverifiedRoleId || ''} 
                             onChange={e => setSettings({...settings, unverifiedRoleId: e.target.value})}
-                            style={{ width: '100%', padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                            style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                         >
                             <option value="">Select Role...</option>
                             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -157,7 +158,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         <select 
                             value={settings.verifiedRoleId || ''} 
                             onChange={e => setSettings({...settings, verifiedRoleId: e.target.value})}
-                            style={{ width: '100%', padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                            style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                         >
                             <option value="">Select Role...</option>
                             {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -171,7 +172,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                     <select 
                         value={settings.welcomeChannelId || ''} 
                         onChange={e => setSettings({...settings, welcomeChannelId: e.target.value})}
-                        style={{ width: '100%', padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                     >
                         <option value="">Select Channel...</option>
                         {channels.filter(c => c.type === 0).map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
@@ -184,7 +185,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                      <input 
                         value={settings.modalTitle || ''}
                         onChange={e => setSettings({...settings, modalTitle: e.target.value})}
-                        style={{ width: '100%', padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                        style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                      />
                 </div>
 
@@ -203,7 +204,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                                     value={q}
                                     onChange={e => updateQuestion(i, e.target.value)}
                                     placeholder="Enter question..."
-                                    style={{ flex: 1, padding: '10px', background: colors.background, color: 'white', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                                    style={{ flex: 1, padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                                 />
                                 <button onClick={() => removeQuestion(i)} style={{ background: 'rgba(255,0,0,0.1)', border: 'none', color: colors.error, borderRadius: borderRadius.md, padding: '0 12px', cursor: 'pointer' }}>
                                     <AnimatedWrapper icon={Trash2} size={18} />

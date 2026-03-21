@@ -89,7 +89,7 @@ export const FeedbackPluginPage: React.FC = () => {
              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <MessageSquare size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Feedback Moderation</h1>
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Feedback Moderation</h1>
                 </div>
                 {!isMobile && (
                     <div style={{ marginLeft: '16px' }}>
@@ -110,7 +110,7 @@ export const FeedbackPluginPage: React.FC = () => {
                     style={{ 
                         padding: '10px 20px', 
                         background: activeTab === 'queue' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
-                        color: 'white', border: '1px solid #3E455633', borderRadius: borderRadius.md, cursor: 'pointer',
+                        color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -121,7 +121,7 @@ export const FeedbackPluginPage: React.FC = () => {
                     style={{ 
                         padding: '10px 20px', 
                         background: activeTab === 'settings' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
-                        color: 'white', border: '1px solid #3E455633', borderRadius: borderRadius.md, cursor: 'pointer',
+                        color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
@@ -142,12 +142,12 @@ export const FeedbackPluginPage: React.FC = () => {
                     ) : (
                         queue.map(item => (
                             <div key={item.id} style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', borderRadius: borderRadius.lg, overflow: 'hidden', border: '1px solid #3E455633' }}>
-                                <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: colors.background }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         {item.user?.avatar ? (
                                             <img src={`https://cdn.discordapp.com/avatars/${item.userId}/${item.user.avatar}.png`} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
                                         ) : (
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#5865F2' }} />
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: colors.primary }} />
                                         )}
                                         <div>
                                             <div style={{ fontWeight: 'bold' }}>{item.user?.username || item.userId}</div>
@@ -159,9 +159,9 @@ export const FeedbackPluginPage: React.FC = () => {
                                     <div style={{ 
                                         padding: '4px 12px', 
                                         borderRadius: '12px', 
-                                        background: item.aiState === 'UNSURE' ? '#FFA50033' : '#3BA55D33',
-                                        color: item.aiState === 'UNSURE' ? '#FFA500' : '#3BA55D',
-                                        border: `1px solid ${item.aiState === 'UNSURE' ? '#FFA500' : '#3BA55D'}`,
+                                        background: item.aiState === 'UNSURE' ? `${colors.warning}33` : `${colors.success}33`,
+                                        color: item.aiState === 'UNSURE' ? colors.warning : colors.success,
+                                        border: `1px solid ${item.aiState === 'UNSURE' ? colors.warning : colors.success}`,
                                         fontSize: '12px', fontWeight: 'bold'
                                     }}>
                                         AI: {item.aiState}
@@ -174,7 +174,7 @@ export const FeedbackPluginPage: React.FC = () => {
                                         <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: (!isMobile && item.referenceUrl) ? '1fr 1fr' : '1fr', gap: '12px' }}>
                                             {/* Original Reference (if available) */}
                                             {item.referenceUrl && (
-                                                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
+                                                <div style={{ padding: '12px', background: colors.background, borderRadius: borderRadius.md }}>
                                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#aaa', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                                                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#888' }} /> 
                                                         Original / Reference
@@ -185,7 +185,7 @@ export const FeedbackPluginPage: React.FC = () => {
 
                                             {/* New Audio (Pending Review) */}
                                             <div style={{ padding: '12px', background: 'rgba(59, 165, 93, 0.1)', border: '1px solid rgba(59, 165, 93, 0.3)', borderRadius: '8px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#3BA55D', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: colors.success, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
                                                     <Play size={12} /> New Version (Review)
                                                 </div>
                                                 <audio controls src={item.audioUrl} style={{ width: '100%' }} />
@@ -201,7 +201,7 @@ export const FeedbackPluginPage: React.FC = () => {
                                         Posted in Thread ID: {item.threadId}
                                     </div>
                                 </div>
-                                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.2)', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                <div style={{ padding: '12px', background: colors.background, borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                     <button 
                                         onClick={() => handleAction(item.id, 'DENY')}
                                         style={{ 
@@ -221,8 +221,8 @@ export const FeedbackPluginPage: React.FC = () => {
                                             padding: '8px 16px', 
                                             background: colors.success, 
                                             border: 'none', 
-                                            color: 'white', 
-                                            borderRadius: '4px', cursor: 'pointer',
+                                            color: colors.textPrimary, 
+                                            borderRadius: borderRadius.sm, cursor: 'pointer',
                                             display: 'flex', alignItems: 'center', gap: '6px'
                                         }}
                                     >
@@ -268,7 +268,7 @@ export const FeedbackPluginPage: React.FC = () => {
                                     type="number"
                                     value={settings.threadCost} 
                                     onChange={e => setSettings({...settings, threadCost: Number(e.target.value)})}
-                                    style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                                    style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>
                             <div>
@@ -277,7 +277,7 @@ export const FeedbackPluginPage: React.FC = () => {
                                     type="number"
                                     value={settings.currencyReward} 
                                     onChange={e => setSettings({...settings, currencyReward: Number(e.target.value)})}
-                                    style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${colors.border}`, color: 'white', borderRadius: '4px' }}
+                                    style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>
                         </div>
@@ -286,8 +286,8 @@ export const FeedbackPluginPage: React.FC = () => {
                             onClick={saveSettings}
                             style={{ 
                                 marginTop: '20px', padding: '12px', width: isMobile ? '100%' : 'auto',
-                                background: colors.primary, color: 'white', border: 'none', 
-                                borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' 
+                                background: colors.primary, color: colors.textPrimary, border: 'none', 
+                                borderRadius: borderRadius.sm, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' 
                             }}
                         >
                             Save Settings

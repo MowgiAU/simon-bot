@@ -143,7 +143,7 @@ export const PluginManagementPage: React.FC = () => {
              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Settings size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Plugin Management </h1>
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Plugin Management</h1>
                 </div>
                 <div>
                     <p style={{ margin: '0 0 4px', color: colors.textSecondary, fontSize: isMobile ? '14px' : '16px' }}>Enable/Disable features and control who can access them.</p>
@@ -178,7 +178,7 @@ export const PluginManagementPage: React.FC = () => {
                                     padding: '6px 12px', 
                                     borderRadius: '20px', 
                                     cursor: 'pointer',
-                                    backgroundColor: isSelected ? 'rgba(88, 101, 242, 0.2)' : 'rgba(0,0,0,0.2)',
+                                    backgroundColor: isSelected ? `${colors.primary}33` : colors.background,
                                     border: `1px solid ${isSelected ? colors.primary : 'transparent'}`,
                                     display: 'flex', alignItems: 'center', gap: '8px',
                                     fontSize: '13px',
@@ -213,7 +213,7 @@ export const PluginManagementPage: React.FC = () => {
                                                 padding: '2px 6px', 
                                                 borderRadius: '4px',
                                                 backgroundColor: isEnabled ? 'rgba(43, 140, 113, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                                                color: isEnabled ? colors.primary : '#ccc',
+                                                color: isEnabled ? colors.primary : colors.textTertiary,
                                                 fontWeight: 'bold'
                                             }}>
                                                 {isEnabled ? 'ON' : 'OFF'}
@@ -240,12 +240,12 @@ export const PluginManagementPage: React.FC = () => {
                                         />
                                         <span style={{ 
                                             position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                                            backgroundColor: isEnabled ? colors.primary : '#4a4a4a', 
+                                            backgroundColor: isEnabled ? colors.primary : colors.textTertiary, 
                                             transition: '.4s', borderRadius: '34px' 
                                         }}>
                                             <span style={{ 
                                                 position: 'absolute', content: "", height: '16px', width: '16px', left: '4px', bottom: '4px', 
-                                                backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                                backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                                 transform: isEnabled ? 'translateX(26px)' : 'translateX(0)'
                                             }}/>
                                         </span>
@@ -289,7 +289,7 @@ export const PluginManagementPage: React.FC = () => {
                                                         padding: '6px 10px', 
                                                         borderRadius: '16px', 
                                                         cursor: 'pointer',
-                                                        backgroundColor: isSelected ? 'rgba(88, 101, 242, 0.2)' : 'rgba(0,0,0,0.2)',
+                                                        backgroundColor: isSelected ? `${colors.primary}33` : colors.background,
                                                         border: `1px solid ${isSelected ? colors.primary : 'transparent'}`,
                                                         display: 'flex', alignItems: 'center', gap: '6px',
                                                         fontSize: '12px',

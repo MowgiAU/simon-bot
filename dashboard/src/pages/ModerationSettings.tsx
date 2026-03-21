@@ -165,7 +165,7 @@ export const ModerationSettingsPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
                     <AnimatedWrapper icon={Shield} size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Moderation Settings</h1>
+                    <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Moderation Settings</h1>
                 </div>
                  {!isMobile && (
                     <div style={{ marginLeft: '16px' }}>
@@ -186,7 +186,7 @@ export const ModerationSettingsPage: React.FC = () => {
                     marginBottom: '20px',
                     borderRadius: borderRadius.md,
                     backgroundColor: msg.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                    color: msg.type === 'success' ? '#4caf50' : '#f44336',
+                    color: msg.type === 'success' ? colors.success : colors.error,
                     display: 'flex',
                     alignItems: 'center',
                     border: '1px solid #3E455633'
@@ -227,12 +227,12 @@ export const ModerationSettingsPage: React.FC = () => {
                                 />
                                 <span style={{ 
                                     position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                                    backgroundColor: settings?.dmUponAction ? colors.primary : '#ccc', 
+                                    backgroundColor: settings?.dmUponAction ? colors.primary : colors.textTertiary, 
                                     transition: '.4s', borderRadius: '34px' 
                                 }}>
                                     <span style={{ 
                                         position: 'absolute', content: "", height: '16px', width: '16px', left: '4px', bottom: '4px', 
-                                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                        backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                         transform: settings?.dmUponAction ? 'translateX(26px)' : 'translateX(0)'
                                     }}/>
                                 </span>
@@ -256,7 +256,7 @@ export const ModerationSettingsPage: React.FC = () => {
                             placeholder="You were kicked from {server} for: {reason}"
                             value={settings?.kickMessage || ''}
                             onChange={(e) => setSettings({...settings!, kickMessage: e.target.value})}
-                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                         />
                     </div>
                     <div>
@@ -266,7 +266,7 @@ export const ModerationSettingsPage: React.FC = () => {
                             placeholder="You were banned from {server} for: {reason}"
                             value={settings?.banMessage || ''}
                             onChange={(e) => setSettings({...settings!, banMessage: e.target.value})}
-                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                         />
                     </div>
                     <div>
@@ -276,7 +276,7 @@ export const ModerationSettingsPage: React.FC = () => {
                             placeholder="You were timed out in {server} for {duration}. Reason: {reason}"
                             value={settings?.timeoutMessage || ''}
                             onChange={(e) => setSettings({...settings!, timeoutMessage: e.target.value})}
-                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: 'white', borderRadius: borderRadius.sm }}
+                            style={{ width: '100%', padding: '8px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                         />
                     </div>
                 </div>
@@ -287,7 +287,7 @@ export const ModerationSettingsPage: React.FC = () => {
                         disabled={saving}
                         style={{ 
                             background: colors.primary, 
-                            color: 'white', 
+                            color: colors.textPrimary, 
                             border: 'none', 
                             padding: '10px 24px', 
                             borderRadius: borderRadius.md, 
@@ -322,8 +322,8 @@ export const ModerationSettingsPage: React.FC = () => {
                                 width: '100%',
                                 padding: '12px',
                                 background: 'rgba(0,0,0,0.2)',
-                                color: 'white',
-                                border: '1px solid #3E455633',
+                                color: colors.textPrimary,
+                                border: `1px solid ${colors.border}`,
                                 borderRadius: borderRadius.md,
                                 fontSize: '16px',
                                 outline: 'none'
@@ -384,12 +384,12 @@ export const ModerationSettingsPage: React.FC = () => {
                                             />
                                             <span style={{ 
                                                 position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                                                backgroundColor: (selectedRolePerms as any)[key] ? colors.primary : '#ccc', 
+                                backgroundColor: (selectedRolePerms as any)[key] ? colors.primary : colors.textTertiary, 
                                                 transition: '.4s', borderRadius: '34px' 
                                             }}>
                                                 <span style={{ 
                                                     position: 'absolute', content: "", height: '16px', width: '16px', left: '4px', bottom: '4px', 
-                                                    backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                                    backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
                                                     transform: (selectedRolePerms as any)[key] ? 'translateX(26px)' : 'translateX(0)'
                                                 }}/>
                                             </span>

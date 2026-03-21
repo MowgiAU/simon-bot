@@ -595,19 +595,19 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
             {/* Compose Modal */}
             {composing && (
                 <div style={{ 
-                    position: 'absolute', bottom: 0, right: '24px', 
-                    width: '600px', height: '600px', 
-                    background: colors.surface, borderRadius: '8px 8px 0 0', 
-                    boxShadow: '0 0 16px rgba(0,0,0,0.15)', 
+                    position: 'absolute', bottom: 0, right: isMobile ? 0 : '24px', 
+                    width: isMobile ? '100%' : '600px', height: isMobile ? '100%' : '600px', 
+                    background: colors.surface, borderRadius: isMobile ? 0 : '8px 8px 0 0', 
+                    boxShadow: '0 0 16px rgba(0,0,0,0.3)', 
                     display: 'flex', flexDirection: 'column',
                     zIndex: 100, border: `1px solid ${colors.border}`,
-                    paddingBottom: '16px' // Added padding for the footer area
+                    paddingBottom: '16px'
                 }}>
                     {/* Header */}
-                    <div style={{ background: colors.primary, color: 'white', padding: '12px 20px', borderRadius: '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ background: colors.primary, color: colors.textPrimary, padding: '12px 20px', borderRadius: isMobile ? 0 : '8px 8px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 500, fontSize: '14px' }}>{composeData.subject || 'New Message'}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={16} /></button>
+                           <button onClick={() => setComposing(false)} style={{ background: 'none', border: 'none', color: colors.textPrimary, cursor: 'pointer' }}><X size={16} /></button>
                         </div>
                     </div>
                     
@@ -657,7 +657,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             <button 
                                 onClick={handleSend}
                                 style={{ 
-                                    background: colors.primary, color: 'white', 
+                                    background: colors.primary, color: colors.textPrimary, 
                                     border: 'none', padding: '8px 24px', 
                                     borderRadius: '18px', fontWeight: 600, 
                                     cursor: 'pointer', fontSize: '14px' 
@@ -691,49 +691,45 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     );
     };
 
+    const settingsInputStyle: React.CSSProperties = {
+        width: '100%', padding: '10px', background: colors.background,
+        color: colors.textPrimary, border: `1px solid ${colors.border}`,
+        borderRadius: borderRadius.sm, fontSize: '14px', boxSizing: 'border-box'
+    };
+
     const renderSettings = () => (
         <div style={{ maxWidth: '100%', height: '100%', overflowY: 'auto', padding: '24px', boxSizing: 'border-box' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <h2 style={{ marginTop: 0 }}>Settings</h2>
+            <h2 style={{ marginTop: 0, color: colors.textPrimary, fontSize: '20px', fontWeight: 600, marginBottom: '20px' }}>Email Settings</h2>
             
             <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px' }}>Webhook Secret (x-auth-token)</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Webhook Secret (x-auth-token)</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <input 
-                        style={{ flex: 1, padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
+                        style={{ ...settingsInputStyle, flex: 1 }}
                         value={settings.webhookSecret || ''}
                         onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
                     />
-                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.primary, color: 'white', border: 'none', padding: '8px' }}>Gen</button>
+                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.primary, color: colors.textPrimary, border: 'none', padding: '8px 12px', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Generate</button>
                 </div>
-                <p style={{ fontSize: '12px', color: colors.textSecondary }}>
-                    Webhook URL: {window.location.origin.replace('3000', '3001')}/api/email/webhook
+                <p style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '6px' }}>
+                    Set this token in your email worker to authenticate webhook requests.
                 </p>
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Resend API Key</label>
-                <input 
-                    style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
-                    value={settings.resendApiKey || ''}
-                    onChange={e => setSettings({...settings, resendApiKey: e.target.value})}
-                    placeholder="re_1234..."
-                />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Default From Name</label>
+                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Default From Name</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
+                        style={settingsInputStyle}
                         value={settings.fromName || ''}
                         onChange={e => setSettings({...settings, fromName: e.target.value})}
                     />
                 </div>
                 <div>
-                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Default From Email</label>
+                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Default From Email</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
+                        style={settingsInputStyle}
                         value={settings.fromEmail || ''}
                         onChange={e => setSettings({...settings, fromEmail: e.target.value})}
                     />
@@ -742,24 +738,24 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Discord Channel ID (Alerts)</label>
+                    <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Discord Channel ID (Alerts)</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
+                        style={settingsInputStyle}
                         value={settings.channelId || ''}
                         onChange={e => setSettings({...settings, channelId: e.target.value})}
                     />
                 </div>
                 <div>
-                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Notify Role ID</label>
+                     <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Notify Role ID</label>
                     <input 
-                        style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}` }}
+                        style={settingsInputStyle}
                         value={settings.roleId || ''}
                         onChange={e => setSettings({...settings, roleId: e.target.value})}
                     />
                 </div>
             </div>
 
-            <button onClick={saveSettings} style={{ background: colors.primary, color: 'white', padding: '10px 20px', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer' }}>
+            <button onClick={saveSettings} style={{ background: colors.primary, color: colors.textPrimary, padding: '10px 20px', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600, fontSize: '14px' }}>
                 Save Settings
             </button>
             </div>
@@ -774,7 +770,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <Mail size={32} color={colors.primary} />
                     <div>
-                        <h1 style={{ margin: 0, color: '#fff' }}>Email Client</h1>
+                        <h1 style={{ margin: 0, color: colors.textPrimary }}>Email Client</h1>
                         <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage emails directly from the dashboard.</p>
                     </div>
                 </div>
@@ -784,9 +780,9 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                             padding: '8px 20px', borderRadius: '8px', border: 'none',
-                            background: colors.primary, color: '#fff',
+                            background: colors.primary, color: colors.textPrimary,
                             cursor: 'pointer', fontWeight: 600, fontSize: '14px',
-                            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+                            boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
                         }}
                     >
                         <Plus size={18} /> New Email
@@ -799,7 +795,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                 style={{
                                     padding: '8px 16px', borderRadius: '6px', border: 'none',
                                     background: view === v ? colors.primary : 'transparent',
-                                    color: view === v ? '#fff' : colors.textSecondary,
+                                    color: view === v ? colors.textPrimary : colors.textSecondary,
                                     fontWeight: 600,
                                     fontSize: '13px',
                                     cursor: 'pointer',

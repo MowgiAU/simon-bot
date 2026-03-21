@@ -80,7 +80,7 @@ export const ServerStats: React.FC<Props> = ({ guildId }) => {
       <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? '8px' : '0' }}>
           <BarChart3 size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: '16px' }} />
-          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px' }}>Server Statistics</h1>
+          <h1 style={{ margin: 0, fontSize: isMobile ? '24px' : '28px' }}>Server Statistics</h1>
         </div>
         {!isMobile && (
           <div style={{ marginLeft: '16px' }}>

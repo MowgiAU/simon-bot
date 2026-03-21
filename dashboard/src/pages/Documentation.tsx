@@ -13,7 +13,7 @@ import {
   ExternalLink,
   HelpCircle
 } from 'lucide-react';
-import { colors, spacing } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 
 interface DocSection {
   id: string;
@@ -127,22 +127,10 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
   return (
     <div style={{ padding: isMobile ? '24px 16px' : '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
-        <div style={{ 
-          width: '56px', 
-          height: '56px', 
-          background: 'rgba(40, 123, 102, 0.1)', 
-          borderRadius: '16px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          marginRight: '16px',
-          border: '1px solid rgba(40, 123, 102, 0.2)'
-        }}>
-          <Book size={32} color={colors.primary} />
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+        <Book size={32} color={colors.primary} style={{ marginRight: '16px' }} />
         <div>
-          <h1 style={{ margin: 0, fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: '#FFFFFF' }}>Documentation</h1>
+          <h1 style={{ margin: 0, fontSize: isMobile ? '20px' : '28px', fontWeight: 700, color: colors.textPrimary }}>Documentation</h1>
           <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>Learn how to configure and use Fuji Studio's powerful plugins.</p>
         </div>
       </div>
@@ -153,8 +141,8 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '10px 16px', borderRadius: '10px',
-            backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+            backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.border}`,
+            color: colors.textPrimary, cursor: 'pointer', fontSize: '14px', fontWeight: 600,
             marginBottom: '16px', width: '100%', justifyContent: 'center'
           }}
         >
@@ -181,7 +169,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
                 border: '1px solid #3E455633',
                 borderRadius: '8px',
                 padding: '10px 12px 10px 36px',
-                color: '#FFFFFF',
+                color: colors.textPrimary,
                 fontSize: '14px'
               }}
             />
@@ -223,12 +211,12 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
             borderRadius: '12px',
             border: '1px solid #3E455622'
           }}>
-            <h4 style={{ margin: '0 0 8px', color: '#FFFFFF', fontSize: '14px' }}>Need extra help?</h4>
+            <h4 style={{ margin: '0 0 8px', color: colors.textPrimary, fontSize: '14px' }}>Need extra help?</h4>
             <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>Join our community server to talk with other Fuji Studio users.</p>
             <button style={{ 
               width: '100%', 
-              background: '#5865F2', 
-              color: 'white', 
+              background: colors.info, 
+              color: colors.textPrimary, 
               border: 'none', 
               borderRadius: '6px', 
               padding: '8px', 
@@ -250,7 +238,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
           background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
           borderRadius: '24px',
           border: '1px solid #3E455633',
-          padding: '40px',
+          padding: isMobile ? '24px' : '40px',
           backdropFilter: 'blur(10px)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
@@ -267,25 +255,25 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
             }}>
               {React.cloneElement(currentSection.icon as React.ReactElement, { size: 32 })}
             </div>
-            <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 800, color: '#FFFFFF' }}>{currentSection.title}</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>{currentSection.title}</h2>
           </div>
 
-          <div className="settings-explanation" style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '12px', marginBottom: '32px', borderLeft: `4px solid ${currentSection.color}` }}>
-             <p style={{ margin: 0, color: '#E0E0E0', fontSize: '16px', lineHeight: '1.6' }}>{currentSection.content}</p>
+          <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: '32px', borderLeft: `4px solid ${currentSection.color}` }}>
+             <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px', lineHeight: '1.6' }}>{currentSection.content}</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '32px' }}>
             {currentSection.commands && (
               <div>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FFFFFF', marginBottom: '16px' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.textPrimary, marginBottom: '16px' }}>
                   <Terminal size={18} color={currentSection.color} /> Available Commands
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {currentSection.commands.map((cmd, i) => (
                     <code key={i} style={{ 
-                      background: 'rgba(0,0,0,0.3)', 
+                      background: colors.background, 
                       padding: '8px 12px', 
-                      borderRadius: '6px', 
+                      borderRadius: borderRadius.sm, 
                       color: colors.primary,
                       fontSize: '13px',
                       border: '1px solid #3E455622'
@@ -299,7 +287,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
 
             {currentSection.requirements && (
               <div>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#FFFFFF', marginBottom: '16px' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.textPrimary, marginBottom: '16px' }}>
                   <HelpCircle size={18} color={currentSection.color} /> Requirements
                 </h4>
                 <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
@@ -329,13 +317,13 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
             border: '1px solid #3E455622',
             textAlign: 'center'
           }}>
-            <h4 style={{ margin: '0 0 8px', color: '#FFFFFF' }}>Ready to configure?</h4>
+            <h4 style={{ margin: '0 0 8px', color: colors.textPrimary }}>Ready to configure?</h4>
             <p style={{ margin: '0 0 24px', color: colors.textSecondary, fontSize: '14px' }}>Head over to the {currentSection.title.split(' ')[0]} settings page to start using these features.</p>
             <button 
               onClick={handleOpenSettings}
               style={{
                 background: `linear-gradient(135deg, ${currentSection.color} 0%, ${currentSection.color}dd 100%)`,
-                color: 'white',
+                color: colors.textPrimary,
                 border: 'none',
                 padding: '12px 24px',
                 borderRadius: '8px',
