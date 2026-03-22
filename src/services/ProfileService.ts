@@ -148,6 +148,7 @@ export class ProfileService {
                         album: true,
                         year: true,
                         projectFileUrl: true,
+                        waveformPeaks: true, // included but downsampled to 60pts in API before sending
                         createdAt: true,
                         updatedAt: true,
                         genres: { include: { genre: true } },

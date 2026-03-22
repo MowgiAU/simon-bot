@@ -236,7 +236,25 @@ function setCachedResponse(key: string, data: any): void {
     apiResponseCache.set(key, { data, timestamp: Date.now() });
 }
 
-// Memory cache for expensive Discord metadata calls
+/**
+ * Downsample a waveformPeaks array to targetLength points by averaging buckets.
+ * Used to reduce the profile track listing payload (~200pts → 60pts) while
+ * keeping the full resolution available on the individual track page.
+ */
+function downsamplePeaks(peaks: number[], targetLength = 60): number[] {
+    if (!peaks || peaks.length <= targetLength) return peaks;
+    const result: number[] = [];
+    const bucketSize = peaks.length / targetLength;
+    for (let i = 0; i < targetLength; i++) {
+        const start = Math.floor(i * bucketSize);
+        const end = Math.min(Math.floor((i + 1) * bucketSize), peaks.length);
+        const slice = peaks.slice(start, end);
+        result.push(slice.reduce((a, b) => a + b, 0) / slice.length);
+    }
+    return result;
+}
+
+
 // guildId -> { channels: { data: any, timestamp: number }, roles: { data: any, timestamp: number } }
 // Cache member roles: guildId:userId -> { roles, timestamp }
 const memberRoleCache = new Map<string, { roles: string[], timestamp: number }>();
@@ -4656,6 +4674,8 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             profileData.tracks.forEach((t: any) => {
                 if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                 if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+                // Downsample waveform to 60pts for the profile card view (full 200pts served on track detail page)
+                if (Array.isArray(t.waveformPeaks)) t.waveformPeaks = downsamplePeaks(t.waveformPeaks, 60);
             });
         }
 
@@ -4670,7 +4690,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                         id: true, profileId: true, title: true, slug: true,
                         url: true, coverUrl: true, duration: true, playCount: true,
                         isPublic: true, status: true, bpm: true, key: true,
-                        artist: true, createdAt: true,
+                        artist: true, createdAt: true, waveformPeaks: true,
                         profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
                         genres: { include: { genre: true } },
                         _count: { select: { favourites: true, reposts: true, comments: true } },
@@ -4682,6 +4702,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             .filter(r => r.track && r.track.isPublic && (!r.track.status || r.track.status === 'active'))
             .map(r => ({
                 ...r.track,
+                waveformPeaks: Array.isArray(r.track.waveformPeaks) ? downsamplePeaks(r.track.waveformPeaks as number[], 60) : r.track.waveformPeaks,
                 _repost: true,
                 _repostedAt: r.createdAt,
                 _originalArtist: r.track.profile,
