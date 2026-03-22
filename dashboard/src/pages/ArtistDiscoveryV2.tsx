@@ -265,14 +265,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
             <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1300px', margin: '0 auto' }}>
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
                     gap: '18px',
                 }}>
 
                     {/* ═══════════════ ROW 1: HERO / BATTLE / ARTISTS ═══════════════ */}
 
                     {/* Hero/Featured */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 2', padding: 0 }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0 }}>
                         {/* Full-bleed background image */}
                         {heroCover && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
@@ -503,7 +503,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
                     {/* Trending Artist */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
                         {artists[0] ? (
                             <>
                                 {/* Full-bleed blurred background */}
@@ -523,7 +523,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         <div style={{ position: 'relative' }}>
                                             <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', background: `conic-gradient(${colors.primary}, #a78bfa, #FBBF24, ${colors.primary})`, opacity: 0.8 }} />
                                             <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(14,18,26,0.7)' }} />
-                                            <div style={{ width: '88px', height: '88px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                                            <div style={{ width: '120px', height: '120px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
                                                 <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
                                             </div>
