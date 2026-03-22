@@ -19,6 +19,8 @@ export default defineConfig({
           if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
           // Animation libraries
           if (id.includes('framer-motion') || id.includes('/motion/')) return 'vendor-motion';
+          // React core + scheduler (react-dom depends on scheduler; keeping together breaks the circular chunk)
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) return 'vendor-react';
           // Remaining large node_modules get their own vendor chunk
           if (id.includes('node_modules')) return 'vendor';
         },
