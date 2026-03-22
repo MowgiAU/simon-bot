@@ -3709,6 +3709,9 @@ app.post('/api/musician/tracks', upload.fields([
   { name: 'project', maxCount: 1 } // Optional .flp project file
 ]), async (req: any, res) => {
     try {
+        // Disable socket timeout for this route — large file uploads + ZIP processing can take minutes
+        req.socket.setTimeout(0);
+
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -3870,33 +3873,6 @@ app.post('/api/musician/tracks', upload.fields([
             await db.track.update({ where: { id: track.id }, data: r2UrlUpdates });
         }
 
-        // Process ZIP bundle (async — enriches arrangement and creates TrackSample rows)
-        if (projectFile && isZipUpload) {
-            try {
-                const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
-                    projectFile.path,
-                    track.id,
-                    db,
-                );
-                // Merge user-supplied BPM into enriched arrangement
-                if (metadata.bpm) (enrichedArr as any).bpm = metadata.bpm;
-                await db.track.update({
-                    where: { id: track.id },
-                    data: { arrangement: enrichedArr },
-                });
-                logger.info(`ZIP processed: ${sampleCount} samples for track ${track.id}`);
-            } catch (zipErr: any) {
-                logger.warn(`ZIP processing failed for track ${track.id}: ${zipErr.message}`);
-                // Non-fatal: track is already saved, just without waveform data
-            }
-            // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
-            const r2ZipKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
-            const cdnZipUrl = await uploadToR2OrLocal(projectFile.path, r2ZipKey, 'application/zip', projectZipUrl!);
-            if (cdnZipUrl !== projectZipUrl) {
-                await db.track.update({ where: { id: track.id }, data: { projectZipUrl: cdnZipUrl } });
-            }
-        }
-
         // 4. Handle genre tags for this track
         const genreIds = req.body.genreIds;
         logger.info(`[Upload] Processing genreIds for track ${track.id}: ${genreIds} (type: ${typeof genreIds})`);
@@ -3919,13 +3895,48 @@ app.post('/api/musician/tracks', upload.fields([
             }
         }
 
-        // Return with genres included
+        // Return response immediately — ZIP sample processing runs in background to prevent proxy timeouts
         const fullTrack = await db.track.findUnique({
             where: { id: track.id },
             include: { genres: { include: { genre: true } } }
         });
 
         res.json(fullTrack);
+
+        // ZIP bundle: process samples and upload to R2 after response is sent (avoid 504 on large uploads)
+        if (projectFile && isZipUpload) {
+            const _zipPath = projectFile.path;
+            const _trackId = track.id;
+            const _bpm = metadata.bpm;
+            const _localZipUrl = projectZipUrl!;
+            setImmediate(async () => {
+                try {
+                    const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
+                        _zipPath,
+                        _trackId,
+                        db,
+                    );
+                    if (_bpm) (enrichedArr as any).bpm = _bpm;
+                    await db.track.update({
+                        where: { id: _trackId },
+                        data: { arrangement: enrichedArr },
+                    });
+                    logger.info(`ZIP processed in background: ${sampleCount} samples for track ${_trackId}`);
+                } catch (zipErr: any) {
+                    logger.warn(`Background ZIP processing failed for track ${_trackId}: ${zipErr.message}`);
+                }
+                // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
+                try {
+                    const r2ZipKey = `tracks/${_trackId}/project/${path.basename(_zipPath)}`;
+                    const cdnZipUrl = await uploadToR2OrLocal(_zipPath, r2ZipKey, 'application/zip', _localZipUrl);
+                    if (cdnZipUrl !== _localZipUrl) {
+                        await db.track.update({ where: { id: _trackId }, data: { projectZipUrl: cdnZipUrl } });
+                    }
+                } catch (r2Err: any) {
+                    logger.warn(`Background ZIP R2 upload failed for track ${_trackId}: ${r2Err.message}`);
+                }
+            });
+        }
     } catch (e: any) {
         // Handle multer file-size errors with a friendly message
         if (e.code === 'LIMIT_FILE_SIZE') {
@@ -4034,6 +4045,9 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
     { name: 'project', maxCount: 1 }
 ]), async (req: any, res) => {
     try {
+        // Disable socket timeout for this route — large file uploads + ZIP processing can take minutes
+        req.socket.setTimeout(0);
+
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
@@ -4126,24 +4140,37 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
                 const r2ProjectKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
                 updateData.projectFileUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', `/uploads/projects/${path.basename(projectFile.path)}`);
             } else {
-                // ZIP bundle replacement — process first (reads local file), then upload to R2
+                // ZIP bundle replacement — respond immediately then process in background (avoid 504)
                 updateData.projectFileSizeBytes = projectFile.size;
-                try {
-                    const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
-                        projectFile.path,
-                        trackId,
-                        db,
-                    );
-                    const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
-                    if (finalBpm) (enrichedArr as any).bpm = finalBpm;
-                    updateData.arrangement = enrichedArr;
-                    logger.info(`ZIP re-processed: ${sampleCount} samples for track ${trackId}`);
-                } catch (zipErr: any) {
-                    logger.warn(`ZIP re-processing failed for track ${trackId}: ${zipErr.message}`);
-                }
-                // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
-                const r2ZipKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
-                updateData.projectZipUrl = await uploadToR2OrLocal(projectFile.path, r2ZipKey, 'application/zip', `/uploads/projects/${path.basename(projectFile.path)}`);
+                updateData.projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                updateData.arrangement = null; // Will be repopulated after background processing
+                const _zipPath = projectFile.path;
+                const _trackId = trackId;
+                const _localZipUrl = updateData.projectZipUrl;
+                const _finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
+                setImmediate(async () => {
+                    try {
+                        const { arrangement: enrichedArr, sampleCount } = await ProjectZipProcessor.process(
+                            _zipPath,
+                            _trackId,
+                            db,
+                        );
+                        if (_finalBpm) (enrichedArr as any).bpm = _finalBpm;
+                        logger.info(`ZIP re-processed in background: ${sampleCount} samples for track ${_trackId}`);
+                        // Upload ZIP to R2 after processing (ProjectZipProcessor needs the local file first)
+                        const r2ZipKey = `tracks/${_trackId}/project/${path.basename(_zipPath)}`;
+                        const cdnZipUrl = await uploadToR2OrLocal(_zipPath, r2ZipKey, 'application/zip', _localZipUrl);
+                        await db.track.update({
+                            where: { id: _trackId },
+                            data: {
+                                arrangement: enrichedArr,
+                                ...(cdnZipUrl !== _localZipUrl ? { projectZipUrl: cdnZipUrl } : {}),
+                            },
+                        });
+                    } catch (zipErr: any) {
+                        logger.warn(`Background ZIP re-processing failed for track ${_trackId}: ${zipErr.message}`);
+                    }
+                });
             }
         }
 
