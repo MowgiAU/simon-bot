@@ -331,9 +331,23 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 export const db = globalForPrisma.prisma || new PrismaClient({
-  log: ['error', 'warn'],
+  log: process.env.NODE_ENV !== 'production'
+    ? [
+        { emit: 'event', level: 'query' },  // enable query timing in dev/staging
+        { emit: 'stdout', level: 'error' },
+        { emit: 'stdout', level: 'warn' },
+      ]
+    : ['error', 'warn'],
 });
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = db;
+  // Log every query with its duration — use this to spot slow queries and N+1s
+  (db as any).$on('query', (e: any) => {
+    if (e.duration > 50) { // only log queries taking >50ms
+      console.warn(`[Prisma SLOW] ${e.duration}ms — ${e.query.substring(0, 120)}`);
+    }
+  });
+}
 
 const emailService = new EmailService();
 const profileService = new ProfileService(db);

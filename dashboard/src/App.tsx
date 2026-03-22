@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { ResourceProvider } from "./components/ResourceProvider";
@@ -6,46 +6,65 @@ import { PlayerProvider } from "./components/PlayerProvider";
 import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
 import { Sidebar } from "./layouts/Sidebar";
-import { Dashboard } from "./pages/Dashboard";
-import { WordFilterSettings } from "./pages/WordFilterSettings";
-import { ModerationSettingsPage } from "./pages/ModerationSettings";
-import { EconomyPluginPage } from "./pages/EconomyPlugin";
-import { FeedbackPluginPage } from "./pages/FeedbackPlugin";
-import { WelcomeGatePluginPage } from "./pages/WelcomeGate";
-import { BotIdentityPage } from "./pages/BotIdentity";
-import { EmailClientPage } from "./pages/EmailClient";
-import { TicketSystemPage } from "./pages/TicketSystem";
-import { ChannelRules } from "./pages/ChannelRules";
-import { MusicianProfileAdmin } from "./pages/MusicianProfileAdmin";
-import { MusicianProfilePage } from "./pages/MusicianProfile";
-import { ProfileEditPage } from "./pages/ProfileEditPage";
-import { MyTracksPage } from "./pages/MyTracksPage";
-import { ProfileSetupWizard } from "./pages/ProfileSetupWizard";
-import { TrackPage } from "./pages/TrackPage";
-import { DocumentationPage } from "./pages/Documentation";
-import Logs from "./pages/Logs";
-import { StagingTest } from "./pages/StagingTest";
-import { PluginManagementPage } from "./pages/PluginManagement";
-import { ArtistDiscoveryPage } from "./pages/ArtistDiscovery";
-import { ArtistDiscoveryV2Page } from "./pages/ArtistDiscoveryV2";
-import { ArtistsPage } from "./pages/ArtistsPage";
-import { GenresPage } from "./pages/GenresPage";
-import { TermsPage } from "./pages/TermsPage";
-import { CategoryResultsPage } from "./pages/CategoryResultsPage";
-import { FujiStudio } from "./pages/FujiStudio";
-import { LibrarySettings } from "./pages/LibrarySettings";import { BeatBattlePage } from './pages/BeatBattle';
-import { BattleArchivePage } from './pages/BattleArchive';import { BattlesPage } from './pages/BattlesPage';import { BattleEntryPage } from './pages/BattleEntryPage';import { BattleDetailPage } from './pages/BattleDetailPage';import { ProjectCleanupGuide } from './pages/ProjectCleanupGuide';import { PlaylistPage } from './pages/PlaylistPage';import { MyPlaylistsPage } from './pages/MyPlaylistsPage';import { MyFavouritesPage } from './pages/MyFavouritesPage';import { FeedPage } from './pages/FeedPage';import { ChartsPage } from './pages/ChartsPage';
-import { AccountSettingsPage } from './pages/AccountSettingsPage';
-import { SetupPasswordModal } from './components/SetupPasswordModal';
-import { UniversalSearch } from "./components/UniversalSearch";
-import { NotificationMenu } from "./components/NotificationMenu";
-import { InternalChat } from "./components/InternalChat";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight } from "lucide-react";
-
 import { AppStyles } from "./AppStyles";
 import logoUrl from "./assets/logo.svg";
+
+// ─── Lazy-loaded pages ────────────────────────────────────────────────────────
+// Each import becomes its own JS chunk — users only download what they navigate to.
+const Dashboard              = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
+const WordFilterSettings     = lazy(() => import("./pages/WordFilterSettings").then(m => ({ default: m.WordFilterSettings })));
+const ModerationSettingsPage = lazy(() => import("./pages/ModerationSettings").then(m => ({ default: m.ModerationSettingsPage })));
+const EconomyPluginPage      = lazy(() => import("./pages/EconomyPlugin").then(m => ({ default: m.EconomyPluginPage })));
+const FeedbackPluginPage     = lazy(() => import("./pages/FeedbackPlugin").then(m => ({ default: m.FeedbackPluginPage })));
+const WelcomeGatePluginPage  = lazy(() => import("./pages/WelcomeGate").then(m => ({ default: m.WelcomeGatePluginPage })));
+const BotIdentityPage        = lazy(() => import("./pages/BotIdentity").then(m => ({ default: m.BotIdentityPage })));
+const EmailClientPage        = lazy(() => import("./pages/EmailClient").then(m => ({ default: m.EmailClientPage })));
+const TicketSystemPage       = lazy(() => import("./pages/TicketSystem").then(m => ({ default: m.TicketSystemPage })));
+const ChannelRules           = lazy(() => import("./pages/ChannelRules").then(m => ({ default: m.ChannelRules })));
+const MusicianProfileAdmin   = lazy(() => import("./pages/MusicianProfileAdmin").then(m => ({ default: m.MusicianProfileAdmin })));
+const MusicianProfilePage    = lazy(() => import("./pages/MusicianProfile").then(m => ({ default: m.MusicianProfilePage })));
+const ProfileEditPage        = lazy(() => import("./pages/ProfileEditPage").then(m => ({ default: m.ProfileEditPage })));
+const MyTracksPage           = lazy(() => import("./pages/MyTracksPage").then(m => ({ default: m.MyTracksPage })));
+const ProfileSetupWizard     = lazy(() => import("./pages/ProfileSetupWizard").then(m => ({ default: m.ProfileSetupWizard })));
+const TrackPage              = lazy(() => import("./pages/TrackPage").then(m => ({ default: m.TrackPage })));
+const DocumentationPage      = lazy(() => import("./pages/Documentation").then(m => ({ default: m.DocumentationPage })));
+const Logs                   = lazy(() => import("./pages/Logs"));
+const StagingTest            = lazy(() => import("./pages/StagingTest").then(m => ({ default: m.StagingTest })));
+const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
+const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
+const ArtistDiscoveryV2Page  = lazy(() => import("./pages/ArtistDiscoveryV2").then(m => ({ default: m.ArtistDiscoveryV2Page })));
+const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
+const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
+const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
+const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
+const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
+const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
+const BeatBattlePage         = lazy(() => import("./pages/BeatBattle").then(m => ({ default: m.BeatBattlePage })));
+const BattleArchivePage      = lazy(() => import("./pages/BattleArchive").then(m => ({ default: m.BattleArchivePage })));
+const BattlesPage            = lazy(() => import("./pages/BattlesPage").then(m => ({ default: m.BattlesPage })));
+const BattleEntryPage        = lazy(() => import("./pages/BattleEntryPage").then(m => ({ default: m.BattleEntryPage })));
+const BattleDetailPage       = lazy(() => import("./pages/BattleDetailPage").then(m => ({ default: m.BattleDetailPage })));
+const ProjectCleanupGuide    = lazy(() => import("./pages/ProjectCleanupGuide").then(m => ({ default: m.ProjectCleanupGuide })));
+const PlaylistPage           = lazy(() => import("./pages/PlaylistPage").then(m => ({ default: m.PlaylistPage })));
+const MyPlaylistsPage        = lazy(() => import("./pages/MyPlaylistsPage").then(m => ({ default: m.MyPlaylistsPage })));
+const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").then(m => ({ default: m.MyFavouritesPage })));
+const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
+const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
+const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
+const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
+const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
+const InternalChat           = lazy(() => import("./components/InternalChat").then(m => ({ default: m.InternalChat })));
+const ErrorBoundary          = lazy(() => import("./components/ErrorBoundary").then(m => ({ default: m.ErrorBoundary })));
+
+// Minimal inline spinner used while a lazy chunk loads
+const PageSpinner: React.FC = () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: colors.textTertiary, fontSize: '13px' }}>
+        Loading...
+    </div>
+);
 
 type Section = 
   | "dashboard" 
@@ -232,59 +251,63 @@ const AdminDashboard: React.FC = () => {
     setSidebarOpen(false);
   };
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case "word-filter-settings":
-        return <WordFilterSettings guildId={selectedGuild.id} />;
-      case "moderation":
-        return <ModerationSettingsPage />;
-      case "economy":
-        return <EconomyPluginPage />;
-      case "feedback":
-        return <FeedbackPluginPage />;
-      case "welcome-gate":
-        return <WelcomeGatePluginPage />;
-      case "bot-identity":
-        return <BotIdentityPage />;
-      case "email-client":
-        return <EmailClientPage searchParam={navigationParams?.searchParam} />;
-      case "tickets":
-         return <TicketSystemPage guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
-      case "channel-rules":
-         return <ChannelRules guildId={selectedGuild.id} />;
-      case "musician-profiles-admin":
-        return <MusicianProfileAdmin />;
-      case "musician-profiles":
-        return <MusicianProfilePage />;
-      case "library":
-        return <LibrarySettings />;
-      case "docs":
-        return <DocumentationPage 
-          initialSection={navigationParams?.docSection} 
-          onNavigate={handleNavigate} 
-        />;
-      case "dashboard":
-        return <Dashboard 
-          guildId={selectedGuild.id} 
-          onNavigate={handleNavigate} 
-          accessiblePlugins={permissions.accessiblePlugins} 
-        />;
-      case "logs":
-        return <Logs guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
-      case "staging-test":
-        return <StagingTest />;
-      case "plugins":
-        return <PluginManagementPage />;
-      case "beat-battle":
-        return <BeatBattlePage />;
-      case "battle-archive":
-        return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
-      case "genres-list":
-        return <GenresPage />;
-      default:
-        return null;
-    }
-  };
+  const renderContent = () => (
+    <Suspense fallback={<PageSpinner />}>
+    {(() => {
+      switch (activeSection) {
+        case "word-filter-settings":
+          return <WordFilterSettings guildId={selectedGuild.id} />;
+        case "moderation":
+          return <ModerationSettingsPage />;
+        case "economy":
+          return <EconomyPluginPage />;
+        case "feedback":
+          return <FeedbackPluginPage />;
+        case "welcome-gate":
+          return <WelcomeGatePluginPage />;
+        case "bot-identity":
+          return <BotIdentityPage />;
+        case "email-client":
+          return <EmailClientPage searchParam={navigationParams?.searchParam} />;
+        case "tickets":
+           return <TicketSystemPage guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
+        case "channel-rules":
+           return <ChannelRules guildId={selectedGuild.id} />;
+        case "musician-profiles-admin":
+          return <MusicianProfileAdmin />;
+        case "musician-profiles":
+          return <MusicianProfilePage />;
+        case "library":
+          return <LibrarySettings />;
+        case "docs":
+          return <DocumentationPage 
+            initialSection={navigationParams?.docSection} 
+            onNavigate={handleNavigate} 
+          />;
+        case "dashboard":
+          return <Dashboard 
+            guildId={selectedGuild.id} 
+            onNavigate={handleNavigate} 
+            accessiblePlugins={permissions.accessiblePlugins} 
+          />;
+        case "logs":
+          return <Logs guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
+        case "staging-test":
+          return <StagingTest />;
+        case "plugins":
+          return <PluginManagementPage />;
+        case "beat-battle":
+          return <BeatBattlePage />;
+        case "battle-archive":
+          return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
+        case "genres-list":
+          return <GenresPage />;
+        default:
+          return null;
+      }
+    })()}
+    </Suspense>
+  );
 
   return (
     <div className={`app ${sidebarOpen ? "sidebar-open" : ""}`}>
@@ -469,17 +492,17 @@ const AppInternal: React.FC = () => {
 
   // /profile/edit → Profile editing page
   if (currentPath === '/profile/edit') {
-    return <ProfileEditPage />;
+    return <Suspense fallback={<PageSpinner />}><ProfileEditPage /></Suspense>;
   }
 
   // /profile/setup → First-time setup wizard
   if (currentPath === '/profile/setup') {
-    return <ProfileSetupWizard />;
+    return <Suspense fallback={<PageSpinner />}><ProfileSetupWizard /></Suspense>;
   }
 
   // /my-tracks → Track management page
   if (currentPath === '/my-tracks') {
-    return <MyTracksPage />;
+    return <Suspense fallback={<PageSpinner />}><MyTracksPage /></Suspense>;
   }
 
   // /profile → Musician profile (hub or public view)
@@ -487,109 +510,109 @@ const AppInternal: React.FC = () => {
     // Check if it's /profile/:username/:trackSlug
     const parts = currentPath.split('/').filter(Boolean); // [profile, username, trackSlug?]
     if (parts.length >= 3) {
-      return <TrackPage />;
+      return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
     }
-    return <MusicianProfilePage />;
+    return <Suspense fallback={<PageSpinner />}><MusicianProfilePage /></Suspense>;
   }
 
   // /track → Direct track link (alias for /profile/:user/:track)
   if (currentPath.startsWith('/track')) {
-    return <TrackPage />;
+    return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
   }
 
   // Artist Discovery homepage (V2 is now default)
   if (currentPath === '/' || currentPath === '/v2') {
-    return <ArtistDiscoveryV2Page />;
+    return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryV2Page /></Suspense>;
   }
 
   // /artists → Full artists list
   if (currentPath === '/artists') {
-    return <ArtistsPage />;
+    return <Suspense fallback={<PageSpinner />}><ArtistsPage /></Suspense>;
   }
 
   // /library → Browse all tracks
   if (currentPath === '/library') {
-    return <FujiStudio />;
+    return <Suspense fallback={<PageSpinner />}><FujiStudio /></Suspense>;
   }
 
   // /genres → All Genres page
   if (currentPath === '/genres') {
-    return <GenresPage />;
+    return <Suspense fallback={<PageSpinner />}><GenresPage /></Suspense>;
   }
 
   // /genres/:parentSlug → Sub-genres page
   if (currentPath.startsWith('/genres/')) {
     const parentSlug = currentPath.split('/genres/')[1];
-    return <GenresPage parentSlug={parentSlug} />;
+    return <Suspense fallback={<PageSpinner />}><GenresPage parentSlug={parentSlug} /></Suspense>;
   }
   
   // /category/:slug → Filtered tracks page
   if (currentPath.startsWith('/category/')) {
     const slug = currentPath.split('/category/')[1];
-    return <CategoryResultsPage slug={slug} />;
+    return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;
   }
 
   // /terms → Terms of Service & Privacy Policy
   if (currentPath === '/terms') {
-    return <TermsPage />;
+    return <Suspense fallback={<PageSpinner />}><TermsPage /></Suspense>;
   }
 
   // /account → Account settings (password, email verification)
   if (currentPath === '/account') {
-    return <AccountSettingsPage />;
+    return <Suspense fallback={<PageSpinner />}><AccountSettingsPage /></Suspense>;
   }
 
   // /verify-email → Redirect from email verification link
   if (currentPath === '/verify-email') {
-    return <AccountSettingsPage />;
+    return <Suspense fallback={<PageSpinner />}><AccountSettingsPage /></Suspense>;
   }
 
   // /guides/project-cleanup → FL Studio project cleanup guide
   if (currentPath === '/guides/project-cleanup') {
-    return <ProjectCleanupGuide />;
+    return <Suspense fallback={<PageSpinner />}><ProjectCleanupGuide /></Suspense>;
   }
 
   // /playlist/:id → View a playlist
   if (currentPath.startsWith('/playlist/')) {
-    return <PlaylistPage />;
+    return <Suspense fallback={<PageSpinner />}><PlaylistPage /></Suspense>;
   }
 
   // /my-favourites → User's favourited tracks
   if (currentPath === '/my-favourites') {
-    return <MyFavouritesPage />;
+    return <Suspense fallback={<PageSpinner />}><MyFavouritesPage /></Suspense>;
   }
 
   // /feed → Subscription feed from followed artists
   if (currentPath === '/feed') {
-    return <FeedPage />;
+    return <Suspense fallback={<PageSpinner />}><FeedPage /></Suspense>;
   }
 
   // /my-playlists → User's playlists
   if (currentPath === '/my-playlists') {
-    return <MyPlaylistsPage />;
+    return <Suspense fallback={<PageSpinner />}><MyPlaylistsPage /></Suspense>;
   }
 
   // /charts → Music charts page
   if (currentPath === '/charts') {
-    return <ChartsPage />;
+    return <Suspense fallback={<PageSpinner />}><ChartsPage /></Suspense>;
   }
 
   // /battles/entry/:entryId → Battle entry track page
   if (currentPath.startsWith('/battles/entry/')) {
-    return <BattleEntryPage />;
+    return <Suspense fallback={<PageSpinner />}><BattleEntryPage /></Suspense>;
   }
 
   // /battles/:battleId → Individual battle detail page
   if (currentPath.startsWith('/battles/') && !currentPath.startsWith('/battles/entry/')) {
-    return <BattleDetailPage />;
+    return <Suspense fallback={<PageSpinner />}><BattleDetailPage /></Suspense>;
   }
 
   // /battles → Public Beat Battles page
   if (currentPath === '/battles') {
-    return <BattlesPage />;
+    return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
   }
 
-  return <ArtistDiscoveryV2Page />;
+  return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryV2Page /></Suspense>;
 };
 
 /**

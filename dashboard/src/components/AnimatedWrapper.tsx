@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LucideIcon, LucideProps } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface AnimatedWrapperProps extends LucideProps {
   icon: LucideIcon;
