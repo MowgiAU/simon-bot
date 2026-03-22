@@ -138,6 +138,7 @@ function generateWaveform(seed: string, bars = 32): number[] {
 export const ArtistDiscoveryV2Page: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
+    const [latestTracks, setLatestTracks] = useState<TrackInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
@@ -159,12 +160,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [profilesRes, tracksRes] = await Promise.all([
+                const [profilesRes, tracksRes, latestRes] = await Promise.all([
                     axios.get('/api/musician/profiles'),
-                    axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } })
+                    axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
+                    axios.get('/api/discovery/tracks', { params: { sort: 'newest', limit: 6 } })
                 ]);
                 setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
                 setTopTracks(tracksRes.data);
+                setLatestTracks(latestRes.data.tracks || []);
             } catch (err) {
                 console.error('Failed to fetch', err);
             } finally {
@@ -770,11 +773,11 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         <div style={{ padding: '15px 20px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <Activity size={15} color={colors.primary} />
                             <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Latest Releases</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary }}>{Math.min(topTracks.length, 6)} tracks</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary }}>{Math.min(latestTracks.length, 6)} tracks</span>
                         </div>
                         {/* Waveform track list */}
                         <div style={{ padding: '8px 14px 12px' }}>
-                            {topTracks.slice(0, 6).map((track, i) => {
+                            {latestTracks.slice(0, 6).map((track, i) => {
                                 const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
                                 const wf = generateWaveform(track.id);
                                 return (
@@ -788,7 +791,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             border: isPlaying ? `1px solid ${colors.primary}22` : '1px solid transparent',
                                             marginBottom: '3px', transition: 'background 0.15s',
                                         }}
-                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, topTracks); }}
+                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, latestTracks); }}
                                     >
                                         {/* Rank */}
                                         <span style={{ fontSize: '11px', fontWeight: 800, color: i === 0 ? colors.primary : 'rgba(255,255,255,0.22)', width: '14px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
