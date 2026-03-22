@@ -390,13 +390,16 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 {battle && (
                                     <span style={{
                                         display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
-                                        backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle.status === 'active' ? 'rgba(52,211,153,0.22)' : 'rgba(96,165,250,0.22)',
-                                        color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? '#34D399' : '#60A5FA',
+                                        backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle.status === 'active' ? 'rgba(52,211,153,0.22)' : battle.status === 'completed' ? 'rgba(100,116,139,0.22)' : 'rgba(96,165,250,0.22)',
+                                        color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? '#34D399' : battle.status === 'completed' ? '#94A3B8' : '#60A5FA',
                                         fontSize: '8px', fontWeight: 'bold', borderRadius: '999px', letterSpacing: '0.07em',
                                         backdropFilter: 'blur(6px)',
                                     }}>
-                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
-                                        {battle.status === 'voting' ? 'VOTING OPEN' : battle.status === 'active' ? 'OPEN' : 'UPCOMING'}
+                                        <span
+                                            className={battle.status === 'active' ? 'new-drops-pulse' : undefined}
+                                            style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }}
+                                        />
+                                        {battle.status === 'voting' ? 'VOTING' : battle.status === 'active' ? 'LIVE' : battle.status === 'completed' ? 'ENDED' : 'UPCOMING'}
                                     </span>
                                 )}
                             </div>
@@ -468,10 +471,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 fontSize: '12px', fontWeight: 700, textDecoration: 'none',
-                                                color: battle.status === 'voting' ? '#FBBF24' : colors.primary,
-                                                backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : `${colors.primary}25`,
+                                                color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'completed' ? '#94A3B8' : colors.primary,
+                                                backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : battle.status === 'completed' ? 'rgba(100,116,139,0.18)' : `${colors.primary}25`,
                                                 padding: '8px 16px', borderRadius: '8px',
-                                                border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.4)' : `${colors.primary}45`}`,
+                                                border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.4)' : battle.status === 'completed' ? 'rgba(100,116,139,0.4)' : `${colors.primary}45`}`,
                                                 backdropFilter: 'blur(6px)',
                                             }}
                                         >
@@ -479,6 +482,8 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                 ? <><Trophy size={13} /> Vote Now &rarr;</>
                                                 : battle.status === 'active'
                                                 ? <><Swords size={13} /> Submit a Beat &rarr;</>
+                                                : battle.status === 'completed'
+                                                ? 'View Results →'
                                                 : 'View Battle →'}
                                         </Link>
                                     </div>
