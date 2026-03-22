@@ -636,10 +636,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
-                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'center' }}>
-                                                {/* Thumbnail left */}
+                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'stretch' }}>
+                                                {/* Thumbnail left — stretches full height */}
                                                 <div style={{
-                                                    width: isMobile ? '110px' : '185px', height: isMobile ? '80px' : '155px', flexShrink: 0,
+                                                    width: isMobile ? '110px' : '200px', flexShrink: 0,
                                                     borderRadius: '10px', overflow: 'hidden', position: 'relative',
                                                     background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -659,22 +659,24 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 {/* Text + button right */}
-                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em' }}>
-                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
-                                                    </div>
-                                                    {featured.featuredTutorialDescription && (
-                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                                            {featured.featuredTutorialDescription}
+                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em', marginBottom: '10px' }}>
+                                                            {featured.featuredTutorialTitle || 'Watch Tutorial'}
                                                         </div>
-                                                    )}
+                                                        {featured.featuredTutorialDescription && (
+                                                            <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                                {featured.featuredTutorialDescription}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <a
                                                         href={featured.featuredTutorialUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{
                                                             display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                            marginTop: '4px', padding: '8px 18px',
+                                                            padding: '8px 18px',
                                                             background: `${colors.primary}20`, color: colors.primary,
                                                             border: `1px solid ${colors.primary}40`, borderRadius: '8px',
                                                             fontWeight: 700, fontSize: '12px', textDecoration: 'none',
