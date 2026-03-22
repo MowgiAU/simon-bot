@@ -638,7 +638,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
-                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, overflow: 'hidden', alignItems: 'flex-start' }}>
                                                 {/* Left col: thumbnail + button */}
                                                 <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '10px', width: isMobile ? '110px' : '200px' }}>
                                                     <div style={{
@@ -693,12 +693,12 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     )}
                                                 </div>
                                                 {/* Right col: text fills height */}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingBottom: '2px' }}>
                                                     <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em', marginBottom: '10px' }}>
                                                         {featured.featuredTutorialTitle || 'Watch Tutorial'}
                                                     </div>
                                                     {featured.featuredTutorialDescription && (
-                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6 }}>
+                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, overflow: 'hidden' }}>
                                                             {featured.featuredTutorialDescription}
                                                         </div>
                                                     )}
