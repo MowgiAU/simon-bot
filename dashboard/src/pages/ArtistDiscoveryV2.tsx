@@ -3,7 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
-    Award, Trophy, Users, Timer, ListMusic,
+    Zap, Trophy, Users, Timer, ListMusic,
     Star, MonitorPlay, Newspaper, BookOpen
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -234,6 +234,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     width: max-content;
                 }
                 .hero-marquee-track:hover { animation-play-state: paused; }
+                @keyframes new-drops-pulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.4; transform: scale(0.85); }
+                }
+                .new-drops-pulse { animation: new-drops-pulse 1.8s ease-in-out infinite; }
+                .new-drops-row:hover { background: rgba(255,255,255,0.05) !important; }
+                .new-drops-row:hover .new-drops-play-btn { opacity: 1 !important; }
+                .new-drops-spotlight:hover .new-drops-overlay { opacity: 1 !important; }
             `;
             document.head.appendChild(style);
         }
@@ -746,58 +754,135 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         );
                     })()}
 
-                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
+                    {/* ═══════════════ FULL-WIDTH: NEW DROPS ═══════════════ */}
+                    <div style={{
+                        ...panel,
+                        gridColumn: isMobile ? undefined : '1 / -1',
+                        padding: 0,
+                        overflow: 'hidden',
+                        background: `linear-gradient(135deg, rgba(16,185,129,0.07) 0%, #242C3D 45%)`,
+                        borderColor: `${colors.primary}22`,
+                    }}>
+                        {/* Header */}
+                        <div style={{ padding: '18px 22px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{
+                                width: '38px', height: '38px', borderRadius: '11px', flexShrink: 0,
+                                background: `${colors.primary}18`, border: `1px solid ${colors.primary}35`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: `0 0 18px ${colors.primary}25`,
+                            }}>
+                                <Zap size={18} color={colors.primary} fill={colors.primary} />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '17px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.1 }}>New Drops</div>
+                                <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px' }}>Latest community releases</div>
+                            </div>
+                            {/* Live pill */}
+                            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: `${colors.primary}15`, border: `1px solid ${colors.primary}30`, borderRadius: '20px', padding: '5px 12px' }}>
+                                <div className="new-drops-pulse" style={{ width: '7px', height: '7px', borderRadius: '50%', background: colors.primary, flexShrink: 0 }} />
+                                <span style={{ fontSize: '10px', fontWeight: 800, color: colors.primary, letterSpacing: '0.08em' }}>LIVE</span>
+                            </div>
+                        </div>
 
-                    <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', height: 'auto', padding: '24px' }}>
-                        <h2 style={{
-                            fontSize: '16px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '10px',
-                            marginBottom: '18px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 18px',
-                        }}>
-                            <Award size={20} color={colors.primary} /> Latest Releases
-                        </h2>
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)',
-                            gap: '14px',
-                        }}>
-                            {topTracks.slice(0, 6).map(track => (
-                                <Link key={track.id} to={`/track/${track.profile.username}/${track.slug || track.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                                    <div
-                                        style={{
-                                            background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px',
-                                            border: '1px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s, transform 0.2s',
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = `${colors.primary}55`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                                    >
+                        {/* Body */}
+                        <div style={{ padding: '20px 22px', display: 'flex', gap: isMobile ? '14px' : '24px', alignItems: 'flex-start' }}>
+
+                            {/* ── Spotlight: Track #1 ── */}
+                            {topTracks[0] && (
+                                <div style={{ flexShrink: 0, width: isMobile ? '120px' : '190px', position: 'relative' }}>
+                                    {/* #1 badge */}
+                                    <div style={{
+                                        position: 'absolute', top: '-9px', left: '-9px', zIndex: 2,
+                                        background: colors.primary, color: '#0a0f1a',
+                                        fontSize: '9px', fontWeight: 900, letterSpacing: '0.06em',
+                                        padding: '4px 9px', borderRadius: '8px 8px 8px 2px',
+                                        boxShadow: `0 4px 12px ${colors.primary}60`,
+                                    }}>NEW #1</div>
+                                    <Link to={`/track/${topTracks[0].profile.username}/${topTracks[0].slug || topTracks[0].id}`} style={{ textDecoration: 'none' }}>
                                         <div
+                                            className="new-drops-spotlight"
                                             style={{
-                                                width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '10px',
-                                                position: 'relative', background: 'linear-gradient(45deg, #2d3748, #4a5568)',
-                                                border: '1px solid rgba(255,255,255,0.05)',
+                                                width: '100%', aspectRatio: '1', borderRadius: '14px', overflow: 'hidden',
+                                                position: 'relative', background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                                                boxShadow: `0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px ${colors.primary}30`,
+                                                cursor: 'pointer',
                                             }}
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}
+                                            onClick={(e) => { e.preventDefault(); setTrack(topTracks[0], topTracks); }}
                                         >
-                                            {track.coverUrl ? (
-                                                <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <FujiLogo size={20} color={colors.primary} opacity={0.25} />
-                                                </div>
-                                            )}
+                                            {topTracks[0].coverUrl
+                                                ? <img src={topTracks[0].coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={32} color={colors.primary} opacity={0.2} /></div>
+                                            }
+                                            {/* Bottom gradient + title */}
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: isMobile ? '24px 10px 10px' : '40px 14px 14px', background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)' }}>
+                                                <div style={{ fontWeight: 800, fontSize: isMobile ? '11px' : '14px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topTracks[0].title}</div>
+                                                <div style={{ fontSize: isMobile ? '10px' : '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>{topTracks[0].profile.displayName || topTracks[0].profile.username}</div>
+                                            </div>
+                                            {/* Play overlay */}
                                             <div
-                                                style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.15s', cursor: 'pointer' }}
-                                                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                                                onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+                                                className="new-drops-overlay"
+                                                style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.15s' }}
                                             >
-                                                <Play size={20} fill="white" color="white" />
+                                                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: `${colors.primary}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 24px ${colors.primary}80` }}>
+                                                    <Play size={20} fill="#0a0f1a" color="#0a0f1a" style={{ marginLeft: '2px' }} />
+                                                </div>
                                             </div>
                                         </div>
-                                        <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                                        <div style={{ fontSize: '11px', color: colors.textSecondary }}>{track.profile.displayName || track.profile.username}</div>
+                                    </Link>
+                                    {/* Play count under spotlight */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '8px' }}>
+                                        <Play size={10} color={colors.textSecondary} />
+                                        <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 600 }}>{(topTracks[0].playCount || 0).toLocaleString()} plays</span>
                                     </div>
-                                </Link>
-                            ))}
+                                </div>
+                            )}
+
+                            {/* ── Track list: #2–#6 ── */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {topTracks.slice(1, 6).map((track, i) => (
+                                    <div
+                                        key={track.id}
+                                        className="new-drops-row"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '9px 10px', borderRadius: '10px', cursor: 'pointer', background: 'transparent', transition: 'background 0.15s' }}
+                                        onClick={() => setTrack(track, topTracks)}
+                                    >
+                                        {/* Rank */}
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: i === 0 ? colors.primary : colors.textSecondary, width: '16px', textAlign: 'center', flexShrink: 0 }}>{i + 2}</span>
+                                        {/* Thumb */}
+                                        <div style={{ width: '46px', height: '46px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', background: 'linear-gradient(135deg, #1e293b, #0f172a)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                            {track.coverUrl
+                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={14} color={colors.primary} opacity={0.25} /></div>
+                                            }
+                                        </div>
+                                        {/* Info */}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '1px' }}>{track.profile.displayName || track.profile.username}</div>
+                                        </div>
+                                        {/* Play count */}
+                                        {!isMobile && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                                <Play size={9} color={colors.textSecondary} />
+                                                <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(track.playCount || 0).toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                        {/* Play btn */}
+                                        <button
+                                            className="new-drops-play-btn"
+                                            onClick={(e) => { e.stopPropagation(); setTrack(track, topTracks); }}
+                                            style={{
+                                                flexShrink: 0, opacity: 0, width: '30px', height: '30px', borderRadius: '50%',
+                                                background: `${colors.primary}22`, border: `1px solid ${colors.primary}50`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: 'pointer', transition: 'opacity 0.15s',
+                                            }}
+                                        >
+                                            <Play size={12} fill={colors.primary} color={colors.primary} style={{ marginLeft: '1px' }} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
