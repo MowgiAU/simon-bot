@@ -9,6 +9,7 @@ import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight } from "lucide-react";
 import { AppStyles } from "./AppStyles";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import logoUrl from "./assets/logo.svg";
 
 // ─── Lazy-loaded pages ────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModa
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
 const InternalChat           = lazy(() => import("./components/InternalChat").then(m => ({ default: m.InternalChat })));
-const ErrorBoundary          = lazy(() => import("./components/ErrorBoundary").then(m => ({ default: m.ErrorBoundary })));
+// ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
 const PageSpinner: React.FC = () => (
@@ -628,7 +629,8 @@ export const App: React.FC = () => {
           <AppInternal />
           <GlobalPlayer />
           <ToastContainer />
-          <SetupPasswordModal />
+          {/* Suspense required: SetupPasswordModal is lazy but has no Suspense boundary */}
+          <Suspense fallback={null}><SetupPasswordModal /></Suspense>
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>
