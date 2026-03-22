@@ -8,10 +8,11 @@ import { FujiLogo } from '../components/FujiLogo';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import {
-    Play, Pause, ArrowLeft, Swords, Music, User, Calendar, Vote, LogIn,
-    Share2, Download, Info, Zap, Tag, Clock, FileAudio, List, X, Layers
+    Play, Pause, ArrowLeft, Swords, Music, Calendar, Activity, LogIn,
+    Share2, Download, Zap, Tag, Clock, FileAudio, List, Layers, Package,
+    ChevronDown, ChevronUp
 } from 'lucide-react';
-import { ArrangementViewer, ProjectInfoPanel } from '../components/ArrangementViewer';
+import { ArrangementViewer } from '../components/ArrangementViewer';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -96,6 +97,7 @@ export const BattleEntryPage: React.FC = () => {
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
     const [zoom, setZoom] = useState(1);
+    const [expandedSamples, setExpandedSamples] = useState(false);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -143,6 +145,16 @@ export const BattleEntryPage: React.FC = () => {
     const artistUsername = t?.profile?.username;
     const description = t?.description || entry?.description;
     const duration = t?.duration || entry?.duration || 0;
+
+    const arrangement = t?.arrangement ?? entry?.arrangement;
+    const hasArrangement = arrangement && (
+        arrangement.tracks?.some((tr: any) => tr.clips.length > 0) || arrangement.projectInfo
+    );
+    const projectFileUrl = t?.projectFileUrl ?? (entry?.projectUrl ? (entry.projectUrl.startsWith('http') ? entry.projectUrl : `${API}${entry.projectUrl}`) : null);
+    const projectZipUrl = t?.projectZipUrl ?? null;
+    const allowProjectDownload = t ? (t.allowProjectDownload ?? true) : true;
+    const allowAudioDownload = t ? t.allowAudioDownload : false;
+    const downloadAudioUrl = t ? t.url : audioUrl;
 
     const isPlaying = player.currentTrack?.id === entry?.id && player.isPlaying;
 
@@ -221,216 +233,315 @@ export const BattleEntryPage: React.FC = () => {
     return (
         <DiscoveryLayout activeTab="battles">
             <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl, flexWrap: 'wrap', gap: '8px' }}>
-                    <Link to="/battles" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.textSecondary, textDecoration: 'none', fontSize: '13px' }}>
-                        <ArrowLeft size={14} /> Back to Battles
-                    </Link>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Swords size={14} color={colors.primary} />
-                        <Link to={`/battles/${entry.battle.id}`} style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, textDecoration: 'none' }}>{entry.battle.title}</Link>
-                        {st && (
-                            <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: '5px', color: st.color, backgroundColor: st.bg }}>
-                                {st.label}
-                            </span>
-                        )}
-                    </div>
-                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '400px 1fr', gap: isMobile ? '24px' : '40px' }}>
-                    {/* Left: Artwork + Stats */}
-                    <div style={isMobile ? { display: 'flex', gap: '16px', alignItems: 'flex-start' } : {}}>
-                        <div style={{ aspectRatio: '1/1', borderRadius: borderRadius.lg, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.05)', position: 'relative', width: isMobile ? '120px' : '100%', flexShrink: 0 }}>
-                            {resolvedCover ? (
-                                <img src={resolvedCover} alt={entry.trackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
-                                    <FujiLogo size={isMobile ? 120 : 160} color={colors.primary} opacity={0.2} />
-                                </div>
-                            )}
-                            <button onClick={handlePlay}
-                                style={{ position: 'absolute', bottom: '20px', right: '20px', width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px', borderRadius: '50%', backgroundColor: colors.primary, color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: `0 4px 20px ${colors.primary}44`, transition: 'transform 0.2s ease' }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                                {isPlaying ? <Pause size={isMobile ? 24 : 32} fill="white" /> : <Play size={isMobile ? 24 : 32} fill="white" style={{ marginLeft: '4px' }} />}
-                            </button>
-                        </div>
+                {/* ═══ HERO SECTION ═══ */}
+                <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
+                    {resolvedCover && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${resolvedCover})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.3)', transform: 'scale(1.2)' }} />
+                    )}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.92) 0%, rgba(14,18,26,0.75) 100%)' }} />
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: isMobile ? 0 : spacing.xl, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.05)', flex: isMobile ? 1 : undefined }}>
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Votes</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{entry.voteCount}</div>
-                            </div>
-                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                            <div style={{ textAlign: 'center', flex: 1 }}>
-                                <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Duration</div>
-                                <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{formatDuration(duration)}</div>
-                            </div>
-                            {t && (
-                                <>
-                                    <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                                    <div style={{ textAlign: 'center', flex: 1 }}>
-                                        <div style={{ color: colors.textSecondary, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Plays</div>
-                                        <div style={{ fontSize: isMobile ? '1.1rem' : '1.25rem', fontWeight: 'bold' }}>{t.playCount.toLocaleString()}</div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right: Info & Metadata */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-                        <div>
-                            <h1 style={{ fontSize: isMobile ? '2rem' : '3rem', margin: '0 0 8px 0', lineHeight: 1.1 }}>{entry.trackTitle}</h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: isMobile ? '1.1rem' : '1.25rem', color: colors.textSecondary }}>
-                                by {artistUsername ? (
-                                    <a href={`/profile/${artistUsername}`} style={{ color: colors.primary, textDecoration: 'none' }}>{artistName}</a>
-                                ) : (
-                                    <span style={{ color: colors.textPrimary }}>{artistName}</span>
+                    <div style={{ position: 'relative', padding: isMobile ? '20px' : '40px' }}>
+                        {/* Battle breadcrumb */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '8px' }}>
+                            <Link to="/battles" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.textSecondary, textDecoration: 'none', fontSize: '13px' }}>
+                                <ArrowLeft size={14} /> Back to Battles
+                            </Link>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Swords size={14} color={colors.primary} />
+                                <Link to={`/battles/${entry.battle.id}`} style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, textDecoration: 'none' }}>{entry.battle.title}</Link>
+                                {st && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: '5px', color: st.color, backgroundColor: st.bg }}>
+                                        {st.label}
+                                    </span>
                                 )}
                             </div>
                         </div>
 
-                        {description && (
-                            <div style={{ padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
-                                <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontSize: isMobile ? '0.9rem' : '1rem' }}>{description}</p>
-                            </div>
-                        )}
-
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(200px, 1fr))', gap: spacing.md }}>
-                            {t?.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={t.artist} />}
-                            {t?.album && <InfoItem icon={<Music size={16}/>} label="Album" value={t.album} />}
-                            {t?.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={t.year.toString()} />}
-                            {t?.bpm && <InfoItem icon={<Zap size={16}/>} label="BPM" value={t.bpm.toString()} />}
-                            {t?.key && <InfoItem icon={<Tag size={16}/>} label="Key" value={t.key} />}
-                            <InfoItem icon={<Clock size={16}/>} label="Submitted" value={new Date(entry.createdAt).toLocaleDateString()} />
-                        </div>
-
-                        {t?.genres && t.genres.length > 0 && (
-                            <div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    {t.genres.map(g => (
-                                        <span key={g.genre.id} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                            {g.genre.name}
-                                        </span>
-                                    ))}
+                        {/* Cover + info row */}
+                        <div style={{ display: 'flex', gap: isMobile ? '16px' : '32px', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start' }}>
+                            {/* Cover art */}
+                            <div style={{
+                                width: isMobile ? '200px' : '280px', height: isMobile ? '200px' : '280px',
+                                borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)',
+                                position: 'relative', cursor: 'pointer',
+                            }} onClick={handlePlay}>
+                                {resolvedCover ? (
+                                    <img src={resolvedCover} alt={entry.trackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
+                                        <FujiLogo size={isMobile ? 80 : 120} color={colors.primary} opacity={0.2} />
+                                    </div>
+                                )}
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    backgroundColor: isPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s',
+                                }}
+                                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.opacity = '0'; }}
+                                >
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 24px ${colors.primary}66` }}>
+                                        {isPlaying ? <Pause size={28} fill="white" color="white" /> : <Play size={28} fill="white" color="white" style={{ marginLeft: '3px' }} />}
+                                    </div>
                                 </div>
                             </div>
-                        )}
 
-                        <div style={{ marginTop: 'auto', display: 'flex', gap: spacing.md, flexWrap: 'wrap' }}>
-                            {entry.battle.status === 'voting' && (
-                                user ? (
-                                    entry.userId !== user.id && (
-                                        <button onClick={handleVote} disabled={voting}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: voted ? 'rgba(251,191,36,0.15)' : colors.primary, color: voted ? '#FBBF24' : 'white', border: voted ? '1px solid rgba(251,191,36,0.3)' : 'none', padding: '10px 20px', borderRadius: borderRadius.md, cursor: voting ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: voting ? 0.6 : 1 }}>
-                                            <Vote size={18} /> {voted ? 'Voted ✓' : 'Vote'}
-                                        </button>
-                                    )
-                                ) : (
-                                    <a href="/api/auth/discord/login" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#5865F2', color: 'white', padding: '10px 20px', borderRadius: borderRadius.md, textDecoration: 'none', fontWeight: 600 }}>
-                                        <LogIn size={18} /> Log in to Vote
-                                    </a>
-                                )
-                            )}
-                            {t?.allowAudioDownload && (
-                                <button onClick={() => window.open(t.url, '_blank')}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}>
-                                    <Download size={18} /> Download Audio
-                                </button>
-                            )}
-                            {t?.projectFileUrl && (t.allowProjectDownload ?? true) && (
-                                <>
-                                    <button onClick={() => setFlpConfirmOpen(true)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}>
-                                        <Download size={18} /> Download .flp
+                            {/* Track info panel */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
+                                <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>
+                                    {entry.trackTitle}
+                                </h1>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    by {artistUsername ? (
+                                        <a href={`/profile/${artistUsername}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>{artistName}</a>
+                                    ) : (
+                                        <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{artistName}</span>
+                                    )}
+                                </div>
+
+                                {/* Quick metadata badges */}
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    {(t?.bpm || entry.bpm) && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(242,123,19,0.15)', border: '1px solid rgba(242,123,19,0.3)', fontSize: '13px', fontWeight: 600, color: colors.primary }}>
+                                            <Activity size={13} /> {t?.bpm ?? entry.bpm} BPM
+                                        </span>
+                                    )}
+                                    {(t?.key || entry.key) && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '13px', fontWeight: 600, color: '#A78BFA' }}>
+                                            <Tag size={13} /> {t?.key ?? entry.key}
+                                        </span>
+                                    )}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                        <Clock size={13} /> {formatDuration(duration)}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                        <Calendar size={13} /> {new Date(entry.createdAt).toLocaleDateString()}
+                                    </span>
+                                </div>
+
+                                {/* Genre tags */}
+                                {t?.genres && t.genres.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                        {t.genres.map(g => (
+                                            <span key={g.genre.id} style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                {g.genre.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Stats row */}
+                                <div style={{ display: 'flex', gap: isMobile ? '16px' : '24px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
+                                        <span>🔥</span>
+                                        <span style={{ fontWeight: 700, color: colors.textPrimary }}>{entry.voteCount}</span> votes
+                                    </div>
+                                    {t && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
+                                            <Play size={14} fill={colors.textSecondary} color={colors.textSecondary} />
+                                            <span style={{ fontWeight: 700, color: colors.textPrimary }}>{t.playCount.toLocaleString()}</span> plays
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action buttons */}
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    <button onClick={handlePlay}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px', boxShadow: `0 4px 16px ${colors.primary}44` }}>
+                                        {isPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" />} {isPlaying ? 'Pause' : 'Play'}
                                     </button>
-                                    <ConfirmModal open={flpConfirmOpen} title="Project File Download"
-                                        message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist.\n\nContinue with download?`}
-                                        confirmLabel="Download"
-                                        onConfirm={() => { setFlpConfirmOpen(false); window.open(t.projectFileUrl!, '_blank'); }}
-                                        onCancel={() => setFlpConfirmOpen(false)} />
-                                </>
-                            )}
-                            {t?.projectZipUrl && (t.allowProjectDownload ?? true) && (
-                                <a href={t.projectZipUrl.startsWith('http') ? t.projectZipUrl : `/api/tracks/${t.id}/download-zip`}
-                                    download={`${t.title || 'project'}_loop_package.zip`}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>
-                                    <Download size={18} /> Download Loop ZIP
-                                </a>
-                            )}
-                            <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied to clipboard!', 'success'); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600 }}>
-                                <Share2 size={18} /> Share
-                            </button>
-                            {t && artistUsername && t.slug && (
-                                <Link to={`/profile/${artistUsername}/${t.slug}`}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.primary, border: `1px solid ${colors.primary}33`, padding: '10px 20px', borderRadius: borderRadius.md, textDecoration: 'none', fontWeight: 600 }}>
-                                    <Music size={18} /> View Full Track
-                                </Link>
-                            )}
+
+                                    {entry.battle.status === 'voting' && (
+                                        user ? (
+                                            entry.userId !== user.id ? (
+                                                <button onClick={handleVote} disabled={voting}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: voted ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.05)', color: voted ? '#FBBF24' : 'white', border: voted ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.15)', padding: '10px 20px', borderRadius: '8px', cursor: voting ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px', opacity: voting ? 0.6 : 1 }}>
+                                                    🔥 {voted ? 'Voted ✓' : 'Vote'}
+                                                </button>
+                                            ) : null
+                                        ) : (
+                                            <a href="/api/auth/discord/login"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#5865F2', color: 'white', padding: '10px 20px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>
+                                                <LogIn size={16} /> Log in to Vote
+                                            </a>
+                                        )
+                                    )}
+
+                                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                        <Share2 size={15} /> Share
+                                    </button>
+
+                                    {t && artistUsername && t.slug && (
+                                        <Link to={`/profile/${artistUsername}/${t.slug}`}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}11`, color: colors.primary, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
+                                            <Music size={15} /> View Full Track
+                                        </Link>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* FLP Arrangement Viewer — direct upload */}
-                {!t && (entry.arrangement as any)?.tracks?.some((tr: any) => tr.clips.length > 0) && (
-                    <ArrangementViewer
-                        arrangement={entry.arrangement as any}
-                        duration={duration}
-                        currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
-                        isPlaying={isPlaying}
-                        projectFileUrl={entry.projectUrl ? (entry.projectUrl.startsWith('http') ? entry.projectUrl : `${API}${entry.projectUrl}`) : null}
-                        zoom={zoom}
-                        setZoom={setZoom}
-                    />
+                {/* Description */}
+                {description && (
+                    <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `4px solid ${colors.primary}`, marginBottom: '24px' }}>
+                        <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{description}</p>
+                    </div>
                 )}
 
-                {/* FLP Arrangement Viewer — library track */}
-                {t && (t.arrangement as any)?.tracks?.some((tr: any) => tr.clips.length > 0) && (
-                    <ArrangementViewer
-                        arrangement={t.arrangement as any}
-                        duration={duration}
-                        currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
-                        isPlaying={isPlaying}
-                        projectFileUrl={t.projectFileUrl || null}
-                        projectZipUrl={t.projectZipUrl}
-                        trackId={t.id}
-                        zoom={zoom}
-                        setZoom={setZoom}
-                    />
-                )}
+                {/* ═══ FL STUDIO PROJECT SECTION ═══ */}
+                {hasArrangement && (
+                    <div style={{
+                        marginBottom: '24px', borderRadius: '16px', overflow: 'hidden',
+                        border: '1px solid rgba(242,123,19,0.2)',
+                        background: 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)',
+                    }}>
+                        {/* Section header */}
+                        <div style={{
+                            padding: isMobile ? '16px 20px' : '20px 28px',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '40px', height: '40px', borderRadius: '10px',
+                                    background: `linear-gradient(135deg, ${colors.primary}, #E65100)`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: `0 4px 16px ${colors.primary}44`,
+                                }}>
+                                    <Layers size={20} color="white" />
+                                </div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>FL Studio Project</h2>
+                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                                        {arrangement!.bpm && `${arrangement!.bpm} BPM`}
+                                        {arrangement!.bpm && arrangement!.tracks?.length > 0 && ' · '}
+                                        {arrangement!.tracks?.filter((tr: any) => tr.clips.length > 0).length > 0 && `${arrangement!.tracks.filter((tr: any) => tr.clips.length > 0).length} tracks`}
+                                        {arrangement!.projectInfo?.plugins?.length > 0 && ` · ${arrangement!.projectInfo.plugins.length} plugins`}
+                                    </p>
+                                </div>
+                            </div>
 
-                {/* Project Info Panel — direct upload */}
-                {!t && (entry.arrangement as any)?.projectInfo &&
-                    ((entry.arrangement as any).projectInfo.plugins?.length > 0 || (entry.arrangement as any).projectInfo.samples?.length > 0) && (
-                    <ProjectInfoPanel projectInfo={(entry.arrangement as any).projectInfo} />
-                )}
-
-                {/* Project Info Panel — library track */}
-                {t?.arrangement?.projectInfo &&
-                    (t.arrangement.projectInfo.plugins?.length > 0 || t.arrangement.projectInfo.samples?.length > 0) && (
-                    <ProjectInfoPanel projectInfo={t.arrangement.projectInfo} />
-                )}
-
-                {/* Project Details */}
-                {(entry.bpm || entry.key || entry.artist || entry.projectUrl) && !t && (
-                    <div style={{ marginTop: spacing.xl, padding: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: spacing.md }}>
-                            <FileAudio size={18} color={colors.primary} />
-                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Project Details</h3>
+                            {/* Download buttons */}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {projectFileUrl && allowProjectDownload && (
+                                    <>
+                                        <button
+                                            onClick={() => setFlpConfirmOpen(true)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}15`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
+                                            <Download size={14} /> .flp
+                                        </button>
+                                        <ConfirmModal
+                                            open={flpConfirmOpen}
+                                            title="Project File Download"
+                                            message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?`}
+                                            confirmLabel="Download"
+                                            onConfirm={() => { setFlpConfirmOpen(false); window.open(projectFileUrl, '_blank'); }}
+                                            onCancel={() => setFlpConfirmOpen(false)}
+                                        />
+                                    </>
+                                )}
+                                {projectZipUrl && allowProjectDownload && (
+                                    <a href={projectZipUrl.startsWith('http') ? projectZipUrl : `/api/tracks/${t!.id}/download-zip`}
+                                        download={`${entry.trackTitle || 'project'}_loop_package.zip`}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', textDecoration: 'none' }}>
+                                        <Package size={14} /> Download Project
+                                    </a>
+                                )}
+                                {allowAudioDownload && (
+                                    <button onClick={() => window.open(downloadAudioUrl, '_blank')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
+                                        <Download size={14} /> Audio
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(160px, 1fr))', gap: spacing.md, marginBottom: entry.projectUrl ? spacing.md : 0 }}>
-                            {entry.artist && <InfoItem icon={<User size={16}/>} label="Artist" value={entry.artist} />}
-                            {entry.bpm && <InfoItem icon={<Zap size={16}/>} label="BPM" value={entry.bpm.toString()} />}
-                            {entry.key && <InfoItem icon={<Tag size={16}/>} label="Key" value={entry.key} />}
-                        </div>
-                        {entry.projectUrl && (
-                            <a href={entry.projectUrl.startsWith('http') ? entry.projectUrl : `${API}${entry.projectUrl}`} download
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '10px 20px', borderRadius: borderRadius.md, fontWeight: 600, textDecoration: 'none', fontSize: '14px' }}>
-                                <Download size={18} /> Download Project File
-                            </a>
+
+                        {/* Plugins & Samples */}
+                        {arrangement!.projectInfo && (arrangement!.projectInfo.plugins?.length > 0 || arrangement!.projectInfo.samples?.length > 0) && (
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (arrangement!.projectInfo.plugins?.length > 0 && arrangement!.projectInfo.samples?.length > 0 ? '1fr 1fr' : '1fr'), gap: '20px' }}>
+                                    {/* Plugins */}
+                                    {arrangement!.projectInfo.plugins?.length > 0 && (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                <Zap size={15} color={colors.primary} />
+                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                    Plugins ({arrangement!.projectInfo.plugins.length})
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {arrangement!.projectInfo.plugins.map((plugin: string, i: number) => (
+                                                    <span key={i} style={{
+                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                        backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)',
+                                                        color: '#F0A060',
+                                                    }}>{plugin}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Samples */}
+                                    {arrangement!.projectInfo.samples?.length > 0 && (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                <FileAudio size={15} color="#A78BFA" />
+                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                    Samples ({arrangement!.projectInfo.samples.length})
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {(expandedSamples ? arrangement!.projectInfo.samples : arrangement!.projectInfo.samples.slice(0, 12)).map((sample: string, i: number) => (
+                                                    <span key={i} style={{
+                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                        backgroundColor: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
+                                                        color: '#C4A8FF', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                    }}>{sample}</span>
+                                                ))}
+                                            </div>
+                                            {arrangement!.projectInfo.samples.length > 12 && (
+                                                <button onClick={() => setExpandedSamples(!expandedSamples)}
+                                                    style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                    {expandedSamples ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show all {arrangement!.projectInfo.samples.length} samples</>}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
+
+                        {/* Arrangement timeline */}
+                        {arrangement!.tracks?.some((tr: any) => tr.clips.length > 0) && (
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
+                                <ArrangementViewer
+                                    arrangement={arrangement}
+                                    duration={duration}
+                                    currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
+                                    isPlaying={isPlaying}
+                                    projectFileUrl={projectFileUrl}
+                                    projectZipUrl={projectZipUrl}
+                                    trackId={t?.id}
+                                    zoom={zoom}
+                                    setZoom={setZoom}
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Audio download fallback when no FL section but audio download allowed */}
+                {!hasArrangement && allowAudioDownload && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                        <button onClick={() => window.open(downloadAudioUrl, '_blank')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                            <Download size={16} /> Download Audio
+                        </button>
                     </div>
                 )}
 
