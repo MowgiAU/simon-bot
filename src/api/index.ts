@@ -6957,8 +6957,9 @@ if (fs.existsSync(distPath)) {
     // 1. Hashed assets (/assets/*.js, /assets/*.css) — content-hashed filenames → cache 1 year
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
         index: false,
-        maxAge: '1y',
-        immutable: true,
+        setHeaders: (res) => {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        },
     }));
 
     // 2. Everything else (index.html, logo.svg, etc.) — no cache so the app shell always refreshes
