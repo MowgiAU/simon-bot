@@ -779,7 +779,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         <div style={{ padding: '8px 14px 12px' }}>
                             {latestTracks.slice(0, 6).map((track, i) => {
                                 const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
-                                const wf = generateWaveform(track.id);
                                 return (
                                     <div
                                         key={track.id}
@@ -814,15 +813,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         </div>
 
                                         {/* Title + artist */}
-                                        <div style={{ flexShrink: 0, width: isMobile ? '90px' : '150px' }}>
+                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '150px' }}>
                                             <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                                             <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</div>
                                         </div>
 
                                         {/* Waveform — main visual element */}
-                                        {!isMobile && (
-                                            <div style={{ flex: 1, minWidth: 0, height: '42px', display: 'flex', alignItems: 'flex-end', gap: '2px', overflow: 'hidden' }}>
-                                                {wf.map((barH, bi) => (
+                                        <div style={{ flex: isMobile ? undefined : 1, flexShrink: 0, width: isMobile ? '60px' : undefined, minWidth: 0, height: isMobile ? '32px' : '42px', display: 'flex', alignItems: 'flex-end', gap: isMobile ? '1px' : '2px', overflow: 'hidden' }}>
+                                            {generateWaveform(track.id, isMobile ? 14 : 32).map((barH, bi) => (
                                                     <div
                                                         key={bi}
                                                         className={isPlaying ? 'wf-anim-bar' : undefined}
@@ -840,13 +838,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     />
                                                 ))}
                                             </div>
-                                        )}
 
-                                        {/* Play count */}
-                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: isMobile ? 'auto' : '68px', justifyContent: 'flex-end' }}>
+                                        {/* Play count — desktop only */}
+                                        {!isMobile && (
+                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '68px', justifyContent: 'flex-end' }}>
                                             <Play size={9} color={colors.textSecondary} />
                                             <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(track.playCount || 0).toLocaleString()}</span>
                                         </div>
+                                        )}
                                     </div>
                                 );
                             })}
