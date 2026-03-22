@@ -867,7 +867,7 @@ model DiscoverySettings {
   featuredBattleDescription String?  @db.Text // Custom blurb for the battle card
 
   // Featured Content (card type selector — 'video' | 'news' | 'guide')
-  featuredContentType         String   @default("video")
+  featuredContentType         String   @default("video") @map("featured_content_type")
 
   // Featured Tutorial / Video
   featuredTutorialUrl         String?  // YouTube/video embed URL
