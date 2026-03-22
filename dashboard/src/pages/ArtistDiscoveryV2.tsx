@@ -633,25 +633,6 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(14,18,26,0.6) 0%, rgba(14,18,26,0.82) 50%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
 
                                 <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: '18px 20px' }}>
-                                    {/* Header row */}
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '10px', fontWeight: 700, color: tc.accentColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                            {tc.icon}{tc.label}
-                                        </div>
-                                        {/* Type pill tabs */}
-                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                            {(['video', 'news', 'guide'] as const).map(type => (
-                                                <span key={type} style={{
-                                                    fontSize: '9px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
-                                                    textTransform: 'capitalize',
-                                                    background: contentType === type ? `${typeConfig[type].accentColor}22` : 'transparent',
-                                                    border: `1px solid ${contentType === type ? typeConfig[type].accentColor + '55' : 'rgba(255,255,255,0.08)'}`,
-                                                    color: contentType === type ? typeConfig[type].accentColor : colors.textSecondary,
-                                                }}>{type}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
