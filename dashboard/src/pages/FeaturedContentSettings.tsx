@@ -11,6 +11,8 @@ interface FeaturedSettings {
     featuredTutorialTitle: string;
     featuredTutorialDescription: string;
     featuredTutorialThumbnail: string;
+    featuredTutorialAuthor: string;
+    featuredTutorialDate: string;
 }
 
 const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; description: string; accentColor: string }[] = [
@@ -44,6 +46,8 @@ export const FeaturedContentSettings: React.FC = () => {
         featuredTutorialTitle: '',
         featuredTutorialDescription: '',
         featuredTutorialThumbnail: '',
+        featuredTutorialAuthor: '',
+        featuredTutorialDate: '',
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -58,6 +62,8 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialTitle: d.featuredTutorialTitle || '',
                 featuredTutorialDescription: d.featuredTutorialDescription || '',
                 featuredTutorialThumbnail: d.featuredTutorialThumbnail || '',
+                featuredTutorialAuthor: d.featuredTutorialAuthor || '',
+                featuredTutorialDate: d.featuredTutorialDate || '',
             });
         }).catch(() => {}).finally(() => setLoading(false));
     }, []);
@@ -72,6 +78,8 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialTitle: settings.featuredTutorialTitle || null,
                 featuredTutorialDescription: settings.featuredTutorialDescription || null,
                 featuredTutorialThumbnail: settings.featuredTutorialThumbnail || null,
+                featuredTutorialAuthor: settings.featuredTutorialAuthor || null,
+                featuredTutorialDate: settings.featuredTutorialDate || null,
             });
             setSaveStatus('ok');
             setTimeout(() => setSaveStatus('idle'), 3000);
@@ -229,6 +237,26 @@ export const FeaturedContentSettings: React.FC = () => {
                                 value={settings.featuredTutorialThumbnail}
                                 onChange={e => setSettings(s => ({ ...s, featuredTutorialThumbnail: e.target.value }))}
                             />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                                <label style={labelStyle}>Author / Staff Member <span style={{ color: colors.textSecondary, fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                                <input
+                                    style={inputStyle}
+                                    placeholder="e.g. Mowgi"
+                                    value={settings.featuredTutorialAuthor}
+                                    onChange={e => setSettings(s => ({ ...s, featuredTutorialAuthor: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Date <span style={{ color: colors.textSecondary, fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                                <input
+                                    style={inputStyle}
+                                    placeholder="e.g. March 23, 2026"
+                                    value={settings.featuredTutorialDate}
+                                    onChange={e => setSettings(s => ({ ...s, featuredTutorialDate: e.target.value }))}
+                                />
+                            </div>
                         </div>
                     </div>
                 ) : (

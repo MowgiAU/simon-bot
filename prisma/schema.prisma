@@ -874,6 +874,8 @@ model DiscoverySettings {
   featuredTutorialTitle       String?
   featuredTutorialDescription String?  @db.Text // Short blurb shown on the tutorial card
   featuredTutorialThumbnail   String?  // Thumbnail image URL
+  featuredTutorialAuthor      String?  @map("featured_tutorial_author") // Name of the staff member / creator
+  featuredTutorialDate        String?  @map("featured_tutorial_date")   // Display date string (e.g. "March 23, 2026")
 
   updatedAt       DateTime @updatedAt
 

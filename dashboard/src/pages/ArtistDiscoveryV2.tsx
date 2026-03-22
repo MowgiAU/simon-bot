@@ -75,6 +75,8 @@ interface FeaturedData {
     featuredTutorialTitle?: string | null;
     featuredTutorialDescription?: string | null;
     featuredTutorialThumbnail?: string | null;
+    featuredTutorialAuthor?: string | null;
+    featuredTutorialDate?: string | null;
     featuredBattle?: {
         id: string; title: string; status: string;
         bannerUrl: string | null;
@@ -611,7 +613,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
@@ -632,7 +634,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 )}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(14,18,26,0.6) 0%, rgba(14,18,26,0.82) 50%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
 
-                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: '18px 20px' }}>
+                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: '18px 20px 18px 20px', boxSizing: 'border-box' }}>
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
@@ -674,6 +676,21 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     >
                                                         <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
                                                     </a>
+                                                    {/* Author + date */}
+                                                    {(featured.featuredTutorialAuthor || featured.featuredTutorialDate) && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                                                            {featured.featuredTutorialAuthor && (
+                                                                <div style={{ fontSize: '10px', color: colors.textPrimary, fontWeight: 700, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {featured.featuredTutorialAuthor}
+                                                                </div>
+                                                            )}
+                                                            {featured.featuredTutorialDate && (
+                                                                <div style={{ fontSize: '10px', color: colors.textSecondary, textAlign: 'center' }}>
+                                                                    {featured.featuredTutorialDate}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {/* Right col: text fills height */}
                                                 <div style={{ flex: 1, minWidth: 0 }}>

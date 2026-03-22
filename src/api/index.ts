@@ -5006,6 +5006,8 @@ app.get('/api/discovery/settings', async (req, res) => {
         result.featuredTutorialTitle = settings.featuredTutorialTitle;
         result.featuredTutorialDescription = (settings as any).featuredTutorialDescription;
         result.featuredTutorialThumbnail = settings.featuredTutorialThumbnail;
+        result.featuredTutorialAuthor = (settings as any).featuredTutorialAuthor;
+        result.featuredTutorialDate = (settings as any).featuredTutorialDate;
 
         setCachedResponse('discovery-settings', result);
         res.json(result);
@@ -5023,6 +5025,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             editorPickTrackIds, featuredProducerId, featuredProducerNote,
             featuredContentType,
             featuredTutorialUrl, featuredTutorialTitle, featuredTutorialDescription, featuredTutorialThumbnail,
+            featuredTutorialAuthor, featuredTutorialDate,
             featuredBattleId, featuredBattleDescription
         } = req.body;
 
@@ -5041,6 +5044,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredTutorialTitle !== undefined) updateData.featuredTutorialTitle = featuredTutorialTitle;
         if (featuredTutorialDescription !== undefined) updateData.featuredTutorialDescription = featuredTutorialDescription;
         if (featuredTutorialThumbnail !== undefined) updateData.featuredTutorialThumbnail = featuredTutorialThumbnail;
+        if (featuredTutorialAuthor !== undefined) updateData.featuredTutorialAuthor = featuredTutorialAuthor;
+        if (featuredTutorialDate !== undefined) updateData.featuredTutorialDate = featuredTutorialDate;
         if (featuredBattleId !== undefined) updateData.featuredBattleId = featuredBattleId;
         if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
 
