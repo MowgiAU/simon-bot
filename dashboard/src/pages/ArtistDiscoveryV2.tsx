@@ -637,13 +637,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
                                             <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'stretch' }}>
-                                                {/* Thumbnail left — stretches full height */}
+                                                {/* Thumbnail left — 16:9 aspect ratio */}
                                                 <div style={{
-                                                    width: isMobile ? '110px' : '200px', flexShrink: 0,
+                                                    aspectRatio: '16/9', flexShrink: 0, alignSelf: 'center',
                                                     borderRadius: '10px', overflow: 'hidden', position: 'relative',
                                                     background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                     boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
+                                                    maxHeight: '100%', minWidth: isMobile ? '110px' : '200px',
                                                 }}>
                                                     {getTutorialThumbnail() && (
                                                         <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
@@ -665,7 +666,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                             {featured.featuredTutorialTitle || 'Watch Tutorial'}
                                                         </div>
                                                         {featured.featuredTutorialDescription && (
-                                                            <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, overflow: 'hidden' }}>
                                                                 {featured.featuredTutorialDescription}
                                                             </div>
                                                         )}
