@@ -363,15 +363,19 @@ const AdminDashboard: React.FC = () => {
           </button>
           
           <div style={{ flex: 1, display: "flex", alignItems: "center", minWidth: 0 }}>
-             <UniversalSearch 
-                guildId={selectedGuild.id} 
-                onNavigate={handleNavigate} 
-                accessiblePlugins={permissions.accessiblePlugins} 
-             />
+             <Suspense fallback={null}>
+               <UniversalSearch 
+                  guildId={selectedGuild.id} 
+                  onNavigate={handleNavigate} 
+                  accessiblePlugins={permissions.accessiblePlugins} 
+               />
+             </Suspense>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-              <NotificationMenu guildId={selectedGuild.id} />
+              <Suspense fallback={null}>
+                <NotificationMenu guildId={selectedGuild.id} />
+              </Suspense>
               
               <a
                 href="/account"
@@ -440,7 +444,9 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </main>
-      <InternalChat guildId={selectedGuild.id} />
+      <Suspense fallback={null}>
+        <InternalChat guildId={selectedGuild.id} />
+      </Suspense>
     </div>
   );
 };
