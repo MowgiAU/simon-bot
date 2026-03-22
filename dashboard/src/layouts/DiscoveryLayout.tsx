@@ -44,7 +44,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     };
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { user, permissions, mutualAdminGuilds, logout } = useAuth();
+    const { user, permissions, mutualAdminGuilds, logout, login } = useAuth();
     const { player } = usePlayer();
 
     // Check if user has access to ANY guild's dashboard
@@ -163,9 +163,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </Link>
                     )}
                     {isMobile && !user && (
-                        <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
+                        <button onClick={login} style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
                             Sign Up
-                        </a>
+                        </button>
                     )}
 
                     {/* Desktop: full buttons + inline search */}
@@ -203,12 +203,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                     {!isMobile && !user && (
                         <>
-                            <a href="/api/auth/discord/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', boxShadow: `0 0 14px ${colors.primary}55`, letterSpacing: '0.01em' }}>
+                            <button onClick={login} style={{ backgroundColor: colors.primary, color: 'white', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', cursor: 'pointer', boxShadow: `0 0 14px ${colors.primary}55`, letterSpacing: '0.01em' }}>
                                 Sign Up
-                            </a>
-                            <a href="/api/auth/discord/login" style={{ color: '#B9C3CE', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)' }}>
+                            </button>
+                            <button onClick={login} style={{ color: '#B9C3CE', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'none', cursor: 'pointer' }}>
                                 <LogIn size={13} /> Log In
-                            </a>
+                            </button>
                         </>
                     )}
                     </div>
@@ -289,7 +289,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
                         { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
-                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.username}` : null, action: !user ? () => window.location.href = '/api/auth/discord/login' : undefined },
+                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.username}` : null, action: !user ? login : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
                         const itemStyle: React.CSSProperties = {
@@ -300,10 +300,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         };
                         if (item.action) {
                             return (
-                                <a key={item.key} href="/api/auth/discord/login" style={itemStyle}>
+                                <button key={item.key} onClick={item.action} style={{ ...itemStyle, background: 'none', border: 'none', cursor: 'pointer' }}>
                                     {item.icon}
                                     {item.label}
-                                </a>
+                                </button>
                             );
                         }
                         return (

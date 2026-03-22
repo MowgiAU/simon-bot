@@ -92,9 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const returnTo = localStorage.getItem(RETURN_TO_KEY);
           if (returnTo) {
             localStorage.removeItem(RETURN_TO_KEY);
-            if (window.location.pathname === '/') {
-              navigate(returnTo, { replace: true });
-            }
+            navigate(returnTo, { replace: true });
           }
         }
         setLoading(false);
