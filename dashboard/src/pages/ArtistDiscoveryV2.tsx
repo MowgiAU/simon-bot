@@ -502,124 +502,80 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
 
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
-                    {/* Trending Artist */}
+                    {/* Trending Artists */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
                         {artists[0] ? (
                             <>
-                                {/* Full-bleed blurred background */}
+                                {/* Full-bleed blurred background from #1 artist */}
                                 <div style={{
                                     position: 'absolute', inset: 0,
                                     backgroundImage: `url(${getAvatarUrl(artists[0].avatar, artists[0].userId)})`,
                                     backgroundSize: 'cover', backgroundPosition: 'center',
-                                    filter: 'blur(32px) brightness(0.35) saturate(1.4)',
+                                    filter: 'blur(32px) brightness(0.25) saturate(1.4)',
                                     transform: 'scale(1.25)',
                                     pointerEvents: 'none',
                                 }} />
-                                {/* Gradient vignette — darker at bottom */}
                                 <div style={{
                                     position: 'absolute', inset: 0,
-                                    background: 'linear-gradient(160deg, rgba(14,18,26,0.3) 0%, rgba(14,18,26,0.85) 70%, rgba(14,18,26,0.97) 100%)',
+                                    background: 'linear-gradient(160deg, rgba(14,18,26,0.45) 0%, rgba(14,18,26,0.92) 100%)',
                                     pointerEvents: 'none',
                                 }} />
-                                {/* Rank badge — top left */}
-                                <div style={{
-                                    position: 'absolute', top: '14px', left: '14px',
-                                    display: 'flex', alignItems: 'center', gap: '5px',
-                                    background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)',
-                                    borderRadius: '20px', padding: '4px 10px',
-                                    backdropFilter: 'blur(8px)',
-                                }}>
-                                    <TrendingUp size={11} color="#FBBF24" />
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Trending</span>
+
+                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', padding: '14px 16px', boxSizing: 'border-box', gap: '10px' }}>
+                                    {/* Header */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                        <TrendingUp size={12} color="#FBBF24" />
+                                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Trending Artists</span>
+                                    </div>
+
+                                    {/* #1 — Hero row */}
+                                    <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: `conic-gradient(${colors.primary}, #a78bfa, #FBBF24, ${colors.primary})`, opacity: 0.75 }} />
+                                            <div style={{ position: 'absolute', inset: '-1px', borderRadius: '50%', background: 'rgba(14,18,26,0.7)' }} />
+                                            <div style={{ width: '58px', height: '58px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                                                <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            </div>
+                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', zIndex: 2, width: '18px', height: '18px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 900, color: 'white', border: '2px solid rgba(14,18,26,0.8)' }}>#1</div>
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 800, fontSize: '15px', color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {artists[0].displayName || artists[0].username}
+                                            </div>
+                                            {artists[0].genres?.length > 0 && (
+                                                <div style={{ display: 'flex', gap: '4px', marginTop: '3px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+                                                    {artists[0].genres.slice(0, 2).map((g, i) => (
+                                                        <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '2px 7px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary, whiteSpace: 'nowrap' }}>{g.genre.name}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: '11px', color: colors.primary, fontWeight: 700, marginTop: '4px' }}>
+                                                {artists[0].totalPlays >= 1000 ? `${(artists[0].totalPlays / 1000).toFixed(1)}k` : (artists[0].totalPlays || 0).toLocaleString()} plays
+                                            </div>
+                                        </div>
+                                    </Link>
+
+                                    {/* Divider */}
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }} />
+
+                                    {/* #2–#4 compact rows */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                        {artists.slice(1, 4).map((artist, i) => (
+                                            <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.25)', width: '14px', textAlign: 'center', flexShrink: 0 }}>#{i + 2}</span>
+                                                <div style={{ width: '34px', height: '34px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <img src={getAvatarUrl(artist.avatar, artist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '12px', color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</div>
+                                                    <div style={{ fontSize: '10px', color: colors.textSecondary }}>{artist.totalPlays >= 1000 ? `${(artist.totalPlays / 1000).toFixed(1)}k` : (artist.totalPlays || 0).toLocaleString()} plays</div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
                                 </div>
-                                {/* #1 crown — top right */}
-                                <div style={{
-                                    position: 'absolute', top: '12px', right: '14px',
-                                    width: '28px', height: '28px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #F59E0B, #D97706)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 2px 12px rgba(245,158,11,0.4)',
-                                }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 900, color: 'white' }}>#1</span>
-                                </div>
-
-                                {/* Main content */}
-                                <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none', color: 'inherit', position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', padding: '20px' }}>
-                                    {/* Avatar — centered with glow ring */}
-                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '24px' }}>
-                                        <div style={{ position: 'relative' }}>
-                                            {/* Outer glow ring */}
-                                            <div style={{
-                                                position: 'absolute', inset: '-5px',
-                                                borderRadius: '50%',
-                                                background: `conic-gradient(${colors.primary}, #a78bfa, #FBBF24, ${colors.primary})`,
-                                                opacity: 0.7,
-                                                animation: undefined,
-                                            }} />
-                                            <div style={{
-                                                position: 'absolute', inset: '-3px',
-                                                borderRadius: '50%',
-                                                background: 'rgba(14,18,26,0.6)',
-                                            }} />
-                                            <div style={{
-                                                width: '76px', height: '76px', borderRadius: '50%', overflow: 'hidden',
-                                                position: 'relative', zIndex: 1,
-                                                boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
-                                            }}>
-                                                <img
-                                                    src={getAvatarUrl(artists[0].avatar, artists[0].userId)}
-                                                    alt={artists[0].displayName || artists[0].username}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Name + genres */}
-                                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
-                                        <div style={{ fontWeight: 800, fontSize: '16px', color: colors.textPrimary, letterSpacing: '-0.01em', lineHeight: 1.2, marginBottom: '4px' }}>
-                                            {artists[0].displayName || artists[0].username}
-                                        </div>
-                                        {artists[0].genres?.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center', marginBottom: '10px' }}>
-                                                {artists[0].genres.slice(0, 3).map((g, i) => (
-                                                    <span key={i} style={{
-                                                        fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                                                        padding: '2px 8px', borderRadius: '20px',
-                                                        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
-                                                        color: colors.textSecondary,
-                                                    }}>{g.genre.name}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Stats + CTA */}
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)',
-                                        borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)',
-                                        padding: '8px 12px', marginTop: 'auto',
-                                    }}>
-                                        <div>
-                                            <div style={{ fontSize: '13px', fontWeight: 800, color: colors.primary, lineHeight: 1 }}>
-                                                {artists[0].totalPlays >= 1000
-                                                    ? `${(artists[0].totalPlays / 1000).toFixed(1)}k`
-                                                    : (artists[0].totalPlays || 0).toLocaleString()}
-                                            </div>
-                                            <div style={{ fontSize: '9px', color: colors.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '1px' }}>Plays</div>
-                                        </div>
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', gap: '5px',
-                                            padding: '6px 14px', borderRadius: '8px',
-                                            background: `${colors.primary}22`, border: `1px solid ${colors.primary}44`,
-                                            color: colors.primary, fontSize: '11px', fontWeight: 700,
-                                        }}>
-                                            View Profile →
-                                        </div>
-                                    </div>
-                                </Link>
                             </>
                         ) : (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '20px' }}>
