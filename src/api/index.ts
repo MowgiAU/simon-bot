@@ -6954,7 +6954,14 @@ const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
-    // 1. Serve static files (no index)
+    // 1. Hashed assets (/assets/*.js, /assets/*.css) — content-hashed filenames → cache 1 year
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+        index: false,
+        maxAge: '1y',
+        immutable: true,
+    }));
+
+    // 2. Everything else (index.html, logo.svg, etc.) — no cache so the app shell always refreshes
     app.use((req, res, next) => {
         next();
     }, express.static(distPath, { index: false }));
