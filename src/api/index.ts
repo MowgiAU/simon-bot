@@ -2,6 +2,7 @@
 import 'dotenv/config';
 import express from 'express';
 import type { RequestHandler } from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import session from 'express-session';
 import helmet from 'helmet';
@@ -216,11 +217,16 @@ const API_CACHE_TTL: Record<string, number> = {
     'charts-alltime': 1000 * 60 * 15,       // 15 minutes
     'battles-list': 1000 * 60 * 2,          // 2 minutes
     'genres': 1000 * 60 * 30,               // 30 minutes
+    // Individual profile pages — safe to cache for 5 minutes
+    'profile': 1000 * 60 * 5,              // 5 minutes (prefix-matched below)
 };
 
 function getCachedResponse(key: string): any | null {
     const entry = apiResponseCache.get(key);
-    if (entry && (Date.now() - entry.timestamp < (API_CACHE_TTL[key] || 60000))) {
+    // Support prefix-based TTL (e.g. all "profile-*" keys share one TTL entry)
+    const ttlKey = API_CACHE_TTL[key] ? key : Object.keys(API_CACHE_TTL).find(k => key.startsWith(k + '-'));
+    const ttl = ttlKey ? API_CACHE_TTL[ttlKey] : 60000;
+    if (entry && (Date.now() - entry.timestamp < ttl)) {
         return entry.data;
     }
     return null;
@@ -598,6 +604,8 @@ app.use(helmet({
     // Disabled: breaks SharedArrayBuffer used by audio worklets
     crossOriginEmbedderPolicy: false,
 }));
+// Compress all responses >1KB (gzip) — critical for large JSON payloads (waveforms, track listings)
+app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 if (!process.env.SESSION_SECRET) {
@@ -4627,66 +4635,23 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
-        // Check per-profile cache first
+        // Check per-profile cache first (5-minute TTL via 'profile' prefix key)
         const cacheKey = `profile-${userId.toLowerCase()}`;
         const cached = getCachedResponse(cacheKey);
         if (cached) return res.json(cached);
 
-        // Try profileService first (matches by userId or username)
+        // Single query via ProfileService (handles both userId and case-insensitive username)
         const profile = await profileService.getProfile(userId);
-        
-        if (!profile) {
-            // Fallback: Try fetching by username with different include pattern
-            const byUsername = (await db.musicianProfile.findFirst({
-                where: { username: { equals: userId, mode: 'insensitive' } },
-                include: { genres: true, tracks: { where: { isPublic: true }, orderBy: { createdAt: 'desc' }, include: { genres: { include: { genre: true } }, _count: { select: { favourites: true, reposts: true, comments: true } } } } }
-            })) as any;
-            if (byUsername) {
-                if (byUsername.status && byUsername.status !== 'active') {
-                    return res.status(404).json({ error: 'Profile not found' });
-                }
-                if (byUsername.tracks) {
-                    byUsername.tracks = byUsername.tracks.filter((t: any) => t.status === 'active' || !t.status);
-                    byUsername.tracks.forEach((t: any) => {
-                        if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
-                        if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
-                    });
-                }
 
-                // Fetch reposts
-                const reposts = await db.trackRepost.findMany({
-                    where: { userId: byUsername.userId },
-                    orderBy: { createdAt: 'desc' },
-                    include: {
-                        track: {
-                            include: {
-                                profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
-                                genres: { include: { genre: true } },
-                                _count: { select: { favourites: true, reposts: true, comments: true } },
-                            },
-                        },
-                    },
-                });
-                byUsername.reposts = reposts
-                    .filter(r => r.track && (r.track.isPublic) && (!r.track.status || r.track.status === 'active'))
-                    .map(r => ({
-                        ...r.track,
-                        _repost: true,
-                        _repostedAt: r.createdAt,
-                        _originalArtist: r.track.profile,
-                    }));
+        if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
-                setCachedResponse(cacheKey, byUsername);
-                return res.json(byUsername);
-            }
-            return res.status(404).json({ error: 'Profile not found' });
-        }
-        
         const profileData = profile as any;
         if (profileData.status && profileData.status !== 'active') {
             return res.status(404).json({ error: 'Profile not found' });
         }
-        if (profileData && profileData.tracks) {
+
+        // Filter out non-active tracks and back-fill permission defaults
+        if (profileData.tracks) {
             profileData.tracks = profileData.tracks.filter((t: any) => t.status === 'active' || !t.status);
             profileData.tracks.forEach((t: any) => {
                 if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
@@ -4694,13 +4659,18 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             });
         }
 
-        // Fetch reposts for this user
+        // Fetch reposts in parallel-after-profile (userId is now known)
         const reposts = await db.trackRepost.findMany({
             where: { userId: profileData.userId },
             orderBy: { createdAt: 'desc' },
+            take: 50,
             include: {
                 track: {
-                    include: {
+                    select: {
+                        id: true, profileId: true, title: true, slug: true,
+                        url: true, coverUrl: true, duration: true, playCount: true,
+                        isPublic: true, status: true, bpm: true, key: true,
+                        artist: true, createdAt: true,
                         profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
                         genres: { include: { genre: true } },
                         _count: { select: { favourites: true, reposts: true, comments: true } },
@@ -4709,14 +4679,14 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             },
         });
         profileData.reposts = reposts
-            .filter(r => r.track && (r.track.isPublic) && (!r.track.status || r.track.status === 'active'))
+            .filter(r => r.track && r.track.isPublic && (!r.track.status || r.track.status === 'active'))
             .map(r => ({
                 ...r.track,
                 _repost: true,
                 _repostedAt: r.createdAt,
                 _originalArtist: r.track.profile,
             }));
-        
+
         setCachedResponse(cacheKey, profileData);
         res.json(profileData);
     } catch (e: any) {

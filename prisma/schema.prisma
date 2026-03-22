@@ -716,6 +716,7 @@ model MusicianProfile {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([username])
   @@map("musician_profiles")
 }
 
@@ -770,6 +771,7 @@ model Track {
   updatedAt       DateTime @updatedAt
 
   @@index([profileId])
+  @@index([slug])
   @@map("musician_tracks")
 }
 
@@ -828,6 +830,7 @@ model ProfileGenre {
   genre           Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
 
   @@id([profileId, genreId])
+  @@index([genreId])
   @@map("profile_genres")
 }
 
@@ -839,6 +842,7 @@ model TrackGenre {
   genre           Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
 
   @@id([trackId, genreId])
+  @@index([genreId])
   @@map("track_genres")
 }
 

@@ -114,7 +114,7 @@ export class ProfileService {
             where: {
                 OR: [
                     { userId: identifier },
-                    { username: identifier }
+                    { username: { equals: identifier, mode: 'insensitive' } }
                 ]
             },
             include: {
@@ -124,18 +124,62 @@ export class ProfileService {
                 tracks: {
                     where: { isPublic: true },
                     orderBy: { createdAt: 'desc' },
-                    include: {
+                    // Explicitly select only what the profile page needs.
+                    // Critically EXCLUDES: arrangement (can be MBs of FL Studio JSON),
+                    // waveformPeaks (200 floats × many tracks), projectZipUrl, samples.
+                    select: {
+                        id: true,
+                        profileId: true,
+                        title: true,
+                        slug: true,
+                        description: true,
+                        url: true,
+                        coverUrl: true,
+                        duration: true,
+                        playCount: true,
+                        isPublic: true,
+                        allowAudioDownload: true,
+                        allowProjectDownload: true,
+                        status: true,
+                        statusReason: true,
+                        bpm: true,
+                        key: true,
+                        artist: true,
+                        album: true,
+                        year: true,
+                        projectFileUrl: true,
+                        createdAt: true,
+                        updatedAt: true,
                         genres: { include: { genre: true } },
                         _count: { select: { favourites: true, reposts: true, comments: true } },
                     },
                 },
-                featuredTrack: true,
+                featuredTrack: {
+                    select: {
+                        id: true, title: true, slug: true, url: true, coverUrl: true,
+                        duration: true, playCount: true, bpm: true, key: true,
+                        waveformPeaks: true, // needed for the featured player waveform
+                        isPublic: true, status: true,
+                        profileId: true, createdAt: true,
+                    }
+                },
                 featuredPlaylist: {
-                    include: {
+                    select: {
+                        id: true, name: true, slug: true, description: true,
+                        coverUrl: true, releaseType: true, trackCount: true,
                         tracks: {
-                            include: { track: true },
                             orderBy: { position: 'asc' },
-                            take: 10
+                            take: 10,
+                            select: {
+                                track: {
+                                    select: {
+                                        id: true, title: true, slug: true, url: true,
+                                        coverUrl: true, duration: true, playCount: true,
+                                        bpm: true, key: true, artist: true,
+                                        isPublic: true, status: true, profileId: true,
+                                    }
+                                }
+                            }
                         }
                     }
                 }
