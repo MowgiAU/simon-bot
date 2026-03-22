@@ -564,11 +564,15 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         {/* Middle: hardware pills */}
                                         {artists[0].hardware?.length > 0 && (
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                                {artists[0].hardware.slice(0, 3).map((hw, i) => (
+                                                {artists[0].hardware.slice(0, 3).map((hw, i) => {
+                                                    let label = hw;
+                                                    try { const parsed = JSON.parse(hw); label = parsed.name ?? hw; } catch {}
+                                                    return (
                                                     <span key={i} style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '6px', background: `${colors.primary}14`, border: `1px solid ${colors.primary}28`, color: colors.primary, fontWeight: 600 }}>
-                                                        {hw}
+                                                        {label}
                                                     </span>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         )}
 
