@@ -845,13 +845,21 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             ? (player.currentTrack ? '176px' : '76px')
                             : (player.currentTrack ? '104px' : '24px'),
                         right: '24px', 
-                        backgroundColor: colors.primary, color: 'white', padding: isMobile ? '12px' : '12px 24px', 
-                        borderRadius: '999px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 100,
-                        transition: 'bottom 0.3s'
+                        backgroundColor: '#111827',
+                        color: colors.primary,
+                        border: `2px solid ${colors.primary}`,
+                        padding: isMobile ? '10px 16px' : '12px 24px', 
+                        borderRadius: '999px',
+                        boxShadow: `0 0 0 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.5)`,
+                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 200,
+                        transition: 'bottom 0.3s',
+                        fontSize: isMobile ? '13px' : '14px',
+                        fontWeight: 700,
+                        letterSpacing: '-0.01em',
+                        whiteSpace: 'nowrap',
                     }}
                 >
-                    <Edit3 size={18} /> {!isMobile && 'Edit My Profile'}
+                    <Edit3 size={16} /> {isMobile ? 'Edit' : 'Edit My Profile'}
                 </button>
             )}
 
