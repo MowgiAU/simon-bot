@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing, borderRadius } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { 
-    Music, Plus, X, Globe, ExternalLink, ArrowLeft, Tag, FileAudio,
-    Image as ImageIcon, Edit3, Upload
+import {
+    Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
+    Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
+    BarChart3, AlertCircle, Check, Save
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -16,6 +17,53 @@ interface Genre {
     name: string;
     parentId: string | null;
 }
+
+/* ─── shared styles ─── */
+const card: React.CSSProperties = {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    border: `1px solid ${colors.glassBorder}`,
+    padding: '24px',
+};
+
+const label: React.CSSProperties = {
+    fontSize: '12px',
+    fontWeight: 500,
+    color: colors.textSecondary,
+    marginBottom: '6px',
+    display: 'block',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+};
+
+const inputBase: React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: borderRadius.sm,
+    padding: '10px 12px',
+    color: colors.textPrimary,
+    fontSize: '14px',
+    outline: 'none',
+};
+
+const fileZone: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '14px 16px',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.1)',
+    borderRadius: borderRadius.md,
+    cursor: 'pointer',
+    transition: 'border-color 0.15s, background-color 0.15s',
+};
+
+const fileZoneActive: React.CSSProperties = {
+    ...fileZone,
+    borderColor: colors.primary,
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(16,185,129,0.04)',
+};
 
 export const MyTracksPage: React.FC = () => {
     const { user, loading: authLoading, isGuildMember } = useAuth();
@@ -32,9 +80,9 @@ export const MyTracksPage: React.FC = () => {
     // Add track state
     const [isAddingTrack, setIsAddingTrack] = useState(false);
     const [tosAgreed, setTosAgreed] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0); // 0-100 file transfer %
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
-    const [newTrack, setNewTrack] = useState({ 
+    const [newTrack, setNewTrack] = useState({
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
         allowAudioDownload: true, allowProjectDownload: true
     });
@@ -122,7 +170,6 @@ export const MyTracksPage: React.FC = () => {
                         setUploadProgress(pct);
                         if (pct >= 100) {
                             setUploadStage('scanning');
-                            // After ~4s advance to "converting" stage label
                             scanTimer = setTimeout(() => setUploadStage('converting'), 4000);
                         }
                     }
@@ -227,349 +274,476 @@ export const MyTracksPage: React.FC = () => {
         );
     }
 
-    const inputStyle = { width: '100%', boxSizing: 'border-box' as const, backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary };
+    const keyOptions = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
+        <option key={`${note} Major`} value={`${note} Major`} style={{ backgroundColor: colors.surface }}>{note} Major</option>,
+        <option key={`${note} Minor`} value={`${note} Minor`} style={{ backgroundColor: colors.surface }}>{note} Minor</option>
+    ]);
 
     const renderGenreTagPicker = (selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>, searchVal: string, setSearchVal: React.Dispatch<React.SetStateAction<string>>) => (
-        <div style={{ marginTop: spacing.sm }}>
-            <label style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Tag size={14} /> Genre Tags
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', marginBottom: '6px' }}>
+        <div>
+            <span style={label}><Tag size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> Genre Tags</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', minHeight: '28px' }}>
+                {selected.length === 0 && (
+                    <span style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic' }}>No genres selected</span>
+                )}
                 {selected.map(gId => {
                     const genre = allGenres.find(g => g.id === gId);
                     return genre ? (
-                        <span key={gId} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '3px 8px', borderRadius: '12px', fontSize: '0.8rem', color: 'white' }}>
+                        <span key={gId} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            backgroundColor: 'rgba(16,185,129,0.12)', padding: '3px 10px',
+                            borderRadius: borderRadius.pill, fontSize: '12px', color: colors.primary, fontWeight: 500,
+                        }}>
                             {genre.name}
-                            <X size={12} style={{ cursor: 'pointer' }} onClick={() => setSelected(prev => prev.filter(id => id !== gId))} />
+                            <X size={11} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => setSelected(prev => prev.filter(id => id !== gId))} />
                         </span>
                     ) : null;
                 })}
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="Search genres..." value={searchVal} onChange={e => setSearchVal(e.target.value)}
-                    style={{ flex: 1, backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 12px', color: 'white', fontSize: '0.85rem' }} />
+                    style={{ ...inputBase, flex: 1 }} />
                 <select value="" onChange={e => { if (e.target.value && !selected.includes(e.target.value)) { setSelected(prev => [...prev, e.target.value]); setSearchVal(''); } }}
-                    style={{ flex: 1, boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}>
-                    <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Add a genre tag...</option>
+                    style={{ ...inputBase, flex: 1, cursor: 'pointer' }}>
+                    <option value="" style={{ backgroundColor: colors.surface }}>Add genre...</option>
                     {allGenres.filter(g => !selected.includes(g.id)).filter(g => g.name.toLowerCase().includes(searchVal.toLowerCase())).map(g => (
-                        <option key={g.id} value={g.id} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{g.name}</option>
+                        <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
                     ))}
                 </select>
             </div>
         </div>
     );
 
-    const keyOptions = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
-        <option key={`${note} Major`} value={`${note} Major`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Major</option>,
-        <option key={`${note} Minor`} value={`${note} Minor`} style={{ color: 'white', backgroundColor: '#1A1E2E' }}>{note} Minor</option>
-    ]);
+    /* ─── Upload / Edit form (shared layout) ─── */
+    const renderTrackForm = (isEdit: boolean) => {
+        const track = isEdit ? editingTrack : newTrack;
+        const setField = (field: string, value: any) => {
+            if (isEdit) setEditingTrack({ ...editingTrack, [field]: value });
+            else setNewTrack({ ...newTrack, [field]: value });
+        };
+
+        return (
+            <div style={{ ...card, marginBottom: '24px', borderColor: colors.primary, borderWidth: '1px' }}>
+                {/* Form header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {isEdit ? <Edit3 size={20} color={colors.primary} /> : <Upload size={20} color={colors.primary} />}
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+                                {isEdit ? `Editing: ${editingTrack?.title}` : 'Upload New Track'}
+                            </h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textTertiary }}>
+                                {isEdit ? 'Update track details and files' : 'Share your music with the community'}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={() => { if (isEdit) { setEditingTrack(null); setSelectedTrackGenres([]); } else { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); } }}
+                        style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: '4px' }}>
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* ── File upload zones ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                    {/* Audio */}
+                    <label style={audioFile ? fileZoneActive : fileZone}>
+                        <div style={{
+                            width: '40px', height: '40px', borderRadius: borderRadius.md,
+                            backgroundColor: audioFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                            <FileAudio size={20} color={audioFile ? colors.primary : colors.textTertiary} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
+                                {isEdit ? 'Replace Audio' : 'Audio File *'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: audioFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : (isEdit ? 'Keep existing' : 'MP3, WAV, FLAC, OGG')}
+                            </div>
+                        </div>
+                        <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    </label>
+
+                    {/* Artwork */}
+                    <label style={artworkFile ? fileZoneActive : fileZone}>
+                        <div style={{
+                            width: '40px', height: '40px', borderRadius: borderRadius.md,
+                            backgroundColor: artworkFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                            <ImageIcon size={20} color={artworkFile ? colors.primary : colors.textTertiary} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
+                                {isEdit ? 'Replace Art' : 'Artwork'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: artworkFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {artworkFile ? artworkFile.name : (isEdit ? 'Keep existing' : 'JPG, PNG, WEBP')}
+                            </div>
+                        </div>
+                        <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    </label>
+
+                    {/* Project file */}
+                    <label style={projectFile ? fileZoneActive : fileZone}>
+                        <div style={{
+                            width: '40px', height: '40px', borderRadius: borderRadius.md,
+                            backgroundColor: projectFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                            <Music size={20} color={projectFile ? colors.primary : colors.textTertiary} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
+                                {isEdit ? 'Replace Project' : 'FL Studio Project'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: projectFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {projectFile ? projectFile.name : (isEdit ? 'Keep existing' : '.flp or .zip bundle')}
+                            </div>
+                        </div>
+                        <input type="file" accept=".flp,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    </label>
+                </div>
+
+                {!isEdit && audioFile && (
+                    <p style={{ margin: '-8px 0 16px', fontSize: '11px', color: colors.textTertiary }}>
+                        Max 300MB. Large WAV files will be auto-converted to 320kbps MP3.
+                    </p>
+                )}
+
+                {projectFile?.name.endsWith('.zip') && (
+                    <p style={{ margin: '-8px 0 16px', fontSize: '11px', color: colors.textTertiary }}>
+                        ZIP bundles are processed server-side to extract real waveforms from your samples.
+                    </p>
+                )}
+
+                {/* ── Metadata grid ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                    <div style={{ gridColumn: isMobile ? undefined : '1 / -1' }}>
+                        <span style={label}>Track Title</span>
+                        <input type="text" placeholder={isEdit ? '' : 'Will use metadata/filename if empty'} value={track.title || ''} onChange={e => setField('title', e.target.value)} style={inputBase} />
+                    </div>
+                    <div>
+                        <span style={label}>Artist</span>
+                        <input type="text" placeholder="Artist name" value={track.artist || ''} onChange={e => setField('artist', e.target.value)} style={inputBase} />
+                    </div>
+                    <div>
+                        <span style={label}>Album</span>
+                        <input type="text" placeholder="Album / EP" value={track.album || ''} onChange={e => setField('album', e.target.value)} style={inputBase} />
+                    </div>
+                    {!isEdit && (
+                        <div>
+                            <span style={label}>Year</span>
+                            <input type="number" placeholder="2025" value={track.year || ''} onChange={e => setField('year', e.target.value)} style={inputBase} />
+                        </div>
+                    )}
+                    <div>
+                        <span style={label}>BPM</span>
+                        <input type="number" placeholder="120" value={track.bpm || ''} onChange={e => setField('bpm', e.target.value)} style={inputBase} />
+                    </div>
+                    <div>
+                        <span style={label}>Key</span>
+                        <select value={track.key || ''} onChange={e => setField('key', e.target.value)} style={{ ...inputBase, cursor: 'pointer' }}>
+                            <option value="" style={{ backgroundColor: colors.surface }}>Select key...</option>
+                            {keyOptions}
+                        </select>
+                    </div>
+                </div>
+
+                {/* ── Description ── */}
+                <div style={{ marginBottom: '20px' }}>
+                    <span style={label}>Description</span>
+                    <textarea placeholder="Notes about this track..." value={track.description || ''} onChange={e => setField('description', e.target.value)}
+                        style={{ ...inputBase, minHeight: '60px', resize: 'vertical' }} />
+                </div>
+
+                {/* ── Download permissions ── */}
+                <div style={{
+                    display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px',
+                    padding: '14px 16px', borderRadius: borderRadius.md,
+                    backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                    marginBottom: '20px',
+                }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '110px', paddingTop: '2px' }}>
+                        Downloads
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: colors.textPrimary }}>
+                        <input type="checkbox" checked={track.allowAudioDownload ?? true} onChange={e => setField('allowAudioDownload', e.target.checked)}
+                            style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
+                        Allow audio download
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: colors.textPrimary }}>
+                        <input type="checkbox" checked={track.allowProjectDownload ?? true} onChange={e => setField('allowProjectDownload', e.target.checked)}
+                            style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
+                        Allow project download
+                    </label>
+                </div>
+
+                {/* ── Genres ── */}
+                <div style={{ marginBottom: '20px' }}>
+                    {renderGenreTagPicker(
+                        selectedTrackGenres, setSelectedTrackGenres,
+                        isEdit ? genreSearchTerm : addGenreSearchTerm,
+                        isEdit ? setGenreSearchTerm : setAddGenreSearchTerm
+                    )}
+                </div>
+
+                {/* ── ToS (add only) ── */}
+                {!isEdit && (
+                    <div style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '10px',
+                        padding: '14px 16px', borderRadius: borderRadius.md,
+                        backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                        marginBottom: '20px',
+                    }}>
+                        <input type="checkbox" id="tos-agree" checked={tosAgreed} onChange={e => setTosAgreed(e.target.checked)}
+                            style={{ marginTop: '2px', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer', accentColor: colors.primary }} />
+                        <label htmlFor="tos-agree" style={{ fontSize: '12px', color: colors.textSecondary, cursor: 'pointer', lineHeight: 1.6 }}>
+                            I confirm I own or have the rights to all audio and content in this upload, and I agree to the{' '}
+                            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
+                                Terms of Service &amp; Privacy Policy
+                            </a>.
+                        </label>
+                    </div>
+                )}
+
+                {/* ── Upload progress ── */}
+                {saving && uploadStage && (
+                    <div style={{
+                        marginBottom: '20px', padding: '14px 16px',
+                        backgroundColor: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.2)`,
+                        borderRadius: borderRadius.md,
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: colors.primary }}>
+                                {uploadStage === 'uploading' && `Uploading\u2026 ${uploadProgress}%`}
+                                {uploadStage === 'scanning' && 'Scanning for viruses\u2026'}
+                                {uploadStage === 'converting' && 'Converting & processing\u2026'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                {uploadStage === 'uploading' ? 'Transferring' : uploadStage === 'scanning' ? 'A few seconds' : 'Audio conversion'}
+                            </span>
+                        </div>
+                        <div style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%', backgroundColor: colors.primary, borderRadius: '2px',
+                                transition: 'width 0.3s ease',
+                                width: uploadStage === 'uploading' ? `${uploadProgress}%` : '100%',
+                                opacity: uploadStage !== 'uploading' ? 0.6 : 1,
+                                backgroundImage: uploadStage !== 'uploading' ? 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)' : 'none',
+                                animation: uploadStage !== 'uploading' ? 'stripe-slide 1s linear infinite' : 'none',
+                            }} />
+                        </div>
+                        <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
+                    </div>
+                )}
+
+                {/* ── Action buttons ── */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                        onClick={isEdit ? handleUpdateTrack : handleAddTrack}
+                        disabled={saving || (!isEdit && (!audioFile || !tosAgreed))}
+                        style={{
+                            flex: 1, padding: '12px', backgroundColor: colors.primary, color: 'white',
+                            border: 'none', borderRadius: borderRadius.md, cursor: (saving || (!isEdit && (!audioFile || !tosAgreed))) ? 'not-allowed' : 'pointer',
+                            fontWeight: 700, fontSize: '14px', opacity: (saving || (!isEdit && (!audioFile || !tosAgreed))) ? 0.6 : 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                            boxShadow: shadows.glow,
+                        }}
+                    >
+                        {saving ? 'Processing...' : isEdit ? <><Save size={16} /> Save Changes</> : <><Upload size={16} /> Upload Track</>}
+                    </button>
+                    <button
+                        onClick={() => { if (isEdit) { setEditingTrack(null); setSelectedTrackGenres([]); } else { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); } }}
+                        style={{
+                            padding: '12px 24px', backgroundColor: 'transparent', color: colors.textSecondary,
+                            border: `1px solid ${colors.glassBorder}`, borderRadius: borderRadius.md, cursor: 'pointer',
+                            fontSize: '14px',
+                        }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    /* ─── Track card component ─── */
+    const renderTrackCard = (track: any) => {
+        const isEditing = editingTrack?.id === track.id;
+        const duration = track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--';
+
+        return (
+            <div key={track.id} style={{
+                backgroundColor: colors.surface,
+                borderRadius: borderRadius.lg,
+                border: `1px solid ${isEditing ? colors.primary : colors.glassBorder}`,
+                overflow: 'hidden',
+                transition: 'border-color 0.15s',
+            }}>
+                <div style={{ display: 'flex', gap: '16px', padding: '16px', alignItems: 'center' }}>
+                    {/* Cover art */}
+                    <div style={{
+                        width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px',
+                        borderRadius: borderRadius.md, overflow: 'hidden', flexShrink: 0,
+                        backgroundColor: 'rgba(255,255,255,0.04)',
+                    }}>
+                        {track.coverUrl ? (
+                            <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Music size={24} color={colors.textTertiary} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Track info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                            {track.title}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '12px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Clock size={12} /> {duration}
+                            </span>
+                            <span style={{ fontSize: '12px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <BarChart3 size={12} /> {track.playCount || 0} plays
+                            </span>
+                            <span style={{
+                                fontSize: '11px', padding: '2px 8px', borderRadius: borderRadius.pill,
+                                backgroundColor: track.isPublic ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)',
+                                color: track.isPublic ? colors.primary : colors.textTertiary,
+                                fontWeight: 500,
+                            }}>
+                                {track.isPublic ? 'Public' : 'Private'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                        {track.slug && (
+                            <a href={`/profile/${username || user?.username}/${track.slug}`} target="_blank" rel="noopener noreferrer"
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, color: colors.textTertiary, textDecoration: 'none', border: `1px solid ${colors.glassBorder}` }}
+                                title="View page">
+                                <ExternalLink size={15} />
+                            </a>
+                        )}
+                        <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: colors.primary, cursor: 'pointer' }}
+                            title="Edit track">
+                            <Edit3 size={15} />
+                        </button>
+                        <button onClick={() => handleToggleStream(track)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: track.isPublic ? colors.primary : colors.textTertiary, cursor: 'pointer' }}
+                            title={track.isPublic ? 'Make private' : 'Make public'}>
+                            {track.isPublic ? <Eye size={15} /> : <EyeOff size={15} />}
+                        </button>
+                        <button onClick={() => handleDeleteTrack(track.id)} aria-label={`Delete track: ${track.title}`}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid rgba(239,68,68,0.2)`, color: colors.error, cursor: 'pointer' }}>
+                            <Trash2 size={15} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
         <DiscoveryLayout activeTab="profile">
-        <div style={{ padding: spacing.lg, maxWidth: '1300px', margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex' }}>
-                    <ArrowLeft size={24} />
+        <div style={{ padding: isMobile ? '16px' : '24px 32px', maxWidth: '1100px', margin: '0 auto' }}>
+
+            {/* ── Top bar ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
+                    <ArrowLeft size={20} />
                 </Link>
-                <Upload size={32} color={colors.primary} style={{ marginRight: '4px' }} />
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <h1 style={{ margin: 0 }}>My Tracks</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Upload, manage, and organize your music.</p>
+                <div style={{ flex: 1 }}>
+                    <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em' }}>My Tracks</h1>
+                    <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textTertiary }}>{tracks.length} track{tracks.length !== 1 ? 's' : ''} uploaded</p>
                 </div>
-            </div>
-
-            {message && (
-                <div style={{ 
-                    padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md,
-                    backgroundColor: message.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                    color: message.type === 'success' ? '#4caf50' : '#f44336',
-                    border: `1px solid ${message.type === 'success' ? '#4caf50' : '#f44336'}`
-                }}>{message.text}</div>
-            )}
-
-            <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Music size={20} /> My Tracks ({tracks.length})
-                </h3>
-                
-                {/* Track List */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.md }}>
-                    {tracks.length === 0 && (
-                        <p style={{ color: colors.textSecondary, fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
-                            No tracks uploaded yet. Show off your work!
-                        </p>
-                    )}
-                    {tracks.map(track => (
-                        <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
-                            {track.coverUrl ? (
-                                <img src={track.coverUrl} alt="" style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: 40, height: 40, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Music size={20} color={colors.textSecondary} />
-                                </div>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>{track.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>{track.playCount || 0} plays • {track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--'}</span>
-                                    {track.slug && (
-                                        <a href={`/profile/${username || user?.username}/${track.slug}`} target="_blank" rel="noopener noreferrer"
-                                            style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', textDecoration: 'none', color: colors.textSecondary, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            View Page <ExternalLink size={10} />
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); }}
-                                    style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', display: 'flex' }} title="Edit Track">
-                                    <Edit3 size={18} />
-                                </button>
-                                <button onClick={() => handleToggleStream(track)}
-                                    style={{ background: 'none', border: 'none', color: track.isPublic ? colors.primary : colors.textSecondary, cursor: 'pointer', display: 'flex' }} title={track.isPublic ? "Public" : "Private"}>
-                                    <Globe size={18} />
-                                </button>
-                                <button onClick={() => handleDeleteTrack(track.id)} aria-label={`Delete track: ${track.title}`}
-                                    style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', display: 'flex' }}>
-                                    <X size={18} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Edit Track Form */}
-                {editingTrack ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Editing: {editingTrack.title}</div>
-                            <button onClick={() => setEditingTrack(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={18}/></button>
-                        </div>
-
-                        <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Replace Audio (Optional)</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer', color: audioFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem' }}>
-                            <FileAudio size={18} color={audioFile ? colors.primary : colors.textSecondary} />
-                            {audioFile ? audioFile.name : 'Keep existing or choose new file...'}
-                            <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-                        
-                        <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Replace Artwork (Optional)</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer', color: artworkFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem' }}>
-                            <ImageIcon size={18} color={artworkFile ? colors.primary : colors.textSecondary} />
-                            {artworkFile ? artworkFile.name : 'Keep existing or choose new image...'}
-                            <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Track Title</label>
-                                <input type="text" value={editingTrack.title || ''} onChange={e => setEditingTrack({...editingTrack, title: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Artist</label>
-                                <input type="text" value={editingTrack.artist || ''} onChange={e => setEditingTrack({...editingTrack, artist: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Album</label>
-                                <input type="text" value={editingTrack.album || ''} onChange={e => setEditingTrack({...editingTrack, album: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>BPM</label>
-                                <input type="number" value={editingTrack.bpm || ''} onChange={e => setEditingTrack({...editingTrack, bpm: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Key</label>
-                                <select value={editingTrack.key || ''} onChange={e => setEditingTrack({...editingTrack, key: e.target.value})} style={inputStyle}>
-                                    <option value="" style={{ color: 'white', backgroundColor: '#1A1E2E' }}>Select key...</option>
-                                    {keyOptions}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: colors.textSecondary }}>Download Settings</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                    <input type="checkbox" checked={editingTrack.allowAudioDownload ?? true} onChange={e => setEditingTrack({...editingTrack, allowAudioDownload: e.target.checked})} />
-                                    Allow users to download audio file
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                    <input type="checkbox" checked={editingTrack.allowProjectDownload ?? true} onChange={e => setEditingTrack({...editingTrack, allowProjectDownload: e.target.checked})} />
-                                    Allow users to download .flp project & ZIP loop package
-                                </label>
-                            </div>
-                        </div>
-
-                        {renderGenreTagPicker(selectedTrackGenres, setSelectedTrackGenres, genreSearchTerm, setGenreSearchTerm)}
-
-                        <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
-                            <button onClick={handleUpdateTrack} disabled={saving}
-                                style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-                                {saving ? 'Saving...' : 'Save Changes'}
-                            </button>
-                            <button onClick={() => { setEditingTrack(null); setSelectedTrackGenres([]); }}
-                                style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
-                        </div>
-                    </div>
-
-                ) : isAddingTrack ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: borderRadius.sm }}>
-                        {/* Audio File */}
-                        <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px' }}>Audio File (MP3/WAV/etc) *</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer', color: audioFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem', transition: 'all 0.2s' }}>
-                            <FileAudio size={18} color={audioFile ? colors.primary : colors.textSecondary} />
-                            {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : 'Choose audio file...'}
-                            <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary, paddingLeft: '2px' }}>Supported: MP3, WAV, FLAC, OGG, AAC &mdash; max 300MB. Large WAV files will be auto-converted to 320kbps MP3.</div>
-                        
-                        {/* Artwork */}
-                        <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>Artwork (Optional)</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer', color: artworkFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem', transition: 'all 0.2s' }}>
-                            <ImageIcon size={18} color={artworkFile ? colors.primary : colors.textSecondary} />
-                            {artworkFile ? artworkFile.name : 'Choose artwork image...'}
-                            <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-
-                        {/* FL Studio Project */}
-                        <div style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', marginTop: '8px' }}>FL Studio Project (Optional)</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: `1px solid ${projectFile ? colors.primary : 'rgba(255,255,255,0.1)'}`, borderRadius: borderRadius.sm, cursor: 'pointer', color: projectFile ? colors.textPrimary : colors.textSecondary, fontSize: '0.85rem', transition: 'all 0.2s' }}>
-                            <Music size={18} color={projectFile ? colors.primary : colors.textSecondary} />
-                            {projectFile ? projectFile.name : 'Attach .flp project or .zip bundle...'}
-                            <input type="file" accept=".flp,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                        </label>
-                        {projectFile?.name.endsWith('.zip') && (
-                            <p style={{ margin: '4px 0 0 2px', fontSize: '0.78rem', color: colors.textSecondary }}>
-                                ZIP bundles are processed server-side to extract real waveforms from your samples.
-                            </p>
-                        )}
-
-                        {/* Track Metadata */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginTop: spacing.sm }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Track Title</label>
-                                <input type="text" placeholder="Will use metadata/filename if empty" value={newTrack.title} onChange={e => setNewTrack({...newTrack, title: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Artist</label>
-                                <input type="text" placeholder="Artist name" value={newTrack.artist} onChange={e => setNewTrack({...newTrack, artist: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Album</label>
-                                <input type="text" placeholder="Album / EP name" value={newTrack.album} onChange={e => setNewTrack({...newTrack, album: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Year</label>
-                                <input type="number" placeholder="2025" value={newTrack.year} onChange={e => setNewTrack({...newTrack, year: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>BPM</label>
-                                <input type="number" placeholder="120" value={newTrack.bpm} onChange={e => setNewTrack({...newTrack, bpm: e.target.value})} style={inputStyle} />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Key</label>
-                                <select value={newTrack.key} onChange={e => setNewTrack({...newTrack, key: e.target.value})} style={inputStyle}>
-                                    <option value="">Select key...</option>
-                                    {keyOptions}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Download Permissions */}
-                        <div style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '8px', color: colors.textSecondary }}>Download Permissions</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                    <input type="checkbox" checked={newTrack.allowAudioDownload} onChange={e => setNewTrack({...newTrack, allowAudioDownload: e.target.checked})} />
-                                    Public: Allow Audio Download
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                                    <input type="checkbox" checked={newTrack.allowProjectDownload} onChange={e => setNewTrack({...newTrack, allowProjectDownload: e.target.checked})} />
-                                    Allow .flp project & ZIP loop package download
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Description */}
-                        <div style={{ marginTop: spacing.sm }}>
-                            <label style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Description</label>
-                            <textarea placeholder="Notes about this track..." value={newTrack.description} onChange={e => setNewTrack({...newTrack, description: e.target.value})}
-                                style={{ width: '100%', boxSizing: 'border-box', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, minHeight: '60px', resize: 'vertical' }} />
-                        </div>
-
-                        {renderGenreTagPicker(selectedTrackGenres, setSelectedTrackGenres, addGenreSearchTerm, setAddGenreSearchTerm)}
-
-                        {/* ToS Agreement */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.07)', marginTop: spacing.sm }}>
-                            <input type="checkbox" id="tos-agree" checked={tosAgreed} onChange={e => setTosAgreed(e.target.checked)}
-                                style={{ marginTop: '2px', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer', accentColor: colors.primary }} />
-                            <label htmlFor="tos-agree" style={{ fontSize: '13px', color: colors.textSecondary, cursor: 'pointer', lineHeight: 1.5 }}>
-                                I confirm I own or have the rights to all audio and content in this upload, and I agree to the{' '}
-                                <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>
-                                    Terms of Service &amp; Privacy Policy
-                                </a>.
-                            </label>
-                        </div>
-
-                        {/* Upload progress */}
-                        {saving && uploadStage && (
-                            <div style={{ marginTop: spacing.sm, padding: '12px', backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: borderRadius.sm }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: colors.primary }}>
-                                        {uploadStage === 'uploading' && `Uploading… ${uploadProgress}%`}
-                                        {uploadStage === 'scanning' && '🔍 Scanning for viruses…'}
-                                        {uploadStage === 'converting' && '⚙️ Converting & processing…'}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', color: colors.textSecondary }}>
-                                        {uploadStage === 'uploading' ? 'Transferring file to server' : uploadStage === 'scanning' ? 'Takes a few seconds' : 'Audio conversion + waveform extraction'}
-                                    </span>
-                                </div>
-                                <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        height: '100%',
-                                        backgroundColor: colors.primary,
-                                        borderRadius: '3px',
-                                        transition: 'width 0.3s ease',
-                                        width: uploadStage === 'uploading' ? `${uploadProgress}%`
-                                            : uploadStage === 'scanning' ? '100%'
-                                            : '100%',
-                                        opacity: uploadStage !== 'uploading' ? 0.6 : 1,
-                                        backgroundImage: uploadStage !== 'uploading' ? 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,0.15) 8px, rgba(255,255,255,0.15) 16px)' : 'none',
-                                        animation: uploadStage !== 'uploading' ? 'stripe-slide 1s linear infinite' : 'none',
-                                    }} />
-                                </div>
-                                <style>{`@keyframes stripe-slide { 0% { background-position: 0 0; } 100% { background-position: 32px 0; } }`}</style>
-                            </div>
-                        )}
-
-                        {/* Submit */}
-                        <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
-                            <button onClick={handleAddTrack} disabled={saving || !audioFile || !tosAgreed}
-                                style={{ flex: 1, padding: '10px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, cursor: (saving || !audioFile || !tosAgreed) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (saving || !audioFile || !tosAgreed) ? 0.7 : 1 }}>
-                                {saving ? '...' : 'Upload Track'}
-                            </button>
-                            <button onClick={() => { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); }}
-                                style={{ flex: 1, padding: '10px', background: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer' }}>Cancel</button>
-                        </div>
-                    </div>
-                ) : !isGuildMember ? (
-                    <div style={{ padding: '20px', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: borderRadius.sm, textAlign: 'center' }}>
-                        <p style={{ margin: '0 0 8px', color: colors.textPrimary, fontWeight: 600 }}>Discord Server Membership Required</p>
-                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>You must be a member of our Discord server to upload tracks.</p>
-                        <a href="https://discord.gg/flstudio" target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', backgroundColor: '#5865F2', color: 'white', borderRadius: borderRadius.sm, textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
-                            Join Discord Server
-                        </a>
-                    </div>
-                ) : (
-                    <button onClick={() => setIsAddingTrack(true)}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textSecondary, cursor: 'pointer' }}>
-                        <Plus size={16}/> Add Track
+                {isGuildMember && !isAddingTrack && !editingTrack && (
+                    <button onClick={() => setIsAddingTrack(true)} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
+                        backgroundColor: colors.primary, color: 'white', border: 'none',
+                        borderRadius: borderRadius.md, cursor: 'pointer', fontSize: '13px', fontWeight: 700,
+                        boxShadow: shadows.glow,
+                    }}>
+                        <Plus size={16} /> Upload Track
                     </button>
                 )}
             </div>
+
+            {/* ── Toast ── */}
+            {message && (
+                <div style={{
+                    padding: '12px 16px', borderRadius: borderRadius.md, marginBottom: '20px',
+                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    color: message.type === 'success' ? colors.success : colors.error,
+                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                    {message.type === 'error' && <AlertCircle size={16} />}
+                    {message.type === 'success' && <Check size={16} />}
+                    {message.text}
+                    <button onClick={() => setMessage(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', opacity: 0.6 }}>
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
+            {/* ── Not a guild member ── */}
+            {!isGuildMember && (
+                <div style={{
+                    ...card, textAlign: 'center', marginBottom: '24px',
+                    borderColor: 'rgba(251,191,36,0.2)',
+                    backgroundColor: 'rgba(251,191,36,0.04)',
+                }}>
+                    <p style={{ margin: '0 0 8px', color: colors.textPrimary, fontWeight: 600, fontSize: '15px' }}>Discord Server Membership Required</p>
+                    <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px' }}>You must be a member of our Discord server to upload tracks.</p>
+                    <a href="https://discord.gg/flstudio" target="_blank" rel="noopener noreferrer"
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
+                            backgroundColor: '#5865F2', color: 'white', borderRadius: borderRadius.md,
+                            textDecoration: 'none', fontWeight: 600, fontSize: '13px',
+                        }}>
+                        Join Discord Server
+                    </a>
+                </div>
+            )}
+
+            {/* ── Upload / Edit form ── */}
+            {isAddingTrack && renderTrackForm(false)}
+            {editingTrack && renderTrackForm(true)}
+
+            {/* ── Track library ── */}
+            {tracks.length === 0 ? (
+                <div style={{
+                    ...card, textAlign: 'center', padding: '60px 24px',
+                }}>
+                    <Music size={48} color={colors.textTertiary} style={{ marginBottom: '16px', opacity: 0.4 }} />
+                    <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 600, color: colors.textPrimary }}>No tracks yet</h3>
+                    <p style={{ margin: '0 0 20px', fontSize: '13px', color: colors.textTertiary, maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto' }}>
+                        Upload your first track to start building your portfolio and sharing your music with the community.
+                    </p>
+                    {isGuildMember && !isAddingTrack && (
+                        <button onClick={() => setIsAddingTrack(true)} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
+                            backgroundColor: colors.primary, color: 'white', border: 'none',
+                            borderRadius: borderRadius.md, cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+                            boxShadow: shadows.glow,
+                        }}>
+                            <Upload size={16} /> Upload Your First Track
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {tracks.map(track => renderTrackCard(track))}
+                </div>
+            )}
         </div>
         </DiscoveryLayout>
         <ConfirmModal

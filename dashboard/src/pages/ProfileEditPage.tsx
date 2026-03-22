@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing, borderRadius } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube, 
-    MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle
+    MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
+    Camera, Link as LinkIcon, Disc3, Star
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,6 +38,48 @@ interface Genre {
     name: string;
     parentId: string | null;
 }
+
+/* ─── shared inline styles ─── */
+const card: React.CSSProperties = {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    border: `1px solid ${colors.glassBorder}`,
+    padding: '24px',
+};
+
+const sectionTitle: React.CSSProperties = {
+    margin: '0 0 16px',
+    fontSize: '15px',
+    fontWeight: 600,
+    color: colors.textPrimary,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    letterSpacing: '-0.01em',
+};
+
+const label: React.CSSProperties = {
+    fontSize: '12px',
+    fontWeight: 500,
+    color: colors.textSecondary,
+    marginBottom: '6px',
+    display: 'block',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+};
+
+const inputBase: React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box' as const,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: borderRadius.sm,
+    padding: '10px 12px',
+    color: colors.textPrimary,
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+};
 
 export const ProfileEditPage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -87,7 +130,6 @@ export const ProfileEditPage: React.FC = () => {
                 const rawGear = (data?.hardware || data?.gearList || []) as string[];
                 if (data) data.gearList = rawGear.map((item: string) => { try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; } });
                 if (data && data.tracks) setTracks(data.tracks);
-                // Fetch playlists (releases) for the featured release picker
                 try {
                     const playlistsRes = await axios.get('/api/my-playlists', { withCredentials: true });
                     setPlaylists(playlistsRes.data || []);
@@ -206,11 +248,11 @@ export const ProfileEditPage: React.FC = () => {
     };
 
     const socialsList = [
-        { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/> },
-        { key: 'soundcloudUrl', label: 'Soundcloud', icon: <Music size={16}/> },
-        { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/> },
-        { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/> },
-        { key: 'discordUrl', label: 'Discord Username', icon: <MessageCircle size={16}/>, placeholder: 'e.g. username or user#1234' },
+        { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, placeholder: 'https://open.spotify.com/artist/...' },
+        { key: 'soundcloudUrl', label: 'SoundCloud', icon: <Music size={16}/>, placeholder: 'https://soundcloud.com/...' },
+        { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/>, placeholder: 'https://youtube.com/@...' },
+        { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, placeholder: 'https://instagram.com/...' },
+        { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, placeholder: 'username or user#1234' },
     ];
 
     if (loading) return (
@@ -239,263 +281,374 @@ export const ProfileEditPage: React.FC = () => {
         );
     }
 
+    const avatarSrc = profile?.avatar
+        ? (profile.avatar.startsWith('http') ? profile.avatar : (profile.avatar.includes('/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${user?.id}/${profile.avatar}.png?size=256`))
+        : null;
+
     return (
         <DiscoveryLayout activeTab="profile">
-        <div style={{ padding: spacing.lg, maxWidth: '900px', margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex' }}>
-                    <ArrowLeft size={24} />
+        <div style={{ padding: isMobile ? '16px' : '24px 32px', maxWidth: '1100px', margin: '0 auto' }}>
+
+            {/* ── Top bar ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
+                    <ArrowLeft size={20} />
                 </Link>
-                <User size={32} color={colors.primary} style={{ marginRight: '4px' }} />
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <h1 style={{ margin: 0 }}>Edit Profile</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Customize how you appear in the community.</p>
-                </div>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', flex: 1 }}>Edit Profile</h1>
                 {profile?.id && (
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                        <a href={profileUrl} target="_blank" rel="noopener noreferrer" title="View Profile" style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            backgroundColor: 'rgba(255,255,255,0.05)', padding: isMobile ? '8px' : '8px 16px',
-                            borderRadius: borderRadius.md, color: colors.textPrimary, textDecoration: 'none',
-                            fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap'
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <a href={profileUrl} target="_blank" rel="noopener noreferrer" style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                            borderRadius: borderRadius.sm, color: colors.textSecondary, textDecoration: 'none',
+                            fontSize: '13px', border: `1px solid ${colors.glassBorder}`,
                         }}>
-                            <ExternalLink size={16} />{!isMobile && ' View Profile'}
+                            <ExternalLink size={14} />{!isMobile && 'View'}
                         </a>
-                        <button onClick={handleCopyLink} title="Share Profile" style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            backgroundColor: colors.primary, padding: isMobile ? '8px' : '8px 16px',
-                            borderRadius: borderRadius.md, color: 'white', border: 'none', cursor: 'pointer',
-                            fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap'
+                        <button onClick={handleCopyLink} style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
+                            borderRadius: borderRadius.sm, color: 'white', border: 'none', cursor: 'pointer',
+                            fontSize: '13px', fontWeight: 600,
+                            backgroundColor: copied ? colors.success : colors.primary,
                         }}>
-                            {copied ? <Check size={16} /> : <Copy size={16} />}{!isMobile && (copied ? ' Copied!' : ' Share')}
+                            {copied ? <Check size={14} /> : <Copy size={14} />}{!isMobile && (copied ? 'Copied!' : 'Share')}
                         </button>
                     </div>
                 )}
             </div>
 
+            {/* ── Toast ── */}
             {message && (
-                <div style={{ 
-                    padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md,
-                    backgroundColor: message.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
-                    color: message.type === 'success' ? '#4caf50' : '#f44336',
-                    border: `1px solid ${message.type === 'success' ? '#4caf50' : '#f44336'}`
+                <div style={{
+                    padding: '12px 16px', borderRadius: borderRadius.md, marginBottom: '20px',
+                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    color: message.type === 'success' ? colors.success : colors.error,
+                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px',
                 }}>
+                    {message.type === 'error' && <AlertCircle size={16} />}
+                    {message.type === 'success' && <Check size={16} />}
                     {message.text}
+                    <button onClick={() => setMessage(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', opacity: 0.6 }}>
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-                {/* Profile Details */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Share2 size={20} /> Profile Details
-                    </h3>
-                
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-                        {/* Avatar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.md }}>
-                            <div style={{ position: 'relative' }}>
-                                {profile?.avatar ? (
-                                    <img 
-                                        src={profile.avatar.startsWith('http') ? profile.avatar : (profile.avatar.includes('/') ? profile.avatar : `https://cdn.discordapp.com/avatars/${user?.id}/${profile.avatar}.png?size=256`)} 
-                                        alt="Avatar" 
-                                        style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${colors.primary}` }} 
-                                    />
-                                ) : (
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px dashed rgba(255,255,255,0.1)` }}>
-                                        <User size={32} color={colors.textSecondary} />
-                                    </div>
-                                )}
-                                <label style={{ 
-                                    position: 'absolute', bottom: 0, right: 0, 
-                                    backgroundColor: colors.primary, width: '28px', height: '28px', 
-                                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                    cursor: uploadingAvatar ? 'not-allowed' : 'pointer', border: `2px solid ${colors.surface}`
-                                }}>
-                                    <Plus size={16} color="white" />
-                                    <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])} style={{ display: 'none' }} disabled={uploadingAvatar} />
-                                </label>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Profile Picture</label>
-                                <p style={{ fontSize: '0.75rem', color: colors.textSecondary, margin: 0 }}>
-                                    {uploadingAvatar ? 'Uploading... please wait.' : 'Upload a custom artist photo. Supported formats: JPG, PNG, WEBP.'}
-                                </p>
-                            </div>
-                        </div>
+            {/* ── Two-column layout ── */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '320px 1fr',
+                gap: '24px',
+                alignItems: 'start',
+            }}>
 
-                        {/* Display Name */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Artist / Display Name</label>
-                            <input 
-                                type="text"
-                                value={profile?.displayName || ''}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setProfile(p => p ? {...p, displayName: val || null} : null);
-                                    if (val.trim().length > 0) validateArtistName(val.trim());
-                                    else setNameError(null);
-                                }}
-                                placeholder="Your public artist name..."
-                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: nameError ? `1px solid ${colors.error || '#ef4444'}` : '1px solid transparent', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                            />
-                            {validatingName && <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Checking name...</span>}
-                            {nameError && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: colors.error || '#ef4444', marginTop: '2px' }}>
-                                    <AlertCircle size={14} />{nameError}
+                {/* ═══ LEFT COLUMN: Identity Card ═══ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', ...(isMobile ? {} : { position: 'sticky', top: '24px' }) }}>
+                    {/* Avatar card */}
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                        <div style={{ position: 'relative', marginBottom: '16px' }}>
+                            {avatarSrc ? (
+                                <img src={avatarSrc} alt="Avatar"
+                                    style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: `3px solid ${colors.primary}`, boxShadow: shadows.glow }}
+                                />
+                            ) : (
+                                <div style={{
+                                    width: '120px', height: '120px', borderRadius: '50%',
+                                    background: `linear-gradient(135deg, ${colors.surfaceLight}, ${colors.surface})`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    border: `3px dashed rgba(255,255,255,0.1)`,
+                                }}>
+                                    <User size={48} color={colors.textTertiary} />
                                 </div>
                             )}
-                            <span style={{ fontSize: '0.75rem', color: colors.textSecondary }}>This is how your name appears publicly. Leave blank to use your Discord username.</span>
+                            <label style={{
+                                position: 'absolute', bottom: '4px', right: '4px',
+                                backgroundColor: colors.primary, width: '32px', height: '32px',
+                                borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
+                                border: `3px solid ${colors.surface}`, boxShadow: shadows.sm,
+                            }}>
+                                <Camera size={14} color="white" />
+                                <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleAvatarUpload(e.target.files[0])} style={{ display: 'none' }} disabled={uploadingAvatar} />
+                            </label>
                         </div>
 
-                        {/* Bio */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Bio (Keep it short!)</label>
-                            <textarea 
-                                value={profile?.bio || ''} 
-                                onChange={(e) => setProfile(p => p ? {...p, bio: e.target.value} : null)}
-                                placeholder="Producer / DJ / Multi-instrumentalist..."
-                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, minHeight: '80px', resize: 'vertical' }}
-                            />
+                        {uploadingAvatar && (
+                            <div style={{ fontSize: '12px', color: colors.primary, marginBottom: '8px' }}>Uploading...</div>
+                        )}
+
+                        <div style={{ fontSize: '18px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>
+                            {profile?.displayName || profile?.username || 'Your Name'}
+                        </div>
+                        <div style={{ fontSize: '13px', color: colors.textTertiary, marginBottom: '12px' }}>
+                            @{profile?.username || 'username'}
                         </div>
 
-                        {/* Socials */}
-                        {socialsList.map(social => (
-                            <div key={social.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {social.icon} {social.label}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    value={(profile as any)?.[social.key] || ''}
-                                    onChange={(e) => setProfile(p => p ? {...p, [social.key]: e.target.value} : null)}
-                                    placeholder={(social as any).placeholder || 'https://...'}
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                />
+                        {profile?.bio && (
+                            <p style={{ fontSize: '13px', color: colors.textSecondary, margin: '0 0 12px', lineHeight: 1.5, maxWidth: '260px' }}>
+                                {profile.bio.length > 100 ? profile.bio.slice(0, 100) + '...' : profile.bio}
+                            </p>
+                        )}
+
+                        {/* Genre pills preview */}
+                        {profile?.genres && profile.genres.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
+                                {profile.genres.slice(0, 4).map(g => (
+                                    <span key={g.id} style={{
+                                        fontSize: '11px', padding: '3px 10px', borderRadius: borderRadius.pill,
+                                        backgroundColor: 'rgba(16,185,129,0.12)', color: colors.primary, fontWeight: 500,
+                                    }}>
+                                        {g.name}
+                                    </span>
+                                ))}
+                                {profile.genres.length > 4 && (
+                                    <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: borderRadius.pill, backgroundColor: 'rgba(255,255,255,0.05)', color: colors.textTertiary }}>
+                                        +{profile.genres.length - 4}
+                                    </span>
+                                )}
                             </div>
-                        ))}
+                        )}
+                    </div>
+
+                    {/* Quick stats */}
+                    <div style={{ ...card, padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>{tracks.length}</div>
+                            <div style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tracks</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>{profile?.gearList?.length || 0}</div>
+                            <div style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gear</div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Featured Track */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Play size={20} /> Featured Track
-                    </h3>
-                    <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>Select a track to showcase at the top of your profile.</p>
-                    <select 
-                        value={profile?.featuredTrackId || ''}
-                        onChange={(e) => setProfile(p => p ? {...p, featuredTrackId: e.target.value || null} : null)}
-                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: 'white', outline: 'none', cursor: 'pointer' }}
-                    >
-                        <option value="" style={{ backgroundColor: '#1A1E2E', color: 'white' }}>No featured track</option>
-                        {tracks.map(t => (
-                            <option key={t.id} value={t.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{t.title}</option>
-                        ))}
-                    </select>
-                </div>
+                {/* ═══ RIGHT COLUMN: Editable Sections ═══ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                {/* Featured Release */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Music size={20} /> Featured Release
-                    </h3>
-                    <p style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: spacing.md }}>Showcase an album, EP, single, or playlist at the top of your profile page.</p>
-                    {playlists.filter(p => p.releaseType).length === 0 ? (
-                        <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, padding: spacing.md, textAlign: 'center' }}>
-                            <p style={{ color: colors.textSecondary, fontSize: '0.85rem', margin: 0 }}>You haven't marked any playlists as a release yet.</p>
-                            <p style={{ color: colors.textSecondary, fontSize: '0.8rem', margin: '6px 0 0' }}>Go to a playlist → Edit → set the Release Type to Album, EP, or Single.</p>
+                    {/* ── Identity ── */}
+                    <div style={card}>
+                        <div style={sectionTitle}><User size={18} color={colors.primary} /> Identity</div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <span style={label}>Artist / Display Name</span>
+                                <input
+                                    type="text"
+                                    value={profile?.displayName || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setProfile(p => p ? {...p, displayName: val || null} : null);
+                                        if (val.trim().length > 0) validateArtistName(val.trim());
+                                        else setNameError(null);
+                                    }}
+                                    placeholder="How you want to be known..."
+                                    style={{ ...inputBase, ...(nameError ? { borderColor: colors.error } : {}) }}
+                                />
+                                {validatingName && <span style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px', display: 'block' }}>Checking...</span>}
+                                {nameError && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.error, marginTop: '4px' }}>
+                                        <AlertCircle size={13} />{nameError}
+                                    </div>
+                                )}
+                                <span style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px', display: 'block' }}>
+                                    Leave blank to use your Discord username.
+                                </span>
+                            </div>
+
+                            <div>
+                                <span style={label}>Bio</span>
+                                <textarea
+                                    value={profile?.bio || ''}
+                                    onChange={(e) => setProfile(p => p ? {...p, bio: e.target.value} : null)}
+                                    placeholder="Producer, beatmaker, multi-instrumentalist..."
+                                    rows={3}
+                                    style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }}
+                                />
+                            </div>
                         </div>
-                    ) : (
-                        <>
+                    </div>
+
+                    {/* ── Social Links ── */}
+                    <div style={card}>
+                        <div style={sectionTitle}><LinkIcon size={18} color={colors.accent} /> Social Links</div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px' }}>
+                            {socialsList.map(social => (
+                                <div key={social.key}>
+                                    <span style={{ ...label, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        {social.icon} {social.label}
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={(profile as any)?.[social.key] || ''}
+                                        onChange={(e) => setProfile(p => p ? {...p, [social.key]: e.target.value} : null)}
+                                        placeholder={social.placeholder}
+                                        style={inputBase}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── Featured Content (Track + Release side-by-side) ── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                        {/* Featured Track */}
+                        <div style={card}>
+                            <div style={sectionTitle}><Star size={18} color={colors.highlight} /> Featured Track</div>
+                            <p style={{ fontSize: '12px', color: colors.textTertiary, margin: '0 0 12px' }}>
+                                Showcase one track at the top of your profile.
+                            </p>
                             <select
-                                value={profile?.featuredPlaylistId || ''}
-                                onChange={(e) => setProfile(p => p ? {...p, featuredPlaylistId: e.target.value || null} : null)}
-                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: 'white', outline: 'none', cursor: 'pointer' }}
+                                value={profile?.featuredTrackId || ''}
+                                onChange={(e) => setProfile(p => p ? {...p, featuredTrackId: e.target.value || null} : null)}
+                                style={{ ...inputBase, cursor: 'pointer' }}
                             >
-                                <option value="" style={{ backgroundColor: '#1A1E2E', color: 'white' }}>No featured release</option>
-                                {playlists.filter(p => p.releaseType).map((p: any) => (
-                                    <option key={p.id} value={p.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{p.name} ({p.releaseType?.toUpperCase()})</option>
+                                <option value="" style={{ backgroundColor: colors.surface }}>None</option>
+                                {tracks.map(t => (
+                                    <option key={t.id} value={t.id} style={{ backgroundColor: colors.surface }}>{t.title}</option>
                                 ))}
                             </select>
-                            {profile?.featuredPlaylistId && (
-                                <button
-                                    onClick={() => setProfile(p => p ? {...p, featuredPlaylistId: null} : null)}
-                                    style={{ marginTop: '8px', background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: borderRadius.sm, color: '#EF4444', cursor: 'pointer', padding: '6px 12px', fontSize: '12px', fontWeight: 600 }}
-                                >
-                                    Clear Featured Release
-                                </button>
+                        </div>
+
+                        {/* Featured Release */}
+                        <div style={card}>
+                            <div style={sectionTitle}><Disc3 size={18} color={colors.accent} /> Featured Release</div>
+                            <p style={{ fontSize: '12px', color: colors.textTertiary, margin: '0 0 12px' }}>
+                                Showcase an album, EP, or single.
+                            </p>
+                            {playlists.filter(p => p.releaseType).length === 0 ? (
+                                <div style={{
+                                    padding: '14px', borderRadius: borderRadius.sm,
+                                    backgroundColor: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
+                                    fontSize: '12px', color: colors.textTertiary, textAlign: 'center',
+                                }}>
+                                    No releases yet. Set a Release Type on a playlist first.
+                                </div>
+                            ) : (
+                                <>
+                                    <select
+                                        value={profile?.featuredPlaylistId || ''}
+                                        onChange={(e) => setProfile(p => p ? {...p, featuredPlaylistId: e.target.value || null} : null)}
+                                        style={{ ...inputBase, cursor: 'pointer' }}
+                                    >
+                                        <option value="" style={{ backgroundColor: colors.surface }}>None</option>
+                                        {playlists.filter(p => p.releaseType).map((p: any) => (
+                                            <option key={p.id} value={p.id} style={{ backgroundColor: colors.surface }}>{p.name} ({p.releaseType?.toUpperCase()})</option>
+                                        ))}
+                                    </select>
+                                    {profile?.featuredPlaylistId && (
+                                        <button onClick={() => setProfile(p => p ? {...p, featuredPlaylistId: null} : null)}
+                                            style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.error, cursor: 'pointer', padding: 0, fontSize: '12px', fontWeight: 500 }}>
+                                            Clear selection
+                                        </button>
+                                    )}
+                                </>
                             )}
-                        </>
-                    )}
-                </div>
-
-                {/* Genres */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Music size={20} /> Genres
-                    </h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: spacing.md }}>
-                        {profile?.genres?.map(g => (
-                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: colors.primary, padding: '4px 8px', borderRadius: '16px', fontSize: '0.85rem' }}>
-                                {g.name}
-                                <X size={14} style={{ cursor: 'pointer' }} onClick={() => removeGenre(g.id)} />
-                            </div>
-                        ))}
+                        </div>
                     </div>
-                    <select 
-                        onChange={(e) => {
-                            const genre = allGenres.find(g => g.id === e.target.value);
-                            if (genre) addGenre(genre);
-                            e.target.value = '';
+
+                    {/* ── Genres ── */}
+                    <div style={card}>
+                        <div style={sectionTitle}><Music size={18} color={colors.primaryLight} /> Genres</div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px', minHeight: '32px' }}>
+                            {(!profile?.genres || profile.genres.length === 0) && (
+                                <span style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic' }}>No genres selected yet.</span>
+                            )}
+                            {profile?.genres?.map(g => (
+                                <div key={g.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    backgroundColor: 'rgba(16,185,129,0.12)', padding: '5px 12px',
+                                    borderRadius: borderRadius.pill, fontSize: '13px', color: colors.primary, fontWeight: 500,
+                                }}>
+                                    {g.name}
+                                    <X size={13} style={{ cursor: 'pointer', opacity: 0.7 }} onClick={() => removeGenre(g.id)} />
+                                </div>
+                            ))}
+                        </div>
+
+                        <select
+                            onChange={(e) => {
+                                const genre = allGenres.find(g => g.id === e.target.value);
+                                if (genre) addGenre(genre);
+                                e.target.value = '';
+                            }}
+                            style={{ ...inputBase, cursor: 'pointer' }}
+                        >
+                            <option value="" style={{ backgroundColor: colors.surface }}>+ Add a genre...</option>
+                            {allGenres.filter(g => !profile?.genres?.some(pg => pg.id === g.id)).map(g => (
+                                <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* ── Gear Rack ── */}
+                    <div style={card}>
+                        <div style={sectionTitle}><Hammer size={18} color={colors.highlight} /> Gear Rack</div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {(!profile?.gearList || profile.gearList.length === 0) && (
+                                <div style={{
+                                    padding: '20px', borderRadius: borderRadius.sm,
+                                    backgroundColor: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
+                                    textAlign: 'center', color: colors.textTertiary, fontSize: '13px',
+                                }}>
+                                    No gear added yet. Show off your setup!
+                                </div>
+                            )}
+                            {profile?.gearList?.map((item, idx) => (
+                                <div key={idx} style={{
+                                    display: 'flex', gap: '10px', alignItems: 'center',
+                                    padding: '8px 12px', borderRadius: borderRadius.sm,
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                }}>
+                                    <input type="text" value={item.name} onChange={(e) => updateGear(idx, 'name', e.target.value)}
+                                        placeholder="e.g. FL Studio 21, Serum, DT 990 Pro..."
+                                        style={{ ...inputBase, border: 'none', backgroundColor: 'transparent', padding: '4px 0', flex: 1 }}
+                                    />
+                                    <select value={item.category} onChange={(e) => updateGear(idx, 'category', e.target.value)}
+                                        style={{ ...inputBase, width: 'auto', minWidth: '120px', border: 'none', backgroundColor: 'rgba(255,255,255,0.04)', padding: '6px 8px', fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}>
+                                        {GEAR_CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat} style={{ backgroundColor: colors.surface }}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    <button onClick={(e) => removeGear(idx, e)} style={{
+                                        background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer',
+                                        padding: '4px', borderRadius: borderRadius.sm,
+                                    }}>
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button onClick={(e) => addGear(e)} style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                backgroundColor: 'transparent', border: '1px dashed rgba(255,255,255,0.12)',
+                                borderRadius: borderRadius.sm, padding: '10px', color: colors.textSecondary,
+                                cursor: 'pointer', fontSize: '13px',
+                            }}>
+                                <Plus size={15} /> Add Equipment
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── Save Button ── */}
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                            backgroundColor: colors.primary, color: 'white', border: 'none',
+                            borderRadius: borderRadius.md, padding: '14px 24px',
+                            fontSize: '15px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+                            opacity: saving ? 0.7 : 1, boxShadow: shadows.glow,
                         }}
-                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', cursor: 'pointer' }}
                     >
-                        <option value="" style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>Add a genre...</option>
-                        {allGenres.filter(g => !profile?.genres?.some(pg => pg.id === g.id)).map(g => (
-                            <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface, color: colors.textPrimary }}>{g.name}</option>
-                        ))}
-                    </select>
+                        {saving ? 'Saving...' : <><Save size={18} /> Save Profile</>}
+                    </button>
                 </div>
-
-                {/* Gear Rack */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Hammer size={20} /> Gear Rack
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                        {profile?.gearList?.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <input type="text" value={item.name} onChange={(e) => updateGear(idx, 'name', e.target.value)}
-                                    placeholder="e.g. FL Studio 21, Serum, DT 990 Pro..."
-                                    style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary }}
-                                />
-                                <select value={item.category} onChange={(e) => updateGear(idx, 'category', e.target.value)}
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, cursor: 'pointer', flexShrink: 0 }}>
-                                    {GEAR_CATEGORIES.map(cat => (
-                                        <option key={cat} value={cat} style={{ backgroundColor: '#1A1E2E', color: colors.textPrimary }}>{cat}</option>
-                                    ))}
-                                </select>
-                                <button onClick={(e) => removeGear(idx, e)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>
-                                    <X size={18}/>
-                                </button>
-                            </div>
-                        ))}
-                        <button onClick={(e) => addGear(e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textSecondary, cursor: 'pointer', marginTop: spacing.sm }}>
-                            <Plus size={16}/> Add Equipment
-                        </button>
-                    </div>
-                </div>
-
-                {/* Save */}
-                <button 
-                    onClick={handleSave}
-                    disabled={saving}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.md, padding: spacing.md, fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                    {saving ? 'Saving...' : <><Save size={20}/> Save Profile</>}
-                </button>
             </div>
         </div>
         </DiscoveryLayout>
