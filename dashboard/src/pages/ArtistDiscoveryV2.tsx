@@ -636,56 +636,55 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
-                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'stretch' }}>
-                                                {/* Thumbnail left — 16:9 aspect ratio */}
-                                                <div style={{
-                                                    aspectRatio: '16/9', flexShrink: 0, alignSelf: 'center',
-                                                    borderRadius: '10px', overflow: 'hidden', position: 'relative',
-                                                    background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
-                                                    maxHeight: '100%', minWidth: isMobile ? '110px' : '200px',
-                                                }}>
-                                                    {getTutorialThumbnail() && (
-                                                        <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                                                    )}
+                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'flex-start' }}>
+                                                {/* Left col: thumbnail + button */}
+                                                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '10px', width: isMobile ? '110px' : '200px' }}>
                                                     <div style={{
-                                                        position: 'absolute', width: '46px', height: '46px',
-                                                        background: 'rgba(0,0,0,0.7)', borderRadius: '50%',
+                                                        width: '100%', aspectRatio: '16/9',
+                                                        borderRadius: '10px', overflow: 'hidden', position: 'relative',
+                                                        background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        border: '1px solid rgba(255,255,255,0.15)',
-                                                        backdropFilter: 'blur(4px)',
+                                                        boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
                                                     }}>
-                                                        <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
-                                                    </div>
-                                                </div>
-                                                {/* Text + button right */}
-                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minWidth: 0 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em', marginBottom: '10px' }}>
-                                                            {featured.featuredTutorialTitle || 'Watch Tutorial'}
-                                                        </div>
-                                                        {featured.featuredTutorialDescription && (
-                                                            <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, overflow: 'hidden' }}>
-                                                                {featured.featuredTutorialDescription}
-                                                            </div>
+                                                        {getTutorialThumbnail() && (
+                                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                                                         )}
+                                                        <div style={{
+                                                            position: 'absolute', width: '46px', height: '46px',
+                                                            background: 'rgba(0,0,0,0.7)', borderRadius: '50%',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            border: '1px solid rgba(255,255,255,0.15)',
+                                                            backdropFilter: 'blur(4px)',
+                                                        }}>
+                                                            <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                        </div>
                                                     </div>
                                                     <a
                                                         href={featured.featuredTutorialUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{
-                                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                            padding: '8px 18px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                            padding: '8px 0', width: '100%',
                                                             background: `${colors.primary}20`, color: colors.primary,
                                                             border: `1px solid ${colors.primary}40`, borderRadius: '8px',
                                                             fontWeight: 700, fontSize: '12px', textDecoration: 'none',
-                                                            alignSelf: 'flex-start', letterSpacing: '0.03em',
+                                                            letterSpacing: '0.03em',
                                                         }}
                                                     >
                                                         <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
                                                     </a>
+                                                </div>
+                                                {/* Right col: text fills height */}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em', marginBottom: '10px' }}>
+                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                                    </div>
+                                                    {featured.featuredTutorialDescription && (
+                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6 }}>
+                                                            {featured.featuredTutorialDescription}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ) : (
