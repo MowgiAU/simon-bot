@@ -54,6 +54,7 @@ const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").the
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
@@ -87,7 +88,8 @@ type Section =
   | "staging-test"
   | "plugins"
   | "beat-battle"
-  | "battle-archive";
+  | "battle-archive"
+  | "featured-content";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
   <div style={{ 
@@ -301,6 +303,8 @@ const AdminDashboard: React.FC = () => {
           return <BeatBattlePage />;
         case "battle-archive":
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
+        case "featured-content":
+          return <FeaturedContentSettings />;
         case "genres-list":
           return <GenresPage />;
         default:

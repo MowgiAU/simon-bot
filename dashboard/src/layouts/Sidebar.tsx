@@ -25,6 +25,7 @@ import {
   Globe,
   Bot,
   Palette,
+  MonitorPlay,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -260,6 +261,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
                 <span className="nav-label">Beat Battles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('featured-content') && (
+            <button
+                className={`nav-item ${activeSection === 'featured-content' ? 'active' : ''}`}
+                onClick={() => onNavigate('featured-content')}
+                title={collapsed ? "Featured Content" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={MonitorPlay} size={20} /></span>
+                <span className="nav-label">Featured Content</span>
             </button>
           )}
         </div>

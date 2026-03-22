@@ -866,7 +866,10 @@ model DiscoverySettings {
   featuredBattleId          String?  // BeatBattle ID to show on frontpage
   featuredBattleDescription String?  @db.Text // Custom blurb for the battle card
 
-  // Featured Tutorial
+  // Featured Content (card type selector — 'video' | 'news' | 'guide')
+  featuredContentType         String   @default("video")
+
+  // Featured Tutorial / Video
   featuredTutorialUrl         String?  // YouTube/video embed URL
   featuredTutorialTitle       String?
   featuredTutorialDescription String?  @db.Text // Short blurb shown on the tutorial card

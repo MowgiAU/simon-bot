@@ -2216,7 +2216,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content'] 
             };
             if (!req.session.permissionsCache) req.session.permissionsCache = {};
             req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };
@@ -5001,6 +5001,7 @@ app.get('/api/discovery/settings', async (req, res) => {
         await Promise.all(queries);
 
         // Featured tutorial (no DB query needed)
+        result.featuredContentType = (settings as any).featuredContentType || 'video';
         result.featuredTutorialUrl = settings.featuredTutorialUrl;
         result.featuredTutorialTitle = settings.featuredTutorialTitle;
         result.featuredTutorialDescription = (settings as any).featuredTutorialDescription;
@@ -5020,6 +5021,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredType, featuredTrackId, featuredArtistId, featuredPlaylistId, featuredLabel,
             featuredDescription,
             editorPickTrackIds, featuredProducerId, featuredProducerNote,
+            featuredContentType,
             featuredTutorialUrl, featuredTutorialTitle, featuredTutorialDescription, featuredTutorialThumbnail,
             featuredBattleId, featuredBattleDescription
         } = req.body;
@@ -5034,6 +5036,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (editorPickTrackIds !== undefined) updateData.editorPickTrackIds = editorPickTrackIds;
         if (featuredProducerId !== undefined) updateData.featuredProducerId = featuredProducerId;
         if (featuredProducerNote !== undefined) updateData.featuredProducerNote = featuredProducerNote;
+        if (featuredContentType !== undefined) updateData.featuredContentType = featuredContentType;
         if (featuredTutorialUrl !== undefined) updateData.featuredTutorialUrl = featuredTutorialUrl;
         if (featuredTutorialTitle !== undefined) updateData.featuredTutorialTitle = featuredTutorialTitle;
         if (featuredTutorialDescription !== undefined) updateData.featuredTutorialDescription = featuredTutorialDescription;

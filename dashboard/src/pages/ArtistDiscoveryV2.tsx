@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Award, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay
+    Star, MonitorPlay, Newspaper, BookOpen
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -70,6 +70,7 @@ interface FeaturedData {
     editorPicks?: TrackInfo[];
     featuredProducer?: ArtistProfile & { tracks: { id: string; title: string; url: string; coverUrl: string | null }[] } | null;
     featuredProducerNote?: string | null;
+    featuredContentType?: string | null;
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
     featuredTutorialDescription?: string | null;
@@ -600,67 +601,150 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Featured Tutorial — 2 cols wide */}
-                    <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px' }}>
-                        <div style={panelHeader}>
-                            <h3 style={panelTitle}><MonitorPlay size={16} color={colors.primary} /> Featured Tutorial</h3>
-                        </div>
-
-                        {featured?.featuredTutorialUrl ? (
-                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'stretch' }}>
-                                {/* Thumbnail left */}
-                                <div style={{
-                                    width: isMobile ? '120px' : '200px', flexShrink: 0,
-                                    borderRadius: '10px', overflow: 'hidden', position: 'relative',
-                                    background: '#1f2937', border: '1px solid rgba(255,255,255,0.05)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    {getTutorialThumbnail() && (
-                                        <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-                                    )}
+                    {/* Featured Content — 2 cols wide */}
+                    {(() => {
+                        const contentType = featured?.featuredContentType || 'video';
+                        const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
+                            video: { icon: <MonitorPlay size={13} />, label: 'Featured Video', accentColor: colors.primary },
+                            news:  { icon: <Newspaper size={13} />,   label: 'Featured News',  accentColor: '#A78BFA' },
+                            guide: { icon: <BookOpen size={13} />,    label: 'Featured Guide', accentColor: '#FBBF24' },
+                        };
+                        const tc = typeConfig[contentType] ?? typeConfig.video;
+                        return (
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
+                                {/* Blurred thumbnail/accent background */}
+                                {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
-                                        position: 'absolute', width: '44px', height: '44px',
-                                        background: 'rgba(0,0,0,0.65)', borderRadius: '50%',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                        position: 'absolute', inset: 0,
+                                        backgroundImage: `url(${featured?.featuredTutorialThumbnail || getTutorialThumbnail()})`,
+                                        backgroundSize: 'cover', backgroundPosition: 'center',
+                                        filter: 'blur(28px) brightness(0.25) saturate(1.2)',
+                                        transform: 'scale(1.15)',
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                {contentType !== 'video' && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        background: `radial-gradient(ellipse at 20% 50%, ${tc.accentColor}12 0%, transparent 60%)`,
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(14,18,26,0.6) 0%, rgba(14,18,26,0.82) 50%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+
+                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: '18px 20px' }}>
+                                    {/* Header row */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '10px', fontWeight: 700, color: tc.accentColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                            {tc.icon}{tc.label}
+                                        </div>
+                                        {/* Type pill tabs */}
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            {(['video', 'news', 'guide'] as const).map(type => (
+                                                <span key={type} style={{
+                                                    fontSize: '9px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                                                    textTransform: 'capitalize',
+                                                    background: contentType === type ? `${typeConfig[type].accentColor}22` : 'transparent',
+                                                    border: `1px solid ${contentType === type ? typeConfig[type].accentColor + '55' : 'rgba(255,255,255,0.08)'}`,
+                                                    color: contentType === type ? typeConfig[type].accentColor : colors.textSecondary,
+                                                }}>{type}</span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                                {/* Text + button right */}
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Video Tutorial</div>
-                                    <div style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.3, color: colors.textPrimary }}>
-                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
-                                    </div>
-                                    {featured.featuredTutorialDescription && (
-                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                            {featured.featuredTutorialDescription}
+
+                                    {/* Content body */}
+                                    {contentType === 'video' ? (
+                                        featured?.featuredTutorialUrl ? (
+                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, alignItems: 'center' }}>
+                                                {/* Thumbnail left */}
+                                                <div style={{
+                                                    width: isMobile ? '110px' : '185px', height: isMobile ? '80px' : '155px', flexShrink: 0,
+                                                    borderRadius: '10px', overflow: 'hidden', position: 'relative',
+                                                    background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
+                                                }}>
+                                                    {getTutorialThumbnail() && (
+                                                        <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                                                    )}
+                                                    <div style={{
+                                                        position: 'absolute', width: '46px', height: '46px',
+                                                        background: 'rgba(0,0,0,0.7)', borderRadius: '50%',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        border: '1px solid rgba(255,255,255,0.15)',
+                                                        backdropFilter: 'blur(4px)',
+                                                    }}>
+                                                        <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                    </div>
+                                                </div>
+                                                {/* Text + button right */}
+                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em' }}>
+                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                                    </div>
+                                                    {featured.featuredTutorialDescription && (
+                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {featured.featuredTutorialDescription}
+                                                        </div>
+                                                    )}
+                                                    <a
+                                                        href={featured.featuredTutorialUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                            marginTop: '4px', padding: '8px 18px',
+                                                            background: `${colors.primary}20`, color: colors.primary,
+                                                            border: `1px solid ${colors.primary}40`, borderRadius: '8px',
+                                                            fontWeight: 700, fontSize: '12px', textDecoration: 'none',
+                                                            alignSelf: 'flex-start', letterSpacing: '0.03em',
+                                                        }}
+                                                    >
+                                                        <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                                <MonitorPlay size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
+                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No video tutorial set</p>
+                                            </div>
+                                        )
+                                    ) : (
+                                        /* News / Guide — coming soon */
+                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
+                                            <div style={{
+                                                width: '90px', height: '90px', flexShrink: 0, borderRadius: '18px',
+                                                background: `${tc.accentColor}12`,
+                                                border: `1px solid ${tc.accentColor}30`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                {contentType === 'news'
+                                                    ? <Newspaper size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
+                                                    : <BookOpen size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '8px' }}>
+                                                    {contentType === 'news' ? 'Community News' : 'Community Guides'}
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '12px' }}>
+                                                    {contentType === 'news'
+                                                        ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
+                                                        : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
+                                                </div>
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                    padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
+                                                    background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
+                                                    color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                }}>Coming soon</span>
+                                            </div>
                                         </div>
                                     )}
-                                    <a
-                                        href={featured.featuredTutorialUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                            marginTop: '4px', padding: '8px 18px',
-                                            background: `${colors.primary}20`, color: colors.primary,
-                                            border: `1px solid ${colors.primary}40`, borderRadius: '7px',
-                                            fontWeight: 700, fontSize: '12px', textDecoration: 'none',
-                                            alignSelf: 'flex-start', letterSpacing: '0.03em',
-                                        }}
-                                    >
-                                        <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
-                                    </a>
                                 </div>
                             </div>
-                        ) : (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: colors.textSecondary }}>
-                                <MonitorPlay size={32} style={{ opacity: 0.15 }} />
-                                <p style={{ fontSize: '12px', margin: 0 }}>No tutorial featured right now</p>
-                            </div>
-                        )}
-                    </div>
+                        );
+                    })()}
 
                     {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
 
