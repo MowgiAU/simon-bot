@@ -71,10 +71,20 @@ export class AudioService {
      */
     async getTrackLeaderboard(limit = 10) {
         return await this.prisma.track.findMany({
-            where: { isPublic: true },
+            where: { isPublic: true, status: 'active' },
             orderBy: { playCount: 'desc' },
-            include: {
-                profile: true
+            select: {
+                id: true, title: true, slug: true, url: true, coverUrl: true,
+                playCount: true, duration: true, isPublic: true, status: true,
+                allowAudioDownload: true, allowProjectDownload: true,
+                artist: true, bpm: true, key: true, profileId: true, createdAt: true,
+                genres: { include: { genre: true } },
+                profile: {
+                    select: {
+                        id: true, userId: true, username: true, displayName: true,
+                        avatar: true, totalPlays: true, status: true,
+                    }
+                }
             },
             take: limit
         });

@@ -773,6 +773,8 @@ model Track {
   @@index([profileId])
   @@index([slug])
   @@index([profileId, isPublic, playCount(sort: Desc)])  // Fast per-profile top-track lookup
+  @@index([isPublic, playCount(sort: Desc)])  // Leaderboard: top public tracks by plays
+  @@index([isPublic, createdAt(sort: Desc)])  // Discovery: newest public tracks
   @@map("musician_tracks")
 }
 

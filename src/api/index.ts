@@ -209,6 +209,7 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
 const apiResponseCache = new Map<string, { data: any, timestamp: number }>();
 const API_CACHE_TTL: Record<string, number> = {
     'discovery-settings': 1000 * 60 * 3,   // 3 minutes
+    'discovery-tracks':  1000 * 60 * 2,     // 2 minutes
     'musician-profiles': 1000 * 60 * 2,     // 2 minutes
     'popular-playlists': 1000 * 60 * 3,     // 3 minutes
     'leaderboards-tracks': 1000 * 60 * 2,   // 2 minutes
@@ -4422,6 +4423,13 @@ app.get('/api/musician/leaderboards/tracks', async (req, res) => {
 app.get('/api/discovery/tracks', async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
+
+        // Cache the default (no filter) request — this is hit on every page load
+        const isDefaultQuery = !genre && !search && sort === 'newest' && Number(limit) === 24;
+        if (isDefaultQuery) {
+            const cached = getCachedResponse('discovery-tracks');
+            if (cached) return res.json(cached);
+        }
         
         const where: any = { isPublic: true };
         
@@ -4481,9 +4489,19 @@ app.get('/api/discovery/tracks', async (req, res) => {
         const tracks = await db.track.findMany({
             where,
             orderBy,
-            include: {
-                profile: true,
-                genres: { include: { genre: true } }
+            select: {
+                id: true, title: true, slug: true, url: true, coverUrl: true,
+                playCount: true, duration: true, isPublic: true, status: true,
+                allowAudioDownload: true, allowProjectDownload: true,
+                artist: true, bpm: true, key: true, profileId: true, createdAt: true,
+                genres: { include: { genre: true } },
+                profile: {
+                    select: {
+                        id: true, userId: true, username: true, displayName: true,
+                        avatar: true, totalPlays: true, status: true,
+                        genres: { include: { genre: true } },
+                    }
+                }
             },
             take: Number(limit)
         });
@@ -4495,6 +4513,8 @@ app.get('/api/discovery/tracks', async (req, res) => {
             if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
             if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
         });
+
+        if (isDefaultQuery) setCachedResponse('discovery-tracks', { tracks: activeTracks, genre: null });
 
         let genreFound = null;
         if (genre) {
