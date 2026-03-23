@@ -3898,30 +3898,21 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             (arrangement as any).bpm = metadata.bpm;
         }
 
-        // 2. Convert to space-saving formats, then map to public URLs
-        const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
-        const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
-
-        // Extract waveform peaks for visualisation (200 points for feed display)
-        let waveformPeaks: number[] | null = null;
-        try {
-            waveformPeaks = await WaveformExtractor.extractPeaks(finalAudioPath, 200);
-        } catch (wErr: any) {
-            logger.warn(`Waveform extraction failed: ${wErr.message}`);
-        }
-
-        const audioUrl = `/uploads/tracks/${path.basename(finalAudioPath)}`;
-        const coverUrl = finalArtworkPath ? `/uploads/artwork/${path.basename(finalArtworkPath)}` : req.body.coverUrl;
+        // 2. Save to database immediately with raw file URLs.
+        //    Audio conversion, waveform extraction and R2 uploads all run AFTER the HTTP response
+        //    (via setImmediate below) so the browser never waits long enough to hit a proxy timeout.
+        const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
+        const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
         // Create slug from title
         const slug = metadata.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
         // 3. Save to database
-        const track = await audioService.addTrack(userId, { 
-            title: metadata.title, 
+        const track = await audioService.addTrack(userId, {
+            title: metadata.title,
             slug,
-            url: audioUrl, 
-            coverUrl, 
+            url: audioUrl,
+            coverUrl,
             description: req.body.description,
             duration: metadata.duration,
             artist: metadata.artist,
@@ -3931,7 +3922,6 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             key: metadata.key,
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
-            ...(waveformPeaks ? { waveformPeaks } : {}),
             ...(arrangement ? { arrangement } : {}),
             ...(projectFileUrl ? { projectFileUrl } : {}),
             ...(projectZipUrl ? { projectZipUrl } : {}),
@@ -3940,41 +3930,6 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
 
         // Log track upload
         await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
-
-        // Upload audio, artwork, and FLP project files to R2 in parallel (now that we have track.id).
-        // ZIP is handled later (after processing) so the local file is still available for sample extraction.
-        const r2UrlUpdates: any = {};
-
-        const r2Uploads: Promise<void>[] = [];
-
-        r2Uploads.push((async () => {
-            const r2AudioKey = `tracks/${track.id}/audio/${path.basename(finalAudioPath)}`;
-            const cdnAudioUrl = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', audioUrl);
-            if (cdnAudioUrl !== audioUrl) r2UrlUpdates.url = cdnAudioUrl;
-        })());
-
-        if (finalArtworkPath) {
-            r2Uploads.push((async () => {
-                const localArtworkUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
-                const r2ArtworkKey = `tracks/${track.id}/artwork/${path.basename(finalArtworkPath)}`;
-                const cdnArtworkUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', localArtworkUrl);
-                if (cdnArtworkUrl !== localArtworkUrl) r2UrlUpdates.coverUrl = cdnArtworkUrl;
-            })());
-        }
-
-        if (projectFileUrl && projectFile && !isZipUpload) {
-            r2Uploads.push((async () => {
-                const r2ProjectKey = `tracks/${track.id}/project/${path.basename(projectFile.path)}`;
-                const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectFileUrl);
-                if (cdnProjectUrl !== projectFileUrl) r2UrlUpdates.projectFileUrl = cdnProjectUrl;
-            })());
-        }
-
-        await Promise.all(r2Uploads);
-
-        if (Object.keys(r2UrlUpdates).length > 0) {
-            await db.track.update({ where: { id: track.id }, data: r2UrlUpdates });
-        }
 
         // 4. Handle genre tags for this track
         const genreIds = req.body.genreIds;
@@ -3998,13 +3953,81 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Return response immediately — ZIP sample processing runs in background to prevent proxy timeouts
+        // Respond immediately — track is playable right away from local storage.
+        // Audio encoding, artwork optimisation, waveform extraction and R2/CDN uploads
+        // happen in the background so the browser never hits a proxy timeout.
         const fullTrack = await db.track.findUnique({
             where: { id: track.id },
             include: { genres: { include: { genre: true } } }
         });
 
         res.json(fullTrack);
+
+        // Background: encode audio → optimise artwork → extract waveform → push to R2.
+        // This runs after res.json() so it never blocks the HTTP response.
+        const _bgRawAudioPath = audioFile.path;
+        const _bgRawArtworkPath = artworkFile?.path ?? null;
+        const _bgTrackId = track.id;
+        const _bgProjectPath = (projectFile && !isZipUpload) ? projectFile.path : null;
+        const _bgProjectFileUrl = projectFileUrl;
+        setImmediate(async () => {
+            try {
+                const bgUpdates: Record<string, any> = {};
+
+                // Convert audio to 320kbps MP3
+                const finalAudioPath = await MediaConverter.convertAudio(_bgRawAudioPath);
+                bgUpdates.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
+
+                // Optimise artwork to WebP
+                let finalArtworkPath: string | null = null;
+                if (_bgRawArtworkPath) {
+                    finalArtworkPath = await MediaConverter.optimizeImage(_bgRawArtworkPath);
+                    bgUpdates.coverUrl = `/uploads/artwork/${path.basename(finalArtworkPath)}`;
+                }
+
+                // Extract waveform peaks for the feed visualiser
+                try {
+                    bgUpdates.waveformPeaks = await WaveformExtractor.extractPeaks(finalAudioPath, 200);
+                } catch (wErr: any) {
+                    logger.warn(`[Upload BG] Waveform extraction failed for track ${_bgTrackId}: ${wErr.message}`);
+                }
+
+                // Upload converted files to R2 (or keep local if R2 is not configured)
+                const r2Jobs: Promise<void>[] = [];
+                const r2Updates: Record<string, string> = {};
+
+                r2Jobs.push((async () => {
+                    const key = `tracks/${_bgTrackId}/audio/${path.basename(finalAudioPath)}`;
+                    const cdn = await uploadToR2OrLocal(finalAudioPath, key, 'audio/mpeg', bgUpdates.url as string);
+                    if (cdn !== bgUpdates.url) r2Updates.url = cdn;
+                })());
+
+                if (finalArtworkPath) {
+                    const localArtUrl = bgUpdates.coverUrl as string;
+                    r2Jobs.push((async () => {
+                        const key = `tracks/${_bgTrackId}/artwork/${path.basename(finalArtworkPath!)}`;
+                        const cdn = await uploadToR2OrLocal(finalArtworkPath!, key, 'image/webp', localArtUrl);
+                        if (cdn !== localArtUrl) r2Updates.coverUrl = cdn;
+                    })());
+                }
+
+                if (_bgProjectPath && _bgProjectFileUrl) {
+                    r2Jobs.push((async () => {
+                        const key = `tracks/${_bgTrackId}/project/${path.basename(_bgProjectPath)}`;
+                        const cdn = await uploadToR2OrLocal(_bgProjectPath, key, 'application/octet-stream', _bgProjectFileUrl);
+                        if (cdn !== _bgProjectFileUrl) r2Updates.projectFileUrl = cdn;
+                    })());
+                }
+
+                await Promise.all(r2Jobs);
+                Object.assign(bgUpdates, r2Updates);
+
+                await db.track.update({ where: { id: _bgTrackId }, data: bgUpdates });
+                logger.info(`[Upload BG] Media processing complete for track ${_bgTrackId}`);
+            } catch (bgErr: any) {
+                logger.error(`[Upload BG] Media processing failed for track ${_bgTrackId}: ${bgErr.message}`);
+            }
+        });
 
         // ZIP bundle: process samples and upload to R2 after response is sent (avoid 504 on large uploads)
         if (projectFile && isZipUpload) {

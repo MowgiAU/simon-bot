@@ -114,8 +114,8 @@ server {
     ssl_certificate     /etc/letsencrypt/live/staging.fujistud.io/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/staging.fujistud.io/privkey.pem;
 
-    # Allow large uploads (audio, email attachments, etc.)
-    client_max_body_size 50M;
+    # Allow large uploads — must match the multer 300MB limit (add headroom for multipart overhead)
+    client_max_body_size 350M;
 
     # IMPORTANT: ALL requests (including /uploads/*) must proxy to Express.
     # Do NOT add a separate `location /` that serves from dashboard/dist —
@@ -130,6 +130,13 @@ server {
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+
+        # Extended timeouts for large file uploads.
+        # The API sends its response quickly (< 2s) because heavy processing is backgrounded,
+        # but keeping these high guards against any future blocking paths.
+        proxy_connect_timeout  75s;
+        proxy_send_timeout     300s;
+        proxy_read_timeout     300s;
     }
 }
 ```
