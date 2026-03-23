@@ -330,7 +330,19 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
 
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
+// Extend DATABASE_URL with larger connection pool (default of 3 connections causes pool exhaustion
+// under concurrent requests — each slow track query holds a connection for seconds)
+const _dbUrl = (() => {
+    const raw = process.env.DATABASE_URL || '';
+    try {
+        const u = new URL(raw);
+        u.searchParams.set('connection_limit', '10');
+        u.searchParams.set('pool_timeout', '30');
+        return u.toString();
+    } catch { return raw; }
+})();
 export const db = globalForPrisma.prisma || new PrismaClient({
+  datasourceUrl: _dbUrl,
   log: process.env.NODE_ENV !== 'production'
     ? [
         { emit: 'event', level: 'query' },  // enable query timing in dev/staging
@@ -4620,9 +4632,17 @@ app.get('/api/musician/profiles', async (req, res) => {
           include: {
               genres: { include: { genre: true } },
               tracks: { 
-                  where: { isPublic: true },
+                  where: { isPublic: true, status: 'active' },
                   take: 1,
-                  orderBy: { playCount: 'desc' }
+                  orderBy: { playCount: 'desc' },
+                  // Explicit select avoids loading large JSON columns (arrangement, waveformPeaks)
+                  // on every profile card in the list — these can be MB each
+                  select: {
+                      id: true, title: true, slug: true, url: true, coverUrl: true,
+                      playCount: true, duration: true, isPublic: true, status: true,
+                      allowAudioDownload: true, allowProjectDownload: true,
+                      bpm: true, key: true, profileId: true, createdAt: true,
+                  }
               },
               _count: {
                   select: { tracks: true }
