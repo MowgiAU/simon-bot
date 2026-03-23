@@ -682,6 +682,15 @@ const apiLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
 });
+// Strict limiter for track uploads — prevents spam and large-file abuse
+const uploadLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10-minute window
+    max: 5,                    // 5 uploads per window per user
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    message: { error: 'Upload limit reached. You can upload up to 5 tracks every 10 minutes. Please wait before trying again.' },
+});
 app.use('/api/auth', authLimiter);
 app.use('/api/', apiLimiter);
 
@@ -3756,7 +3765,10 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 // --- Musician Profile API ---
 
 // Post new track (Now with file uploads and metadata)
-app.post('/api/musician/tracks', upload.fields([
+// Free-tier track cap — increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
+const FREE_TIER_TRACK_LIMIT = 25;
+
+app.post('/api/musician/tracks', uploadLimiter, upload.fields([
   { name: 'audio', maxCount: 1 },
   { name: 'artwork', maxCount: 1 },
   { name: 'project', maxCount: 1 } // Optional .flp project file
@@ -3780,6 +3792,44 @@ app.post('/api/musician/tracks', upload.fields([
 
         if (!audioFile) {
             return res.status(400).json({ error: 'Audio file is required' });
+        }
+
+        // --- Per-user track cap ---
+        const uploaderProfile = await db.musicianProfile.findUnique({ where: { userId } });
+        if (uploaderProfile) {
+            const trackCount = await db.track.count({
+                where: { profileId: uploaderProfile.id, status: { not: 'deleted' } },
+            });
+            const trackLimit = FREE_TIER_TRACK_LIMIT; // Hook: replace with getUserTrackLimit(userId) when paid tiers exist
+            if (trackCount >= trackLimit) {
+                return res.status(403).json({
+                    error: `You've reached the ${trackLimit}-track limit for free accounts. Delete an existing track to upload a new one.`,
+                    code: 'TRACK_LIMIT_REACHED',
+                    limit: trackLimit,
+                    current: trackCount,
+                });
+            }
+        }
+
+        // --- Duplicate upload detection (prevents double-submit caused by 504/slow response) ---
+        const uploadTitle = (req.body.title || audioFile.originalname).trim();
+        if (uploaderProfile) {
+            const recentDupe = await db.track.findFirst({
+                where: {
+                    profileId: uploaderProfile.id,
+                    title: uploadTitle,
+                    createdAt: { gte: new Date(Date.now() - 90_000) }, // within last 90 seconds
+                },
+                select: { id: true, title: true, createdAt: true },
+            });
+            if (recentDupe) {
+                logger.warn(`[Upload] Duplicate submission blocked for user ${userId}: "${uploadTitle}" (existing: ${recentDupe.id})`);
+                return res.status(409).json({
+                    error: 'A track with this title was just uploaded. Your previous upload may still be processing — please wait a moment before trying again.',
+                    code: 'DUPLICATE_UPLOAD',
+                    existingTrackId: recentDupe.id,
+                });
+            }
         }
 
         // Virus scan all uploaded files before processing
