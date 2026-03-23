@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+﻿import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -62,7 +62,7 @@ interface Track {
     }>;
 }
 
-// Wrapper that memoizes samplesMap so ArrangementViewer track rows aren't invalidated on every parent render
+// Wrapper that creates refs for playback state so ArrangementViewer never re-renders during playback
 const MemoizedArrangement: React.FC<{
     track: Track;
     player: any;
@@ -74,12 +74,17 @@ const MemoizedArrangement: React.FC<{
         Object.fromEntries((track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])),
         [track.samples]
     );
+    const currentTimeRef = useRef(0);
+    const isPlayingRef = useRef(false);
+    // Update refs silently — no child re-renders
+    currentTimeRef.current = player.currentTrack?.id === track.id ? player.currentTime : 0;
+    isPlayingRef.current = isPlaying && player.currentTrack?.id === track.id;
     return (
         <ArrangementViewer
             arrangement={track.arrangement!}
             duration={track.duration}
-            currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
-            isPlaying={isPlaying}
+            currentTimeRef={currentTimeRef}
+            isPlayingRef={isPlayingRef}
             projectFileUrl={track.projectFileUrl}
             projectZipUrl={track.projectZipUrl}
             trackId={track.id}

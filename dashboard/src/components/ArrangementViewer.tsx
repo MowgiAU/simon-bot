@@ -2,7 +2,7 @@
  * Shared FLP Arrangement Viewer components.
  * Used by both TrackPage and BattleEntryPage.
  */
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback } from 'react';
 import { colors, borderRadius } from '../theme/theme';
 import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers } from 'lucide-react';
 
@@ -69,23 +69,26 @@ const keyToName = (k: number) => `${NOTE_NAMES[k % 12]}${Math.floor(k / 12) - 2}
 
 export const MiniPianoRoll = React.memo<{ notes: NoteData[]; clipLength: number; color: string }>(({ notes, clipLength, color }) => {
     if (!notes.length) return null;
-    // Downsample dense patterns — cap SVG elements for mini preview performance
-    const MAX_NOTES = 200;
+    // Downsample dense patterns — cap for mini preview performance
+    const MAX_NOTES = 80;
     const displayNotes = notes.length > MAX_NOTES
         ? notes.filter((_, i) => i % Math.ceil(notes.length / MAX_NOTES) === 0)
         : notes;
-    const keys = notes.map(n => n.key);
+    const keys = displayNotes.map(n => n.key);
     const minKey = Math.min(...keys);
     const maxKey = Math.max(...keys);
     const keyRange = Math.max(maxKey - minKey, 1);
+    // Single <path> instead of individual <rect> elements — massive DOM reduction
+    const pathData = displayNotes.map(note => {
+        const x = note.position;
+        const y = maxKey - note.key;
+        const w = Math.max(note.length, clipLength * 0.008);
+        return `M${x} ${y}h${w}v0.7h${-w}Z`;
+    }).join('');
     return (
         <svg viewBox={`0 0 ${clipLength} ${keyRange + 1}`} preserveAspectRatio="none"
             style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.85 }}>
-            {displayNotes.map((note, i) => (
-                <rect key={i} x={note.position} y={maxKey - note.key}
-                    width={Math.max(note.length, clipLength * 0.008)} height={0.7}
-                    fill={color} opacity={0.5 + (note.velocity / 128) * 0.5} rx={0.1} />
-            ))}
+            <path d={pathData} fill={color} opacity={0.7} />
         </svg>
     );
 });
@@ -127,31 +130,36 @@ export const MiniWaveform = React.memo<{ color: string; clipId: number | string;
     if (peaks && peaks.length > 0) {
         const bars = 60;
         const step = peaks.length / bars;
+        // Single <path> instead of individual <rect> elements
+        let pathData = '';
+        for (let i = 0; i < bars; i++) {
+            const start = Math.floor(i * step);
+            const end = Math.min(Math.ceil((i + 1) * step), peaks.length);
+            let sum = 0;
+            for (let j = start; j < end; j++) sum += peaks[j];
+            const amp = sum / (end - start);
+            const h = Math.max(amp * 18, 1);
+            pathData += `M${i} ${10 - h / 2}h0.7v${h}h-0.7Z`;
+        }
         return (
             <svg viewBox={`0 0 ${bars} 20`} preserveAspectRatio="none"
                 style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.75 }}>
-                {Array.from({ length: bars }, (_, i) => {
-                    const start = Math.floor(i * step);
-                    const end = Math.min(Math.ceil((i + 1) * step), peaks.length);
-                    let sum = 0;
-                    for (let j = start; j < end; j++) sum += peaks[j];
-                    const amp = sum / (end - start);
-                    const h = Math.max(amp * 18, 1);
-                    return <rect key={i} x={i} y={10 - h / 2} width={0.7} height={h} fill={color} opacity={0.8} />;
-                })}
+                <path d={pathData} fill={color} opacity={0.8} />
             </svg>
         );
     }
     const bars = 48;
     const seed = typeof clipId === 'string' ? clipId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : clipId;
+    let pathData = '';
+    for (let i = 0; i < bars; i++) {
+        const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) * (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
+        const h = Math.max(amp * 18, 1);
+        pathData += `M${i} ${10 - h / 2}h0.7v${h}h-0.7Z`;
+    }
     return (
         <svg viewBox={`0 0 ${bars} 20`} preserveAspectRatio="none"
             style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.6 }}>
-            {Array.from({ length: bars }, (_, i) => {
-                const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) * (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
-                const h = Math.max(amp * 18, 1);
-                return <rect key={i} x={i} y={10 - h / 2} width={0.7} height={h} fill={color} opacity={0.7} />;
-            })}
+            <path d={pathData} fill={color} opacity={0.7} />
         </svg>
     );
 });
@@ -347,16 +355,18 @@ const EMPTY_SAMPLES_MAP: Record<string, number[]> = {};
 export const ArrangementViewer: React.FC<{
     arrangement: ArrangementData;
     duration: number;
-    currentTime: number;
-    isPlaying: boolean;
+    currentTimeRef: React.MutableRefObject<number>;
+    isPlayingRef: React.MutableRefObject<boolean>;
     projectFileUrl: string | null;
     projectZipUrl?: string | null;
     trackId?: string;
     zoom: number;
     setZoom: (v: number) => void;
     samplesMap?: Record<string, number[]>;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
+}> = React.memo(({ arrangement, duration, currentTimeRef, isPlayingRef, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
+    const playheadRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Memoize heavy arrangement computations — only recompute when arrangement data changes
     const { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats } = useMemo(() => {
@@ -374,13 +384,44 @@ export const ArrangementViewer: React.FC<{
         return { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats };
     }, [arrangement]);
 
-    // Playhead — cheap to recompute on every currentTime tick
-    const beatsPerSec = bpm / 60;
-    const playheadBeat = duration > 0 && spanBeats > 0
-        ? startBeat + (currentTime / duration) * spanBeats
-        : currentTime * beatsPerSec;
-    const playheadPct = totalBeats > 0 ? (playheadBeat / totalBeats) * 100 : 0;
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+    // rAF-based playhead — updates DOM directly, no React re-renders during playback
+    useEffect(() => {
+        let animFrame: number;
+        const beatsPerSec = bpm / 60;
+        const update = () => {
+            const currentTime = currentTimeRef.current;
+            const isPlaying = isPlayingRef.current;
+            const playheadBeat = duration > 0 && spanBeats > 0
+                ? startBeat + (currentTime / duration) * spanBeats
+                : currentTime * beatsPerSec;
+            const pct = totalBeats > 0 ? (playheadBeat / totalBeats) * 100 : 0;
+
+            if (playheadRef.current) {
+                if (pct > 0) {
+                    playheadRef.current.style.display = '';
+                    playheadRef.current.style.left = `calc(140px + (100% - 140px) * ${pct / 100})`;
+                } else {
+                    playheadRef.current.style.display = 'none';
+                }
+            }
+
+            // Auto-scroll during playback at zoom > 1
+            if (isPlaying && scrollContainerRef.current && zoom > 1) {
+                const container = scrollContainerRef.current;
+                const timelineW = container.scrollWidth - 140;
+                const playheadX = (pct / 100) * timelineW + 140;
+                const viewportW = container.clientWidth;
+                if (container.scrollWidth > viewportW + 10) {
+                    const maxScroll = container.scrollWidth - viewportW;
+                    container.scrollLeft = Math.max(0, Math.min(playheadX - viewportW / 2, maxScroll));
+                }
+            }
+
+            animFrame = requestAnimationFrame(update);
+        };
+        animFrame = requestAnimationFrame(update);
+        return () => cancelAnimationFrame(animFrame);
+    }, [bpm, duration, startBeat, spanBeats, totalBeats, zoom, currentTimeRef, isPlayingRef]);
 
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -395,19 +436,6 @@ export const ArrangementViewer: React.FC<{
         container.addEventListener('wheel', handleWheel, { passive: false });
         return () => container.removeEventListener('wheel', handleWheel);
     }, [setZoom, zoom]);
-
-    useEffect(() => {
-        if (isPlaying && scrollContainerRef.current && zoom > 1) {
-            const container = scrollContainerRef.current;
-            const timelineContainerWidth = container.scrollWidth - 140;
-            const playheadX = (playheadPct / 100) * timelineContainerWidth + 140;
-            const viewportWidth = container.clientWidth;
-            if (container.scrollWidth > viewportWidth + 10) {
-                const maxScroll = container.scrollWidth - viewportWidth;
-                container.scrollLeft = Math.max(0, Math.min(playheadX - viewportWidth / 2, maxScroll));
-            }
-        }
-    }, [playheadPct, isPlaying, zoom]);
 
     const timelineWidth = `${100 * zoom}%`;
 
@@ -459,7 +487,7 @@ export const ArrangementViewer: React.FC<{
                             return (
                                 <div key={clip.id} title={clip.name}
                                     onClick={isClickable ? (e) => { e.stopPropagation(); setSelectedClip({ clip, color: trackColor }); } : undefined}
-                                    style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: '100%', backgroundColor: trackColor + (isMuted ? '20' : '40'), borderRadius: '3px', border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default' }}>
+                                    style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: '100%', backgroundColor: trackColor + (isMuted ? '20' : '40'), borderRadius: '3px', border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default', contain: 'layout style paint' }}>
                                     <div style={{ position: 'absolute', top: '1px', left: '3px', fontSize: '0.55rem', color: trackColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 6px)', lineHeight: 1, fontWeight: 600, opacity: 0.9 }}>
                                         {clip.name}
                                     </div>
@@ -519,10 +547,8 @@ export const ArrangementViewer: React.FC<{
                     </div>
                     {/* Track rows */}
                     {trackRows}
-                    {/* Playhead */}
-                    {playheadPct > 0 && (
-                        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${playheadPct / 100})`, width: '2px', backgroundColor: '#fff', opacity: 0.8, pointerEvents: 'none', zIndex: 10, transition: 'left 0.25s linear' }} />
-                    )}
+                    {/* Playhead — positioned via rAF, no React re-renders */}
+                    <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: '#fff', opacity: 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
                     {/* Timeline markers */}
                     {markerElements}
                 </div>
@@ -537,7 +563,7 @@ export const ArrangementViewer: React.FC<{
             )}
         </div>
     );
-};
+});
 
 // ── ProjectInfoPanel ──────────────────────────────────────────────────────────
 

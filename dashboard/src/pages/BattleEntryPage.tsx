@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -98,6 +98,8 @@ export const BattleEntryPage: React.FC = () => {
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
     const [zoom, setZoom] = useState(1);
     const [expandedSamples, setExpandedSamples] = useState(false);
+    const currentTimeRef = useRef(0);
+    const isPlayingRef = useRef(false);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -157,6 +159,9 @@ export const BattleEntryPage: React.FC = () => {
     const downloadAudioUrl = t ? t.url : audioUrl;
 
     const isPlaying = player.currentTrack?.id === entry?.id && player.isPlaying;
+    // Update refs silently for ArrangementViewer — no child re-renders
+    currentTimeRef.current = player.currentTrack?.id === entry?.id ? (player as any).currentTime ?? 0 : 0;
+    isPlayingRef.current = isPlaying;
 
     const handlePlay = () => {
         if (!entry) return;
@@ -522,8 +527,8 @@ export const BattleEntryPage: React.FC = () => {
                                 <ArrangementViewer
                                     arrangement={arrangement}
                                     duration={duration}
-                                    currentTime={player.currentTrack?.id === entry.id ? (player as any).currentTime ?? 0 : 0}
-                                    isPlaying={isPlaying}
+                                    currentTimeRef={currentTimeRef}
+                                    isPlayingRef={isPlayingRef}
                                     projectFileUrl={projectFileUrl}
                                     projectZipUrl={projectZipUrl}
                                     trackId={t?.id}
