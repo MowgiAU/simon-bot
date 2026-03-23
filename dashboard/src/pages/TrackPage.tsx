@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState, useMemo } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -61,6 +61,34 @@ interface Track {
         }
     }>;
 }
+
+// Wrapper that memoizes samplesMap so ArrangementViewer track rows aren't invalidated on every parent render
+const MemoizedArrangement: React.FC<{
+    track: Track;
+    player: any;
+    isPlaying: boolean;
+    zoom: number;
+    setZoom: (v: number) => void;
+}> = React.memo(({ track, player, isPlaying, zoom, setZoom }) => {
+    const samplesMap = useMemo(() =>
+        Object.fromEntries((track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])),
+        [track.samples]
+    );
+    return (
+        <ArrangementViewer
+            arrangement={track.arrangement!}
+            duration={track.duration}
+            currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
+            isPlaying={isPlaying}
+            projectFileUrl={track.projectFileUrl}
+            projectZipUrl={track.projectZipUrl}
+            trackId={track.id}
+            zoom={zoom}
+            setZoom={setZoom}
+            samplesMap={samplesMap}
+        />
+    );
+});
 
 export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
@@ -544,19 +572,12 @@ export const TrackPage: React.FC = () => {
                         {/* Arrangement timeline */}
                         {track.arrangement.tracks.some(t => t.clips.length > 0) && (
                             <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
-                                <ArrangementViewer
-                                    arrangement={track.arrangement}
-                                    duration={track.duration}
-                                    currentTime={player.currentTrack?.id === track.id ? player.currentTime : 0}
+                                <MemoizedArrangement
+                                    track={track}
+                                    player={player}
                                     isPlaying={isPlaying}
-                                    projectFileUrl={track.projectFileUrl}
-                                    projectZipUrl={track.projectZipUrl}
-                                    trackId={track.id}
                                     zoom={zoom}
                                     setZoom={setZoom}
-                                    samplesMap={Object.fromEntries(
-                                        (track.samples ?? []).map(s => [s.originalFilename.toLowerCase(), s.peaks])
-                                    )}
                                 />
                             </div>
                         )}

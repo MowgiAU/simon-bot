@@ -2,7 +2,7 @@
  * Shared FLP Arrangement Viewer components.
  * Used by both TrackPage and BattleEntryPage.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { colors, borderRadius } from '../theme/theme';
 import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers } from 'lucide-react';
 
@@ -67,8 +67,13 @@ const keyToName = (k: number) => `${NOTE_NAMES[k % 12]}${Math.floor(k / 12) - 2}
 
 // ── MiniPianoRoll ─────────────────────────────────────────────────────────────
 
-export const MiniPianoRoll: React.FC<{ notes: NoteData[]; clipLength: number; color: string }> = ({ notes, clipLength, color }) => {
+export const MiniPianoRoll = React.memo<{ notes: NoteData[]; clipLength: number; color: string }>(({ notes, clipLength, color }) => {
     if (!notes.length) return null;
+    // Downsample dense patterns — cap SVG elements for mini preview performance
+    const MAX_NOTES = 200;
+    const displayNotes = notes.length > MAX_NOTES
+        ? notes.filter((_, i) => i % Math.ceil(notes.length / MAX_NOTES) === 0)
+        : notes;
     const keys = notes.map(n => n.key);
     const minKey = Math.min(...keys);
     const maxKey = Math.max(...keys);
@@ -76,18 +81,18 @@ export const MiniPianoRoll: React.FC<{ notes: NoteData[]; clipLength: number; co
     return (
         <svg viewBox={`0 0 ${clipLength} ${keyRange + 1}`} preserveAspectRatio="none"
             style={{ position: 'absolute', top: '8px', left: 0, width: '100%', height: 'calc(100% - 9px)', opacity: 0.85 }}>
-            {notes.map((note, i) => (
+            {displayNotes.map((note, i) => (
                 <rect key={i} x={note.position} y={maxKey - note.key}
                     width={Math.max(note.length, clipLength * 0.008)} height={0.7}
                     fill={color} opacity={0.5 + (note.velocity / 128) * 0.5} rx={0.1} />
             ))}
         </svg>
     );
-};
+});
 
 // ── MiniAutomation ────────────────────────────────────────────────────────────
 
-export const MiniAutomation: React.FC<{ points: AutomationPoint[]; color: string }> = ({ points, color }) => {
+export const MiniAutomation = React.memo<{ points: AutomationPoint[]; color: string }>(({ points, color }) => {
     if (points.length < 2) return null;
     const w = 100, h = 20, pad = 0.5;
     const toX = (p: number) => pad + p * (w - pad * 2);
@@ -114,11 +119,11 @@ export const MiniAutomation: React.FC<{ points: AutomationPoint[]; color: string
             <path d={path} stroke={color} fill="none" strokeWidth={0.8} opacity={0.9} />
         </svg>
     );
-};
+});
 
 // ── MiniWaveform ──────────────────────────────────────────────────────────────
 
-export const MiniWaveform: React.FC<{ color: string; clipId: number | string; peaks?: number[] }> = ({ color, clipId, peaks }) => {
+export const MiniWaveform = React.memo<{ color: string; clipId: number | string; peaks?: number[] }>(({ color, clipId, peaks }) => {
     if (peaks && peaks.length > 0) {
         const bars = 60;
         const step = peaks.length / bars;
@@ -149,7 +154,7 @@ export const MiniWaveform: React.FC<{ color: string; clipId: number | string; pe
             })}
         </svg>
     );
-};
+});
 
 // ── PianoRollModal ────────────────────────────────────────────────────────────
 
@@ -337,6 +342,8 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
 
 // ── ArrangementViewer ─────────────────────────────────────────────────────────
 
+const EMPTY_SAMPLES_MAP: Record<string, number[]> = {};
+
 export const ArrangementViewer: React.FC<{
     arrangement: ArrangementData;
     duration: number;
@@ -348,21 +355,27 @@ export const ArrangementViewer: React.FC<{
     zoom: number;
     setZoom: (v: number) => void;
     samplesMap?: Record<string, number[]>;
-}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = {} }) => {
+}> = ({ arrangement, duration, currentTime, isPlaying, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
-    const lastClipEnd = arrangement.tracks.reduce((max, t) => {
-        const trackMax = t.clips.reduce((tm, c) => Math.max(tm, c.start + c.length), 0);
-        return Math.max(max, trackMax);
-    }, 0);
-    const totalBeats = lastClipEnd > 0 ? lastClipEnd : 32;
-    const activeTracks = arrangement.tracks;
-    const markers = arrangement.markers ?? [];
-    const trackById = new Map(activeTracks.map(t => [t.id, t]));
-    const bpm = arrangement.bpm || 140;
+
+    // Memoize heavy arrangement computations — only recompute when arrangement data changes
+    const { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats } = useMemo(() => {
+        const lastClipEnd = arrangement.tracks.reduce((max, t) => {
+            const trackMax = t.clips.reduce((tm, c) => Math.max(tm, c.start + c.length), 0);
+            return Math.max(max, trackMax);
+        }, 0);
+        const totalBeats = lastClipEnd > 0 ? lastClipEnd : 32;
+        const activeTracks = arrangement.tracks;
+        const markers = arrangement.markers ?? [];
+        const bpm = arrangement.bpm || 140;
+        const minClipStart = activeTracks.reduce((min, t) => t.clips.reduce((tm, c) => Math.min(tm, c.start), min), Infinity);
+        const startBeat = isFinite(minClipStart) ? minClipStart : 0;
+        const spanBeats = totalBeats - startBeat;
+        return { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats };
+    }, [arrangement]);
+
+    // Playhead — cheap to recompute on every currentTime tick
     const beatsPerSec = bpm / 60;
-    const minClipStart = activeTracks.reduce((min, t) => t.clips.reduce((tm, c) => Math.min(tm, c.start), min), Infinity);
-    const startBeat = isFinite(minClipStart) ? minClipStart : 0;
-    const spanBeats = totalBeats - startBeat;
     const playheadBeat = duration > 0 && spanBeats > 0
         ? startBeat + (currentTime / duration) * spanBeats
         : currentTime * beatsPerSec;
@@ -398,6 +411,88 @@ export const ArrangementViewer: React.FC<{
 
     const timelineWidth = `${100 * zoom}%`;
 
+    // Memoize beat ruler — only changes with zoom or total beat count
+    const beatRuler = useMemo(() => {
+        const barStep = zoom < 0.3 ? 40 : zoom < 0.6 ? 20 : zoom < 1.5 ? 10 : zoom < 3 ? 4 : zoom < 5 ? 2 : 1;
+        const totalBars = Math.ceil(totalBeats / 4);
+        const items = [];
+        for (let bar = 1; bar <= totalBars; bar += barStep) {
+            items.push(
+                <div key={bar} style={{ position: 'absolute', left: `${((bar - 1) * 4 / totalBeats) * 100}%`, fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '4px', paddingBottom: '4px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
+                    {bar}
+                </div>
+            );
+        }
+        return <div style={{ position: 'relative', width: '100%', height: '1.2rem' }}>{items}</div>;
+    }, [zoom, totalBeats]);
+
+    // Memoize track rows — the CRITICAL optimisation.
+    // This is the most expensive part of the render: many clips × SVG sub-components.
+    // Without this, every playhead tick (~4×/sec) re-renders ALL clip SVGs.
+    const trackRows = useMemo(() => {
+        const trackById = new Map(activeTracks.map(t => [t.id, t]));
+        return activeTracks.map((t, ti) => {
+            const isMuted = t.enabled === false;
+            const isEmpty = t.clips.length === 0;
+            let depth = 0, current = t;
+            const seen = new Set<number>();
+            while ((current.group ?? 0) > 0) {
+                if (seen.has(current.id)) break;
+                seen.add(current.id);
+                depth++;
+                const parent = trackById.get(current.group! - 1);
+                if (!parent) break;
+                current = parent;
+            }
+            const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
+            const indentPx = depth * 12;
+            return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '24px' : '36px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
+                    <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: '#0d1117', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                        {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
+                        {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
+                    </div>
+                    <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
+                        {t.clips.map((clip) => {
+                            const isClickable = (clip.type === 'pattern' && clip.notes && clip.notes.length > 0) || clip.type === 'audio';
+                            return (
+                                <div key={clip.id} title={clip.name}
+                                    onClick={isClickable ? (e) => { e.stopPropagation(); setSelectedClip({ clip, color: trackColor }); } : undefined}
+                                    style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: '100%', backgroundColor: trackColor + (isMuted ? '20' : '40'), borderRadius: '3px', border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default' }}>
+                                    <div style={{ position: 'absolute', top: '1px', left: '3px', fontSize: '0.55rem', color: trackColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 6px)', lineHeight: 1, fontWeight: 600, opacity: 0.9 }}>
+                                        {clip.name}
+                                    </div>
+                                    {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
+                                        <MiniPianoRoll notes={clip.notes} clipLength={clip.length} color={trackColor} />
+                                    )}
+                                    {clip.type === 'automation' && clip.automationPoints && clip.automationPoints.length > 0 && (
+                                        <MiniAutomation points={clip.automationPoints} color={trackColor} />
+                                    )}
+                                    {clip.type === 'audio' && (
+                                        <MiniWaveform color={trackColor} clipId={clip.id}
+                                            peaks={clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined} />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        });
+    }, [activeTracks, totalBeats, samplesMap]);
+
+    // Memoize timeline markers
+    const markerElements = useMemo(() => markers.map((marker, mi) => {
+        const pct = (marker.position / totalBeats) * 100;
+        return (
+            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.7, pointerEvents: 'none', zIndex: 8 }}>
+                <div style={{ position: 'absolute', top: '6px', left: '-4px', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #f59e0b' }} />
+                <div style={{ position: 'absolute', top: '2px', left: '6px', fontSize: '0.6rem', color: '#f59e0b', whiteSpace: 'nowrap', fontWeight: 600, pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)', letterSpacing: '0.02em', backgroundColor: 'rgba(13,17,23,0.85)', padding: '1px 4px', borderRadius: '2px' }}>{marker.name}</div>
+            </div>
+        );
+    }), [markers, totalBeats]);
+
     return (
         <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
@@ -420,84 +515,16 @@ export const ArrangementViewer: React.FC<{
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
-                        {(() => {
-                            let barStep = zoom < 0.3 ? 40 : zoom < 0.6 ? 20 : zoom < 1.5 ? 10 : zoom < 3 ? 4 : zoom < 5 ? 2 : 1;
-                            const totalBars = Math.ceil(totalBeats / 4);
-                            const items = [];
-                            for (let bar = 1; bar <= totalBars; bar += barStep) {
-                                items.push(
-                                    <div key={bar} style={{ position: 'absolute', left: `${((bar - 1) * 4 / totalBeats) * 100}%`, fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '4px', paddingBottom: '4px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
-                                        {bar}
-                                    </div>
-                                );
-                            }
-                            return <div style={{ position: 'relative', width: '100%', height: '1.2rem' }}>{items}</div>;
-                        })()}
+                        {beatRuler}
                     </div>
                     {/* Track rows */}
-                    {activeTracks.map((t, ti) => {
-                        const isMuted = t.enabled === false;
-                        const isEmpty = t.clips.length === 0;
-                        let depth = 0, current = t;
-                        const seen = new Set<number>();
-                        while ((current.group ?? 0) > 0) {
-                            if (seen.has(current.id)) break;
-                            seen.add(current.id);
-                            depth++;
-                            const parent = trackById.get(current.group! - 1);
-                            if (!parent) break;
-                            current = parent;
-                        }
-                        const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
-                        const indentPx = depth * 12;
-                        return (
-                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '24px' : '36px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
-                                <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: '#0d1117', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                    {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
-                                    {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
-                                </div>
-                                <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
-                                    {t.clips.map((clip) => {
-                                        const isClickable = (clip.type === 'pattern' && clip.notes && clip.notes.length > 0) || clip.type === 'audio';
-                                        return (
-                                            <div key={clip.id} title={clip.name}
-                                                onClick={isClickable ? (e) => { e.stopPropagation(); setSelectedClip({ clip, color: trackColor }); } : undefined}
-                                                style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: '100%', backgroundColor: trackColor + (isMuted ? '20' : '40'), borderRadius: '3px', border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default' }}>
-                                                <div style={{ position: 'absolute', top: '1px', left: '3px', fontSize: '0.55rem', color: trackColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 6px)', lineHeight: 1, fontWeight: 600, opacity: 0.9 }}>
-                                                    {clip.name}
-                                                </div>
-                                                {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
-                                                    <MiniPianoRoll notes={clip.notes} clipLength={clip.length} color={trackColor} />
-                                                )}
-                                                {clip.type === 'automation' && clip.automationPoints && clip.automationPoints.length > 0 && (
-                                                    <MiniAutomation points={clip.automationPoints} color={trackColor} />
-                                                )}
-                                                {clip.type === 'audio' && (
-                                                    <MiniWaveform color={trackColor} clipId={clip.id}
-                                                        peaks={clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined} />
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {trackRows}
                     {/* Playhead */}
                     {playheadPct > 0 && (
                         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${playheadPct / 100})`, width: '2px', backgroundColor: '#fff', opacity: 0.8, pointerEvents: 'none', zIndex: 10, transition: 'left 0.25s linear' }} />
                     )}
                     {/* Timeline markers */}
-                    {markers.map((marker, mi) => {
-                        const pct = (marker.position / totalBeats) * 100;
-                        return (
-                            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.7, pointerEvents: 'none', zIndex: 8 }}>
-                                <div style={{ position: 'absolute', top: '6px', left: '-4px', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #f59e0b' }} />
-                                <div style={{ position: 'absolute', top: '2px', left: '6px', fontSize: '0.6rem', color: '#f59e0b', whiteSpace: 'nowrap', fontWeight: 600, pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)', letterSpacing: '0.02em', backgroundColor: 'rgba(13,17,23,0.85)', padding: '1px 4px', borderRadius: '2px' }}>{marker.name}</div>
-                            </div>
-                        );
-                    })}
+                    {markerElements}
                 </div>
             </div>
             {selectedClip && selectedClip.clip.type === 'pattern' && selectedClip.clip.notes && selectedClip.clip.notes.length > 0 && (
