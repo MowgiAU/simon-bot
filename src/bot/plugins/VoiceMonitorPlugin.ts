@@ -192,6 +192,8 @@ export class VoiceMonitorPlugin implements IPlugin {
         // If no active session, create one and join the channel
         if (!session) {
             try {
+                this.logger.info(`[VoiceMonitor] Attempting to join voice channel ${channelId} in guild ${guildId}...`);
+                
                 const connection = joinVoiceChannel({
                     channelId,
                     guildId,
@@ -200,7 +202,30 @@ export class VoiceMonitorPlugin implements IPlugin {
                     selfMute: true,
                 });
 
-                await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
+                // Listen for state changes to debug connection issues
+                connection.on('stateChange', (oldState, newState) => {
+                    this.logger.info(`[VoiceMonitor] Connection state change: ${oldState.status} -> ${newState.status}`);
+                });
+
+                connection.on('error', (error) => {
+                    this.logger.error(`[VoiceMonitor] Voice connection error in channel ${channelId}`, error);
+                });
+
+                // Wait for Ready state with a longer timeout (30s)
+                try {
+                    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+                } catch (readyErr) {
+                    // If it's signalling, try waiting for it to become ready after signalling
+                    this.logger.warn(`[VoiceMonitor] Initial ready wait failed, current status: ${connection.state.status}. Retrying...`);
+                    if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
+                        connection.rejoin();
+                        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+                    } else {
+                        throw readyErr;
+                    }
+                }
+
+                this.logger.info(`[VoiceMonitor] Successfully connected to voice channel ${channelId}`);
 
                 // Create DB session
                 const dbSession = await this.context.db.voiceSession.create({
