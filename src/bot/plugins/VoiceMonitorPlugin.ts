@@ -69,6 +69,7 @@ export class VoiceMonitorPlugin implements IPlugin {
     private logger: Logger;
     private activeSessions: Map<string, ActiveSession> = new Map(); // channelId -> session
     private purgeInterval: ReturnType<typeof setInterval> | null = null;
+    private flushInterval: ReturnType<typeof setInterval> | null = null;
     private tmpDir: string;
 
     constructor() {
@@ -90,6 +91,9 @@ export class VoiceMonitorPlugin implements IPlugin {
         // Start retention purge cron (every hour)
         this.purgeInterval = setInterval(() => this.purgeExpiredSegments(), 60 * 60 * 1000);
 
+        // Flush active recordings every 5 minutes to prevent data loss on crash
+        this.flushInterval = setInterval(() => this.flushActiveRecordings(), 5 * 60 * 1000);
+
         // Close any orphaned sessions from DB (bot crashed while recording)
         await this.closeOrphanedSessions();
 
@@ -103,6 +107,11 @@ export class VoiceMonitorPlugin implements IPlugin {
         if (this.purgeInterval) {
             clearInterval(this.purgeInterval);
             this.purgeInterval = null;
+        }
+
+        if (this.flushInterval) {
+            clearInterval(this.flushInterval);
+            this.flushInterval = null;
         }
 
         // Stop all active recordings
@@ -438,6 +447,37 @@ export class VoiceMonitorPlugin implements IPlugin {
         });
 
         this.logger.info(`Started recording user ${userName} (${userId}) in session ${session.sessionId}`);
+    }
+
+    /**
+     * Cycle all active recordings: save current file as a segment and restart recording.
+     * Called every 5 minutes to prevent data loss on crash.
+     */
+    private async flushActiveRecordings(): Promise<void> {
+        for (const session of this.activeSessions.values()) {
+            const userIds = [...session.recordings.keys()];
+            if (userIds.length === 0) continue;
+            this.logger.info(`[VoiceMonitor] Flushing ${userIds.length} recording(s) for session ${session.sessionId}`);
+            for (const userId of userIds) {
+                try {
+                    // Find the guild member to restart recording
+                    const channel = session.connection.joinConfig.channelId;
+                    const guild = session.connection.joinConfig.guildId;
+                    // Save current segment
+                    await this.stopUserRecording(session, userId);
+                    // Restart recording if user is still in the channel
+                    const voiceChannel = session.connection.receiver.speaking;
+                    // Re-subscribe: look up member from guild cache
+                    const guildObj = this.context?.client?.guilds?.cache?.get(guild);
+                    const member = guildObj?.members?.cache?.get(userId);
+                    if (member && member.voice?.channelId === channel) {
+                        await this.startUserRecording(session, member);
+                    }
+                } catch (err) {
+                    this.logger.error(`[VoiceMonitor] Flush failed for user ${userId}`, err);
+                }
+            }
+        }
     }
 
     private async stopUserRecording(session: ActiveSession, userId: string): Promise<void> {
