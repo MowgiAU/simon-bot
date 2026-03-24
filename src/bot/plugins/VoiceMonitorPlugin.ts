@@ -273,8 +273,6 @@ export class VoiceMonitorPlugin implements IPlugin {
 
     /**
      * Create a voice connection with retry logic and proper state management.
-     * Handles the common @discordjs/voice issue where the voice gateway closes
-     * the WebSocket during the initial handshake (code 4006 session invalid).
      */
     private async createVoiceConnection(channelId: string, guildId: string, state: VoiceState): Promise<VoiceConnection> {
         const maxAttempts = 3;
@@ -287,7 +285,7 @@ export class VoiceMonitorPlugin implements IPlugin {
             if (existing) {
                 this.logger.info(`[VoiceMonitor] Destroying existing connection for guild ${guildId}`);
                 existing.destroy();
-                await new Promise(r => setTimeout(r, 1000)); // Wait for cleanup
+                await new Promise(r => setTimeout(r, 1000));
             }
 
             const connection = joinVoiceChannel({
@@ -298,16 +296,60 @@ export class VoiceMonitorPlugin implements IPlugin {
                 selfMute: true,
             });
 
-            // Log state transitions with close code details
+            // Deep hook into networking to capture raw WS close code and messages
+            const hookNetworking = (networking: any) => {
+                if (networking._voiceMonitorHooked) return;
+                networking._voiceMonitorHooked = true;
+
+                networking.on('stateChange', (_oldNS: any, newNS: any) => {
+                    this.logger.info(`[VoiceMonitor] Networking state code: ${newNS.code}`);
+
+                    // Hook the raw WebSocket when it appears in the state
+                    if (newNS.ws && !newNS.ws._vmHooked) {
+                        newNS.ws._vmHooked = true;
+                        const ws = newNS.ws;
+
+                        // Intercept onmessage to log all voice opcodes
+                        const origOnMessage = ws.onmessage;
+                        ws.onmessage = (event: any) => {
+                            try {
+                                const data = JSON.parse(event.data);
+                                this.logger.info(`[VoiceMonitor] Voice WS recv: op=${data.op} d=${JSON.stringify(data.d)?.substring(0, 300)}`);
+                            } catch {}
+                            if (origOnMessage) origOnMessage.call(ws, event);
+                        };
+
+                        // Intercept onclose to get Discord's actual close code
+                        const origOnClose = ws.onclose;
+                        ws.onclose = (event: any) => {
+                            this.logger.warn(`[VoiceMonitor] Voice WS CLOSE: code=${event?.code}, reason=${event?.reason}, wasClean=${event?.wasClean}`);
+                            if (origOnClose) origOnClose.call(ws, event);
+                        };
+
+                        // Intercept onerror
+                        const origOnError = ws.onerror;
+                        ws.onerror = (event: any) => {
+                            this.logger.error(`[VoiceMonitor] Voice WS ERROR: ${event?.message || event?.error || 'unknown'}`);
+                            if (origOnError) origOnError.call(ws, event);
+                        };
+                    }
+                });
+
+                // Hook initial state WS if already present
+                const ws = networking.state?.ws;
+                if (ws && !ws._vmHooked) {
+                    ws._vmHooked = true;
+                    const origOnClose = ws.onclose;
+                    ws.onclose = (event: any) => {
+                        this.logger.warn(`[VoiceMonitor] Voice WS CLOSE (init): code=${event?.code}, reason=${event?.reason}`);
+                        if (origOnClose) origOnClose.call(ws, event);
+                    };
+                }
+            };
+
             connection.on('stateChange', (oldS: any, newS: any) => {
                 this.logger.info(`[VoiceMonitor] Connection state: ${oldS.status} -> ${newS.status}`);
-                // Log close codes when transitioning back to signalling (voice WS closed)
-                if (newS.status === 'signalling' && oldS.status === 'connecting') {
-                    const networking = oldS.networking;
-                    if (networking?.state) {
-                        this.logger.warn(`[VoiceMonitor] Voice WS closed during connecting. Networking close code: ${networking.state.code}, reason: ${networking.state.reason || 'none'}`);
-                    }
-                }
+                if (newS.networking) hookNetworking(newS.networking);
             });
 
             connection.on('error', (error) => {
@@ -317,7 +359,7 @@ export class VoiceMonitorPlugin implements IPlugin {
             try {
                 await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
 
-                // Set up disconnect handler for long-term connection health
+                // Set up disconnect handler
                 connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
                     this.logger.warn(`[VoiceMonitor] Connection disconnected in channel ${channelId}`);
                     try {
@@ -334,14 +376,10 @@ export class VoiceMonitorPlugin implements IPlugin {
                 return connection;
             } catch (err) {
                 this.logger.warn(`[VoiceMonitor] Attempt ${attempt} failed, status: ${connection.state.status}`);
-
-                // Destroy the failed connection before retrying
                 if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
                     connection.destroy();
                 }
-
                 if (attempt < maxAttempts) {
-                    // Wait before retrying, increasing delay each attempt
                     const delay = attempt * 2000;
                     this.logger.info(`[VoiceMonitor] Waiting ${delay}ms before retry...`);
                     await new Promise(r => setTimeout(r, delay));
