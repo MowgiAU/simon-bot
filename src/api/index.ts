@@ -690,6 +690,7 @@ const uploadLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    validate: false,
     message: { error: 'Upload limit reached. You can upload up to 5 tracks every 10 minutes. Please wait before trying again.' },
 });
 app.use('/api/auth', authLimiter);
