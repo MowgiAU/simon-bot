@@ -55,6 +55,7 @@ const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => (
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
+const VoiceMonitorPage       = lazy(() => import("./pages/VoiceMonitor").then(m => ({ default: m.VoiceMonitorPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
@@ -89,7 +90,8 @@ type Section =
   | "plugins"
   | "beat-battle"
   | "battle-archive"
-  | "featured-content";
+  | "featured-content"
+  | "voice-monitor";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
   <div style={{ 
@@ -305,6 +307,8 @@ const AdminDashboard: React.FC = () => {
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":
           return <FeaturedContentSettings />;
+        case "voice-monitor":
+          return <VoiceMonitorPage />;
         case "genres-list":
           return <GenresPage />;
         default:

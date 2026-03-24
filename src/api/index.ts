@@ -2239,7 +2239,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor'] 
             };
             if (!req.session.permissionsCache) req.session.permissionsCache = {};
             req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };
@@ -3142,6 +3142,187 @@ app.post('/api/email/settings', async (req, res) => {
     }
     
     await emailService.updateSettings(updates);
+    res.json({ success: true });
+});
+
+// --- Voice Monitor Endpoints ---
+
+// Get Voice Monitor Settings
+app.get('/api/voice-monitor/settings/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const settings = await db.voiceMonitorSettings.findUnique({ where: { guildId } });
+    res.json(settings || { guildId, enabled: false, retentionDays: 30, monitoredChannelIds: [], excludedRoleIds: [], noticeSent: false, noticeChannelId: null });
+});
+
+// Update Voice Monitor Settings
+app.post('/api/voice-monitor/settings/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { enabled, retentionDays, monitoredChannelIds, excludedRoleIds, noticeChannelId } = req.body;
+
+    await db.guild.upsert({
+        where: { id: guildId },
+        update: {},
+        create: { id: guildId, name: 'Unknown' },
+    });
+
+    const settings = await db.voiceMonitorSettings.upsert({
+        where: { guildId },
+        update: {
+            ...(enabled !== undefined && { enabled }),
+            ...(retentionDays !== undefined && { retentionDays }),
+            ...(monitoredChannelIds !== undefined && { monitoredChannelIds }),
+            ...(excludedRoleIds !== undefined && { excludedRoleIds }),
+            ...(noticeChannelId !== undefined && { noticeChannelId }),
+        },
+        create: {
+            guildId,
+            enabled: enabled ?? false,
+            retentionDays: retentionDays ?? 30,
+            monitoredChannelIds: monitoredChannelIds ?? [],
+            excludedRoleIds: excludedRoleIds ?? [],
+            noticeChannelId: noticeChannelId ?? null,
+        },
+    });
+
+    res.json(settings);
+});
+
+// List Voice Sessions
+app.get('/api/voice-monitor/sessions/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+    const [sessions, total] = await Promise.all([
+        db.voiceSession.findMany({
+            where: { guildId },
+            include: {
+                segments: {
+                    select: { id: true, userId: true, userName: true, durationMs: true, fileSize: true, startedAt: true, endedAt: true },
+                },
+                _count: { select: { segments: true, reports: true } },
+            },
+            orderBy: { startedAt: 'desc' },
+            skip: (page - 1) * limit,
+            take: limit,
+        }),
+        db.voiceSession.count({ where: { guildId } }),
+    ]);
+
+    res.json({ sessions, total, page, totalPages: Math.ceil(total / limit) });
+});
+
+// Get session detail with audio URLs
+app.get('/api/voice-monitor/sessions/:guildId/:sessionId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, sessionId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const session = await db.voiceSession.findFirst({
+        where: { id: sessionId, guildId },
+        include: {
+            segments: {
+                orderBy: { startedAt: 'asc' },
+            },
+            reports: {
+                orderBy: { createdAt: 'desc' },
+            },
+        },
+    });
+
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json(session);
+});
+
+// List Voice Reports
+app.get('/api/voice-monitor/reports/:guildId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const status = req.query.status as string;
+    const where: any = { guildId };
+    if (status) where.status = status;
+
+    const reports = await db.voiceReport.findMany({
+        where,
+        include: {
+            session: {
+                select: { id: true, channelName: true, startedAt: true, endedAt: true },
+            },
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(reports);
+});
+
+// Update Voice Report (review/resolve/dismiss)
+app.patch('/api/voice-monitor/reports/:guildId/:reportId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, reportId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { status, notes } = req.body;
+    const updates: any = {};
+    if (status) {
+        updates.status = status;
+        if (status === 'resolved' || status === 'dismissed') {
+            updates.resolvedAt = new Date();
+        }
+    }
+    if (notes !== undefined) updates.notes = notes;
+    updates.reviewedBy = req.session.user.id;
+
+    const report = await db.voiceReport.update({
+        where: { id: reportId },
+        data: updates,
+    });
+
+    res.json(report);
+});
+
+// Delete a voice segment (manual cleanup)
+app.delete('/api/voice-monitor/segments/:guildId/:segmentId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, segmentId } = req.params;
+    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const segment = await db.voiceSegment.findFirst({
+        where: { id: segmentId, session: { guildId } },
+    });
+
+    if (!segment) return res.status(404).json({ error: 'Segment not found' });
+
+    // Delete from R2
+    try {
+        await (await import('../services/R2Storage.js')).R2Storage.deleteObject(segment.r2Key);
+    } catch { /* ok */ }
+
+    await db.voiceSegment.delete({ where: { id: segmentId } });
     res.json({ success: true });
 });
 
