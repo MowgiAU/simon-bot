@@ -198,62 +198,22 @@ export class VoiceMonitorPlugin implements IPlugin {
             try {
                 this.logger.info(`[VoiceMonitor] Attempting to join voice channel ${channelId} in guild ${guildId}...`);
                 
-                const connection = joinVoiceChannel({
-                    channelId,
-                    guildId,
-                    adapterCreator: state.guild.voiceAdapterCreator as any,
-                    selfDeaf: false,
-                    selfMute: true,
-                });
-
-                // Listen for state changes to debug connection issues
-                connection.on('stateChange', (oldState: any, newState: any) => {
-                    this.logger.info(`[VoiceMonitor] Connection state change: ${oldState.status} -> ${newState.status}`);
-                    // Log networking details when available
-                    if (newState.networking) {
-                        const netState = newState.networking.state;
-                        this.logger.info(`[VoiceMonitor] Networking state: ${JSON.stringify({
-                            code: netState?.code,
-                            connectionData: netState?.connectionData ? 'present' : 'missing',
-                            udp: netState?.udp ? 'present' : 'missing',
-                            ws: netState?.ws ? 'present' : 'missing',
-                        })}`);
+                // Log raw gateway events for diagnostics
+                const client = this.context.client as any;
+                const rawHandler = (packet: any) => {
+                    if (packet.t === 'VOICE_SERVER_UPDATE' && packet.d?.guild_id === guildId) {
+                        this.logger.info(`[VoiceMonitor] VOICE_SERVER_UPDATE received: endpoint=${packet.d?.endpoint}, token_present=${!!packet.d?.token}`);
                     }
-                });
-
-                connection.on('error', (error) => {
-                    this.logger.error(`[VoiceMonitor] Voice connection error in channel ${channelId}`, error);
-                });
-
-                // Handle disconnections - attempt reconnection
-                connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
-                    this.logger.warn(`[VoiceMonitor] Voice connection disconnected in channel ${channelId}, attempting reconnect...`);
-                    try {
-                        await Promise.race([
-                            entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-                            entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-                        ]);
-                        // Seems to be reconnecting to a new channel - ignore disconnect
-                    } catch {
-                        // Seems to be a real disconnect - destroy
-                        connection.destroy();
-                        this.activeSessions.delete(channelId);
+                    if (packet.t === 'VOICE_STATE_UPDATE' && packet.d?.guild_id === guildId && packet.d?.user_id === client.user?.id) {
+                        this.logger.info(`[VoiceMonitor] VOICE_STATE_UPDATE (bot): session_id=${packet.d?.session_id}, channel_id=${packet.d?.channel_id}`);
                     }
-                });
+                };
+                client.on('raw', rawHandler);
 
-                // Wait for Ready state with a longer timeout (30s)
-                try {
-                    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-                } catch (readyErr) {
-                    // If it's signalling, try waiting for it to become ready after signalling
-                    this.logger.warn(`[VoiceMonitor] Initial ready wait failed, current status: ${connection.state.status}. Retrying...`);
-                    if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
-                        connection.rejoin();
-                        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-                    } else {
-                        throw readyErr;
-                    }
-                }
+                const connection = await this.createVoiceConnection(channelId, guildId, state);
+
+                // Clean up raw handler after connection established
+                client.removeListener('raw', rawHandler);
 
                 this.logger.info(`[VoiceMonitor] Successfully connected to voice channel ${channelId}`);
 
@@ -279,6 +239,7 @@ export class VoiceMonitorPlugin implements IPlugin {
 
                 this.logger.info(`Started voice session in #${state.channel.name} (${guildId})`);
             } catch (err) {
+                client.removeListener('raw', rawHandler);
                 this.logger.error(`Failed to join voice channel ${channelId}`, err);
                 return;
             }
@@ -309,6 +270,82 @@ export class VoiceMonitorPlugin implements IPlugin {
     }
 
     // ─── Per-User Recording ──────────────────────────────────────────────
+
+    /**
+     * Create a voice connection with retry logic and proper state management.
+     * Handles the common @discordjs/voice issue where the voice gateway closes
+     * the WebSocket during the initial handshake (code 4006 session invalid).
+     */
+    private async createVoiceConnection(channelId: string, guildId: string, state: VoiceState): Promise<VoiceConnection> {
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            this.logger.info(`[VoiceMonitor] Connection attempt ${attempt}/${maxAttempts} for channel ${channelId}`);
+
+            // Destroy any existing connection for this guild to avoid conflicts
+            const existing = getVoiceConnection(guildId);
+            if (existing) {
+                this.logger.info(`[VoiceMonitor] Destroying existing connection for guild ${guildId}`);
+                existing.destroy();
+                await new Promise(r => setTimeout(r, 1000)); // Wait for cleanup
+            }
+
+            const connection = joinVoiceChannel({
+                channelId,
+                guildId,
+                adapterCreator: state.guild.voiceAdapterCreator as any,
+                selfDeaf: false,
+                selfMute: true,
+            });
+
+            // Log state transitions
+            connection.on('stateChange', (oldS: any, newS: any) => {
+                this.logger.info(`[VoiceMonitor] Connection state: ${oldS.status} -> ${newS.status}`);
+            });
+
+            connection.on('error', (error) => {
+                this.logger.error(`[VoiceMonitor] Connection error`, error);
+            });
+
+            try {
+                await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+
+                // Set up disconnect handler for long-term connection health
+                connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
+                    this.logger.warn(`[VoiceMonitor] Connection disconnected in channel ${channelId}`);
+                    try {
+                        await Promise.race([
+                            entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+                            entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+                        ]);
+                    } catch {
+                        connection.destroy();
+                        this.activeSessions.delete(channelId);
+                    }
+                });
+
+                return connection;
+            } catch (err) {
+                this.logger.warn(`[VoiceMonitor] Attempt ${attempt} failed, status: ${connection.state.status}`);
+
+                // Destroy the failed connection before retrying
+                if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
+                    connection.destroy();
+                }
+
+                if (attempt < maxAttempts) {
+                    // Wait before retrying, increasing delay each attempt
+                    const delay = attempt * 2000;
+                    this.logger.info(`[VoiceMonitor] Waiting ${delay}ms before retry...`);
+                    await new Promise(r => setTimeout(r, delay));
+                } else {
+                    throw new Error(`Voice connection failed after ${maxAttempts} attempts`);
+                }
+            }
+        }
+
+        throw new Error('Unreachable');
+    }
 
     private async startUserRecording(session: ActiveSession, member: GuildMember): Promise<void> {
         if (!this.context || session.recordings.has(member.id)) return;
