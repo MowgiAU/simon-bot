@@ -15,6 +15,7 @@ import {
     VoiceConnection,
     EndBehaviorType,
     getVoiceConnection,
+    generateDependencyReport,
 } from '@discordjs/voice';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -91,6 +92,9 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         // Close any orphaned sessions from DB (bot crashed while recording)
         await this.closeOrphanedSessions();
+
+        // Log dependency report for voice diagnostics
+        this.logger.info(`[VoiceMonitor] Dependency Report:\n${generateDependencyReport()}`);
 
         this.logger.info('Voice Monitor plugin initialized');
     }
@@ -203,12 +207,38 @@ export class VoiceMonitorPlugin implements IPlugin {
                 });
 
                 // Listen for state changes to debug connection issues
-                connection.on('stateChange', (oldState, newState) => {
+                connection.on('stateChange', (oldState: any, newState: any) => {
                     this.logger.info(`[VoiceMonitor] Connection state change: ${oldState.status} -> ${newState.status}`);
+                    // Log networking details when available
+                    if (newState.networking) {
+                        const netState = newState.networking.state;
+                        this.logger.info(`[VoiceMonitor] Networking state: ${JSON.stringify({
+                            code: netState?.code,
+                            connectionData: netState?.connectionData ? 'present' : 'missing',
+                            udp: netState?.udp ? 'present' : 'missing',
+                            ws: netState?.ws ? 'present' : 'missing',
+                        })}`);
+                    }
                 });
 
                 connection.on('error', (error) => {
                     this.logger.error(`[VoiceMonitor] Voice connection error in channel ${channelId}`, error);
+                });
+
+                // Handle disconnections - attempt reconnection
+                connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
+                    this.logger.warn(`[VoiceMonitor] Voice connection disconnected in channel ${channelId}, attempting reconnect...`);
+                    try {
+                        await Promise.race([
+                            entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+                            entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+                        ]);
+                        // Seems to be reconnecting to a new channel - ignore disconnect
+                    } catch {
+                        // Seems to be a real disconnect - destroy
+                        connection.destroy();
+                        this.activeSessions.delete(channelId);
+                    }
                 });
 
                 // Wait for Ready state with a longer timeout (30s)
