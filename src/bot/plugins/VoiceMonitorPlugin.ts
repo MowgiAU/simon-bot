@@ -15,7 +15,6 @@ import {
     VoiceConnection,
     EndBehaviorType,
     getVoiceConnection,
-    generateDependencyReport,
 } from '@discordjs/voice';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -97,9 +96,6 @@ export class VoiceMonitorPlugin implements IPlugin {
         // Close any orphaned sessions from DB (bot crashed while recording)
         await this.closeOrphanedSessions();
 
-        // Log dependency report for voice diagnostics
-        this.logger.info(`[VoiceMonitor] Dependency Report:\n${generateDependencyReport()}`);
-
         this.logger.info('Voice Monitor plugin initialized');
     }
 
@@ -125,20 +121,11 @@ export class VoiceMonitorPlugin implements IPlugin {
     // ─── Event Handlers ─────────────────────────────────────────────────
 
     async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
-        this.logger.info(`[VoiceMonitor] onVoiceStateUpdate called: user=${newState.member?.user?.tag} oldChannel=${oldState.channelId} newChannel=${newState.channelId}`);
-        if (!this.context) {
-            this.logger.warn('[VoiceMonitor] No context, skipping');
-            return;
-        }
+        if (!this.context) return;
         const guildId = newState.guild.id;
 
-        // Check if voice monitor is enabled for this guild
         const settings = await this.getSettings(guildId);
-        this.logger.info(`[VoiceMonitor] Settings for guild ${guildId}: ${JSON.stringify(settings ? { enabled: settings.enabled, monitoredChannelIds: settings.monitoredChannelIds } : null)}`);
-        if (!settings?.enabled) {
-            this.logger.info(`[VoiceMonitor] Voice monitor not enabled for guild ${guildId}, skipping`);
-            return;
-        }
+        if (!settings?.enabled) return;
 
         const member = newState.member;
         if (!member || member.user.bot) return;
@@ -190,12 +177,7 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         // Check if this channel should be monitored
         const monitoredChannels = settings?.monitoredChannelIds || [];
-        if (monitoredChannels.length > 0 && !monitoredChannels.includes(channelId)) {
-            this.logger.info(`Voice channel #${state.channel.name} (${channelId}) not in monitored list, skipping session creation`);
-            return;
-        }
-        this.logger.info(`Voice channel #${state.channel.name} (${channelId}) is monitored, creating session. Monitored channels: ${monitoredChannels.length === 0 ? 'ALL' : monitoredChannels.join(', ')}`);
-
+        if (monitoredChannels.length > 0 && !monitoredChannels.includes(channelId)) return;
 
         // Only monitor voice channels (not stage)
         if (state.channel.type !== ChannelType.GuildVoice) return;
@@ -204,27 +186,8 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         // If no active session, create one and join the channel
         if (!session) {
-            // Set up raw event diagnostics (declared outside try so catch can clean up)
-            const client = this.context.client as any;
-            const rawHandler = (packet: any) => {
-                if (packet.t === 'VOICE_SERVER_UPDATE' && packet.d?.guild_id === guildId) {
-                    this.logger.info(`[VoiceMonitor] VOICE_SERVER_UPDATE received: endpoint=${packet.d?.endpoint}, token_present=${!!packet.d?.token}`);
-                }
-                if (packet.t === 'VOICE_STATE_UPDATE' && packet.d?.guild_id === guildId && packet.d?.user_id === client.user?.id) {
-                    this.logger.info(`[VoiceMonitor] VOICE_STATE_UPDATE (bot): session_id=${packet.d?.session_id}, channel_id=${packet.d?.channel_id}`);
-                }
-            };
-            client.on('raw', rawHandler);
-
             try {
-                this.logger.info(`[VoiceMonitor] Attempting to join voice channel ${channelId} in guild ${guildId}...`);
-
                 const connection = await this.createVoiceConnection(channelId, guildId, state);
-
-                // Clean up raw handler after connection established
-                client.removeListener('raw', rawHandler);
-
-                this.logger.info(`[VoiceMonitor] Successfully connected to voice channel ${channelId}`);
 
                 // Create DB session
                 const dbSession = await this.context.db.voiceSession.create({
@@ -248,7 +211,6 @@ export class VoiceMonitorPlugin implements IPlugin {
 
                 this.logger.info(`Started voice session in #${state.channel.name} (${guildId})`);
             } catch (err) {
-                client.removeListener('raw', rawHandler);
                 this.logger.error(`Failed to join voice channel ${channelId}`, err);
                 return;
             }
@@ -287,12 +249,9 @@ export class VoiceMonitorPlugin implements IPlugin {
         const maxAttempts = 3;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            this.logger.info(`[VoiceMonitor] Connection attempt ${attempt}/${maxAttempts} for channel ${channelId}`);
-
             // Destroy any existing connection for this guild to avoid conflicts
             const existing = getVoiceConnection(guildId);
             if (existing) {
-                this.logger.info(`[VoiceMonitor] Destroying existing connection for guild ${guildId}`);
                 existing.destroy();
                 await new Promise(r => setTimeout(r, 1000));
             }
@@ -305,48 +264,6 @@ export class VoiceMonitorPlugin implements IPlugin {
                 selfMute: true,
             });
 
-            // Hook into networking to capture voice WS events
-            // VoiceWebSocket is an EventEmitter with 'open', 'close', 'packet', 'error', 'debug' events
-            const hookVoiceWs = (ws: any) => {
-                if (!ws || ws._vmHooked) return;
-                ws._vmHooked = true;
-
-                ws.on('open', () => {
-                    this.logger.info(`[VoiceMonitor] Voice WS OPEN`);
-                });
-                ws.on('packet', (packet: any) => {
-                    this.logger.info(`[VoiceMonitor] Voice WS recv: op=${packet?.op} d=${JSON.stringify(packet?.d)?.substring(0, 500)}`);
-                });
-                ws.on('close', (closeEvent: any) => {
-                    this.logger.warn(`[VoiceMonitor] Voice WS CLOSE: code=${closeEvent?.code}, reason=${closeEvent?.reason}, wasClean=${closeEvent?.wasClean}`);
-                });
-                ws.on('error', (error: any) => {
-                    this.logger.error(`[VoiceMonitor] Voice WS ERROR: ${error?.message || error}`);
-                });
-                ws.on('debug', (msg: any) => {
-                    this.logger.info(`[VoiceMonitor] Voice WS DEBUG: ${msg}`);
-                });
-            };
-
-            const hookNetworking = (networking: any) => {
-                if (networking._voiceMonitorHooked) return;
-                networking._voiceMonitorHooked = true;
-
-                // Hook WS in current state
-                if (networking.state?.ws) hookVoiceWs(networking.state.ws);
-
-                networking.on('stateChange', (oldNS: any, newNS: any) => {
-                    this.logger.info(`[VoiceMonitor] Networking state: ${oldNS.code} -> ${newNS.code}`);
-                    // Hook WS whenever a new one appears
-                    if (newNS.ws) hookVoiceWs(newNS.ws);
-                });
-            };
-
-            connection.on('stateChange', (oldS: any, newS: any) => {
-                this.logger.info(`[VoiceMonitor] Connection state: ${oldS.status} -> ${newS.status}`);
-                if (newS.networking) hookNetworking(newS.networking);
-            });
-
             connection.on('error', (error) => {
                 this.logger.error(`[VoiceMonitor] Connection error`, error);
             });
@@ -354,9 +271,7 @@ export class VoiceMonitorPlugin implements IPlugin {
             try {
                 await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
 
-                // Set up disconnect handler
                 connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
-                    this.logger.warn(`[VoiceMonitor] Connection disconnected in channel ${channelId}`);
                     try {
                         await Promise.race([
                             entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
@@ -370,14 +285,11 @@ export class VoiceMonitorPlugin implements IPlugin {
 
                 return connection;
             } catch (err) {
-                this.logger.warn(`[VoiceMonitor] Attempt ${attempt} failed, status: ${connection.state.status}`);
                 if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
                     connection.destroy();
                 }
                 if (attempt < maxAttempts) {
-                    const delay = attempt * 2000;
-                    this.logger.info(`[VoiceMonitor] Waiting ${delay}ms before retry...`);
-                    await new Promise(r => setTimeout(r, delay));
+                    await new Promise(r => setTimeout(r, attempt * 2000));
                 } else {
                     throw new Error(`Voice connection failed after ${maxAttempts} attempts`);
                 }
