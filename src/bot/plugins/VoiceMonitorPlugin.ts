@@ -183,7 +183,7 @@ export class VoiceMonitorPlugin implements IPlugin {
                 const connection = joinVoiceChannel({
                     channelId,
                     guildId,
-                    adapterCreator: state.guild.voiceAdapterCreator,
+                    adapterCreator: state.guild.voiceAdapterCreator as any,
                     selfDeaf: false,
                     selfMute: true,
                 });
