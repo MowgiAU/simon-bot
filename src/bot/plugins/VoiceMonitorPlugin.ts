@@ -676,37 +676,4 @@ export class VoiceMonitorPlugin implements IPlugin {
 
     // ─── Slash Command Registration ──────────────────────────────────────
 
-    async registerCommands(): Promise<SlashCommandBuilder[]> {
-        const monitor = new SlashCommandBuilder()
-            .setName('voicemonitor')
-            .setDescription('Manage voice channel recording')
-            .addSubcommand(sub =>
-                sub.setName('enable').setDescription('Enable voice monitoring')
-            )
-            .addSubcommand(sub =>
-                sub.setName('disable').setDescription('Disable voice monitoring')
-            )
-            .addSubcommand(sub =>
-                sub.setName('status').setDescription('View voice monitor status')
-            )
-            .addSubcommand(sub =>
-                sub.setName('notice')
-                    .setDescription('Send/resend the recording notice to a channel')
-                    .addChannelOption(opt =>
-                        opt.setName('channel').setDescription('Channel to post the notice in').setRequired(true)
-                    )
-            ) as SlashCommandBuilder;
-
-        const report = new SlashCommandBuilder()
-            .setName('voicereport')
-            .setDescription('Report a voice channel incident')
-            .addStringOption(opt =>
-                opt.setName('reason').setDescription('Reason for the report').setRequired(true)
-            )
-            .addUserOption(opt =>
-                opt.setName('user').setDescription('User to report (optional)').setRequired(false)
-            ) as SlashCommandBuilder;
-
-        return [monitor, report];
-    }
 }
