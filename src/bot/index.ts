@@ -695,7 +695,36 @@ export class SimonBot {
 
     commands.push(setupWelcomeCommand.toJSON());
 
-    // 5. Load commands from plugins
+    // 5. Voice Monitor Commands
+    const voiceMonitorCommand = new SlashCommandBuilder()
+        .setName('voicemonitor')
+        .setDescription('Manage voice channel recording')
+        .setDefaultMemberPermissions(0x0000000000000020) // MANAGE_GUILD
+        .addSubcommand(sub => sub.setName('enable').setDescription('Enable voice monitoring'))
+        .addSubcommand(sub => sub.setName('disable').setDescription('Disable voice monitoring'))
+        .addSubcommand(sub => sub.setName('status').setDescription('View voice monitor status'))
+        .addSubcommand(sub =>
+            sub.setName('notice')
+                .setDescription('Send/resend the recording notice to a channel')
+                .addChannelOption(opt =>
+                    opt.setName('channel').setDescription('Channel to post the notice in').setRequired(true)
+                )
+        );
+
+    const voiceReportCommand = new SlashCommandBuilder()
+        .setName('voicereport')
+        .setDescription('Report a voice channel incident')
+        .addStringOption(opt =>
+            opt.setName('reason').setDescription('Reason for the report').setRequired(true)
+        )
+        .addUserOption(opt =>
+            opt.setName('user').setDescription('User to report (optional)').setRequired(false)
+        );
+
+    commands.push(voiceMonitorCommand.toJSON());
+    commands.push(voiceReportCommand.toJSON());
+
+    // 6. Load commands from plugins
     const plugins = this.pluginManager.getEnabled();
     for (const plugin of plugins) {
         // Check if plugin has registerCommands method
