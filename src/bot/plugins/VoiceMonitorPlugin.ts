@@ -195,20 +195,20 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         // If no active session, create one and join the channel
         if (!session) {
+            // Set up raw event diagnostics (declared outside try so catch can clean up)
+            const client = this.context.client as any;
+            const rawHandler = (packet: any) => {
+                if (packet.t === 'VOICE_SERVER_UPDATE' && packet.d?.guild_id === guildId) {
+                    this.logger.info(`[VoiceMonitor] VOICE_SERVER_UPDATE received: endpoint=${packet.d?.endpoint}, token_present=${!!packet.d?.token}`);
+                }
+                if (packet.t === 'VOICE_STATE_UPDATE' && packet.d?.guild_id === guildId && packet.d?.user_id === client.user?.id) {
+                    this.logger.info(`[VoiceMonitor] VOICE_STATE_UPDATE (bot): session_id=${packet.d?.session_id}, channel_id=${packet.d?.channel_id}`);
+                }
+            };
+            client.on('raw', rawHandler);
+
             try {
                 this.logger.info(`[VoiceMonitor] Attempting to join voice channel ${channelId} in guild ${guildId}...`);
-                
-                // Log raw gateway events for diagnostics
-                const client = this.context.client as any;
-                const rawHandler = (packet: any) => {
-                    if (packet.t === 'VOICE_SERVER_UPDATE' && packet.d?.guild_id === guildId) {
-                        this.logger.info(`[VoiceMonitor] VOICE_SERVER_UPDATE received: endpoint=${packet.d?.endpoint}, token_present=${!!packet.d?.token}`);
-                    }
-                    if (packet.t === 'VOICE_STATE_UPDATE' && packet.d?.guild_id === guildId && packet.d?.user_id === client.user?.id) {
-                        this.logger.info(`[VoiceMonitor] VOICE_STATE_UPDATE (bot): session_id=${packet.d?.session_id}, channel_id=${packet.d?.channel_id}`);
-                    }
-                };
-                client.on('raw', rawHandler);
 
                 const connection = await this.createVoiceConnection(channelId, guildId, state);
 
@@ -298,9 +298,16 @@ export class VoiceMonitorPlugin implements IPlugin {
                 selfMute: true,
             });
 
-            // Log state transitions
+            // Log state transitions with close code details
             connection.on('stateChange', (oldS: any, newS: any) => {
                 this.logger.info(`[VoiceMonitor] Connection state: ${oldS.status} -> ${newS.status}`);
+                // Log close codes when transitioning back to signalling (voice WS closed)
+                if (newS.status === 'signalling' && oldS.status === 'connecting') {
+                    const networking = oldS.networking;
+                    if (networking?.state) {
+                        this.logger.warn(`[VoiceMonitor] Voice WS closed during connecting. Networking close code: ${networking.state.code}, reason: ${networking.state.reason || 'none'}`);
+                    }
+                }
             });
 
             connection.on('error', (error) => {
