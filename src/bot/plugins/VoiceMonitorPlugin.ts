@@ -296,55 +296,41 @@ export class VoiceMonitorPlugin implements IPlugin {
                 selfMute: true,
             });
 
-            // Deep hook into networking to capture raw WS close code and messages
+            // Hook into networking to capture voice WS events
+            // VoiceWebSocket is an EventEmitter with 'open', 'close', 'packet', 'error', 'debug' events
+            const hookVoiceWs = (ws: any) => {
+                if (!ws || ws._vmHooked) return;
+                ws._vmHooked = true;
+
+                ws.on('open', () => {
+                    this.logger.info(`[VoiceMonitor] Voice WS OPEN`);
+                });
+                ws.on('packet', (packet: any) => {
+                    this.logger.info(`[VoiceMonitor] Voice WS recv: op=${packet?.op} d=${JSON.stringify(packet?.d)?.substring(0, 500)}`);
+                });
+                ws.on('close', (closeEvent: any) => {
+                    this.logger.warn(`[VoiceMonitor] Voice WS CLOSE: code=${closeEvent?.code}, reason=${closeEvent?.reason}, wasClean=${closeEvent?.wasClean}`);
+                });
+                ws.on('error', (error: any) => {
+                    this.logger.error(`[VoiceMonitor] Voice WS ERROR: ${error?.message || error}`);
+                });
+                ws.on('debug', (msg: any) => {
+                    this.logger.info(`[VoiceMonitor] Voice WS DEBUG: ${msg}`);
+                });
+            };
+
             const hookNetworking = (networking: any) => {
                 if (networking._voiceMonitorHooked) return;
                 networking._voiceMonitorHooked = true;
 
-                networking.on('stateChange', (_oldNS: any, newNS: any) => {
-                    this.logger.info(`[VoiceMonitor] Networking state code: ${newNS.code}`);
+                // Hook WS in current state
+                if (networking.state?.ws) hookVoiceWs(networking.state.ws);
 
-                    // Hook the raw WebSocket when it appears in the state
-                    if (newNS.ws && !newNS.ws._vmHooked) {
-                        newNS.ws._vmHooked = true;
-                        const ws = newNS.ws;
-
-                        // Intercept onmessage to log all voice opcodes
-                        const origOnMessage = ws.onmessage;
-                        ws.onmessage = (event: any) => {
-                            try {
-                                const data = JSON.parse(event.data);
-                                this.logger.info(`[VoiceMonitor] Voice WS recv: op=${data.op} d=${JSON.stringify(data.d)?.substring(0, 300)}`);
-                            } catch {}
-                            if (origOnMessage) origOnMessage.call(ws, event);
-                        };
-
-                        // Intercept onclose to get Discord's actual close code
-                        const origOnClose = ws.onclose;
-                        ws.onclose = (event: any) => {
-                            this.logger.warn(`[VoiceMonitor] Voice WS CLOSE: code=${event?.code}, reason=${event?.reason}, wasClean=${event?.wasClean}`);
-                            if (origOnClose) origOnClose.call(ws, event);
-                        };
-
-                        // Intercept onerror
-                        const origOnError = ws.onerror;
-                        ws.onerror = (event: any) => {
-                            this.logger.error(`[VoiceMonitor] Voice WS ERROR: ${event?.message || event?.error || 'unknown'}`);
-                            if (origOnError) origOnError.call(ws, event);
-                        };
-                    }
+                networking.on('stateChange', (oldNS: any, newNS: any) => {
+                    this.logger.info(`[VoiceMonitor] Networking state: ${oldNS.code} -> ${newNS.code}`);
+                    // Hook WS whenever a new one appears
+                    if (newNS.ws) hookVoiceWs(newNS.ws);
                 });
-
-                // Hook initial state WS if already present
-                const ws = networking.state?.ws;
-                if (ws && !ws._vmHooked) {
-                    ws._vmHooked = true;
-                    const origOnClose = ws.onclose;
-                    ws.onclose = (event: any) => {
-                        this.logger.warn(`[VoiceMonitor] Voice WS CLOSE (init): code=${event?.code}, reason=${event?.reason}`);
-                        if (origOnClose) origOnClose.call(ws, event);
-                    };
-                }
             };
 
             connection.on('stateChange', (oldS: any, newS: any) => {
