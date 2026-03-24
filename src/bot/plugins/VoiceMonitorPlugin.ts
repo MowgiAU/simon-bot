@@ -168,9 +168,13 @@ export class VoiceMonitorPlugin implements IPlugin {
         const guildId = state.guild.id;
 
         // Check if this channel should be monitored
-        if (settings.monitoredChannelIds.length > 0 && !settings.monitoredChannelIds.includes(channelId)) {
+        const monitoredChannels = settings?.monitoredChannelIds || [];
+        if (monitoredChannels.length > 0 && !monitoredChannels.includes(channelId)) {
+            this.logger.info(`Voice channel #${state.channel.name} (${channelId}) not in monitored list, skipping session creation`);
             return;
         }
+        this.logger.info(`Voice channel #${state.channel.name} (${channelId}) is monitored, creating session. Monitored channels: ${monitoredChannels.length === 0 ? 'ALL' : monitoredChannels.join(', ')}`);
+
 
         // Only monitor voice channels (not stage)
         if (state.channel.type !== ChannelType.GuildVoice) return;
