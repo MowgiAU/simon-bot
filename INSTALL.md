@@ -63,7 +63,7 @@ swapon /swapfile
 Run this one-liner from your local machine to update the production server:
 
 ```powershell
-ssh root@staging.fujistud.io "cd ~/simon-bot && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
+ssh root@staging.fujistud.io "cd ~/simon-bot && git pull && npm install && npm run build && npx prisma db push --accept-data-loss && npm run dashboard:build && pm2 restart all"
 ```
 
 **What this does:**
@@ -78,8 +78,9 @@ ssh root@staging.fujistud.io "cd ~/simon-bot && git pull && npm install && npm r
 2.  **Pull changes**: `cd ~/simon-bot && git pull`
 3.  **Install deps**: `npm install` (and `cd dashboard && npm install` if frontend changed)
 4.  **Build**: `npm run build`
-5.  **Build Dashboard**: `cd dashboard && npm run build` (Watch out for OOM! Ensure swap is on)
-6.  **Restart**: `pm2 restart all`
+5.  **Apply DB schema**: `npx prisma db push --accept-data-loss`
+6.  **Build Dashboard**: `cd dashboard && npm run build` (Watch out for OOM! Ensure swap is on)
+7.  **Restart**: `pm2 restart all`
 
 ---
 

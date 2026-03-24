@@ -208,11 +208,12 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
 // Generic in-memory cache for expensive API responses
 const apiResponseCache = new Map<string, { data: any, timestamp: number }>();
 const API_CACHE_TTL: Record<string, number> = {
-    'discovery-settings': 1000 * 60 * 3,   // 3 minutes
-    'discovery-tracks':  1000 * 60 * 2,     // 2 minutes
-    'musician-profiles': 1000 * 60 * 2,     // 2 minutes
+    'discovery-settings': 1000 * 60 * 5,   // 5 minutes
+    'discovery-tracks':  1000 * 60 * 5,     // 5 minutes
+    'musician-profiles': 1000 * 60 * 5,     // 5 minutes
     'popular-playlists': 1000 * 60 * 3,     // 3 minutes
-    'leaderboards-tracks': 1000 * 60 * 2,   // 2 minutes
+    'leaderboards-tracks': 1000 * 60 * 5,   // 5 minutes
+    'leaderboards-artists': 1000 * 60 * 5,   // 5 minutes
     'charts-daily': 1000 * 60 * 5,          // 5 minutes
     'charts-weekly': 1000 * 60 * 10,        // 10 minutes
     'charts-alltime': 1000 * 60 * 15,       // 15 minutes
@@ -4620,7 +4621,11 @@ app.get('/api/discovery/tracks', async (req, res) => {
 // Leaderboard: Top Artists
 app.get('/api/musician/leaderboards/artists', async (req, res) => {
     try {
+        const cached = getCachedResponse('leaderboards-artists');
+        if (cached) return res.json(cached);
+
         const topArtists = await audioService.getArtistLeaderboard(10);
+        setCachedResponse('leaderboards-artists', topArtists);
         res.json(topArtists);
     } catch (e: any) {
         res.status(500).json({ error: e.message });

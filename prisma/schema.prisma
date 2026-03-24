@@ -717,6 +717,8 @@ model MusicianProfile {
   updatedAt       DateTime @updatedAt
 
   @@index([username])
+  @@index([createdAt(sort: Desc)])        // Discovery: newest profiles
+  @@index([totalPlays(sort: Desc)])      // Leaderboard: top artists by total plays
   @@map("musician_profiles")
 }
 
@@ -772,9 +774,11 @@ model Track {
 
   @@index([profileId])
   @@index([slug])
-  @@index([profileId, isPublic, playCount(sort: Desc)])  // Fast per-profile top-track lookup
-  @@index([isPublic, playCount(sort: Desc)])  // Leaderboard: top public tracks by plays
-  @@index([isPublic, createdAt(sort: Desc)])  // Discovery: newest public tracks
+  @@index([profileId, isPublic, playCount(sort: Desc)])          // Fast per-profile top-track lookup
+  @@index([isPublic, playCount(sort: Desc)])                     // Leaderboard: top public tracks by plays
+  @@index([isPublic, createdAt(sort: Desc)])                     // Discovery: newest public tracks
+  @@index([isPublic, status, playCount(sort: Desc)])             // Leaderboard with status filter
+  @@index([isPublic, status, createdAt(sort: Desc)])             // Discovery with status filter
   @@map("musician_tracks")
 }
 
