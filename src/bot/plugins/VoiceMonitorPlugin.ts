@@ -112,12 +112,20 @@ export class VoiceMonitorPlugin implements IPlugin {
     // ─── Event Handlers ─────────────────────────────────────────────────
 
     async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
-        if (!this.context) return;
+        this.logger.info(`[VoiceMonitor] onVoiceStateUpdate called: user=${newState.member?.user?.tag} oldChannel=${oldState.channelId} newChannel=${newState.channelId}`);
+        if (!this.context) {
+            this.logger.warn('[VoiceMonitor] No context, skipping');
+            return;
+        }
         const guildId = newState.guild.id;
 
         // Check if voice monitor is enabled for this guild
         const settings = await this.getSettings(guildId);
-        if (!settings?.enabled) return;
+        this.logger.info(`[VoiceMonitor] Settings for guild ${guildId}: ${JSON.stringify(settings ? { enabled: settings.enabled, monitoredChannelIds: settings.monitoredChannelIds } : null)}`);
+        if (!settings?.enabled) {
+            this.logger.info(`[VoiceMonitor] Voice monitor not enabled for guild ${guildId}, skipping`);
+            return;
+        }
 
         const member = newState.member;
         if (!member || member.user.bot) return;
