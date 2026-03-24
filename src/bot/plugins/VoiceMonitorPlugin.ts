@@ -146,7 +146,7 @@ export class VoiceMonitorPlugin implements IPlugin {
         }
     }
 
-    async onInteraction(interaction: ChatInputCommandInteraction): Promise<void> {
+    async onInteractionCreate(interaction: ChatInputCommandInteraction): Promise<void> {
         if (!this.context || !interaction.isChatInputCommand()) return;
         if (!interaction.guildId) return;
 
@@ -676,7 +676,7 @@ export class VoiceMonitorPlugin implements IPlugin {
 
     // ─── Slash Command Registration ──────────────────────────────────────
 
-    getSlashCommands(): SlashCommandBuilder[] {
+    async registerCommands(): Promise<SlashCommandBuilder[]> {
         const monitor = new SlashCommandBuilder()
             .setName('voicemonitor')
             .setDescription('Manage voice channel recording')
