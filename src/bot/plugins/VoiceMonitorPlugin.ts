@@ -566,7 +566,14 @@ export class VoiceMonitorPlugin implements IPlugin {
 
     private async getSettings(guildId: string) {
         if (!this.context) return null;
-        return this.context.db.voiceMonitorSettings.findUnique({ where: { guildId } });
+        const settings = await this.context.db.voiceMonitorSettings.findUnique({ where: { guildId } });
+        if (!settings) return null;
+        // Normalize arrays to prevent null/undefined issues
+        return {
+            ...settings,
+            monitoredChannelIds: settings.monitoredChannelIds || [],
+            excludedRoleIds: settings.excludedRoleIds || []
+        };
     }
 
     private async upsertSettings(guildId: string, data: Record<string, any>) {

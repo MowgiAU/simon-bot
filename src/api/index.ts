@@ -3157,7 +3157,12 @@ app.get('/api/voice-monitor/settings/:guildId', async (req, res) => {
     }
 
     const settings = await db.voiceMonitorSettings.findUnique({ where: { guildId } });
-    res.json(settings || { guildId, enabled: false, retentionDays: 30, monitoredChannelIds: [], excludedRoleIds: [], noticeSent: false, noticeChannelId: null });
+    const normalized = settings ? {
+        ...settings,
+        monitoredChannelIds: settings.monitoredChannelIds || [],
+        excludedRoleIds: settings.excludedRoleIds || []
+    } : { guildId, enabled: false, retentionDays: 30, monitoredChannelIds: [], excludedRoleIds: [], noticeSent: false, noticeChannelId: null };
+    res.json(normalized);
 });
 
 // Update Voice Monitor Settings
