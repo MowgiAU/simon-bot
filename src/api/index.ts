@@ -740,15 +740,21 @@ const getBotGuildIds = async () => {
 
 // Discord OAuth2 endpoints
 app.get('/api/auth/discord/login', (req, res) => {
+  // SEC-04: Generate state param to prevent CSRF on OAuth login
+  const state = crypto.randomBytes(32).toString('hex');
+  (req.session as any)._oauthState = state;
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: DISCORD_REDIRECT_URI,
     response_type: 'code',
     scope: 'identify guilds email',
-    prompt: 'none'
+    prompt: 'none',
+    state,
   });
   logger.info(`[Auth] Redirecting to Discord with redirect_uri: ${DISCORD_REDIRECT_URI}`);
-  res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+  req.session.save(() => {
+    res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+  });
 });
 
 
@@ -757,6 +763,11 @@ app.get('/api/auth/discord/callback', async (req, res) => {
   const code = req.query.code as string;
   const state = req.query.state as string | undefined;
   if (!code) return res.status(400).send('No code provided');
+  // SEC-04: Verify OAuth state to prevent CSRF
+  if (!state || state !== (req.session as any)?._oauthState) {
+    return res.status(403).send('Invalid OAuth state — please try logging in again.');
+  }
+  delete (req.session as any)._oauthState;
   try {
     // Exchange code for token
     const tokenRes = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
@@ -1087,8 +1098,8 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
             }
         });
         if (existing) {
-            if (existing.email === emailNorm) return res.status(409).json({ error: 'An account with this email already exists' });
-            return res.status(409).json({ error: 'This username is already taken' });
+            // SEC-08: Generic message to prevent email/username enumeration
+            return res.status(409).json({ error: 'An account with this email or username already exists' });
         }
 
         const passwordHash = await hashPassword(password);
@@ -1337,7 +1348,7 @@ app.post('/api/auth/2fa/verify', requireAuth, async (req: any, res) => {
         const backupCodes: string[] = [];
         const hashedCodes: string[] = [];
         for (let i = 0; i < 8; i++) {
-            const code = crypto.randomBytes(4).toString('hex'); // 8-char hex codes
+            const code = crypto.randomBytes(8).toString('hex'); // SEC-07: 16-char hex = 64-bit entropy
             backupCodes.push(code);
             hashedCodes.push(await hashPassword(code));
         }
@@ -5709,10 +5720,16 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
     }
 });
 
-// Update Profile (Auth should be handled by a middleware, but for now we follow context guild patterns)
+// Update Profile
 app.post('/api/musician/profile/:userId', async (req: any, res) => {
     try {
         const { userId } = req.params;
+
+        // SEC-01: Ownership check — only profile owner or admin can edit
+        if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
         const data = req.body;
 
         // Guild membership gate
@@ -5811,7 +5828,7 @@ app.get('/api/musician/genres', async (req, res) => {
 });
 
 // Admin: Add/Update Genre
-app.post('/api/musician/genres', async (req, res) => {
+app.post('/api/musician/genres', requireAdmin, async (req, res) => {
     try {
         const { name, parentId } = req.body;
         if (!name) return res.status(400).json({ error: 'Name is required' });
@@ -5831,7 +5848,7 @@ app.post('/api/musician/genres', async (req, res) => {
 });
 
 // Admin: Delete Genre
-app.delete('/api/musician/genres/:id', async (req, res) => {
+app.delete('/api/musician/genres/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         await db.genre.delete({ where: { id } });
@@ -6287,6 +6304,12 @@ app.get('/api/discovery/genres', async (req, res) => {
 app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async (req: any, res) => {
     try {
         const { userId } = req.params;
+
+        // SEC-02: Ownership check — only profile owner or admin can upload avatar
+        if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
         const file = req.file;
 
         if (!file) {
