@@ -4630,6 +4630,32 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
     }
 });
 
+// Admin: Delete any track (hard delete, same cleanup as owner delete)
+app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => {
+    try {
+        const adminId = req.session.user.id;
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+
+        await deleteFromStorage(track.url);
+        await deleteFromStorage(track.coverUrl);
+        await deleteFromStorage((track as any).projectFileUrl);
+        await deleteFromStorage((track as any).projectZipUrl);
+
+        await db.musicianProfile.updateMany({
+            where: { featuredTrackId: trackId },
+            data: { featuredTrackId: null }
+        });
+        await db.track.delete({ where: { id: trackId } });
+        await logAction('GLOBAL', 'track_deleted', adminId, trackId, { title: track.title, adminDelete: true }).catch(() => {});
+        logger.info(`Admin deleted track: ${track.title} (ID: ${trackId}) by admin ${adminId}`);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Admin: List all tracks (for admin track management)
 app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
     try {

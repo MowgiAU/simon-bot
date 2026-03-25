@@ -11,7 +11,7 @@ import {
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
-    Activity, Package, ChevronDown, ChevronUp
+    Activity, Package, ChevronDown, ChevronUp, Trash2
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -133,6 +133,8 @@ export const TrackPage: React.FC = () => {
     const [repostCount, setRepostCount] = useState(0);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
     const [expandedSamples, setExpandedSamples] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -230,6 +232,22 @@ export const TrackPage: React.FC = () => {
             showToast(data.reposted ? 'Reposted!' : 'Removed repost', 'success');
         } catch {
             showToast('Login to repost tracks', 'error');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!track) return;
+        setDeleting(true);
+        try {
+            const endpoint = isOwner
+                ? `/api/musician/tracks/${track.id}`
+                : `/api/admin/tracks/${track.id}`;
+            await axios.delete(endpoint, { withCredentials: true });
+            showToast('Track deleted', 'success');
+            window.location.href = `/profile/${track.profile.username}`;
+        } catch (e: any) {
+            showToast(e.response?.data?.error || 'Failed to delete track', 'error');
+            setDeleting(false);
         }
     };
 
@@ -437,6 +455,12 @@ export const TrackPage: React.FC = () => {
                                         <button onClick={openEditMode}
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}11`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
                                             <Edit3 size={15} /> Edit
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button onClick={() => setDeleteConfirmOpen(true)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#EF4444', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                            <Trash2 size={15} /> Delete
                                         </button>
                                     )}
                                 </div>
@@ -866,6 +890,14 @@ export const TrackPage: React.FC = () => {
                 )}
             </div>
             {track && <AddToPlaylistModal trackId={track.id} open={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} />}
+            <ConfirmModal
+                open={deleteConfirmOpen}
+                title="Delete Track"
+                message={`Are you sure you want to permanently delete "${track?.title}"? This will remove the audio file, artwork, and project file. This cannot be undone.`}
+                confirmLabel={deleting ? 'Deleting...' : 'Delete Track'}
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteConfirmOpen(false)}
+            />
         </DiscoveryLayout>
     );
 };

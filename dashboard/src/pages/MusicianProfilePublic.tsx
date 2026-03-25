@@ -81,6 +81,8 @@ interface MusicianProfile {
 
 export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () => void; isOwnProfile: boolean; initialProfile?: any }> = ({ identifier, onEdit, isOwnProfile, initialProfile }) => {
     const navigate = useNavigate();
+    const { user, mutualAdminGuilds } = useAuth();
+    const isAdmin = !!(mutualAdminGuilds && mutualAdminGuilds.length > 0);
     const [profile, setProfile] = useState<MusicianProfile | null>(initialProfile || null);
     const [loading, setLoading] = useState(!initialProfile);
     const [error, setError] = useState<string | null>(null);
@@ -335,6 +337,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {!isOwnProfile && (
                                     <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${colors.primary}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : colors.primary, color: isFollowing ? colors.primary : 'white', transition: 'all 0.2s' }}>
                                         {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
+                                    </button>
+                                )}
+                                {(isOwnProfile || isAdmin) && (
+                                    <button
+                                        onClick={() => isOwnProfile ? (onEdit ? onEdit() : navigate('/profile/edit')) : navigate(`/profile/edit?adminTarget=${profile.userId}`)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${colors.primary}4D`}`, backgroundColor: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${colors.primary}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : colors.primary, transition: 'all 0.2s' }}
+                                    >
+                                        <Edit3 size={13} /> {isAdmin && !isOwnProfile ? 'Edit Profile (Admin)' : 'Edit Profile'}
                                     </button>
                                 )}
                                 <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)', color: copied ? '#4caf50' : '#B9C3CE', transition: 'all 0.2s' }}>
