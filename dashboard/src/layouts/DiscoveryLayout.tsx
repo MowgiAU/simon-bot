@@ -163,9 +163,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         </Link>
                     )}
                     {isMobile && !user && (
-                        <button onClick={login} style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
+                        <Link to="/login" style={{ backgroundColor: colors.primary, color: 'white', padding: '7px 12px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
                             Sign Up
-                        </button>
+                        </Link>
                     )}
 
                     {/* Desktop: full buttons + inline search */}
@@ -203,12 +203,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                     {!isMobile && !user && (
                         <>
-                            <button onClick={login} style={{ backgroundColor: colors.primary, color: 'white', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', cursor: 'pointer', boxShadow: `0 0 14px ${colors.primary}55`, letterSpacing: '0.01em' }}>
+                            <Link to="/login?tab=register" style={{ backgroundColor: colors.primary, color: 'white', padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', boxShadow: `0 0 14px ${colors.primary}55`, letterSpacing: '0.01em' }}>
                                 Sign Up
-                            </button>
-                            <button onClick={login} style={{ color: '#B9C3CE', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'none', cursor: 'pointer' }}>
+                            </Link>
+                            <Link to="/login" style={{ color: '#B9C3CE', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'none', textDecoration: 'none' }}>
                                 <LogIn size={13} /> Log In
-                            </button>
+                            </Link>
                         </>
                     )}
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -10,8 +10,11 @@ type Tab = 'login' | 'register';
 export const LoginPage: React.FC = () => {
     const { emailLogin, register, login } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const searchParams = new URLSearchParams(location.search);
+    const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'login';
 
-    const [tab, setTab] = useState<Tab>('login');
+    const [tab, setTab] = useState<Tab>(initialTab);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
