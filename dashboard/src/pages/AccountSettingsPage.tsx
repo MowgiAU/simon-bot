@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserCog, Mail, Lock, CheckCircle, XCircle, Send, Eye, EyeOff, Shield, Smartphone, Link2, Unlink, Copy, AlertTriangle, User as UserIcon, AtSign, KeyRound, ScanLine } from 'lucide-react';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 type Tab = 'account' | 'security' | 'connections';
 
@@ -374,7 +375,7 @@ export const AccountSettingsPage: React.FC = () => {
     });
 
     return (
-        <div style={{ minHeight: '100vh', background: colors.background, paddingBottom: '60px' }}>
+        <DiscoveryLayout activeTab="account">
             <div style={{ maxWidth: '720px', margin: '0 auto', padding: '24px 16px' }}>
 
                 {/* ── HERO HEADER ── */}
@@ -830,6 +831,6 @@ export const AccountSettingsPage: React.FC = () => {
                 )}
 
             </div>
-        </div>
+        </DiscoveryLayout>
     );
 };
