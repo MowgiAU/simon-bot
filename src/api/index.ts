@@ -1509,7 +1509,7 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         'PROFILES': ['PROFILES', 'profile_status_changed', 'track_status_changed', 'profile_wiped',
                      'track_uploaded', 'track_edited', 'track_deleted', 'profile_updated', 'avatar_uploaded',
                      'battle_created', 'battle_updated', 'battle_deleted', 'FEEDBACK_THREAD_CREATED', 'FEEDBACK_APPROVED'],
-        'COMMENTS': ['COMMENTS', 'comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed'],
+        'COMMENTS': ['COMMENTS', 'comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed', 'comment_edited', 'comment_deleted'],
         'SOCIAL': ['SOCIAL', 'track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed',
                    'track_reposted', 'track_unreposted'],
         'PLAYLISTS': ['PLAYLISTS', 'playlist_created', 'playlist_deleted', 'playlist_track_added', 'playlist_track_removed'],
@@ -7732,6 +7732,13 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
             },
         }).catch(() => {});
 
+        await logAction('GLOBAL', 'comment_edited', userId, commentId, {
+            previousContent: comment.content?.substring(0, 200),
+            newContent: updated.content?.substring(0, 200),
+            targetType: comment.trackId ? 'track' : 'profile',
+            targetEntityId: comment.trackId || comment.profileId,
+        }).catch(() => {});
+
         res.json(updated);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -7778,6 +7785,13 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
                 gifUrl: comment.gifUrl,
                 metadata: { deletedByOwner: comment.userId === userId },
             },
+        }).catch(() => {});
+
+        await logAction('GLOBAL', 'comment_deleted', userId, commentId, {
+            content: comment.content?.substring(0, 200),
+            deletedByOwner: comment.userId === userId,
+            targetType: comment.trackId ? 'track' : 'profile',
+            targetEntityId: comment.trackId || comment.profileId,
         }).catch(() => {});
 
         res.json({ success: true });

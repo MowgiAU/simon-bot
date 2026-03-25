@@ -81,6 +81,60 @@ const CATEGORIES = [
   { id: 'PLAYLISTS', label: 'Playlists', icon: <ListMusic size={16} /> },
 ];
 
+const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string }> = {
+  // Profiles
+  track_uploaded:           { label: 'Profiles',    color: '#818CF8' },
+  track_edited:             { label: 'Profiles',    color: '#818CF8' },
+  track_deleted:            { label: 'Profiles',    color: '#818CF8' },
+  track_status_changed:     { label: 'Profiles',    color: '#818CF8' },
+  profile_updated:          { label: 'Profiles',    color: '#818CF8' },
+  profile_status_changed:   { label: 'Profiles',    color: '#818CF8' },
+  profile_wiped:            { label: 'Profiles',    color: '#818CF8' },
+  avatar_uploaded:          { label: 'Profiles',    color: '#818CF8' },
+  battle_created:           { label: 'Profiles',    color: '#818CF8' },
+  battle_updated:           { label: 'Profiles',    color: '#818CF8' },
+  battle_deleted:           { label: 'Profiles',    color: '#818CF8' },
+  FEEDBACK_THREAD_CREATED:  { label: 'Profiles',    color: '#818CF8' },
+  FEEDBACK_APPROVED:        { label: 'Profiles',    color: '#818CF8' },
+  // Comments
+  comment_created:          { label: 'Comments',   color: '#60A5FA' },
+  comment_replied:          { label: 'Comments',   color: '#60A5FA' },
+  comment_reacted:          { label: 'Comments',   color: '#60A5FA' },
+  comment_reaction_removed: { label: 'Comments',   color: '#60A5FA' },
+  comment_edited:           { label: 'Comments',   color: '#60A5FA' },
+  comment_deleted:          { label: 'Comments',   color: '#60A5FA' },
+  // Social
+  track_favourited:         { label: 'Social',     color: '#F87171' },
+  track_unfavourited:       { label: 'Social',     color: '#F87171' },
+  track_reposted:           { label: 'Social',     color: '#34D399' },
+  track_unreposted:         { label: 'Social',     color: '#34D399' },
+  artist_followed:          { label: 'Social',     color: '#34D399' },
+  artist_unfollowed:        { label: 'Social',     color: '#34D399' },
+  // Playlists
+  playlist_created:         { label: 'Playlists',  color: '#FBBF24' },
+  playlist_deleted:         { label: 'Playlists',  color: '#FBBF24' },
+  playlist_track_added:     { label: 'Playlists',  color: '#FBBF24' },
+  playlist_track_removed:   { label: 'Playlists',  color: '#FBBF24' },
+  // Mod
+  ban:                      { label: 'Mod',        color: '#F87171' },
+  kick:                     { label: 'Mod',        color: '#FB923C' },
+  timeout:                  { label: 'Mod',        color: '#FBBF24' },
+  unban:                    { label: 'Mod',        color: '#34D399' },
+  warn:                     { label: 'Mod',        color: '#FBBF24' },
+  softban:                  { label: 'Mod',        color: '#F87171' },
+  purge:                    { label: 'Mod',        color: '#FB923C' },
+  // AutoMod
+  message_filtered:         { label: 'AutoMod',   color: '#A78BFA' },
+  automod_block:            { label: 'AutoMod',   color: '#A78BFA' },
+  // Currency
+  item_bought:              { label: 'Currency',  color: '#FBBF24' },
+  transaction:              { label: 'Currency',  color: '#FBBF24' },
+};
+
+const getCategoryBadge = (action: string): { label: string; color: string } => {
+  return ACTION_CATEGORY_MAP[action] || { label: action, color: '#6B7280' };
+};
+
 interface LogsProps {
   guildId: string;
   searchParam?: string;
@@ -772,36 +826,52 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
 
                             // 4b. Profile & Track Admin Logs
                             const profileActionLabels: Record<string, { label: string; color: string }> = {
-                                profile_status_changed: { label: 'Profile Status Changed', color: '#ff9800' },
-                                track_status_changed:   { label: 'Track Status Changed',   color: '#ff9800' },
-                                profile_wiped:          { label: 'Profile Wiped',           color: '#f44336' },
-                                track_uploaded:         { label: 'Track Uploaded',          color: colors.primary },
-                                profile_updated:        { label: 'Profile Updated',         color: colors.primary },
-                                avatar_uploaded:        { label: 'Avatar Uploaded',         color: colors.primary },
-                                comment_created:        { label: 'Comment Posted',          color: '#60A5FA' },
-                                comment_replied:        { label: 'Comment Replied',         color: '#60A5FA' },
-                                comment_reacted:        { label: 'Comment Reacted',         color: '#A78BFA' },
-                                comment_reaction_removed: { label: 'Reaction Removed',      color: '#9CA3AF' },
-                                track_favourited:       { label: 'Track Favourited',        color: '#F87171' },
-                                track_unfavourited:     { label: 'Track Unfavourited',      color: '#9CA3AF' },
-                                artist_followed:        { label: 'Artist Followed',         color: '#34D399' },
-                                artist_unfollowed:      { label: 'Artist Unfollowed',       color: '#9CA3AF' },
-                                playlist_created:       { label: 'Playlist Created',        color: '#FBBF24' },
-                                playlist_deleted:       { label: 'Playlist Deleted',        color: '#F87171' },
-                                playlist_track_added:   { label: 'Track Added to Playlist', color: '#34D399' },
-                                playlist_track_removed: { label: 'Track Removed from Playlist', color: '#F87171' },
+                                profile_status_changed:   { label: 'Profile Status Changed', color: '#ff9800' },
+                                track_status_changed:     { label: 'Track Status Changed',   color: '#ff9800' },
+                                profile_wiped:            { label: 'Profile Wiped',           color: '#f44336' },
+                                track_uploaded:           { label: 'Track Uploaded',          color: colors.primary },
+                                track_edited:             { label: 'Track Edited',            color: '#60A5FA' },
+                                track_deleted:            { label: 'Track Deleted',           color: '#f44336' },
+                                profile_updated:          { label: 'Profile Updated',         color: colors.primary },
+                                avatar_uploaded:          { label: 'Avatar Uploaded',         color: colors.primary },
+                                comment_created:          { label: 'Comment Posted',          color: '#60A5FA' },
+                                comment_replied:          { label: 'Comment Replied',         color: '#60A5FA' },
+                                comment_edited:           { label: 'Comment Edited',          color: '#FBBF24' },
+                                comment_deleted:          { label: 'Comment Deleted',         color: '#f44336' },
+                                comment_reacted:          { label: 'Comment Reacted',         color: '#A78BFA' },
+                                comment_reaction_removed: { label: 'Reaction Removed',        color: '#9CA3AF' },
+                                track_favourited:         { label: 'Track Favourited',        color: '#F87171' },
+                                track_unfavourited:       { label: 'Track Unfavourited',      color: '#9CA3AF' },
+                                track_reposted:           { label: 'Track Reposted',          color: '#34D399' },
+                                track_unreposted:         { label: 'Track Unreposted',        color: '#9CA3AF' },
+                                artist_followed:          { label: 'Artist Followed',         color: '#34D399' },
+                                artist_unfollowed:        { label: 'Artist Unfollowed',       color: '#9CA3AF' },
+                                playlist_created:         { label: 'Playlist Created',        color: '#FBBF24' },
+                                playlist_deleted:         { label: 'Playlist Deleted',        color: '#F87171' },
+                                playlist_track_added:     { label: 'Track Added to Playlist', color: '#34D399' },
+                                playlist_track_removed:   { label: 'Track Removed from Playlist', color: '#F87171' },
                             };
                             if (profileActionLabels[log.action]) {
                                 const meta = profileActionLabels[log.action];
+                                const d = log.details || {};
                                 return (
                                     <div style={{ fontSize: '13px' }}>
                                         <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
                                         <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '8px 16px', color: colors.textSecondary }}>
-                                            {log.details?.username && <span>Artist: <span style={{ color: colors.textPrimary }}>{log.details.username}</span></span>}
-                                            {log.details?.title    && <span>Track: <span style={{ color: colors.textPrimary }}>{log.details.title}</span></span>}
-                                            {log.details?.status   && <span>Status: <span style={{ color: meta.color, fontWeight: 700, textTransform: 'uppercase' }}>{log.details.status}</span></span>}
-                                            {log.details?.reason   && <span>Reason: <span style={{ color: colors.textPrimary }}>{log.details.reason}</span></span>}
-                                            {log.details?.trackCount !== undefined && <span>Tracks removed: {log.details.trackCount}</span>}
+                                            {d.username     && <span>Artist: <span style={{ color: colors.textPrimary }}>{d.username}</span></span>}
+                                            {d.title        && <span>Track: <span style={{ color: colors.textPrimary }}>{d.title}</span></span>}
+                                            {d.name         && <span>Playlist: <span style={{ color: colors.textPrimary }}>{d.name}</span></span>}
+                                            {d.owner        && <span>Owner: <span style={{ color: colors.textPrimary }}>{d.owner}</span></span>}
+                                            {d.artist       && <span>Artist: <span style={{ color: colors.textPrimary }}>{d.artist}</span></span>}
+                                            {d.status       && <span>Status: <span style={{ color: meta.color, fontWeight: 700, textTransform: 'uppercase' }}>{d.status}</span></span>}
+                                            {d.reason       && <span>Reason: <span style={{ color: colors.textPrimary }}>{d.reason}</span></span>}
+                                            {d.trackCount !== undefined && <span>Tracks removed: {d.trackCount}</span>}
+                                            {d.type         && <span>Type: <span style={{ color: colors.textPrimary }}>{d.type}</span></span>}
+                                            {d.commentAuthor && <span>On comment by: <span style={{ color: colors.textPrimary }}>{d.commentAuthor}</span></span>}
+                                            {d.newContent   && <span style={{ maxWidth: 400 }}>New: <span style={{ color: colors.textPrimary, fontStyle: 'italic' }}>"{d.newContent}"</span></span>}
+                                            {d.previousContent && <span style={{ maxWidth: 400 }}>Was: <span style={{ color: colors.textTertiary, fontStyle: 'italic' }}>"{d.previousContent}"</span></span>}
+                                            {d.content      && !d.newContent && <span style={{ maxWidth: 400 }}>Content: <span style={{ color: colors.textTertiary, fontStyle: 'italic' }}>"{d.content}"</span></span>}
+                                            {d.deletedByOwner !== undefined && <span style={{ color: d.deletedByOwner ? colors.textSecondary : '#F87171' }}>{d.deletedByOwner ? 'Self-deleted' : 'Deleted by content owner'}</span>}
                                         </div>
                                     </div>
                                 );
@@ -910,12 +980,23 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                     
                                     {/* Category */}
                                     <div>
-                                        <span style={{ 
-                                            background: 'rgba(255,255,255,0.1)', padding: '2px 8px', 
-                                            borderRadius: 4, fontSize: '11px', fontWeight: 600 
-                                        }}>
-                                            {log.action}
-                                        </span>
+                                        {(() => {
+                                            const badge = getCategoryBadge(log.action);
+                                            return (
+                                                <span style={{
+                                                    background: `${badge.color}22`,
+                                                    color: badge.color,
+                                                    border: `1px solid ${badge.color}55`,
+                                                    padding: '2px 8px',
+                                                    borderRadius: 4,
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    display: 'inline-block',
+                                                }}>
+                                                    {badge.label}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Content */}
