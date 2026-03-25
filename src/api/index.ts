@@ -6630,13 +6630,24 @@ app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req
             data: { passwordResetToken: token, passwordResetExpiry: expiry },
         });
 
+        let resendKey = process.env.RESEND_API_KEY;
+        if (!resendKey) { try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {} }
+        if (!resendKey) return res.status(500).json({ error: 'Email service not configured' });
+
         const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
         const resetLink = `${dashboardOrigin}/reset-password?token=${token}`;
-        await resend.emails.send({
-            from: 'noreply@fujistud.io',
-            to: user.email,
+        const resendClient = new Resend(resendKey);
+        await resendClient.emails.send({
+            from: 'Fuji Studio <noreply@fujistud.io>',
+            to: [user.email],
             subject: 'Reset your Fuji Studio password',
-            html: `<p>An admin has initiated a password reset for your account. Click the link below to set a new password. This link expires in 24 hours.</p><p><a href="${resetLink}">${resetLink}</a></p>`,
+            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
+                <p>Hey <strong>${user.displayName || user.username}</strong>,</p>
+                <p>An admin has initiated a password reset for your account. Click below to set a new password. This link expires in 24 hours.</p>
+                <a href="${resetLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Reset Password</a>
+                <p style="color:#8A92A0;font-size:13px;">If you didn't request this, contact your server admin.</p>
+            </div>`,
         });
 
         res.json({ success: true });
