@@ -428,7 +428,7 @@ export const ProfileEditPage: React.FC = () => {
                         <ArrowLeft size={20} />
                     </button>
                 ) : (
-                    <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
+                    <Link to={profile?.username ? `/profile/${profile.username}` : '/artists'} style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
                         <ArrowLeft size={20} />
                     </Link>
                 )}
