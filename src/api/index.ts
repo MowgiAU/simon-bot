@@ -5911,6 +5911,16 @@ app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any
         const { id } = req.params;
         const tracks = await db.track.findMany({
             where: { profileId: id },
+            select: {
+                id: true,
+                title: true,
+                coverUrl: true,
+                status: true,
+                statusReason: true,
+                playCount: true,
+                isPublic: true,
+                createdAt: true,
+            },
             orderBy: { createdAt: 'desc' }
         });
         res.json(tracks);

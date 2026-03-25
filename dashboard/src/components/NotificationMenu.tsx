@@ -26,20 +26,28 @@ export const NotificationMenu: React.FC<{ guildId: string }> = ({ guildId }) => 
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  const [authFailed, setAuthFailed] = React.useState(false);
+
   useEffect(() => {
+    setAuthFailed(false);
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, [guildId]);
 
   const fetchNotifications = async () => {
+    if (authFailed) return;
     try {
-      const resp = await fetch(`/api/guilds/${guildId}/notifications`);
+      const resp = await fetch(`/api/guilds/${guildId}/notifications`, { credentials: 'include' });
+      if (resp.status === 401 || resp.status === 403) {
+        setAuthFailed(true);
+        return;
+      }
       if (resp.ok) {
         setNotifications(await resp.json());
       }
     } catch (e) {
-      console.error('Failed to fetch notifications', e);
+      // network error — silently skip
     }
   };
 
