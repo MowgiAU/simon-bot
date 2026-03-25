@@ -54,6 +54,9 @@ const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").the
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => ({ default: m.LoginPage })));
+const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
 const VoiceMonitorPage       = lazy(() => import("./pages/VoiceMonitor").then(m => ({ default: m.VoiceMonitorPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -93,7 +96,9 @@ type Section =
   | "featured-content"
   | "voice-monitor";
 
-const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
+const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
+  const navigate = useNavigate();
+  return (
   <div style={{ 
     display: "flex", 
     justifyContent: "center", 
@@ -150,6 +155,38 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
       <button 
         onClick={login} 
         style={{ 
+          background: "#5865F2", 
+          color: "white", 
+          border: "none", 
+          padding: "14px 28px", 
+          fontSize: "15px", 
+          fontWeight: 600, 
+          borderRadius: "12px", 
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px",
+          width: "100%",
+          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          boxShadow: "0 0 20px rgba(88, 101, 242, 0.2)",
+          marginBottom: "12px",
+        }}
+        onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
+          e.currentTarget.style.transform = "translateY(-1px)";
+          e.currentTarget.style.boxShadow = "0 0 30px rgba(88, 101, 242, 0.3)";
+        }}
+        onMouseOut={(e: React.MouseEvent<HTMLButtonElement>) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow = "0 0 20px rgba(88, 101, 242, 0.2)";
+        }}
+      >
+        Login with Discord
+      </button>
+
+      <button 
+        onClick={() => navigate('/login')} 
+        style={{ 
           background: "linear-gradient(135deg, #10B981, #059669)", 
           color: "white", 
           border: "none", 
@@ -175,11 +212,11 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => (
           e.currentTarget.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.2)";
         }}
       >
-        Login with Discord
+        Sign in with Email
       </button>
     </div>
   </div>
-);
+);};
 
 const AdminDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
@@ -478,6 +515,10 @@ const AppInternal: React.FC = () => {
       { test: p => p.startsWith('/genres/'),   title: 'Fuji Studio | Genre' },
       { test: p => p.startsWith('/category/'), title: 'Fuji Studio | Category' },
       { test: p => p === '/terms',             title: 'Fuji Studio | Terms & Privacy' },
+      { test: p => p === '/login' || p === '/register', title: 'Fuji Studio | Sign In' },
+      { test: p => p === '/forgot-password',   title: 'Fuji Studio | Forgot Password' },
+      { test: p => p === '/reset-password',    title: 'Fuji Studio | Reset Password' },
+      { test: p => p === '/account',           title: 'Fuji Studio | Account Settings' },
       { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
       { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
       { test: p => p === '/my-favourites', title: 'Fuji Studio | My Favourites' },
@@ -572,9 +613,24 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><TermsPage /></Suspense>;
   }
 
-  // /account → Account settings (password, email verification)
+  // /account → Account settings (password, email verification, 2FA, Discord)
   if (currentPath === '/account') {
     return <Suspense fallback={<PageSpinner />}><AccountSettingsPage /></Suspense>;
+  }
+
+  // /login → Login/Register page
+  if (currentPath === '/login' || currentPath === '/register') {
+    return <Suspense fallback={<PageSpinner />}><LoginPage /></Suspense>;
+  }
+
+  // /forgot-password → Forgot password page
+  if (currentPath === '/forgot-password') {
+    return <Suspense fallback={<PageSpinner />}><ForgotPasswordPage /></Suspense>;
+  }
+
+  // /reset-password → Reset password with token
+  if (currentPath === '/reset-password') {
+    return <Suspense fallback={<PageSpinner />}><ResetPasswordPage /></Suspense>;
   }
 
   // /verify-email → Redirect from email verification link

@@ -28,6 +28,8 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
+import { authenticator } from 'otplib';
+import QRCode from 'qrcode';
 
 // Augment express-session to include custom fields
 declare module 'express-session' {
@@ -750,6 +752,7 @@ app.get('/api/auth/discord/login', (req, res) => {
 // Discord OAuth2 callback: store user, all user guilds, and mutual admin guilds
 app.get('/api/auth/discord/callback', async (req, res) => {
   const code = req.query.code as string;
+  const state = req.query.state as string | undefined;
   if (!code) return res.status(400).send('No code provided');
   try {
     // Exchange code for token
@@ -822,12 +825,60 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         mutualAdminGuilds.push(...roleCheckResults.filter(Boolean));
     }
 
+    // ===== DISCORD LINKING FLOW =====
+    // If state=link_<token>, this is a linking request from a logged-in user
+    if (state && state.startsWith('link_') && req.session?.user?._localId) {
+        const linkToken = state.slice(5);
+        if (linkToken !== req.session._discordLinkToken) {
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=invalid_token`);
+        }
+        delete req.session._discordLinkToken;
+
+        // Check if this Discord account is already linked to another user
+        const existingDiscordUser = await db.user.findUnique({ where: { discordId: user.id } });
+        if (existingDiscordUser && existingDiscordUser.id !== req.session.user._localId) {
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=already_linked`);
+        }
+
+        // Link Discord to current user
+        try {
+            const dbUser = await db.user.update({
+                where: { id: req.session.user._localId },
+                data: {
+                    discordId: user.id,
+                    avatar: user.avatar,
+                    displayName: user.global_name || user.username,
+                },
+            });
+
+            // Update session with Discord data
+            req.session.user.id = user.id;
+            req.session.user.avatar = user.avatar;
+            req.session.user.global_name = user.global_name;
+            req.session.user.discriminator = user.discriminator;
+            req.session.guilds = userGuilds;
+            req.session.mutualAdminGuilds = mutualAdminGuilds;
+
+            const primaryGuildId = process.env.GUILD_ID;
+            req.session.isGuildMember = primaryGuildId ? userGuilds.some((g: any) => g.id === primaryGuildId) : false;
+
+            req.session.save((err) => {
+                if (err) logger.error('[Auth] Session save error during Discord link', err);
+                res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linked=true`);
+            });
+        } catch (e) {
+            logger.error('[Auth] Failed to link Discord account', e);
+            res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=failed`);
+        }
+        return;
+    }
+
+    // ===== STANDARD DISCORD LOGIN FLOW =====
     // Upsert local User account with Discord data + email
     try {
         const dbUser = await db.user.upsert({
             where: { discordId: user.id },
             update: {
-                username: user.username,
                 displayName: user.global_name || user.username,
                 avatar: user.avatar,
                 email: user.email || undefined,
@@ -846,6 +897,8 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         user._hasPassword = !!dbUser.passwordHash;
         user._email = dbUser.email;
         user._emailVerified = !!dbUser.emailVerified;
+        user._totpEnabled = !!dbUser.totpEnabled;
+        user._loginMethod = 'discord';
     } catch (e) {
         logger.warn('[Auth] Failed to upsert local user account', e);
     }
@@ -910,40 +963,144 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
     });
 }
 
-// Set password for current user (requires active session)
-app.post('/api/auth/set-password', requireAuth, async (req: any, res) => {
-    try {
-        const userId = req.session.user.id;
-        const { password } = req.body;
+// --- Session builder: creates a consistent session from a DB User ---
+async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' | 'discord') {
+    req.session.user = {
+        id: dbUser.discordId || dbUser.id,
+        username: dbUser.username,
+        global_name: dbUser.displayName,
+        avatar: dbUser.avatar,
+        email: dbUser.email,
+        _localId: dbUser.id,
+        _hasPassword: !!dbUser.passwordHash,
+        _email: dbUser.email,
+        _emailVerified: !!dbUser.emailVerified,
+        _loginMethod: loginMethod,
+        _totpEnabled: !!dbUser.totpEnabled,
+    };
 
-        if (!password || typeof password !== 'string' || password.length < 8) {
+    // If user has a linked Discord account, try to load guild data
+    if (dbUser.discordId && loginMethod === 'email') {
+        // Can't fetch live guilds without Discord OAuth token — guilds stay empty
+        req.session.guilds = [];
+        req.session.mutualAdminGuilds = [];
+        req.session.isGuildMember = false;
+    }
+    // Discord login sets guilds separately in the callback
+}
+
+// --- Username validation ---
+function isValidUsername(username: string): boolean {
+    return /^[a-zA-Z0-9_-]{3,30}$/.test(username);
+}
+
+// =============================================
+// REGISTRATION
+// =============================================
+const registerLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { error: 'Too many registration attempts. Try again later.' } });
+app.post('/api/auth/register', registerLimiter, async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: 'Username, email, and password are required' });
+        }
+        if (!isValidUsername(username)) {
+            return res.status(400).json({ error: 'Username must be 3-30 characters and contain only letters, numbers, hyphens, and underscores' });
+        }
+        if (typeof password !== 'string' || password.length < 8) {
             return res.status(400).json({ error: 'Password must be at least 8 characters' });
         }
+        const emailNorm = String(email).toLowerCase().trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+            return res.status(400).json({ error: 'Invalid email address' });
+        }
 
-        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
-        if (!dbUser) return res.status(404).json({ error: 'No local account found. Please log in with Discord first.' });
-        if (!dbUser.email) return res.status(400).json({ error: 'No email on file. Please ensure your Discord account has a verified email and re-login.' });
+        // Check uniqueness
+        const existing = await db.user.findFirst({
+            where: {
+                OR: [
+                    { email: emailNorm },
+                    { username: { equals: username, mode: 'insensitive' } },
+                ]
+            }
+        });
+        if (existing) {
+            if (existing.email === emailNorm) return res.status(409).json({ error: 'An account with this email already exists' });
+            return res.status(409).json({ error: 'This username is already taken' });
+        }
 
         const passwordHash = await hashPassword(password);
-        await db.user.update({ where: { id: dbUser.id }, data: { passwordHash } });
+        const dbUser = await db.user.create({
+            data: {
+                username,
+                displayName: username,
+                email: emailNorm,
+                passwordHash,
+                lastLoginAt: new Date(),
+            },
+        });
 
-        req.session.user._hasPassword = true;
-        res.json({ success: true });
+        await buildSessionFromUser(req, dbUser, 'email');
+        req.session.guilds = [];
+        req.session.mutualAdminGuilds = [];
+        req.session.isGuildMember = false;
+
+        // Send verification email automatically
+        try {
+            const token = crypto.randomBytes(32).toString('hex');
+            const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24);
+            await db.user.update({ where: { id: dbUser.id }, data: { emailVerificationToken: token, emailVerificationExpiry: expiry } });
+
+            let resendKey = process.env.RESEND_API_KEY;
+            if (!resendKey) {
+                try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {}
+            }
+            if (resendKey) {
+                const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
+                const verifyUrl = `${dashboardOrigin}/verify-email?token=${token}`;
+                const resendClient = new Resend(resendKey);
+                await resendClient.emails.send({
+                    from: 'Fuji Studio <noreply@fujistud.io>',
+                    to: [emailNorm],
+                    subject: 'Verify your Fuji Studio email',
+                    html: `
+                        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                            <h2 style="color:#2b8d70;margin-top:0;">Welcome to Fuji Studio!</h2>
+                            <p>Hey <strong>${username}</strong>,</p>
+                            <p>Click below to verify your email and complete your account setup.</p>
+                            <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Verify Email</a>
+                            <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
+                        </div>
+                    `,
+                });
+            }
+        } catch (e) {
+            logger.warn('[Auth] Failed to send verification email during registration', e);
+        }
+
+        req.session.save((err) => {
+            if (err) return res.status(500).json({ error: 'Registration failed' });
+            res.json({ success: true, user: req.session.user });
+        });
     } catch (e) {
-        logger.error('[Auth] Failed to set password', e);
-        res.status(500).json({ error: 'Failed to set password' });
+        logger.error('[Auth] Registration error', e);
+        res.status(500).json({ error: 'Registration failed' });
     }
 });
 
-// Email/password login (fallback when Discord is unavailable)
-const emailLoginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts, try again later.' } });
-app.post('/api/auth/email/login', emailLoginLimiter, async (req, res) => {
+// =============================================
+// LOGIN (email/password with optional 2FA)
+// =============================================
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts, try again later.' } });
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, totpCode } = req.body;
 
         if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
-        const dbUser = await db.user.findUnique({ where: { email: String(email).toLowerCase().trim() } });
+        const emailNorm = String(email).toLowerCase().trim();
+        const dbUser = await db.user.findUnique({ where: { email: emailNorm } });
         if (!dbUser || !dbUser.passwordHash) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
@@ -953,50 +1110,263 @@ app.post('/api/auth/email/login', emailLoginLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        // Update last login
+        // Check 2FA
+        if (dbUser.totpEnabled && dbUser.totpSecret) {
+            if (!totpCode) {
+                // Password correct but 2FA required — send challenge
+                return res.status(200).json({ requiresTwoFactor: true });
+            }
+            // Verify TOTP code or backup code
+            const isValidTotp = authenticator.check(totpCode, dbUser.totpSecret);
+            if (!isValidTotp) {
+                // Try backup codes
+                let usedBackup = false;
+                for (let i = 0; i < dbUser.totpBackupCodes.length; i++) {
+                    const match = await verifyPassword(totpCode, dbUser.totpBackupCodes[i]);
+                    if (match) {
+                        // Remove used backup code
+                        const remaining = [...dbUser.totpBackupCodes];
+                        remaining.splice(i, 1);
+                        await db.user.update({ where: { id: dbUser.id }, data: { totpBackupCodes: remaining } });
+                        usedBackup = true;
+                        break;
+                    }
+                }
+                if (!usedBackup) {
+                    return res.status(401).json({ error: 'Invalid two-factor code' });
+                }
+            }
+        }
+
         await db.user.update({ where: { id: dbUser.id }, data: { lastLoginAt: new Date() } });
-
-        // Build session user object (similar shape to Discord user)
-        req.session.user = {
-            id: dbUser.discordId || dbUser.id,
-            username: dbUser.username,
-            global_name: dbUser.displayName,
-            avatar: dbUser.avatar,
-            email: dbUser.email,
-            _localId: dbUser.id,
-            _hasPassword: true,
-            _email: dbUser.email,
-            _loginMethod: 'email',
-        };
-
-        // For email login, we can't fetch guilds from Discord
-        // Load cached guild data if we have it from a previous Discord login
+        await buildSessionFromUser(req, dbUser, 'email');
         req.session.guilds = [];
         req.session.mutualAdminGuilds = [];
         req.session.isGuildMember = false;
 
         req.session.save((err) => {
-            if (err) {
-                logger.error('[Auth] Session save error during email login', err);
-                return res.status(500).json({ error: 'Login failed' });
-            }
-            res.json({
-                success: true,
-                user: req.session.user,
-                note: 'Logged in via email. Some Discord-specific features (guild management) require Discord login.',
-            });
+            if (err) return res.status(500).json({ error: 'Login failed' });
+            res.json({ success: true, user: req.session.user });
         });
     } catch (e) {
-        logger.error('[Auth] Email login error', e);
+        logger.error('[Auth] Login error', e);
         res.status(500).json({ error: 'Login failed' });
     }
 });
 
-// Get current account info (email, password status)
+// Keep legacy endpoint working (redirects to new login)
+app.post('/api/auth/email/login', loginLimiter, async (req, res) => {
+    // Forward to new login handler
+    req.url = '/api/auth/login';
+    app.handle(req, res);
+});
+
+// =============================================
+// FORGOT PASSWORD / RESET PASSWORD
+// =============================================
+const forgotPasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { error: 'Too many requests, try again later.' } });
+app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const emailNorm = String(email).toLowerCase().trim();
+        const dbUser = await db.user.findUnique({ where: { email: emailNorm } });
+
+        // Always return success to prevent email enumeration
+        if (!dbUser) return res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+        await db.user.update({ where: { id: dbUser.id }, data: { passwordResetToken: token, passwordResetExpiry: expiry } });
+
+        let resendKey = process.env.RESEND_API_KEY;
+        if (!resendKey) {
+            try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {}
+        }
+        if (resendKey) {
+            const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
+            const resetUrl = `${dashboardOrigin}/reset-password?token=${token}`;
+            const resendClient = new Resend(resendKey);
+            await resendClient.emails.send({
+                from: 'Fuji Studio <noreply@fujistud.io>',
+                to: [emailNorm],
+                subject: 'Reset your Fuji Studio password',
+                html: `
+                    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                        <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
+                        <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
+                        <p>Someone requested a password reset for your Fuji Studio account. Click below — this link expires in 1 hour.</p>
+                        <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Reset Password</a>
+                        <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${resetUrl}</p>
+                        <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, ignore this email. Your password won't change.</p>
+                    </div>
+                `,
+            });
+        }
+
+        res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+    } catch (e) {
+        logger.error('[Auth] forgot-password error', e);
+        res.status(500).json({ error: 'Failed to process request' });
+    }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+        if (typeof password !== 'string' || password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+
+        const dbUser = await db.user.findFirst({
+            where: { passwordResetToken: token, passwordResetExpiry: { gt: new Date() } },
+        });
+        if (!dbUser) return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+
+        const passwordHash = await hashPassword(password);
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { passwordHash, passwordResetToken: null, passwordResetExpiry: null },
+        });
+
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('[Auth] reset-password error', e);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// =============================================
+// TWO-FACTOR AUTHENTICATION (TOTP)
+// =============================================
+// Step 1: Generate secret + QR code (does NOT enable yet)
+app.post('/api/auth/2fa/setup', requireAuth, async (req: any, res) => {
+    try {
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+        if (dbUser.totpEnabled) return res.status(400).json({ error: 'Two-factor authentication is already enabled' });
+
+        const secret = authenticator.generateSecret();
+        // Store the secret temporarily — will finalize when user confirms with a valid code
+        await db.user.update({ where: { id: dbUser.id }, data: { totpSecret: secret } });
+
+        const otpauth = authenticator.keyuri(dbUser.email || dbUser.username, 'Fuji Studio', secret);
+        const qrDataUrl = await QRCode.toDataURL(otpauth);
+
+        res.json({ secret, qrCode: qrDataUrl });
+    } catch (e) {
+        logger.error('[Auth] 2FA setup error', e);
+        res.status(500).json({ error: 'Failed to set up 2FA' });
+    }
+});
+
+// Step 2: Verify code + enable 2FA, return backup codes
+app.post('/api/auth/2fa/verify', requireAuth, async (req: any, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) return res.status(400).json({ error: 'Verification code is required' });
+
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser || !dbUser.totpSecret) return res.status(400).json({ error: 'No 2FA setup in progress' });
+        if (dbUser.totpEnabled) return res.status(400).json({ error: '2FA is already active' });
+
+        const isValid = authenticator.check(code, dbUser.totpSecret);
+        if (!isValid) return res.status(401).json({ error: 'Invalid code. Make sure you entered the current code from your authenticator app.' });
+
+        // Generate backup codes
+        const backupCodes: string[] = [];
+        const hashedCodes: string[] = [];
+        for (let i = 0; i < 8; i++) {
+            const code = crypto.randomBytes(4).toString('hex'); // 8-char hex codes
+            backupCodes.push(code);
+            hashedCodes.push(await hashPassword(code));
+        }
+
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { totpEnabled: true, totpBackupCodes: hashedCodes },
+        });
+
+        req.session.user._totpEnabled = true;
+        res.json({ success: true, backupCodes });
+    } catch (e) {
+        logger.error('[Auth] 2FA verify error', e);
+        res.status(500).json({ error: 'Failed to enable 2FA' });
+    }
+});
+
+// Disable 2FA (requires password confirmation)
+app.post('/api/auth/2fa/disable', requireAuth, async (req: any, res) => {
+    try {
+        const { password } = req.body;
+        if (!password) return res.status(400).json({ error: 'Password is required to disable 2FA' });
+
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+        if (!dbUser.totpEnabled) return res.status(400).json({ error: '2FA is not enabled' });
+        if (!dbUser.passwordHash) return res.status(400).json({ error: 'No password set' });
+
+        const valid = await verifyPassword(password, dbUser.passwordHash);
+        if (!valid) return res.status(401).json({ error: 'Incorrect password' });
+
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { totpEnabled: false, totpSecret: null, totpBackupCodes: [] },
+        });
+
+        req.session.user._totpEnabled = false;
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('[Auth] 2FA disable error', e);
+        res.status(500).json({ error: 'Failed to disable 2FA' });
+    }
+});
+
+// =============================================
+// DISCORD LINKING / UNLINKING
+// =============================================
+// Link Discord to existing account (initiates OAuth with state token)
+app.get('/api/auth/discord/link', requireAuth, (req: any, res) => {
+    const linkToken = crypto.randomBytes(16).toString('hex');
+    req.session._discordLinkToken = linkToken;
+    const params = new URLSearchParams({
+        client_id: DISCORD_CLIENT_ID,
+        redirect_uri: DISCORD_REDIRECT_URI,
+        response_type: 'code',
+        scope: 'identify guilds email',
+        state: `link_${linkToken}`,
+        prompt: 'consent',
+    });
+    res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+});
+
+// Unlink Discord from account (requires password set)
+app.post('/api/auth/discord/unlink', requireAuth, async (req: any, res) => {
+    try {
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+        if (!dbUser.discordId) return res.status(400).json({ error: 'No Discord account linked' });
+        if (!dbUser.passwordHash) return res.status(400).json({ error: 'You must set a password before unlinking Discord, or you will be locked out.' });
+
+        await db.user.update({ where: { id: dbUser.id }, data: { discordId: null } });
+        req.session.user.id = dbUser.id;
+        req.session.guilds = [];
+        req.session.mutualAdminGuilds = [];
+        req.session.isGuildMember = false;
+
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('[Auth] Discord unlink error', e);
+        res.status(500).json({ error: 'Failed to unlink Discord' });
+    }
+});
+
+// Get current account info (email, password status, 2FA)
 app.get('/api/auth/account', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
-        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
         if (!dbUser) return res.json({ hasAccount: false });
 
         res.json({
@@ -1004,6 +1374,11 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
             email: dbUser.email,
             emailVerified: !!dbUser.emailVerified,
             hasPassword: !!dbUser.passwordHash,
+            username: dbUser.username,
+            discordLinked: !!dbUser.discordId,
+            discordId: dbUser.discordId,
+            totpEnabled: !!dbUser.totpEnabled,
+            backupCodesRemaining: dbUser.totpBackupCodes.length,
             lastLoginAt: dbUser.lastLoginAt,
             createdAt: dbUser.createdAt,
         });
@@ -1016,8 +1391,7 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
 // Send email verification
 app.post('/api/auth/send-verification', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
-        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
         if (!dbUser) return res.status(404).json({ error: 'No account found' });
         if (!dbUser.email) return res.status(400).json({ error: 'No email on file. Re-login with Discord to pull your email.' });
         if (dbUser.emailVerified) return res.status(400).json({ error: 'Email is already verified' });
@@ -1103,7 +1477,7 @@ app.get('/api/auth/verify-email', async (req, res) => {
         });
 
         // Update session if the verified user is logged in
-        if (req.session?.user?.id === dbUser.discordId) {
+        if ((req.session?.user?.id && req.session.user.id === dbUser.discordId) || (req.session?.user?._localId && req.session.user._localId === dbUser.id)) {
             req.session.user._emailVerified = true;
         }
 
@@ -1117,14 +1491,13 @@ app.get('/api/auth/verify-email', async (req, res) => {
 // Change password (requires knowing current password, or can set new one if none set)
 app.post('/api/auth/change-password', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
         const { currentPassword, newPassword } = req.body;
 
         if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
             return res.status(400).json({ error: 'New password must be at least 8 characters' });
         }
 
-        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
         if (!dbUser) return res.status(404).json({ error: 'No account found' });
 
         // If a password already exists, require current password
@@ -1145,8 +1518,6 @@ app.post('/api/auth/change-password', requireAuth, async (req: any, res) => {
     }
 });
 
-// Auth status endpoint
-
 // Auth status endpoint (returns user and mutual admin guilds)
 app.get('/api/auth/status', (req, res) => {
   if (req.session.user) {
@@ -1159,6 +1530,8 @@ app.get('/api/auth/status', (req, res) => {
       hasPassword: !!req.session.user._hasPassword,
       email: req.session.user._email || null,
       emailVerified: !!req.session.user._emailVerified,
+      totpEnabled: !!req.session.user._totpEnabled,
+      loginMethod: req.session.user._loginMethod || 'discord',
     });
   } else {
     res.json({ authenticated: false });

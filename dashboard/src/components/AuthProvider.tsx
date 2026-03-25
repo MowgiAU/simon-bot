@@ -6,12 +6,14 @@ const RETURN_TO_KEY = 'fuji_login_return_to';
 export interface User {
   id: string;
   username: string;
-  discriminator: string;
+  discriminator?: string;
   avatar: string;
   _localId?: string;
   _hasPassword?: boolean;
   _email?: string | null;
   _emailVerified?: boolean;
+  _totpEnabled?: boolean;
+  _loginMethod?: 'email' | 'discord';
 }
 
 export interface Guild {
@@ -37,8 +39,12 @@ interface AuthContextType {
   hasPassword: boolean;
   email: string | null;
   emailVerified: boolean;
+  totpEnabled: boolean;
+  loginMethod: string | null;
   login: () => void;
   logout: () => void;
+  emailLogin: (email: string, password: string, totpCode?: string) => Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string }>;
+  register: (username: string, email: string, password: string) => Promise<{ success?: boolean; error?: string }>;
   refreshAccountStatus: () => void;
 }
 
@@ -56,6 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasPassword, setHasPassword] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<string | null>(null);
 
   // Fetch permissions when guild changes
   useEffect(() => {
@@ -86,6 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setHasPassword(!!data.hasPassword);
           setEmail(data.email || null);
           setEmailVerified(!!data.emailVerified);
+          setTotpEnabled(!!data.totpEnabled);
+          setLoginMethod(data.loginMethod || null);
           if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
              setSelectedGuild(data.mutualAdminGuilds[0]);
           }
@@ -114,6 +124,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             _hasPassword: true,
             _email: 'dev@example.com',
             _emailVerified: true,
+            _totpEnabled: false,
+            _loginMethod: 'discord',
         });
         setMutualAdminGuilds([{ id: 'dev_guild_id', name: 'Dev Community', icon: '' }]);
         setSelectedGuild({ id: 'dev_guild_id', name: 'Dev Community', icon: '' });
@@ -126,6 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setHasPassword(true);
         setEmail('dev@example.com');
         setEmailVerified(true);
+        setTotpEnabled(false);
+        setLoginMethod('discord');
         setLoading(false);
         return;
     }
@@ -145,12 +159,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/api/auth/discord/login';
   };
 
+  const emailLogin = async (loginEmail: string, password: string, totpCode?: string): Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password, totpCode }),
+      });
+      const data = await res.json();
+      if (data.requiresTwoFactor) return { requiresTwoFactor: true };
+      if (!res.ok) return { error: data.error || 'Login failed' };
+      // Reload auth status after successful login
+      loadAuthStatus();
+      return { success: true };
+    } catch {
+      return { error: 'Network error' };
+    }
+  };
+
+  const register = async (username: string, regEmail: string, password: string): Promise<{ success?: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email: regEmail, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Registration failed' };
+      loadAuthStatus();
+      return { success: true };
+    } catch {
+      return { error: 'Network error' };
+    }
+  };
+
   const logout = () => {
     window.location.href = '/api/auth/logout';
   };
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, login, logout, refreshAccountStatus }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, login, logout, emailLogin, register, refreshAccountStatus }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,7 +10,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- User Accounts (Discord-linked with email/password fallback) ---
+// --- User Accounts (Native auth with optional Discord linking) ---
 model User {
   id                       String    @id @default(cuid())
   discordId                String?   @unique
@@ -18,13 +18,22 @@ model User {
   emailVerified            DateTime?
   emailVerificationToken   String?   @unique
   emailVerificationExpiry  DateTime?
-  username                 String
+  username                 String    @unique
   displayName              String?
   avatar                   String?
-  passwordHash             String?   // For email/password login fallback
+  passwordHash             String?
   lastLoginAt              DateTime?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
+
+  // 2FA (TOTP)
+  totpSecret               String?   // Encrypted TOTP secret
+  totpEnabled              Boolean   @default(false)
+  totpBackupCodes          String[]  @default([]) // Hashed backup codes
+
+  // Account recovery
+  passwordResetToken       String?   @unique
+  passwordResetExpiry      DateTime?
 
   @@map("users")
 }
