@@ -983,14 +983,65 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
         _totpEnabled: !!dbUser.totpEnabled,
     };
 
-    // If user has a linked Discord account, try to load guild data
+    // If user has a linked Discord account, use bot token to resolve guild/admin status
     if (dbUser.discordId && loginMethod === 'email') {
-        // Can't fetch live guilds without Discord OAuth token — guilds stay empty
-        req.session.guilds = [];
-        req.session.mutualAdminGuilds = [];
-        req.session.isGuildMember = false;
+        try {
+            const botGuilds = await getBotGuildIds();
+            const primaryGuildId = process.env.GUILD_ID;
+            const mutualAdminGuilds: any[] = [];
+            let isGuildMember = false;
+
+            for (const botGuild of botGuilds) {
+                try {
+                    const memberRes = await axios.get(
+                        `https://discord.com/api/v10/guilds/${botGuild.id}/members/${dbUser.discordId}`,
+                        { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }
+                    );
+                    const member = memberRes.data;
+                    if (primaryGuildId && botGuild.id === primaryGuildId) isGuildMember = true;
+
+                    // Check if they're a server admin via permissions, or have allowed dashboard roles
+                    const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
+                    const memberRoles: string[] = member.roles || [];
+
+                    // Store in cache for later permission checks
+                    memberRoleCache.set(`${botGuild.id}:${dbUser.discordId}`, { roles: memberRoles, timestamp: Date.now() });
+
+                    // Guild owner or has allowed roles = admin
+                    const hasAllowedRole = guildAccess?.allowedRoles?.length
+                        ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
+                        : false;
+                    // Fetch guild to check ownership
+                    const guildRes = await axios.get(
+                        `https://discord.com/api/v10/guilds/${botGuild.id}`,
+                        { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }
+                    );
+                    const isOwner = guildRes.data.owner_id === dbUser.discordId;
+
+                    if (isOwner || hasAllowedRole) {
+                        mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                    }
+                } catch (e: any) {
+                    // 404 = not a member of this guild, skip
+                }
+            }
+
+            req.session.guilds = [];
+            req.session.mutualAdminGuilds = mutualAdminGuilds;
+            req.session.isGuildMember = isGuildMember;
+        } catch (e) {
+            logger.warn('[Auth] Failed to resolve Discord guild status for email login', e);
+            req.session.guilds = [];
+            req.session.mutualAdminGuilds = [];
+            req.session.isGuildMember = false;
+        }
+        return;
     }
-    // Discord login sets guilds separately in the callback
+
+    // No Discord linked — no guild data
+    req.session.guilds = [];
+    req.session.mutualAdminGuilds = [];
+    req.session.isGuildMember = false;
 }
 
 // --- Username validation ---
