@@ -6700,7 +6700,7 @@ app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, 
         });
         await db.user.update({
             where: { id: req.params.id },
-            data: { passwordHash: hash, hasPassword: true },
+            data: { passwordHash: hash },
         });
         res.json({ success: true });
     } catch (e: any) {
