@@ -6587,9 +6587,12 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
 app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const targetId = req.params.id;
-        const adminUser = await db.user.findUnique({ where: { discordId: req.session.userId } });
-        if (adminUser && adminUser.id === targetId) {
-            return res.status(400).json({ error: 'You cannot delete your own account via admin panel' });
+        const adminDiscordId = req.session.user?.id;
+        if (adminDiscordId) {
+            const adminUser = await db.user.findUnique({ where: { discordId: adminDiscordId } });
+            if (adminUser && adminUser.id === targetId) {
+                return res.status(400).json({ error: 'You cannot delete your own account via admin panel' });
+            }
         }
         await db.user.delete({ where: { id: targetId } });
         res.json({ success: true });
