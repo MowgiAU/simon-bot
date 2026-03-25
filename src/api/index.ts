@@ -6630,6 +6630,7 @@ app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req
             data: { passwordResetToken: token, passwordResetExpiry: expiry },
         });
 
+        const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
         const resetLink = `${dashboardOrigin}/reset-password?token=${token}`;
         await resend.emails.send({
             from: 'noreply@fujistud.io',
