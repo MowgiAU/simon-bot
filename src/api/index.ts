@@ -1508,6 +1508,7 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         'ERROR': ['ERROR', 'error', 'command_error'],
         'PROFILES': ['PROFILES', 'profile_status_changed', 'track_status_changed', 'profile_wiped',
                      'track_uploaded', 'track_edited', 'track_deleted', 'profile_updated', 'avatar_uploaded',
+                     'profile_admin_edited', 'avatar_admin_uploaded',
                      'battle_created', 'battle_updated', 'battle_deleted', 'FEEDBACK_THREAD_CREATED', 'FEEDBACK_APPROVED'],
         'COMMENTS': ['COMMENTS', 'comment_created', 'comment_replied', 'comment_reacted', 'comment_reaction_removed', 'comment_edited', 'comment_deleted'],
         'SOCIAL': ['SOCIAL', 'track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed',
@@ -5713,6 +5714,107 @@ app.get('/api/admin/musician/profiles/search', async (req: any, res) => {
             include: { _count: { select: { tracks: true } } }
         });
         res.json(profiles);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Edit any user's profile fields
+app.post('/api/admin/musician/profile/:userId', requireAdmin, async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const data = req.body;
+        const adminId = req.session.user.id;
+
+        // Validate displayName against word filters if provided
+        if (data.displayName && typeof data.displayName === 'string' && data.displayName.trim()) {
+            const wordGroups = await db.wordGroup.findMany({
+                where: { enabled: true },
+                include: { words: true }
+            });
+            const lowerName = data.displayName.toLowerCase();
+            for (const group of wordGroups) {
+                for (const fw of group.words) {
+                    const pattern = new RegExp(`\\b${fw.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(s|es)?\\b`, 'i');
+                    if (pattern.test(lowerName)) {
+                        return res.status(400).json({ error: 'Artist name contains a restricted word.' });
+                    }
+                }
+            }
+        }
+
+        const user = await resolveUser(userId);
+        if (!data.username) {
+            data.username = user ? user.username : 'Unknown Musician';
+        }
+
+        const socials = [
+            { platform: 'spotify', url: data.spotifyUrl },
+            { platform: 'soundcloud', url: data.soundcloudUrl },
+            { platform: 'youtube', url: data.youtubeUrl },
+            { platform: 'instagram', url: data.instagramUrl },
+            { platform: 'discord', url: data.discordUrl }
+        ].filter(s => !!s.url);
+
+        if (!data.genres) data.genres = [];
+        const genreIds = data.genres.map((g: any) => typeof g === 'string' ? g : g.id).filter(Boolean);
+
+        const updated = await profileService.updateProfile(userId, {
+            ...data,
+            socials,
+            genreIds,
+            featuredTrackId: data.featuredTrackId,
+            featuredPlaylistId: data.featuredPlaylistId
+        });
+
+        await logAction('GLOBAL', 'profile_admin_edited', adminId, updated.id, {
+            username: updated.username,
+            targetUserId: userId
+        });
+
+        apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
+        if (updated.username) apiResponseCache.delete(`profile-${updated.username.toLowerCase()}`);
+
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin: Update avatar for any user's musician profile
+app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.single('avatar'), async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.session.user.id;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'Avatar file is required' });
+        }
+
+        await scanFileForViruses(file.path, 'avatar');
+        const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
+
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        await deleteFromStorage(profile.avatar);
+        const r2AvatarKey = `profiles/${profile.id}/avatar/${path.basename(finalAvatarPath)}`;
+        const avatarUrl = await uploadToR2OrLocal(finalAvatarPath, r2AvatarKey, 'image/webp', `/uploads/avatars/${path.basename(finalAvatarPath)}`);
+
+        const updated = await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { avatar: avatarUrl }
+        });
+
+        await logAction('GLOBAL', 'avatar_admin_uploaded', adminId, profile.id, {
+            url: avatarUrl,
+            targetUserId: userId
+        });
+
+        res.json({ avatar: updated.avatar });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

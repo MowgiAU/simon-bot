@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
@@ -40,6 +41,7 @@ interface DiscoveryConfig {
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
+    const navigate = useNavigate();
     const [genres, setGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
     const [newGenreName, setNewGenreName] = useState('');
@@ -1181,6 +1183,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                                         {p.statusReason && <div style={{ fontSize: '0.7rem', color: '#ff9800', marginTop: '2px' }}>Reason: {p.statusReason}</div>}
                                     </div>
                                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                                        <button onClick={() => navigate(`/profile/edit?adminTarget=${p.userId}`)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textPrimary, border: '1px solid rgba(255,255,255,0.12)', padding: '5px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            <Edit3 size={13} /> Edit Profile
+                                        </button>
                                         {(p.status !== 'active') && (
                                             <button onClick={() => handleSetProfileStatus(p.id, 'active')}
                                                 style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid rgba(76,175,80,0.3)', padding: '5px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -1444,11 +1450,18 @@ export const MusicianProfileAdmin: React.FC = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    <button 
-                                        onClick={() => setConfirmWipe(p.id)}
-                                        style={{ backgroundColor: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', border: '1px solid rgba(255, 68, 68, 0.3)', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                        WIPE PROFILE
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => navigate(`/profile/edit?adminTarget=${p.userId}`)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textPrimary, border: '1px solid rgba(255,255,255,0.12)', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            <Edit3 size={13} /> Edit
+                                        </button>
+                                        <button 
+                                            onClick={() => setConfirmWipe(p.id)}
+                                            style={{ backgroundColor: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', border: '1px solid rgba(255, 68, 68, 0.3)', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            WIPE PROFILE
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         ))}

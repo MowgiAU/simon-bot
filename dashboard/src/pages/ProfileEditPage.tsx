@@ -8,7 +8,7 @@ import {
     Camera, Link as LinkIcon, Disc3, Star
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const GEAR_CATEGORIES = [
     'DAW', 'VST / Plugin', 'Monitor', 'Synth', 'Keyboard / Controller',
@@ -82,8 +82,12 @@ const inputBase: React.CSSProperties = {
 };
 
 export const ProfileEditPage: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, mutualAdminGuilds } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const adminTargetId = searchParams.get('adminTarget');
+    const isAdminMode = !!adminTargetId && (mutualAdminGuilds?.length ?? 0) > 0;
+    const effectiveUserId = isAdminMode ? adminTargetId : user?.id;
     const [profile, setProfile] = useState<MusicianProfile | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [tracks, setTracks] = useState<any[]>([]);
@@ -119,10 +123,15 @@ export const ProfileEditPage: React.FC = () => {
                 if (!authLoading) window.location.href = '/api/auth/discord/login';
                 return;
             }
+            if (isAdminMode && (mutualAdminGuilds?.length ?? 0) === 0) {
+                setMessage({ type: 'error', text: 'Admin access required.' });
+                setLoading(false);
+                return;
+            }
             setLoading(true);
             try {
                 const [profileRes, genresRes] = await Promise.all([
-                    axios.get(`/api/musician/profile/${user.id}`, { withCredentials: true }),
+                    axios.get(`/api/musician/profile/${effectiveUserId}`, { withCredentials: true }),
                     axios.get('/api/musician/genres', { withCredentials: true })
                 ]);
                 
@@ -130,10 +139,12 @@ export const ProfileEditPage: React.FC = () => {
                 const rawGear = (data?.hardware || data?.gearList || []) as string[];
                 if (data) data.gearList = rawGear.map((item: string) => { try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; } });
                 if (data && data.tracks) setTracks(data.tracks);
-                try {
-                    const playlistsRes = await axios.get('/api/my-playlists', { withCredentials: true });
-                    setPlaylists(playlistsRes.data || []);
-                } catch { /* playlists unavailable */ }
+                if (!isAdminMode) {
+                    try {
+                        const playlistsRes = await axios.get('/api/my-playlists', { withCredentials: true });
+                        setPlaylists(playlistsRes.data || []);
+                    } catch { /* playlists unavailable */ }
+                }
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
                         if (s.platform === 'spotify') data.spotifyUrl = s.url;
@@ -153,8 +164,10 @@ export const ProfileEditPage: React.FC = () => {
                 setProfile(data);
                 setAllGenres(genresRes.data);
             } catch (err: any) {
-                if (err.response?.status === 404) {
+                if (err.response?.status === 404 && !isAdminMode) {
                     navigate('/profile/setup', { replace: true });
+                } else if (err.response?.status === 404 && isAdminMode) {
+                    setMessage({ type: 'error', text: 'This user does not have a musician profile yet.' });
                 } else {
                     setMessage({ type: 'error', text: 'Failed to load profile' });
                 }
@@ -163,7 +176,7 @@ export const ProfileEditPage: React.FC = () => {
             }
         };
         fetchData();
-    }, [user?.id, authLoading]);
+    }, [effectiveUserId, authLoading]);
 
     const handleSave = async () => {
         if (!user || !profile) return;
@@ -178,8 +191,11 @@ export const ProfileEditPage: React.FC = () => {
                 gearList: (profile.gearList || []).map(g => JSON.stringify(g)),
                 genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || []
             };
-            await axios.post(`/api/musician/profile/${user.id}`, payload, { withCredentials: true });
-            setMessage({ type: 'success', text: 'Profile updated successfully!' });
+            const endpoint = isAdminMode
+                ? `/api/admin/musician/profile/${effectiveUserId}`
+                : `/api/musician/profile/${user.id}`;
+            await axios.post(endpoint, payload, { withCredentials: true });
+            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile updated successfully!' });
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
         } finally {
@@ -204,7 +220,10 @@ export const ProfileEditPage: React.FC = () => {
         const formData = new FormData();
         formData.append('avatar', file);
         try {
-            const res = await axios.post(`/api/musician/profile/${user.id}/avatar`, formData, {
+            const endpoint = isAdminMode
+                ? `/api/admin/musician/profile/${effectiveUserId}/avatar`
+                : `/api/musician/profile/${user.id}/avatar`;
+            const res = await axios.post(endpoint, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true
             });
@@ -291,10 +310,18 @@ export const ProfileEditPage: React.FC = () => {
 
             {/* ── Top bar ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
-                    <ArrowLeft size={20} />
-                </Link>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', flex: 1 }}>Edit Profile</h1>
+                {isAdminMode ? (
+                    <button onClick={() => navigate('/dashboard')} style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm, background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <ArrowLeft size={20} />
+                    </button>
+                ) : (
+                    <Link to="/profile" style={{ color: colors.textSecondary, display: 'flex', padding: '6px', borderRadius: borderRadius.sm }}>
+                        <ArrowLeft size={20} />
+                    </Link>
+                )}
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em', flex: 1 }}>
+                    {isAdminMode ? `Admin Edit: ${profile?.displayName || profile?.username || adminTargetId}` : 'Edit Profile'}
+                </h1>
                 {profile?.id && (
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <a href={profileUrl} target="_blank" rel="noopener noreferrer" style={{
@@ -315,6 +342,19 @@ export const ProfileEditPage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* ── Admin Mode Banner ── */}
+            {isAdminMode && (
+                <div style={{
+                    padding: '12px 16px', borderRadius: borderRadius.md, marginBottom: '20px',
+                    backgroundColor: 'rgba(255,152,0,0.1)', color: '#ff9800',
+                    border: '1px solid rgba(255,152,0,0.35)',
+                    fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                    <AlertCircle size={16} />
+                    Admin Edit Mode — You are editing another user's profile. All changes will be logged.
+                </div>
+            )}
 
             {/* ── Toast ── */}
             {message && (
@@ -517,7 +557,24 @@ export const ProfileEditPage: React.FC = () => {
                             <p style={{ fontSize: '12px', color: colors.textTertiary, margin: '0 0 12px' }}>
                                 Showcase an album, EP, or single.
                             </p>
-                            {playlists.filter(p => p.releaseType).length === 0 ? (
+                            {isAdminMode ? (
+                                <div style={{ fontSize: '12px', color: colors.textTertiary }}>
+                                    {profile?.featuredPlaylistId ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span>Currently set (ID: {profile.featuredPlaylistId})</span>
+                                            <button onClick={() => setProfile(p => p ? {...p, featuredPlaylistId: null} : null)}
+                                                style={{ background: 'none', border: 'none', color: colors.error, cursor: 'pointer', padding: 0, fontSize: '12px', fontWeight: 500 }}>
+                                                Clear
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span style={{ fontStyle: 'italic' }}>No featured release set.</span>
+                                    )}
+                                    <div style={{ marginTop: '6px', color: colors.textTertiary, fontSize: '11px' }}>
+                                        To assign a release, ask the user to set it on their own profile.
+                                    </div>
+                                </div>
+                            ) : playlists.filter(p => p.releaseType).length === 0 ? (
                                 <div style={{
                                     padding: '14px', borderRadius: borderRadius.sm,
                                     backgroundColor: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',

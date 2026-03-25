@@ -88,9 +88,11 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   track_deleted:            { label: 'Profiles',    color: '#818CF8' },
   track_status_changed:     { label: 'Profiles',    color: '#818CF8' },
   profile_updated:          { label: 'Profiles',    color: '#818CF8' },
+  profile_admin_edited:     { label: 'Profiles',    color: '#818CF8' },
   profile_status_changed:   { label: 'Profiles',    color: '#818CF8' },
   profile_wiped:            { label: 'Profiles',    color: '#818CF8' },
   avatar_uploaded:          { label: 'Profiles',    color: '#818CF8' },
+  avatar_admin_uploaded:    { label: 'Profiles',    color: '#818CF8' },
   battle_created:           { label: 'Profiles',    color: '#818CF8' },
   battle_updated:           { label: 'Profiles',    color: '#818CF8' },
   battle_deleted:           { label: 'Profiles',    color: '#818CF8' },
@@ -833,7 +835,9 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 track_edited:             { label: 'Track Edited',            color: '#60A5FA' },
                                 track_deleted:            { label: 'Track Deleted',           color: '#f44336' },
                                 profile_updated:          { label: 'Profile Updated',         color: colors.primary },
+                                profile_admin_edited:     { label: 'Admin Edited Profile',    color: '#ff9800' },
                                 avatar_uploaded:          { label: 'Avatar Uploaded',         color: colors.primary },
+                                avatar_admin_uploaded:    { label: 'Admin Updated Avatar',    color: '#ff9800' },
                                 comment_created:          { label: 'Comment Posted',          color: '#60A5FA' },
                                 comment_replied:          { label: 'Comment Replied',         color: '#60A5FA' },
                                 comment_edited:           { label: 'Comment Edited',          color: '#FBBF24' },
@@ -859,6 +863,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                         <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
                                         <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '8px 16px', color: colors.textSecondary }}>
                                             {d.username     && <span>Artist: <span style={{ color: colors.textPrimary }}>{d.username}</span></span>}
+                                            {d.targetUserId && <span>Target user: <span style={{ color: colors.textPrimary }}>{d.targetUserId}</span></span>}
                                             {d.title        && <span>Track: <span style={{ color: colors.textPrimary }}>{d.title}</span></span>}
                                             {d.name         && <span>Playlist: <span style={{ color: colors.textPrimary }}>{d.name}</span></span>}
                                             {d.owner        && <span>Owner: <span style={{ color: colors.textPrimary }}>{d.owner}</span></span>}
