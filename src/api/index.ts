@@ -1103,9 +1103,6 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
         });
 
         await buildSessionFromUser(req, dbUser, 'email');
-        req.session.guilds = [];
-        req.session.mutualAdminGuilds = [];
-        req.session.isGuildMember = false;
 
         // Send verification email automatically
         try {
@@ -1204,9 +1201,6 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
         await db.user.update({ where: { id: dbUser.id }, data: { lastLoginAt: new Date() } });
         await buildSessionFromUser(req, dbUser, 'email');
-        req.session.guilds = [];
-        req.session.mutualAdminGuilds = [];
-        req.session.isGuildMember = false;
 
         req.session.save((err) => {
             if (err) return res.status(500).json({ error: 'Login failed' });
