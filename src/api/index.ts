@@ -993,32 +993,38 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
 
             for (const botGuild of botGuilds) {
                 try {
-                    const memberRes = await axios.get(
-                        `https://discord.com/api/v10/guilds/${botGuild.id}/members/${dbUser.discordId}`,
-                        { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }
-                    );
-                    const member = memberRes.data;
-                    if (primaryGuildId && botGuild.id === primaryGuildId) isGuildMember = true;
+                    const [memberRes, guildRes, rolesRes] = await Promise.all([
+                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/members/${dbUser.discordId}`,
+                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}`,
+                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/roles`,
+                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+                    ]);
 
-                    // Check if they're a server admin via permissions, or have allowed dashboard roles
-                    const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
+                    const member = memberRes.data;
                     const memberRoles: string[] = member.roles || [];
+
+                    if (primaryGuildId && botGuild.id === primaryGuildId) isGuildMember = true;
 
                     // Store in cache for later permission checks
                     memberRoleCache.set(`${botGuild.id}:${dbUser.discordId}`, { roles: memberRoles, timestamp: Date.now() });
 
-                    // Guild owner or has allowed roles = admin
+                    // Check ADMINISTRATOR permission (same logic as Discord OAuth flow)
+                    const isOwner = guildRes.data.owner_id === dbUser.discordId;
+                    const guildRoles: any[] = rolesRes.data;
+                    const isDiscordAdmin = memberRoles.some((roleId: string) => {
+                        const role = guildRoles.find((r: any) => r.id === roleId);
+                        return role && (BigInt(role.permissions) & BigInt(0x8)) === BigInt(0x8);
+                    });
+
+                    // Also check dashboard-configured allowed roles
+                    const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
                     const hasAllowedRole = guildAccess?.allowedRoles?.length
                         ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
                         : false;
-                    // Fetch guild to check ownership
-                    const guildRes = await axios.get(
-                        `https://discord.com/api/v10/guilds/${botGuild.id}`,
-                        { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }
-                    );
-                    const isOwner = guildRes.data.owner_id === dbUser.discordId;
 
-                    if (isOwner || hasAllowedRole) {
+                    if (isOwner || isDiscordAdmin || hasAllowedRole) {
                         mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
                     }
                 } catch (e: any) {
@@ -1724,6 +1730,21 @@ app.post('/api/auth/confirm-email-change', async (req: any, res) => {
 });
 
 // Auth status endpoint (returns user and mutual admin guilds)
+// Refresh guild/admin status for email-logged-in users with a linked Discord account
+app.post('/api/auth/refresh-guilds', requireAuth, async (req: any, res) => {
+    try {
+        const dbUser = await db.user.findFirst({
+            where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] },
+        });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+        await buildSessionFromUser(req, dbUser, 'email');
+        await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
+        res.json({ success: true, mutualAdminGuilds: req.session.mutualAdminGuilds, isGuildMember: req.session.isGuildMember });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/auth/status', (req, res) => {
   if (req.session.user) {
     res.json({
