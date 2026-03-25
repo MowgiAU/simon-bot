@@ -6478,7 +6478,7 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
             ]
         } : {};
 
-        const [users, total] = await Promise.all([
+        const [rawUsers, total] = await Promise.all([
             db.user.findMany({
                 where,
                 select: {
@@ -6489,7 +6489,7 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
                     emailVerified: true,
                     totpEnabled: true,
                     discordId: true,
-                    hasPassword: true,
+                    passwordHash: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -6500,6 +6500,7 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
             db.user.count({ where }),
         ]);
 
+        const users = rawUsers.map(({ passwordHash, ...u }) => ({ ...u, hasPassword: !!passwordHash }));
         res.json({ users, total, page, limit, pages: Math.ceil(total / limit) });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -6509,7 +6510,7 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
 // GET /api/admin/accounts/:id — full account detail
 app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
-        const user = await db.user.findUnique({
+        const rawUser = await db.user.findUnique({
             where: { id: req.params.id },
             select: {
                 id: true,
@@ -6519,15 +6520,16 @@ app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
                 emailVerified: true,
                 totpEnabled: true,
                 discordId: true,
-                hasPassword: true,
+                passwordHash: true,
                 pendingEmail: true,
                 createdAt: true,
                 updatedAt: true,
                 passwordResetExpiry: true,
             },
         });
-        if (!user) return res.status(404).json({ error: 'User not found' });
-        res.json(user);
+        if (!rawUser) return res.status(404).json({ error: 'User not found' });
+        const { passwordHash: _ph, ...userFields } = rawUser;
+        res.json({ ...userFields, hasPassword: !!rawUser.passwordHash });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
