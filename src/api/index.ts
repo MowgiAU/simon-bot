@@ -1766,6 +1766,11 @@ const getGuildId = async () => {
 
 // Helper: Check if True Admin (Owner or Administrator perm)
 const isTrueAdmin = (guildId: string, req: any) => {
+    // Check mutualAdminGuilds (populated by both Discord OAuth and bot-token email login)
+    const mutualAdminGuilds = req.session.mutualAdminGuilds || [];
+    if (mutualAdminGuilds.some((g: any) => g.id === guildId)) return true;
+
+    // Check guild permissions from Discord OAuth session (only available for Discord OAuth logins)
     const userGuilds = req.session.guilds || [];
     const guild = userGuilds.find((g: any) => g.id === guildId);
     if (!guild) return false;
