@@ -28,9 +28,10 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
-import otplib from 'otplib';
-const { authenticator } = otplib;
-import QRCode from 'qrcode';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { authenticator } = require('otplib');
+const QRCode = require('qrcode');
 
 // Augment express-session to include custom fields
 declare module 'express-session' {
