@@ -14,7 +14,7 @@ import {
     CategoryChannel,
     Colors,
     Collection,
-    Message
+    Message,
     MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';

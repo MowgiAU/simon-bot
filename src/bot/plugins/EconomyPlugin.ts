@@ -12,7 +12,7 @@ import {
     ButtonStyle, 
     ChatInputCommandInteraction,
     AutocompleteInteraction,
-    Interaction
+    Interaction,
     MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';

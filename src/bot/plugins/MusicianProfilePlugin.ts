@@ -7,7 +7,7 @@ import {
     TextInputBuilder,
     TextInputStyle,
     ActionRowBuilder,
-    ModalActionRowComponentBuilder
+    ModalActionRowComponentBuilder,
     MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';

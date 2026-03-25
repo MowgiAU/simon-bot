@@ -6,7 +6,7 @@ import {
     PermissionFlagsBits,
     EmbedBuilder,
     TextChannel,
-    Colors
+    Colors,
     MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';

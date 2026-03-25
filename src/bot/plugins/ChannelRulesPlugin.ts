@@ -8,7 +8,7 @@ import {
     ButtonStyle,
     Attachment,
     ComponentType,
-    ChannelType
+    ChannelType,
     MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';

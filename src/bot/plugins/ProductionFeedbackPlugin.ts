@@ -1,5 +1,4 @@
-import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType     MessageFlags,
-} from 'discord.js';
+import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';

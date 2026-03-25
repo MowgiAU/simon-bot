@@ -5,7 +5,7 @@ import {
     Events, 
     REST, 
     Routes,
-    SlashCommandBuilder
+    SlashCommandBuilder,
     MessageFlags,
 } from 'discord.js';
 import { PrismaClient } from '@prisma/client';

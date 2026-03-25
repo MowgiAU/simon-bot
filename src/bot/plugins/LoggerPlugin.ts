@@ -6,7 +6,7 @@ import {
     SlashCommandBuilder, 
     ChatInputCommandInteraction,
     ChannelType,
-    Collection
+    Collection,
     MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';

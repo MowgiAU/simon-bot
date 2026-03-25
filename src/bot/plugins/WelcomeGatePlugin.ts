@@ -17,7 +17,7 @@ import {
     SlashCommandBuilder,
     Colors,
     Message,
-    VoiceState
+    VoiceState,
     MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
