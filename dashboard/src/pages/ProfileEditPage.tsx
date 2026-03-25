@@ -5,7 +5,7 @@ import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube, 
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
-    Camera, Link as LinkIcon, Disc3, Star
+    Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -102,11 +102,58 @@ export const ProfileEditPage: React.FC = () => {
     const [nameError, setNameError] = useState<string | null>(null);
     const [validatingName, setValidatingName] = useState(false);
 
+    // Discord linking
+    const [discordLinked, setDiscordLinked] = useState(!!user?.id && !user.id.startsWith('local_'));
+    const [discordId, setDiscordId] = useState<string | null>(null);
+    const [linkLoading, setLinkLoading] = useState(false);
+    const [linkMsg, setLinkMsg] = useState('');
+    const [linkError, setLinkError] = useState('');
+
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
+
+    // Load Discord link status
+    useEffect(() => {
+        fetch('/api/auth/account', { credentials: 'include' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.hasAccount) {
+                    setDiscordLinked(!!data.discordLinked);
+                    setDiscordId(data.discordId || null);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    // Handle Discord link callback URL params
+    useEffect(() => {
+        const linked = searchParams.get('linked');
+        if (linked === 'true') { setLinkMsg('Discord account linked successfully!'); setDiscordLinked(true); }
+        const linkErr = searchParams.get('linkError');
+        if (linkErr === 'already_linked') setLinkError('That Discord account is already linked to another user.');
+        else if (linkErr === 'invalid_token') setLinkError('Link session expired. Please try again.');
+        else if (linkErr === 'failed') setLinkError('Failed to link Discord account. Please try again.');
+    }, []);
+
+    const handleLinkDiscord = () => {
+        setLinkLoading(true);
+        window.location.href = '/api/auth/discord/link?returnTo=/profile/edit';
+    };
+
+    const handleUnlinkDiscord = async () => {
+        setLinkError(''); setLinkMsg(''); setLinkLoading(true);
+        try {
+            const res = await fetch('/api/auth/discord/unlink', { method: 'POST', credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok) { setLinkError(data.error || 'Failed to unlink'); return; }
+            setDiscordLinked(false); setDiscordId(null);
+            setLinkMsg('Discord account unlinked.');
+        } catch { setLinkError('Request failed'); }
+        finally { setLinkLoading(false); }
+    };
 
     const profileUrl = profile?.username ? `${window.location.origin}/profile/${profile.username}` : '';
 
@@ -690,6 +737,41 @@ export const ProfileEditPage: React.FC = () => {
                             </button>
                         </div>
                     </div>
+
+                    {/* ── Discord Linking ── */}
+                    {!isAdminMode && (
+                    <div style={card}>
+                        <div style={sectionTitle}><Link2 size={18} color={colors.primary} /> Discord Connection</div>
+                        {discordLinked ? (
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, padding: '12px' }}>
+                                    <svg width="22" height="16" viewBox="0 0 71 55" fill="none"><path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309-0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.483 44.2898 53.5503 44.3433C53.9057 44.6363 54.278 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.026 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.027 50.6034 51.2443 52.5699 52.5873 54.435C52.6431 54.5139 52.7438 54.5477 52.8362 54.5195C58.6441 52.7249 64.5268 50.0174 70.5997 45.5576C70.6528 45.5182 70.6866 45.459 70.6922 45.3942C72.1307 30.0791 68.1373 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978Z" fill="#5865F2"/></svg>
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ margin: 0, fontWeight: 600, fontSize: '14px', color: colors.textPrimary }}>Discord Connected</p>
+                                        {discordId && <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textTertiary }}>ID: {discordId}</p>}
+                                    </div>
+                                    <CheckCircle size={16} color={colors.success} />
+                                </div>
+                                <button onClick={handleUnlinkDiscord} disabled={linkLoading}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'transparent', color: colors.error, border: `1px solid ${colors.error}50`, borderRadius: borderRadius.sm, fontWeight: 600, fontSize: '13px', cursor: linkLoading ? 'wait' : 'pointer' }}>
+                                    <Unlink size={13} /> Unlink Discord
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <p style={{ color: colors.textSecondary, fontSize: '13px', marginBottom: '12px', lineHeight: 1.5 }}>
+                                    Link your Discord account to enable guild features and single sign-on.
+                                </p>
+                                <button onClick={handleLinkDiscord} disabled={linkLoading}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#5865F2', color: '#fff', border: 'none', borderRadius: borderRadius.sm, fontWeight: 600, fontSize: '13px', cursor: linkLoading ? 'wait' : 'pointer' }}>
+                                    <Link2 size={14} /> Link Discord Account
+                                </button>
+                            </div>
+                        )}
+                        {linkError && <p style={{ color: colors.error, fontSize: '12px', marginTop: '8px' }}>{linkError}</p>}
+                        {linkMsg && <p style={{ color: colors.success, fontSize: '12px', marginTop: '8px' }}>{linkMsg}</p>}
+                    </div>
+                    )}
 
                     {/* ── Save Button ── */}
                     <button

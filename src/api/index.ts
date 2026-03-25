@@ -832,15 +832,17 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     // If state=link_<token>, this is a linking request from a logged-in user
     if (state && state.startsWith('link_') && req.session?.user?._localId) {
         const linkToken = state.slice(5);
+        const returnTo = req.session._discordLinkReturn || '/account';
         if (linkToken !== req.session._discordLinkToken) {
-            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=invalid_token`);
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}${returnTo}?linkError=invalid_token`);
         }
         delete req.session._discordLinkToken;
+        delete req.session._discordLinkReturn;
 
         // Check if this Discord account is already linked to another user
         const existingDiscordUser = await db.user.findUnique({ where: { discordId: user.id } });
         if (existingDiscordUser && existingDiscordUser.id !== req.session.user._localId) {
-            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=already_linked`);
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}${returnTo}?linkError=already_linked`);
         }
 
         // Link Discord to current user
@@ -867,11 +869,11 @@ app.get('/api/auth/discord/callback', async (req, res) => {
 
             req.session.save((err) => {
                 if (err) logger.error('[Auth] Session save error during Discord link', err);
-                res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linked=true`);
+                res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}${returnTo}?linked=true`);
             });
         } catch (e) {
             logger.error('[Auth] Failed to link Discord account', e);
-            res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/account?linkError=failed`);
+            res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}${returnTo}?linkError=failed`);
         }
         return;
     }
@@ -1336,6 +1338,7 @@ app.post('/api/auth/2fa/disable', requireAuth, async (req: any, res) => {
 app.get('/api/auth/discord/link', requireAuth, (req: any, res) => {
     const linkToken = crypto.randomBytes(16).toString('hex');
     req.session._discordLinkToken = linkToken;
+    req.session._discordLinkReturn = req.query.returnTo || '/account';
     const params = new URLSearchParams({
         client_id: DISCORD_CLIENT_ID,
         redirect_uri: DISCORD_REDIRECT_URI,
