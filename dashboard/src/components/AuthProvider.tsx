@@ -43,7 +43,7 @@ interface AuthContextType {
   loginMethod: string | null;
   login: () => void;
   logout: () => void;
-  emailLogin: (email: string, password: string, totpCode?: string) => Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string }>;
+  emailLogin: (email: string, password: string, totpCode?: string) => Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string; code?: string }>;
   register: (username: string, email: string, password: string) => Promise<{ success?: boolean; error?: string }>;
   refreshAccountStatus: () => void;
 }
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/api/auth/discord/login';
   };
 
-  const emailLogin = async (loginEmail: string, password: string, totpCode?: string): Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string }> => {
+  const emailLogin = async (loginEmail: string, password: string, totpCode?: string): Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string; code?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const data = await res.json();
       if (data.requiresTwoFactor) return { requiresTwoFactor: true };
-      if (!res.ok) return { error: data.error || 'Login failed' };
+      if (!res.ok) return { error: data.error || 'Login failed', code: data.code };
       // Reload auth status after successful login
       loadAuthStatus();
       return { success: true };

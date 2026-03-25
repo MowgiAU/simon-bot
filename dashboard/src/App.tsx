@@ -153,38 +153,6 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
       </p>
 
       <button 
-        onClick={login} 
-        style={{ 
-          background: "#5865F2", 
-          color: "white", 
-          border: "none", 
-          padding: "14px 28px", 
-          fontSize: "15px", 
-          fontWeight: 600, 
-          borderRadius: "12px", 
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "10px",
-          width: "100%",
-          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          boxShadow: "0 0 20px rgba(88, 101, 242, 0.2)",
-          marginBottom: "12px",
-        }}
-        onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
-          e.currentTarget.style.transform = "translateY(-1px)";
-          e.currentTarget.style.boxShadow = "0 0 30px rgba(88, 101, 242, 0.3)";
-        }}
-        onMouseOut={(e: React.MouseEvent<HTMLButtonElement>) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 0 20px rgba(88, 101, 242, 0.2)";
-        }}
-      >
-        Login with Discord
-      </button>
-
-      <button 
         onClick={() => navigate('/login')} 
         style={{ 
           background: "linear-gradient(135deg, #10B981, #059669)", 
@@ -201,7 +169,8 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
           gap: "10px",
           width: "100%",
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          boxShadow: "0 0 20px rgba(16, 185, 129, 0.2)"
+          boxShadow: "0 0 20px rgba(16, 185, 129, 0.2)",
+          marginBottom: "12px",
         }}
         onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.currentTarget.style.transform = "translateY(-1px)";
@@ -212,7 +181,7 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
           e.currentTarget.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.2)";
         }}
       >
-        Sign in with Email
+        Sign In / Create Account
       </button>
     </div>
   </div>

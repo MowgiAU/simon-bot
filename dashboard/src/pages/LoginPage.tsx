@@ -13,6 +13,7 @@ export const LoginPage: React.FC = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'login';
+    const urlError = searchParams.get('error');
 
     const [tab, setTab] = useState<Tab>(initialTab);
     const [email, setEmail] = useState('');
@@ -23,8 +24,27 @@ export const LoginPage: React.FC = () => {
     const [totpCode, setTotpCode] = useState('');
     const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(urlError === 'no_account' ? 'No account is linked to that Discord profile. Please create an account first.' : '');
     const [success, setSuccess] = useState('');
+    const [showResendVerification, setShowResendVerification] = useState(false);
+    const [resendEmail, setResendEmail] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendSuccess, setResendSuccess] = useState(false);
+
+    const handleResendVerification = async () => {
+        if (!resendEmail) return;
+        setResendLoading(true);
+        try {
+            const res = await fetch('/api/auth/send-verification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resendEmail }) });
+            const data = await res.json();
+            if (res.ok) setResendSuccess(true);
+            else setError(data.error || 'Failed to resend verification email');
+        } catch {
+            setError('Failed to resend verification email');
+        } finally {
+            setResendLoading(false);
+        }
+    };
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,6 +59,11 @@ export const LoginPage: React.FC = () => {
             }
             if (result.error) {
                 setError(result.error);
+                // If email not verified, show resend option
+                if (result.code === 'EMAIL_NOT_VERIFIED') {
+                    setShowResendVerification(true);
+                    setResendEmail(email);
+                }
                 setLoading(false);
                 return;
             }
@@ -69,8 +94,7 @@ export const LoginPage: React.FC = () => {
                 setLoading(false);
                 return;
             }
-            setSuccess('Account created! A verification email has been sent.');
-            setTimeout(() => navigate('/'), 1500);
+            setSuccess('Account created! Please check your email and click the verification link before signing in.');
         } catch {
             setError('Registration failed');
         } finally {
@@ -232,7 +256,19 @@ export const LoginPage: React.FC = () => {
                             </div>
                         )}
 
-                        {error && <p style={{ color: colors.error, fontSize: '13px', margin: 0, textAlign: 'center' }}>{error}</p>}
+                        {error && (
+                            <div>
+                                <p style={{ color: colors.error, fontSize: '13px', margin: '0 0 8px', textAlign: 'center' }}>{error}</p>
+                                {showResendVerification && !resendSuccess && (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <p style={{ color: colors.textSecondary, fontSize: '12px', margin: '0 0 8px' }}>Didn't get it? Resend the verification email:</p>
+                                        <input value={resendEmail} onChange={e => setResendEmail(e.target.value)} placeholder="Your email" style={{ width: '100%', padding: '8px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box' }} />
+                                        <button onClick={handleResendVerification} disabled={resendLoading} style={{ background: colors.surface, color: colors.primary, border: `1px solid ${colors.primary}`, borderRadius: borderRadius.md, padding: '7px 16px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>{resendLoading ? 'Sending...' : 'Resend Verification Email'}</button>
+                                    </div>
+                                )}
+                                {resendSuccess && <p style={{ color: colors.primary, fontSize: '12px', textAlign: 'center', margin: 0 }}>Verification email sent! Check your inbox.</p>}
+                            </div>
+                        )}
 
                         <button
                             type="submit"

@@ -266,9 +266,9 @@ export const MyTracksPage: React.FC = () => {
                     <p style={{ color: colors.textSecondary, marginBottom: '32px', maxWidth: '400px', margin: '0 auto 32px' }}>
                         You need to be logged in to manage your tracks.
                     </p>
-                    <button onClick={() => window.location.href = '/api/auth/discord/login'}
+                    <button onClick={() => window.location.href = '/login'}
                         style={{ backgroundColor: colors.primary, color: 'white', border: 'none', padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                    >Login with Discord</button>
+                    >Sign In</button>
                 </div>
             </DiscoveryLayout>
         );

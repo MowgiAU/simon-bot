@@ -877,22 +877,20 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     }
 
     // ===== STANDARD DISCORD LOGIN FLOW =====
-    // Upsert local User account with Discord data + email
+    // Discord can only log in to an EXISTING account that has this discordId linked.
+    // It does NOT create new accounts — users must register with email first.
     try {
-        const dbUser = await db.user.upsert({
-            where: { discordId: user.id },
-            update: {
+        const dbUser = await db.user.findUnique({ where: { discordId: user.id } });
+        if (!dbUser) {
+            // No account linked to this Discord — redirect to register page
+            logger.info(`[Auth] Discord login attempt with no linked account: discordId=${user.id}`);
+            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=no_account`);
+        }
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: {
                 displayName: user.global_name || user.username,
                 avatar: user.avatar,
-                email: user.email || undefined,
-                lastLoginAt: new Date(),
-            },
-            create: {
-                discordId: user.id,
-                username: user.username,
-                displayName: user.global_name || user.username,
-                avatar: user.avatar,
-                email: user.email || null,
                 lastLoginAt: new Date(),
             },
         });
@@ -903,7 +901,8 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         user._totpEnabled = !!dbUser.totpEnabled;
         user._loginMethod = 'discord';
     } catch (e) {
-        logger.warn('[Auth] Failed to upsert local user account', e);
+        logger.warn('[Auth] Failed to find/update account during Discord login', e);
+        return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=server_error`);
     }
 
     req.session.user = user;
@@ -1113,7 +1112,10 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        // Check 2FA
+        // Block login if email not yet verified
+        if (!dbUser.emailVerified) {
+            return res.status(403).json({ error: 'Please verify your email address before signing in. Check your inbox for a verification link.', code: 'EMAIL_NOT_VERIFIED' });
+        }
         if (dbUser.totpEnabled && dbUser.totpSecret) {
             if (!totpCode) {
                 // Password correct but 2FA required — send challenge
@@ -1392,11 +1394,18 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
 });
 
 // Send email verification
-app.post('/api/auth/send-verification', requireAuth, async (req: any, res) => {
+app.post('/api/auth/send-verification', async (req: any, res) => {
     try {
-        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        // Support both authenticated (session) and unauthenticated (email in body) requests
+        let dbUser;
+        if (req.session?.user) {
+            dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        } else if (req.body?.email) {
+            const emailNorm = String(req.body.email).toLowerCase().trim();
+            dbUser = await db.user.findUnique({ where: { email: emailNorm } });
+        }
         if (!dbUser) return res.status(404).json({ error: 'No account found' });
-        if (!dbUser.email) return res.status(400).json({ error: 'No email on file. Re-login with Discord to pull your email.' });
+        if (!dbUser.email) return res.status(400).json({ error: 'No email on file.' });
         if (dbUser.emailVerified) return res.status(400).json({ error: 'Email is already verified' });
 
         // Rate-limit: allow resend only once per 5 minutes
