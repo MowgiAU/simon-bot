@@ -28,7 +28,8 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
-import { authenticator } from 'otplib';
+import otplib from 'otplib';
+const { authenticator } = otplib;
 import QRCode from 'qrcode';
 
 // Augment express-session to include custom fields
