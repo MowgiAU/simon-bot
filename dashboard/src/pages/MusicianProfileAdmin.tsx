@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -515,18 +515,22 @@ export const MusicianProfileAdmin: React.FC = () => {
         });
     };
 
-    const handleSearchAdminTracks = async (query: string) => {
+    const trackSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleSearchAdminTracks = (query: string) => {
         setAdminTrackSearch(query);
         if (query.length < 2) { setAdminTracks([]); return; }
-        setSearchingAdminTracks(true);
-        try {
-            const res = await axios.get('/api/admin/tracks', { params: { search: query }, withCredentials: true });
-            setAdminTracks(res.data);
-        } catch (err) {
-            console.error('Failed to search tracks');
-        } finally {
-            setSearchingAdminTracks(false);
-        }
+        if (trackSearchDebounceRef.current) clearTimeout(trackSearchDebounceRef.current);
+        trackSearchDebounceRef.current = setTimeout(async () => {
+            setSearchingAdminTracks(true);
+            try {
+                const res = await axios.get('/api/admin/tracks', { params: { search: query }, withCredentials: true });
+                setAdminTracks(res.data);
+            } catch (err) {
+                console.error('Failed to search tracks');
+            } finally {
+                setSearchingAdminTracks(false);
+            }
+        }, 300);
     };
 
     const handleSearchMod = async (query: string) => {

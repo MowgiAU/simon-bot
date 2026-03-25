@@ -4643,15 +4643,19 @@ app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
                     { profile: { displayName: { contains: search, mode: 'insensitive' } } },
                 ]
             } : {},
-            include: { profile: true, genres: { include: { genre: true } } },
+            select: {
+                id: true,
+                title: true,
+                slug: true,
+                coverUrl: true,
+                playCount: true,
+                status: true,
+                profile: {
+                    select: { id: true, username: true, displayName: true }
+                }
+            },
             orderBy: { createdAt: 'desc' },
             take: 50
-        });
-
-        // Track permission backfill
-        tracks.forEach((t: any) => {
-            if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
-            if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
         });
 
         res.json(tracks);
