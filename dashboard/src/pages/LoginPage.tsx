@@ -8,12 +8,19 @@ import logoUrl from '../assets/logo.svg';
 type Tab = 'login' | 'register';
 
 export const LoginPage: React.FC = () => {
-    const { emailLogin, register, login } = useAuth();
+    const { emailLogin, register, login, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'login';
     const urlError = searchParams.get('error');
+
+    // Redirect already-authenticated users away from the login page
+    React.useEffect(() => {
+        if (!authLoading && user) {
+            navigate('/', { replace: true });
+        }
+    }, [authLoading, user]);
 
     const [tab, setTab] = useState<Tab>(initialTab);
     const [email, setEmail] = useState('');
