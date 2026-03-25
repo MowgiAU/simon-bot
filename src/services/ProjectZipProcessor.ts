@@ -40,8 +40,15 @@ export class ProjectZipProcessor {
         fs.mkdirSync(tempDir, { recursive: true });
 
         try {
-            // ── Step 1: Extract ZIP ────────────────────────────────────────────
+            // ── Step 1: Extract ZIP (with Zip Slip protection) ────────────────
             const zip = new AdmZip(zipPath);
+            const resolvedTempDir = path.resolve(tempDir);
+            for (const entry of zip.getEntries()) {
+                const entryTarget = path.resolve(tempDir, entry.entryName);
+                if (!entryTarget.startsWith(resolvedTempDir + path.sep) && entryTarget !== resolvedTempDir) {
+                    throw new Error(`Blocked path traversal in ZIP entry: ${entry.entryName}`);
+                }
+            }
             zip.extractAllTo(tempDir, /* overwrite */ true);
             logger.info(`Extracted ZIP to ${tempDir}`);
 

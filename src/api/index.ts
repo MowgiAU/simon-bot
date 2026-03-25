@@ -1,4 +1,4 @@
-
+﻿
 import 'dotenv/config';
 import express from 'express';
 import type { RequestHandler } from 'express';
@@ -48,7 +48,7 @@ const __dirname = path.dirname(__filename);
 
 const escapeHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 // Resolve to project root regardless of where PM2/node was started from.
-// __dirname = .../src/api or .../dist/api → two levels up = project root.
+// __dirname = .../src/api or .../dist/api â†’ two levels up = project root.
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const app = express();
@@ -119,7 +119,7 @@ const logger = new Logger('API');
 
 const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
 
-// ── Virus scanning (ClamAV via clamdscan daemon) ─────────────────────────────
+// â”€â”€ Virus scanning (ClamAV via clamdscan daemon) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _clamScanner: any = null;
 let _clamAvailable = true; // set false after first failed init so we stop retrying
 
@@ -145,7 +145,7 @@ async function _getClamScanner() {
         return _clamScanner;
     } catch (e: any) {
         _clamAvailable = false;
-        logger.warn(`ClamAV unavailable — uploads will proceed without virus scanning: ${e.message}`);
+        logger.warn(`ClamAV unavailable â€” uploads will proceed without virus scanning: ${e.message}`);
         return null;
     }
 }
@@ -166,7 +166,7 @@ async function scanFileForViruses(filePath: string, fieldName?: string): Promise
         logger.warn(`Virus scan error for ${path.basename(filePath)}: ${e.message}`);
     }
 }
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Uploads a local file to R2 (if configured) and returns the CDN URL.
@@ -194,7 +194,7 @@ async function uploadToR2OrLocal(
 
 /**
  * Deletes a file from R2 (when URL is a CDN URL) or from local disk (when URL is a /uploads/ path).
- * Safe to call with null/undefined or Discord/external URLs — no-ops in those cases.
+ * Safe to call with null/undefined or Discord/external URLs â€” no-ops in those cases.
  */
 async function deleteFromStorage(url: string | null | undefined): Promise<void> {
     if (!url) return;
@@ -202,7 +202,9 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
         const key = url.slice(CDN_BASE.length + 1);
         await R2Storage.deleteObject(key);
     } else if (url.startsWith('/uploads/')) {
-        const filePath = path.join(PROJECT_ROOT, 'public', url);
+        const filePath = path.resolve(PROJECT_ROOT, 'public', url.slice(1));
+        const publicDir = path.resolve(PROJECT_ROOT, 'public');
+        if (!filePath.startsWith(publicDir + path.sep)) return; // Block path traversal
         try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
     }
 }
@@ -224,7 +226,7 @@ const API_CACHE_TTL: Record<string, number> = {
     'charts-alltime': 1000 * 60 * 15,       // 15 minutes
     'battles-list': 1000 * 60 * 2,          // 2 minutes
     'genres': 1000 * 60 * 30,               // 30 minutes
-    // Individual profile pages — safe to cache for 5 minutes
+    // Individual profile pages â€” safe to cache for 5 minutes
     'profile': 1000 * 60 * 5,              // 5 minutes (prefix-matched below)
 };
 
@@ -245,7 +247,7 @@ function setCachedResponse(key: string, data: any): void {
 
 /**
  * Downsample a waveformPeaks array to targetLength points by averaging buckets.
- * Used to reduce the profile track listing payload (~200pts → 60pts) while
+ * Used to reduce the profile track listing payload (~200pts â†’ 60pts) while
  * keeping the full resolution available on the individual track page.
  */
 function downsamplePeaks(peaks: number[], targetLength = 60): number[] {
@@ -338,7 +340,7 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 // Extend DATABASE_URL with larger connection pool (default of 3 connections causes pool exhaustion
-// under concurrent requests — each slow track query holds a connection for seconds)
+// under concurrent requests â€” each slow track query holds a connection for seconds)
 const _dbUrl = (() => {
     const raw = process.env.DATABASE_URL || '';
     try {
@@ -360,10 +362,10 @@ export const db = globalForPrisma.prisma || new PrismaClient({
 });
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db;
-  // Log every query with its duration — use this to spot slow queries and N+1s
+  // Log every query with its duration â€” use this to spot slow queries and N+1s
   (db as any).$on('query', (e: any) => {
     if (e.duration > 50) { // only log queries taking >50ms
-      console.warn(`[Prisma SLOW] ${e.duration}ms — ${e.query.substring(0, 120)}`);
+      console.warn(`[Prisma SLOW] ${e.duration}ms â€” ${e.query.substring(0, 120)}`);
     }
   });
 }
@@ -479,6 +481,7 @@ app.get('/api/guilds/:guildId/notifications', async (req: any, res) => {
         const { guildId } = req.params;
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
         let notifications = [];
         try {
@@ -504,6 +507,7 @@ app.post('/api/guilds/:guildId/notifications/read', async (req: any, res) => {
         const { guildId } = req.params;
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
         try {
             await (db as any).notification.updateMany({
@@ -525,6 +529,7 @@ app.get('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
     try {
         const { guildId } = req.params;
         if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
         
         // Wrap in error handler to catch missing table errors
         let messages = [];
@@ -564,6 +569,7 @@ app.post('/api/guilds/:guildId/chat-messages', async (req: any, res) => {
         const { content, recipientId } = req.body;
         const userId = req.session?.user?.id;
         if (!userId || !content) return res.status(400).json({ error: 'Incomplete message data' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
         try {
             const message = await (db as any).dashboardMessage.create({
@@ -655,7 +661,7 @@ app.use(helmet({
     // Disabled: breaks SharedArrayBuffer used by audio worklets
     crossOriginEmbedderPolicy: false,
 }));
-// Compress all responses >1KB (gzip) — critical for large JSON payloads (waveforms, track listings)
+// Compress all responses >1KB (gzip) â€” critical for large JSON payloads (waveforms, track listings)
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -688,7 +694,7 @@ const apiLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
 });
-// Strict limiter for track uploads — prevents spam and large-file abuse
+// Strict limiter for track uploads â€” prevents spam and large-file abuse
 const uploadLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10-minute window
     max: 5,                    // 5 uploads per window per user
@@ -765,7 +771,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
   if (!code) return res.status(400).send('No code provided');
   // SEC-04: Verify OAuth state to prevent CSRF
   if (!state || state !== (req.session as any)?._oauthState) {
-    return res.status(403).send('Invalid OAuth state — please try logging in again.');
+    return res.status(403).send('Invalid OAuth state â€” please try logging in again.');
   }
   delete (req.session as any)._oauthState;
   try {
@@ -891,11 +897,11 @@ app.get('/api/auth/discord/callback', async (req, res) => {
 
     // ===== STANDARD DISCORD LOGIN FLOW =====
     // Discord can only log in to an EXISTING account that has this discordId linked.
-    // It does NOT create new accounts — users must register with email first.
+    // It does NOT create new accounts â€” users must register with email first.
     try {
         const dbUser = await db.user.findUnique({ where: { discordId: user.id } });
         if (!dbUser) {
-            // No account linked to this Discord — redirect to register page
+            // No account linked to this Discord â€” redirect to register page
             logger.info(`[Auth] Discord login attempt with no linked account: discordId=${user.id}`);
             return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=no_account`);
         }
@@ -1055,7 +1061,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
         return;
     }
 
-    // No Discord linked — no guild data
+    // No Discord linked â€” no guild data
     req.session.guilds = [];
     req.session.mutualAdminGuilds = [];
     req.session.isGuildMember = false;
@@ -1185,7 +1191,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
         if (dbUser.totpEnabled && dbUser.totpSecret) {
             if (!totpCode) {
-                // Password correct but 2FA required — send challenge
+                // Password correct but 2FA required â€” send challenge
                 return res.status(200).json({ requiresTwoFactor: true });
             }
             // Verify TOTP code or backup code
@@ -1265,7 +1271,7 @@ app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) =>
                     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                         <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
                         <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
-                        <p>Someone requested a password reset for your Fuji Studio account. Click below — this link expires in 1 hour.</p>
+                        <p>Someone requested a password reset for your Fuji Studio account. Click below â€” this link expires in 1 hour.</p>
                         <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Reset Password</a>
                         <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${resetUrl}</p>
                         <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, ignore this email. Your password won't change.</p>
@@ -1318,7 +1324,7 @@ app.post('/api/auth/2fa/setup', requireAuth, async (req: any, res) => {
         if (dbUser.totpEnabled) return res.status(400).json({ error: 'Two-factor authentication is already enabled' });
 
         const secret = generateSecret();
-        // Store the secret temporarily — will finalize when user confirms with a valid code
+        // Store the secret temporarily â€” will finalize when user confirms with a valid code
         await db.user.update({ where: { id: dbUser.id }, data: { totpSecret: secret } });
 
         const otpauth = generateURI({ strategy: 'totp', secret, issuer: 'Fuji Studio', label: dbUser.email || dbUser.username });
@@ -1489,7 +1495,7 @@ app.post('/api/auth/send-verification', async (req: any, res) => {
         const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
         const verifyUrl = `${dashboardOrigin}/verify-email?token=${token}`;
 
-        // Get Resend key — prefer env var, fall back to email plugin settings
+        // Get Resend key â€” prefer env var, fall back to email plugin settings
         let resendKey = process.env.RESEND_API_KEY;
         if (!resendKey) {
             try {
@@ -1604,7 +1610,7 @@ app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
         const { newUsername, currentPassword } = req.body;
         if (!newUsername) return res.status(400).json({ error: 'New username is required' });
         if (!/^[a-zA-Z0-9_-]{3,30}$/.test(newUsername)) {
-            return res.status(400).json({ error: 'Username must be 3–30 characters: letters, numbers, underscores, hyphens only' });
+            return res.status(400).json({ error: 'Username must be 3â€“30 characters: letters, numbers, underscores, hyphens only' });
         }
 
         const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
@@ -1675,7 +1681,7 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
         await resendClient.emails.send({
             from: 'Fuji Studio <noreply@fujistud.io>',
             to: [emailNorm],
-            subject: 'Confirm your new email – Fuji Studio',
+            subject: 'Confirm your new email â€“ Fuji Studio',
             html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                 <h2 style="color:#2b8d70;margin-top:0;">Confirm email change</h2>
                 <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
@@ -1746,7 +1752,7 @@ app.post('/api/auth/refresh-guilds', requireAuth, async (req: any, res) => {
         await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
         res.json({ success: true, mutualAdminGuilds: req.session.mutualAdminGuilds, isGuildMember: req.session.isGuildMember });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1939,6 +1945,10 @@ app.put('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
     const { groupId } = req.params;
     const { name, replacementText, replacementEmoji, useEmoji, enabled } = req.body;
 
+    // Verify group belongs to the authorized guild
+    const existing = await db.wordGroup.findUnique({ where: { id: groupId } });
+    if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
+
     const group = await db.wordGroup.update({
       where: { id: groupId },
       data: {
@@ -1966,6 +1976,10 @@ app.delete('/api/word-filter/groups/:guildId/:groupId', async (req, res) => {
     if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { groupId } = req.params;
 
+    // Verify group belongs to the authorized guild
+    const existing = await db.wordGroup.findUnique({ where: { id: groupId } });
+    if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
+
     await db.wordGroup.delete({
       where: { id: groupId },
     });
@@ -1984,6 +1998,10 @@ app.post('/api/word-filter/groups/:guildId/:groupId/words', async (req, res) => 
     if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { groupId } = req.params;
     const { word } = req.body;
+
+    // Verify group belongs to the authorized guild
+    const group = await db.wordGroup.findUnique({ where: { id: groupId } });
+    if (!group || group.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
 
     if (!word) throw new Error('Word is required');
 
@@ -2022,6 +2040,10 @@ app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req
     const { guildId } = req.params;
     if (!await checkPluginAccess(guildId, req, 'word-filter')) return res.status(403).json({ error: 'Forbidden' });
     const { wordId } = req.params;
+
+    // Verify word belongs to a group in the authorized guild
+    const word = await db.filterWord.findUnique({ where: { id: wordId }, include: { group: true } });
+    if (!word || word.group.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
 
     await db.filterWord.delete({
       where: { id: wordId },
@@ -2069,7 +2091,7 @@ app.post('/api/plugins/:pluginId/settings', (req, res) => {
 });
 
 // Dashboard data routes
-app.get('/api/dashboard/stats', async (req, res) => {
+app.get('/api/dashboard/stats', requireAuth, async (req, res) => {
   try {
     const guilds = await db.guild.count();
     const members = await db.member.count();
@@ -2545,7 +2567,7 @@ app.get('/api/guilds/:guildId/moderation', async (req, res) => {
         if (e.code === 'P2021' || e.code === 'P2022') {
             return res.status(500).json({ error: 'Database schema mismatch. Please run "prisma db push".' });
         }
-        res.status(500).json({ error: 'Failed', details: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -2686,7 +2708,7 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
 
 // --- Plugin Management Routes ---
 
-app.get('/api/plugins/list', (req, res) => {
+app.get('/api/plugins/list', requireAuth, (req, res) => {
     try {
           // Robust path resolution for production
           const pluginsDir = path.resolve(process.cwd(), 'src/bot/plugins');
@@ -2928,10 +2950,20 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
         
+        const { currencyName, currencyEmoji, messageReward, messageCooldown, minMessageLength, autoNickname, allowTipping } = req.body;
+        const allowedData: any = {};
+        if (currencyName !== undefined) allowedData.currencyName = currencyName;
+        if (currencyEmoji !== undefined) allowedData.currencyEmoji = currencyEmoji;
+        if (messageReward !== undefined) allowedData.messageReward = messageReward;
+        if (messageCooldown !== undefined) allowedData.messageCooldown = messageCooldown;
+        if (minMessageLength !== undefined) allowedData.minMessageLength = minMessageLength;
+        if (autoNickname !== undefined) allowedData.autoNickname = autoNickname;
+        if (allowTipping !== undefined) allowedData.allowTipping = allowTipping;
+        
         const settings = await db.economySettings.upsert({
             where: { guildId },
-            update: req.body,
-            create: { guildId, ...req.body }
+            update: allowedData,
+            create: { guildId, ...allowedData }
         });
         res.json(settings);
     } catch (e) {
@@ -2966,6 +2998,9 @@ app.post('/api/economy/items/:guildId', async (req, res) => {
         if (!name || price < 0) return res.status(400).json({ error: 'Invalid data' });
 
         if (id) {
+             // Verify item belongs to the authorized guild
+             const existing = await db.economyItem.findUnique({ where: { id } });
+             if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
              const item = await db.economyItem.update({
                  where: { id },
                  data: { name, description, price, type, stock, metadata }
@@ -2988,6 +3023,10 @@ app.delete('/api/economy/items/:guildId/:itemId', async (req, res) => {
     try {
         const { guildId, itemId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        
+        // Verify item belongs to the authorized guild
+        const existing = await db.economyItem.findUnique({ where: { id: itemId } });
+        if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
         
         await db.economyItem.delete({ where: { id: itemId } });
         res.json({ success: true });
@@ -3152,9 +3191,19 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
 
+        const { enabled, forumChannelId, reviewChannelId, modLogChannelId, currencyReward, threadCost, aiModel } = req.body;
+        const allowedData: any = {};
+        if (enabled !== undefined) allowedData.enabled = enabled;
+        if (forumChannelId !== undefined) allowedData.forumChannelId = forumChannelId;
+        if (reviewChannelId !== undefined) allowedData.reviewChannelId = reviewChannelId;
+        if (modLogChannelId !== undefined) allowedData.modLogChannelId = modLogChannelId;
+        if (currencyReward !== undefined) allowedData.currencyReward = currencyReward;
+        if (threadCost !== undefined) allowedData.threadCost = threadCost;
+        if (aiModel !== undefined) allowedData.aiModel = aiModel;
+
         const updated = await db.feedbackSettings.update({
             where: { guildId },
-            data: req.body
+            data: allowedData
         });
         res.json(updated);
     } catch (e) {
@@ -3218,7 +3267,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                              const embed = msg.embeds[0];
                              if (embed) {
                                  embed.color = 0xED4245; // Red
-                                 embed.title = '❌ Rejected (Dashboard)';
+                                 embed.title = 'âŒ Rejected (Dashboard)';
                                  embed.footer = { text: 'Processed via Web Dashboard' };
                              }
                              await axios.patch(
@@ -3253,7 +3302,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                              const embed = msg.embeds[0];
                              if (embed) {
                                  embed.color = 0x57F287; // Green
-                                 embed.title = '✅ Approved (Dashboard)';
+                                 embed.title = 'âœ… Approved (Dashboard)';
                                  embed.footer = { text: 'Processed via Web Dashboard' };
                              }
                              await axios.patch(
@@ -3395,6 +3444,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 app.get('/api/guilds/:guildId/welcome', async (req, res) => {
     const { guildId } = req.params;
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
         let settings = await db.welcomeGateSettings.findUnique({
@@ -3427,13 +3477,14 @@ app.get('/api/guilds/:guildId/welcome', async (req, res) => {
         if (e.code === 'P2021') {
              return res.status(500).json({ error: 'Database schema mismatch. Please run "prisma db push".' });
         }
-        res.status(500).json({ error: 'Internal Server Error', details: e.message });
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
 app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     const { guildId } = req.params;
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
         const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions } = req.body;
@@ -3507,9 +3558,7 @@ app.get('/api/bot/identity', async (req, res) => {
 
 
 
-app.post('/api/bot/identity', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-
+app.post('/api/bot/identity', requireAdmin, async (req, res) => {
     try {
         const botId = process.env.DISCORD_CLIENT_ID || 'global';
         const { status, activityType, activityText, username, avatarUrl } = req.body;
@@ -3547,8 +3596,7 @@ app.post('/api/bot/identity', async (req, res) => {
 // ==========================================
 
 // Serve Attachments
-app.get('/api/email/attachment/:filename', (req: any, res) => {
-    if (!req.session?.user) return res.status(401).json({ error: 'Unauthorized' });
+app.get('/api/email/attachment/:filename', requireAdmin, (req: any, res) => {
     // Basic security: ensure no traversal
     const filename = path.basename(req.params.filename);
     const filepath = path.join(process.cwd(), 'data', 'attachments', filename);
@@ -3652,8 +3700,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
 });
 
 // Send Email
-app.post('/api/email/send', upload.array('attachments'), async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+app.post('/api/email/send', requireAdmin, upload.array('attachments'), async (req, res) => {
     
     try {
         const settings = await emailService.getSettings();
@@ -3703,21 +3750,19 @@ app.post('/api/email/send', upload.array('attachments'), async (req, res) => {
 
     } catch (e) {
         logger.error('Send email error', e);
-        res.status(500).json({ error: 'Failed to send' + (e as any).message });
+        res.status(500).json({ error: 'Failed to send email' });
     }
 });
 
 // List Emails
-app.get('/api/email/list/:category?', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+app.get('/api/email/list/:category?', requireAdmin, async (req, res) => {
     const category = req.params.category || 'inbox';
     const emails = await emailService.getEmails(category);
     res.json(emails);
 });
 
 // Get Thread
-app.get('/api/email/thread', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+app.get('/api/email/thread', requireAdmin, async (req, res) => {
     const subject = req.query.subject as string;
     if (!subject) return res.status(400).json({ error: 'Subject required' });
     
@@ -3726,16 +3771,14 @@ app.get('/api/email/thread', async (req, res) => {
 });
 
 // Update Email
-app.patch('/api/email/:threadId', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+app.patch('/api/email/:threadId', requireAdmin, async (req, res) => {
     const { updates } = req.body;
     await emailService.updateEmail(req.params.threadId, updates);
     res.json({ success: true });
 });
 
 // Get Settings
-app.get('/api/email/settings', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+app.get('/api/email/settings', requireAdmin, async (req, res) => {
     const settings = await emailService.getSettings();
     // Mask API Key
     if (settings.resendApiKey) settings.resendApiKey = 're_...' + settings.resendApiKey.slice(-4);
@@ -3743,13 +3786,18 @@ app.get('/api/email/settings', async (req, res) => {
 });
 
 // Update Settings
-app.post('/api/email/settings', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
-    const updates = req.body;
+app.post('/api/email/settings', requireAdmin, async (req, res) => {
+    const { webhookSecret, channelId, roleId, resendApiKey, fromName, fromEmail } = req.body;
+    const updates: any = {};
+    if (webhookSecret !== undefined) updates.webhookSecret = webhookSecret;
+    if (channelId !== undefined) updates.channelId = channelId;
+    if (roleId !== undefined) updates.roleId = roleId;
+    if (fromName !== undefined) updates.fromName = fromName;
+    if (fromEmail !== undefined) updates.fromEmail = fromEmail;
     
     // If updating key, ensure we don't save the masked version
-    if (updates.resendApiKey && updates.resendApiKey.startsWith('re_...')) {
-        delete updates.resendApiKey;
+    if (resendApiKey && !resendApiKey.startsWith('re_...')) {
+        updates.resendApiKey = resendApiKey;
     }
     
     await emailService.updateSettings(updates);
@@ -3901,6 +3949,11 @@ app.patch('/api/voice-monitor/reports/:guildId/:reportId', async (req, res) => {
     }
 
     const { status, notes } = req.body;
+
+    // Verify report belongs to the authorized guild
+    const existingReport = await db.voiceReport.findUnique({ where: { id: reportId } });
+    if (!existingReport || existingReport.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
+
     const updates: any = {};
     if (status) {
         updates.status = status;
@@ -4037,6 +4090,11 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
     const { ticketId } = req.params;
     const { status, priority } = req.body;
 
+    // Verify the ticket exists and user is admin in its guild
+    const existingTicket = await db.ticket.findUnique({ where: { id: ticketId } });
+    if (!existingTicket) return res.status(404).json({ error: 'Ticket not found' });
+    if (!isTrueAdmin(existingTicket.guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
     const updates: any = {};
     if (status) {
         updates.status = status;
@@ -4059,14 +4117,14 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
 
             const currentName = channelRes.data.name;
             const emojis: Record<string, string> = {
-                'low': '🟢',
-                'medium': '🟡',
-                'high': '🔴'
+                'low': 'ðŸŸ¢',
+                'medium': 'ðŸŸ¡',
+                'high': 'ðŸ”´'
             };
-            const emoji = emojis[priority] || '🟢';
+            const emoji = emojis[priority] || 'ðŸŸ¢';
             
             // Rename logic similar to bot
-            let newName = currentName.replace(/^[🟢🟡🔴]-?/, '');
+            let newName = currentName.replace(/^[ðŸŸ¢ðŸŸ¡ðŸ”´]-?/, '');
             newName = `${emoji}-${newName}`;
 
             // Only update if name changed effectively (Discord rate limit protection)
@@ -4155,6 +4213,9 @@ app.get('/api/tickets/:ticketId/messages', async (req, res) => {
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
+    // Verify user is admin in the ticket's guild
+    if (!isTrueAdmin(ticket.guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
     // If ticket is closed, fetch from DB
     if (ticket.status === 'closed') {
         const messages = await db.ticketMessage.findMany({
@@ -4205,6 +4266,9 @@ app.post('/api/tickets/:ticketId/reply', async (req, res) => {
 
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+    // Verify user is admin in the ticket's guild
+    if (!isTrueAdmin(ticket.guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
         // Post as Bot
@@ -4308,7 +4372,7 @@ app.post('/api/guilds/:guildId/channel-rules', async (req, res) => {
         res.json(rule);
     } catch (e: any) {
         logger.error('Failed to create rule', e);
-        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -4320,6 +4384,10 @@ app.put('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
         if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
             return res.status(403).json({ error: 'Access denied' });
         }
+
+        // Verify rule belongs to the authorized guild
+        const existing = await db.channelRule.findUnique({ where: { id: ruleId } });
+        if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
 
         const rule = await db.channelRule.update({
             where: { id: ruleId },
@@ -4337,7 +4405,7 @@ app.put('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
         res.json(rule);
     } catch (e: any) {
         logger.error('Failed to update rule', e);
-        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
+        res.status(500).json({ error: 'Failed to update rule' });
     }
 });
 
@@ -4349,17 +4417,23 @@ app.delete('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
+        // Verify rule belongs to the authorized guild
+        const existingRule = await db.channelRule.findUnique({ where: { id: ruleId } });
+        if (!existingRule || existingRule.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
+
         await db.channelRule.delete({ where: { id: ruleId } });
         res.json({ success: true });
     } catch (e: any) {
         logger.error('Failed to delete rule', e);
-        res.status(500).json({ error: 'Failed: ' + (e.message || e) });
+        res.status(500).json({ error: 'Failed to delete rule' });
     }
 });
 
 app.get('/api/guilds/:guildId/pending-reviews', async (req, res) => {
     try {
          const { guildId } = req.params;
+         if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+         if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
          
          const reviews = await db.pendingReview.findMany({
              where: { guildId },
@@ -4399,13 +4473,15 @@ app.get('/api/guilds/:guildId/pending-reviews', async (req, res) => {
 
     } catch (e: any) {
          logger.error('Failed to fetch pending reviews', e);
-         res.status(500).json({ error: e.message });
+         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) => {
     try {
         const { guildId, id } = req.params;
+        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
         const review = await db.pendingReview.findUnique({ where: { id } });
         
         if (!review) return res.status(404).json({ error: 'Review not found' });
@@ -4471,7 +4547,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
                 const embed = msg.embeds[0];
                 if (embed) {
                     embed.color = 0x57F287; // Green
-                    embed.title = '✅ Approved (Dashboard)';
+                    embed.title = 'âœ… Approved (Dashboard)';
                     embed.footer = { text: 'Processed via Web Dashboard' };
                 }
 
@@ -4493,7 +4569,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
                 guildId,
                 pluginId: 'channel-rules',
                 action: 'message_approved_web',
-                executorId: 'WEB_USER', // We should get real ID from session
+                executorId: req.session.user?.id || 'WEB_USER',
                 targetId: review.userId,
                 details: { reviewId: id }
             }
@@ -4503,13 +4579,15 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
 
     } catch (e: any) {
         logger.error('Failed to approve review', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => {
     try {
         const { guildId, id } = req.params;
+        if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
         const review = await db.pendingReview.findUnique({ where: { id } });
 
         if (review && review.approvalChannelId && review.approvalMessageId) {
@@ -4529,7 +4607,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
                 const embed = msg.embeds[0];
                 if (embed) {
                     embed.color = 0xED4245; // Red
-                    embed.title = '❌ Rejected (Dashboard)';
+                    embed.title = 'âŒ Rejected (Dashboard)';
                     embed.footer = { text: 'Processed via Web Dashboard' };
                 }
                 await discordReq('PATCH', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`, {
@@ -4548,7 +4626,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
                 guildId,
                 pluginId: 'channel-rules',
                 action: 'message_rejected_web',
-                executorId: 'WEB_USER',
+                executorId: req.session.user?.id || 'WEB_USER',
                 targetId: review?.userId || 'UNKNOWN',
                 details: { reviewId: id }
             }
@@ -4556,14 +4634,15 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        logger.error('Failed to reject review', e);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // --- Musician Profile API ---
 
 // Post new track (Now with file uploads and metadata)
-// Free-tier track cap — increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
+// Free-tier track cap â€” increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
 const FREE_TIER_TRACK_LIMIT = 25;
 
 app.post('/api/musician/tracks', uploadLimiter, upload.fields([
@@ -4572,7 +4651,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
   { name: 'project', maxCount: 1 } // Optional .flp project file
 ]), async (req: any, res) => {
     try {
-        // Disable socket timeout for this route — large file uploads + ZIP processing can take minutes
+        // Disable socket timeout for this route â€” large file uploads + ZIP processing can take minutes
         req.socket.setTimeout(0);
 
         const userId = req.session?.user?.id;
@@ -4623,7 +4702,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             if (recentDupe) {
                 logger.warn(`[Upload] Duplicate submission blocked for user ${userId}: "${uploadTitle}" (existing: ${recentDupe.id})`);
                 return res.status(409).json({
-                    error: 'A track with this title was just uploaded. Your previous upload may still be processing — please wait a moment before trying again.',
+                    error: 'A track with this title was just uploaded. Your previous upload may still be processing â€” please wait a moment before trying again.',
                     code: 'DUPLICATE_UPLOAD',
                     existingTrackId: recentDupe.id,
                 });
@@ -4643,23 +4722,23 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const isZipUpload = projectFile?.originalname.endsWith('.zip');
 
         if (projectFile && !isZipUpload) {
-            // Plain .flp — parse arrangement only
+            // Plain .flp â€” parse arrangement only
             try {
                 const flpBuffer = fs.readFileSync(projectFile.path);
                 arrangement = FLPParser.parse(flpBuffer);
                 projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 const arr = arrangement as any;
-                logger.info(`Parsed FLP arrangement: ${projectFile.originalname} — BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
+                logger.info(`Parsed FLP arrangement: ${projectFile.originalname} â€” BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
             } catch (e) {
                 logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
-                // Continue without arrangement — don't block the upload
+                // Continue without arrangement â€” don't block the upload
             }
         } else if (projectFile && isZipUpload) {
-            // .zip bundle — will be processed after track is created (we need trackId first)
+            // .zip bundle â€” will be processed after track is created (we need trackId first)
             projectFileSizeBytes = projectFile.size;
             projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
             if (!R2Storage.isConfigured()) {
-                logger.info('R2 not configured — ZIP samples will be served from local storage');
+                logger.info('R2 not configured â€” ZIP samples will be served from local storage');
             }
         }
 
@@ -4751,7 +4830,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Respond immediately — track is playable right away from local storage.
+        // Respond immediately â€” track is playable right away from local storage.
         // Audio encoding, artwork optimisation, waveform extraction and R2/CDN uploads
         // happen in the background so the browser never hits a proxy timeout.
         const fullTrack = await db.track.findUnique({
@@ -4761,7 +4840,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
 
         res.json(fullTrack);
 
-        // Background: encode audio → optimise artwork → extract waveform → push to R2.
+        // Background: encode audio â†’ optimise artwork â†’ extract waveform â†’ push to R2.
         // This runs after res.json() so it never blocks the HTTP response.
         const _bgRawAudioPath = audioFile.path;
         const _bgRawArtworkPath = artworkFile?.path ?? null;
@@ -4867,7 +4946,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             return res.status(413).json({ error: 'File is too large. Maximum size is 300MB. For WAV files, consider exporting at 16-bit/44.1kHz.' });
         }
         logger.error('Failed to upload track', e);
-        res.status(500).json({ error: e.message || 'Failed to upload track' });
+        res.status(500).json({ error: 'Failed to upload track' });
     }
 });
 
@@ -4927,7 +5006,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         res.json(fullTrack);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -4958,7 +5037,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -4969,7 +5048,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
     { name: 'project', maxCount: 1 }
 ]), async (req: any, res) => {
     try {
-        // Disable socket timeout for this route — large file uploads + ZIP processing can take minutes
+        // Disable socket timeout for this route â€” large file uploads + ZIP processing can take minutes
         req.socket.setTimeout(0);
 
         const userId = req.session?.user?.id;
@@ -5040,7 +5119,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
             updateData.coverUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', `/uploads/artwork/${path.basename(finalArtworkPath)}`);
         }
 
-        // Project file replacement — re-parse FLP or re-process ZIP
+        // Project file replacement â€” re-parse FLP or re-process ZIP
         if (projectFile) {
             const isZip = projectFile.originalname.endsWith('.zip');
 
@@ -5056,7 +5135,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
                     const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
                     if (finalBpm) (arrangement as any).bpm = finalBpm;
                     updateData.arrangement = arrangement;
-                    logger.info(`Re-parsed FLP for track edit: ${track.title} — arrangement BPM set to ${finalBpm}`);
+                    logger.info(`Re-parsed FLP for track edit: ${track.title} â€” arrangement BPM set to ${finalBpm}`);
                 } catch (e) {
                     logger.warn(`Failed to parse replaced FLP file: ${e}`);
                 }
@@ -5064,7 +5143,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
                 const r2ProjectKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
                 updateData.projectFileUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', `/uploads/projects/${path.basename(projectFile.path)}`);
             } else {
-                // ZIP bundle replacement — respond immediately then process in background (avoid 504)
+                // ZIP bundle replacement â€” respond immediately then process in background (avoid 504)
                 updateData.projectFileSizeBytes = projectFile.size;
                 updateData.projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 updateData.arrangement = null; // Will be repopulated after background processing
@@ -5126,7 +5205,7 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5235,7 +5314,7 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Admin track edit failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5261,7 +5340,7 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
         logger.info(`Admin deleted track: ${track.title} (ID: ${trackId}) by admin ${adminId}`);
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5295,7 +5374,7 @@ app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
 
         res.json(tracks);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5316,7 +5395,7 @@ app.get('/api/musician/leaderboards/tracks', async (req, res) => {
         setCachedResponse('leaderboards-tracks', topTracks);
         res.json(topTracks);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5325,7 +5404,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
 
-        // Cache the default (no filter) request — this is hit on every page load
+        // Cache the default (no filter) request â€” this is hit on every page load
         const isDefaultQuery = !genre && !search && sort === 'newest' && Number(limit) === 24;
         if (isDefaultQuery) {
             const cached = getCachedResponse('discovery-tracks');
@@ -5441,7 +5520,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
             genre: genreFound
         });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5455,7 +5534,7 @@ app.get('/api/musician/leaderboards/artists', async (req, res) => {
         setCachedResponse('leaderboards-artists', topArtists);
         res.json(topArtists);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5472,7 +5551,7 @@ app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
         if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
 
         if (track.projectZipUrl.startsWith('http')) {
-            // File is on CDN — redirect directly, no proxying
+            // File is on CDN â€” redirect directly, no proxying
             return res.redirect(302, track.projectZipUrl);
         }
 
@@ -5484,7 +5563,7 @@ app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
         if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
         fs.createReadStream(localPath).pipe(res);
     } catch (e: any) {
-        if (!res.headersSent) res.status(500).json({ error: e.message });
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5508,7 +5587,7 @@ app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
 
         res.json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5561,7 +5640,7 @@ app.get('/api/musician/profiles', async (req, res) => {
                   take: 1,
                   orderBy: { playCount: 'desc' },
                   // Explicit select avoids loading large JSON columns (arrangement, waveformPeaks)
-                  // on every profile card in the list — these can be MB each
+                  // on every profile card in the list â€” these can be MB each
                   select: {
                       id: true, title: true, slug: true, url: true, coverUrl: true,
                       playCount: true, duration: true, isPublic: true, status: true,
@@ -5603,7 +5682,7 @@ app.get('/api/musician/profiles', async (req, res) => {
       if (isDefaultQuery) setCachedResponse('musician-profiles', activeProfiles);
       res.json(activeProfiles);
   } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -5670,7 +5749,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         setCachedResponse(cacheKey, profileData);
         res.json(profileData);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5716,7 +5795,7 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
 
         res.json(track);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5725,7 +5804,7 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
     try {
         const { userId } = req.params;
 
-        // SEC-01: Ownership check — only profile owner or admin can edit
+        // SEC-01: Ownership check â€” only profile owner or admin can edit
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -5797,7 +5876,7 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 
         res.json(updated);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5823,7 +5902,7 @@ app.get('/api/musician/genres', async (req, res) => {
         setCachedResponse('genres', genres);
         res.json(genres);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5843,7 +5922,7 @@ app.post('/api/musician/genres', requireAdmin, async (req, res) => {
         apiResponseCache.delete('genres');
         res.json(genre);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5855,7 +5934,7 @@ app.delete('/api/musician/genres/:id', requireAdmin, async (req, res) => {
         apiResponseCache.delete('genres');
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -5963,7 +6042,7 @@ app.get('/api/discovery/settings', async (req, res) => {
         setCachedResponse('discovery-settings', result);
         res.json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6009,7 +6088,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         apiResponseCache.delete('discovery-settings');
         res.json(settings);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6035,7 +6114,7 @@ app.get('/api/discovery/tracks/search', async (req, res) => {
         });
         res.json(tracks);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6083,12 +6162,12 @@ app.get('/api/admin/debug-arrangement/:trackId', requireAdmin, async (req, res) 
             }
         } else {
             result.flpFileExists = false;
-            result.note = 'No projectFileUrl — track has no FLP file';
+            result.note = 'No projectFileUrl â€” track has no FLP file';
         }
 
         res.json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6117,7 +6196,7 @@ app.get('/api/admin/debug-tracks-summary', requireAdmin, async (req, res) => {
 
         res.json(summary);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6232,7 +6311,7 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
 
         res.json(results);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6263,7 +6342,7 @@ app.post('/api/musician/validate-name', async (req, res) => {
 
         res.json({ valid: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6296,7 +6375,7 @@ app.get('/api/discovery/genres', async (req, res) => {
 
         res.json(usedGenres);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6305,7 +6384,7 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
     try {
         const { userId } = req.params;
 
-        // SEC-02: Ownership check — only profile owner or admin can upload avatar
+        // SEC-02: Ownership check â€” only profile owner or admin can upload avatar
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -6343,7 +6422,7 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
 
         res.json({ avatar: updated.avatar });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6366,7 +6445,7 @@ app.get('/api/admin/musician/profiles/search', async (req: any, res) => {
         });
         res.json(profiles);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6428,7 +6507,7 @@ app.post('/api/admin/musician/profile/:userId', requireAdmin, async (req: any, r
 
         res.json(updated);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6467,7 +6546,7 @@ app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.sing
 
         res.json({ avatar: updated.avatar });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6510,7 +6589,7 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
         res.json({ success: true, message: `Profile and ${profile.tracks.length} tracks deleted.` });
     } catch (e: any) {
         logger.error('Failed to wipe profile', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6531,7 +6610,7 @@ app.patch('/api/admin/musician/profiles/:id/status', requireAdmin, async (req: a
         });
         res.json({ success: true, profile });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6552,14 +6631,14 @@ app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, re
         });
         res.json({ success: true, track });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // Admin: List tracks for a profile (including suspended/deleted)
-// ─── Admin Account Management ───────────────────────────────────────────────
+// â”€â”€â”€ Admin Account Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/admin/accounts — list + search accounts
+// GET /api/admin/accounts â€” list + search accounts
 app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
     try {
         const search = (req.query.search as string || '').trim();
@@ -6600,11 +6679,11 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
         const users = rawUsers.map(({ passwordHash, ...u }) => ({ ...u, hasPassword: !!passwordHash }));
         res.json({ users, total, page, limit, pages: Math.ceil(total / limit) });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// GET /api/admin/accounts/:id — full account detail
+// GET /api/admin/accounts/:id â€” full account detail
 app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const rawUser = await db.user.findUnique({
@@ -6628,11 +6707,11 @@ app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
         const { passwordHash: _ph, ...userFields } = rawUser;
         res.json({ ...userFields, hasPassword: !!rawUser.passwordHash });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// PUT /api/admin/accounts/:id — update account fields
+// PUT /api/admin/accounts/:id â€” update account fields
 app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const { username, email, displayName } = req.body;
@@ -6676,11 +6755,11 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
         const updated = await db.user.update({ where: { id: targetId }, data: updates });
         res.json({ success: true, user: { id: updated.id, username: updated.username, email: updated.email, displayName: updated.displayName } });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// DELETE /api/admin/accounts/:id — delete account (cannot delete self)
+// DELETE /api/admin/accounts/:id â€” delete account (cannot delete self)
 app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const targetId = req.params.id;
@@ -6695,11 +6774,11 @@ app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
         res.json({ success: true });
     } catch (e: any) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// POST /api/admin/accounts/:id/force-verify — mark email as verified
+// POST /api/admin/accounts/:id/force-verify â€” mark email as verified
 app.post('/api/admin/accounts/:id/force-verify', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -6709,11 +6788,11 @@ app.post('/api/admin/accounts/:id/force-verify', requireAdmin, async (req: any, 
         res.json({ success: true });
     } catch (e: any) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// POST /api/admin/accounts/:id/send-password-reset — send password reset email
+// POST /api/admin/accounts/:id/send-password-reset â€” send password reset email
 app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req: any, res) => {
     try {
         const user = await db.user.findUnique({ where: { id: req.params.id } });
@@ -6749,11 +6828,11 @@ app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// POST /api/admin/accounts/:id/disable-2fa — disable TOTP
+// POST /api/admin/accounts/:id/disable-2fa â€” disable TOTP
 app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -6763,11 +6842,11 @@ app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, r
         res.json({ success: true });
     } catch (e: any) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// POST /api/admin/accounts/:id/remove-discord — unlink Discord
+// POST /api/admin/accounts/:id/remove-discord â€” unlink Discord
 app.post('/api/admin/accounts/:id/remove-discord', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -6777,11 +6856,11 @@ app.post('/api/admin/accounts/:id/remove-discord', requireAdmin, async (req: any
         res.json({ success: true });
     } catch (e: any) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// POST /api/admin/accounts/:id/set-password — admin sets password directly
+// POST /api/admin/accounts/:id/set-password â€” admin sets password directly
 app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, res) => {
     try {
         const { newPassword } = req.body;
@@ -6802,11 +6881,11 @@ app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, 
         res.json({ success: true });
     } catch (e: any) {
         if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ─── End Admin Account Management ────────────────────────────────────────────
+// â”€â”€â”€ End Admin Account Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any, res) => {
     try {
@@ -6827,7 +6906,7 @@ app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any
         });
         res.json(tracks);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6930,7 +7009,7 @@ app.get('/api/fuji/samples/search', async (req: any, res) => {
 
         res.json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6955,7 +7034,7 @@ app.post('/api/fuji/samples/:id/like', async (req: any, res) => {
             res.json({ liked: true });
         }
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -6988,7 +7067,7 @@ app.get('/api/projects/:sampleId', async (req, res) => {
             }
         });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7000,7 +7079,7 @@ app.get('/api/fuji/libraries', async (req, res) => {
         });
         res.json(packs);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7113,13 +7192,13 @@ app.get('/api/oembed', async (req: any, res) => {
         }
         res.json(payload);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ═══════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Beat Battle API
-// ═══════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // --- Public: List battles (with filtering) ---
 app.get('/api/beat-battle/battles', async (req: any, res) => {
@@ -7175,7 +7254,7 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
         }
     } catch (e: any) {
         logger.error('Beat Battle API: list battles failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7208,7 +7287,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
             }).catch(() => {});
         }
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7233,7 +7312,7 @@ app.get('/api/beat-battle/archive', async (req: any, res) => {
         });
         res.json(battles);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7265,7 +7344,7 @@ app.get('/api/beat-battle/entries/:entryId', async (req: any, res) => {
 
         res.json(entry);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7290,7 +7369,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             return res.status(400).json({ error: 'You cannot vote for your own submission' });
         }
 
-        // Check duplicate vote — if exists, toggle (remove) it
+        // Check duplicate vote â€” if exists, toggle (remove) it
         const existingVote = await db.battleVote.findUnique({
             where: { entryId_userId: { entryId, userId } },
         });
@@ -7332,7 +7411,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
         res.json({ voteCount: updated.voteCount, voted: true });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7348,7 +7427,7 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
         res.json({ success: true });
     } catch (e: any) {
         logger.error('Beat Battle API: delete entry failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7362,7 +7441,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         const userId = req.session.user.id;
         const battleId = req.params.battleId;
         const title = req.body.title;
-        const trackId = req.body.trackId; // optional — library track submission
+        const trackId = req.body.trackId; // optional â€” library track submission
         const description = req.body.description || null;
         const bpm = req.body.bpm ? parseInt(req.body.bpm, 10) : null;
         const key = req.body.key || null;
@@ -7422,7 +7501,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         let arrangement: object | null = null;
 
         if (trackId) {
-            // ─── Library track submission ───
+            // â”€â”€â”€ Library track submission â”€â”€â”€
             const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
             if (!track) return res.status(404).json({ error: 'Track not found' });
             if (track.profile.userId !== userId) return res.status(403).json({ error: 'You can only submit your own tracks' });
@@ -7434,7 +7513,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             username = track.profile.displayName || track.profile.username || username;
             avatarUrl = track.profile.avatar || avatarUrl;
         } else {
-            // ─── Direct upload submission ───
+            // â”€â”€â”€ Direct upload submission â”€â”€â”€
             const audioFile = files['audio']?.[0];
             if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
 
@@ -7491,12 +7570,12 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             },
         });
 
-        // Upload files to R2 (only for direct uploads — library submissions already on R2)
+        // Upload files to R2 (only for direct uploads â€” library submissions already on R2)
         if (!trackId) {
             const r2UrlUpdates: any = {};
             const r2Uploads: Promise<void>[] = [];
 
-            // Audio → R2
+            // Audio â†’ R2
             const audioLocalPath = path.join(PROJECT_ROOT, 'public', audioUrl);
             r2Uploads.push((async () => {
                 const r2AudioKey = `battles/${entry.id}/audio/${path.basename(audioUrl)}`;
@@ -7504,7 +7583,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
                 if (cdnAudioUrl !== audioUrl) r2UrlUpdates.audioUrl = cdnAudioUrl;
             })());
 
-            // Cover → R2
+            // Cover â†’ R2
             if (coverUrl) {
                 const coverLocalPath = path.join(PROJECT_ROOT, 'public', coverUrl);
                 r2Uploads.push((async () => {
@@ -7514,7 +7593,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
                 })());
             }
 
-            // Project file → R2
+            // Project file â†’ R2
             if (projectFile) {
                 const projectLocalUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 r2Uploads.push((async () => {
@@ -7539,7 +7618,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
         res.json(entry);
     } catch (e: any) {
         logger.error('Beat Battle API: web submit failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7597,7 +7676,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
         res.json(battle);
     } catch (e: any) {
         logger.error('Beat Battle API: create failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7650,7 +7729,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         const newStatus = status;
         const statusChanged = newStatus && newStatus !== oldBattle.status;
         if (statusChanged) {
-            // → Completed: determine winner
+            // â†’ Completed: determine winner
             if (newStatus === 'completed') {
                 const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
                 if (winner) {
@@ -7676,7 +7755,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         res.json(battle);
     } catch (e: any) {
         logger.error('Beat Battle API: update failed', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7700,7 +7779,7 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7757,7 +7836,7 @@ app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
 
         res.json(enriched);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7774,7 +7853,7 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
         });
         res.json(tracks);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7794,10 +7873,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.submissionEnd) {
             fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.rules) fields.push({ name: '📋 Rules', value: battle.rules });
-        fields.push({ name: '🌐 Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.rules) fields.push({ name: 'ðŸ“‹ Rules', value: battle.rules });
+        fields.push({ name: 'ðŸŒ Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `🎤 New Beat Battle: ${battle.title}`,
+            title: `ðŸŽ¤ New Beat Battle: ${battle.title}`,
             description: battle.description || 'A new battle has begun! Submit your beats on the website.',
             color: 0x2B8C71,
             fields,
@@ -7809,9 +7888,9 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.votingEnd) {
             fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
         }
-        fields.push({ name: '🌐 Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        fields.push({ name: 'ðŸŒ Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `🗳️ ${battle.title} — Voting is Now Open!`,
+            title: `ðŸ—³ï¸ ${battle.title} â€” Voting is Now Open!`,
             description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
             color: 0xFFA500,
             fields,
@@ -7824,10 +7903,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
         if (!winner) return null;
         embed = {
-            title: `🏆 ${battle.title} — Winner!`,
+            title: `ðŸ† ${battle.title} â€” Winner!`,
             description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
             color: 0xFFD700,
-            fields: [{ name: '🎧 Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            fields: [{ name: 'ðŸŽ§ Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
@@ -7875,7 +7954,7 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
         }
         res.json({ success: true, message: 'Announcement posted!' });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7890,7 +7969,7 @@ app.get('/api/beat-battle/page-settings', async (req: any, res) => {
             sponsorSectionTitle: settings?.sponsorSectionTitle || null,
         });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7905,7 +7984,7 @@ app.get('/api/beat-battle/sponsors', async (req: any, res) => {
         });
         res.json(sponsors);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7919,7 +7998,7 @@ app.get('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) =
         });
         res.json(sponsors);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7941,7 +8020,7 @@ app.post('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) 
         });
         res.json(sponsor);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7976,7 +8055,7 @@ app.patch('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any, 
         const updated = await db.battleSponsor.findUnique({ where: { id: sponsor.id }, include: { links: true, _count: { select: { battles: true } } } });
         res.json(updated);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -7985,7 +8064,7 @@ app.delete('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any,
         await db.battleSponsor.delete({ where: { id: req.params.id } });
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8006,7 +8085,7 @@ app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single
         });
         res.json({ url: finalUrl });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8024,7 +8103,7 @@ app.post('/api/beat-battle/admin/prize-image', requireAdmin, upload.single('priz
         );
         res.json({ url: finalUrl });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8041,7 +8120,7 @@ app.post('/api/beat-battle/admin/rule-sample', requireAdmin, upload.single('rule
         );
         res.json({ url: finalUrl, name: req.file.originalname });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8061,7 +8140,7 @@ app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.singl
         });
         res.json({ url: finalUrl });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8082,7 +8161,7 @@ app.post('/api/beat-battle/admin/battles/:id/card-image', requireAdmin, upload.s
         });
         res.json({ url: finalUrl });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8112,7 +8191,7 @@ app.post('/api/beat-battle/sponsor-links/:linkId/click', async (req: any, res) =
 
         res.json({ clicks: link.clicks });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8164,7 +8243,7 @@ app.get('/api/beat-battle/admin/battles/:id/analytics', requireAdmin, async (req
 
         res.json(report);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8229,7 +8308,7 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
 
         res.json(battle);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8252,7 +8331,7 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             requireMusicianProfile: false,
         });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8272,7 +8351,7 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         });
         res.json(settings);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8281,7 +8360,7 @@ const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
-    // 1. Hashed assets (/assets/*.js, /assets/*.css) — content-hashed filenames → cache 1 year
+    // 1. Hashed assets (/assets/*.js, /assets/*.css) â€” content-hashed filenames â†’ cache 1 year
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
         index: false,
         setHeaders: (res) => {
@@ -8289,7 +8368,7 @@ if (fs.existsSync(distPath)) {
         },
     }));
 
-    // 2. Everything else (index.html, logo.svg, etc.) — no cache so the app shell always refreshes
+    // 2. Everything else (index.html, logo.svg, etc.) â€” no cache so the app shell always refreshes
     app.use((req, res, next) => {
         next();
     }, express.static(distPath, { index: false }));
@@ -8304,7 +8383,7 @@ if (fs.existsSync(distPath)) {
             return next();
         }
 
-        // Bot request on a track URL → inject OG meta tags
+        // Bot request on a track URL â†’ inject OG meta tags
         const ua = req.headers['user-agent'] || '';
         const trackMatch = req.path.match(TRACK_PATH);
         logger.info(`[SPA] path=${req.path} ua="${ua.slice(0,80)}" isBot=${BOT_UA.test(ua)} trackMatch=${!!trackMatch}`);
@@ -8383,7 +8462,7 @@ if (fs.existsSync(distPath)) {
 async function runBeatBattleLifecycle(): Promise<void> {
     const now = new Date();
     try {
-        // ---------- 1. Upcoming → Active (submissionStart passed) ----------
+        // ---------- 1. Upcoming â†’ Active (submissionStart passed) ----------
         const toActivate = await db.beatBattle.findMany({
             where: { status: 'upcoming', submissionStart: { lte: now } },
         });
@@ -8400,7 +8479,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 2. Active → Voting (submissionEnd passed) ----------
+        // ---------- 2. Active â†’ Voting (submissionEnd passed) ----------
         const toVoting = await db.beatBattle.findMany({
             where: { status: 'active', submissionEnd: { not: null, lte: now } },
         });
@@ -8408,7 +8487,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
 
         for (const battle of toVoting) {
             try {
-                logger.info(`Beat Battle lifecycle: "${battle.title}" → voting`);
+                logger.info(`Beat Battle lifecycle: "${battle.title}" â†’ voting`);
                 await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
                 const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
                 await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
@@ -8417,7 +8496,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 3. Voting → Completed (votingEnd passed) ----------
+        // ---------- 3. Voting â†’ Completed (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
             include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
@@ -8447,7 +8526,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
 
-// ─── Charts System ──────────────────────────────────────────────────────
+// â”€â”€â”€ Charts System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Get the latest chart for a period
 app.get('/api/charts/:period', async (req: any, res) => {
@@ -8470,7 +8549,7 @@ app.get('/api/charts/:period', async (req: any, res) => {
         res.json(chart);
     } catch (e: any) {
         logger.error(`Charts GET /${req.params.period}: ${e.message}`);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8485,7 +8564,7 @@ app.get('/api/charts/:period/track/:trackId', async (req: any, res) => {
         res.json(history);
     } catch (e: any) {
         logger.error(`Charts history error: ${e.message}`);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8504,7 +8583,7 @@ app.post('/api/charts/generate', async (req: any, res) => {
         res.json({ success: true, snapshotId });
     } catch (e: any) {
         logger.error(`Charts generate error: ${e.message}`);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8544,7 +8623,7 @@ async function runChartGeneration() {
 runChartGeneration();
 setInterval(runChartGeneration, 60 * 60 * 1000);
 
-// ─── Comment System ─────────────────────────────────────────────────────
+// â”€â”€â”€ Comment System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // GET comments for a track or profile
 app.get('/api/comments', async (req: any, res) => {
@@ -8594,7 +8673,7 @@ app.get('/api/comments', async (req: any, res) => {
 
         res.json({ comments: comments.map(transformComment), hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8610,7 +8689,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         let resolvedProfileId = profileId;
 
         if (parentId) {
-            // Reply — inherit context from parent, prevent nested replies
+            // Reply â€” inherit context from parent, prevent nested replies
             const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
             if (parent.parentId) return res.status(400).json({ error: 'Cannot reply to a reply' });
@@ -8671,7 +8750,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             try {
                 const snippet = (content || '').trim().slice(0, 80) || '(GIF)';
                 if (parentId) {
-                    // Reply notification — notify the parent comment author
+                    // Reply notification â€” notify the parent comment author
                     const parentComment = await db.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
                     if (parentComment && parentComment.userId !== userId) {
                         let link: string | null = null;
@@ -8687,7 +8766,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                         });
                     }
                 } else {
-                    // Top-level comment notification — notify the content owner
+                    // Top-level comment notification â€” notify the content owner
                     let ownerId: string | null = null;
                     let link: string | null = null;
                     if (resolvedTrackId) {
@@ -8708,7 +8787,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
 
         res.json(comment);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8755,7 +8834,7 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
 
         res.json(updated);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8810,7 +8889,7 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8834,12 +8913,12 @@ app.post('/api/comments/:commentId/react', requireAuth, async (req: any, res) =>
 
         if (existing) {
             if (existing.type === type) {
-                // Same type — remove the reaction
+                // Same type â€” remove the reaction
                 await db.commentLike.delete({ where: { id: existing.id } });
                 // Log removal
                 await logAction('GLOBAL', 'comment_reaction_removed', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
             } else {
-                // Different type — switch
+                // Different type â€” switch
                 await db.commentLike.update({ where: { id: existing.id }, data: { type } });
                 await logAction('GLOBAL', 'comment_reacted', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
             }
@@ -8856,7 +8935,7 @@ app.post('/api/comments/:commentId/react', requireAuth, async (req: any, res) =>
 
         res.json({ likeCount, dislikeCount, userVote });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8883,13 +8962,13 @@ app.get('/api/discord/emojis', async (_req: any, res) => {
     }
 });
 
-// ─── Klipy GIF Proxy ────────────────────────────────────────────────────
+// â”€â”€â”€ Klipy GIF Proxy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Klipy is a Tenor drop-in replacement (https://docs.klipy.com/migrate-from-tenor)
 // Content filtering is configured in the Klipy Partner Dashboard
 
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Music Notifications
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
     try {
@@ -8901,7 +8980,7 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
         });
         res.json(notifications);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8914,13 +8993,13 @@ app.post('/api/music/notifications/read', requireAuth, async (req: any, res) => 
         });
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Track Favourites
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Check if current user has favourited a track
 app.get('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => {
@@ -8931,7 +9010,7 @@ app.get('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => 
         });
         res.json({ favourited: !!existing });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8971,7 +9050,7 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) =>
             res.json({ favourited: true });
         }
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -8990,7 +9069,7 @@ app.get('/api/my-favourites', requireAuth, async (req: any, res) => {
         });
         res.json(favourites.map(f => f.track).filter(Boolean));
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9000,7 +9079,7 @@ app.get('/api/tracks/:trackId/favourite-count', async (req: any, res) => {
         const count = await db.trackFavourite.count({ where: { trackId: req.params.trackId } });
         res.json({ count });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9017,13 +9096,13 @@ app.post('/api/tracks/favourites/check', requireAuth, async (req: any, res) => {
         const set = new Set(favourites.map(f => f.trackId));
         res.json(Object.fromEntries(trackIds.map((id: string) => [id, set.has(id)])));
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Track Reposts
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Check if current user has reposted a track
 app.get('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
@@ -9034,7 +9113,7 @@ app.get('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
         });
         res.json({ reposted: !!existing });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9078,7 +9157,7 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
             res.json({ reposted: true });
         }
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9088,7 +9167,7 @@ app.get('/api/tracks/:trackId/repost-count', async (req: any, res) => {
         const count = await db.trackRepost.count({ where: { trackId: req.params.trackId } });
         res.json({ count });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9105,13 +9184,13 @@ app.post('/api/tracks/reposts/check', requireAuth, async (req: any, res) => {
         const set = new Set(reposts.map(r => r.trackId));
         res.json(Object.fromEntries(trackIds.map((id: string) => [id, set.has(id)])));
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Artist Follows
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Check if current user follows an artist
 app.get('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => {
@@ -9122,7 +9201,7 @@ app.get('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => {
         });
         res.json({ following: !!existing });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9161,7 +9240,7 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
             res.json({ following: true });
         }
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9171,7 +9250,7 @@ app.get('/api/artists/:artistId/follower-count', async (req: any, res) => {
         const count = await db.artistFollow.count({ where: { artistId: req.params.artistId } });
         res.json({ count });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9186,7 +9265,7 @@ app.get('/api/my-follows', requireAuth, async (req: any, res) => {
         });
         res.json(follows.map(f => f.artist));
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9258,7 +9337,7 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
             },
         });
 
-        // Add reposts with repost metadata — skip tracks already in feed
+        // Add reposts with repost metadata â€” skip tracks already in feed
         const repostItems = reposts
             .filter(r => !existingTrackIds.has(r.trackId))
             .map(r => ({
@@ -9293,13 +9372,13 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
 
         res.json({ tracks: finalTracks, hasMore, nextCursor: hasMore ? activeTracks[activeTracks.length - 1]?.id : null });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Playlists
-// ──────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function generatePlaylistSlug(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80) || 'playlist';
@@ -9323,7 +9402,7 @@ app.get('/api/playlists/popular', async (_req: any, res) => {
         setCachedResponse('popular-playlists', playlists);
         res.json(playlists);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9340,7 +9419,7 @@ app.get('/api/my-playlists', requireAuth, async (req: any, res) => {
         });
         res.json(playlists);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9373,7 +9452,7 @@ app.post('/api/playlists', requireAuth, async (req: any, res) => {
         await logAction('GLOBAL', 'playlist_created', userId, playlist.id, { name: playlist.name }).catch(() => {});
         res.json(playlist);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9404,7 +9483,7 @@ app.get('/api/playlists/:playlistId', async (req: any, res) => {
 
         res.json(playlist);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9436,7 +9515,7 @@ app.put('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
         const updated = await db.playlist.update({ where: { id: playlist.id }, data });
         res.json(updated);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9467,7 +9546,7 @@ app.post('/api/playlists/:playlistId/cover', requireAuth, upload.single('cover')
         await db.playlist.update({ where: { id: playlistId }, data: { coverUrl } });
         res.json({ coverUrl });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9483,7 +9562,7 @@ app.delete('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
         await logAction('GLOBAL', 'playlist_deleted', userId, playlist.id, { name: playlist.name }).catch(() => {});
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9523,7 +9602,7 @@ app.post('/api/playlists/:playlistId/tracks', requireAuth, async (req: any, res)
 
         res.json({ success: true, position });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9546,7 +9625,7 @@ app.delete('/api/playlists/:playlistId/tracks/:trackId', requireAuth, async (req
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9575,7 +9654,7 @@ app.put('/api/playlists/:playlistId/reorder', requireAuth, async (req: any, res)
 
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -9588,11 +9667,11 @@ app.post('/api/playlists/:playlistId/play', async (req: any, res) => {
         });
         res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ─── Public Activity Feed ───────────────────────────────────────────────
+// â”€â”€â”€ Public Activity Feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/activity/public', async (_req: any, res) => {
     try {
         const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // last 7 days
@@ -9678,11 +9757,11 @@ app.get('/api/activity/public', async (_req: any, res) => {
         items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         res.json(items.slice(0, 20));
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ─── Klipy GIF Proxy (continued) ────────────────────────────────────────
+// â”€â”€â”€ Klipy GIF Proxy (continued) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/klipy/featured', async (_req: any, res) => {
     try {
