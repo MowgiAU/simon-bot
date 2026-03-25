@@ -7,6 +7,7 @@ import {
     ChatInputCommandInteraction,
     EmbedBuilder,
     TextChannel,
+    MessageFlags,
 } from 'discord.js';
 import {
     joinVoiceChannel,
@@ -502,7 +503,7 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         const member = interaction.member as GuildMember;
         if (!member.permissions.has('ManageGuild')) {
-            await interaction.reply({ content: 'You need **Manage Server** permission to use this command.', ephemeral: true });
+            await interaction.reply({ content: 'You need **Manage Server** permission to use this command.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -516,7 +517,7 @@ export class VoiceMonitorPlugin implements IPlugin {
                 await this.sendRecordingNotice(interaction.guildId, settings);
             }
 
-            await interaction.reply({ content: 'Voice monitoring **enabled**.', ephemeral: true });
+            await interaction.reply({ content: 'Voice monitoring **enabled**.', flags: MessageFlags.Ephemeral });
         } else if (sub === 'disable') {
             await this.upsertSettings(interaction.guildId, { enabled: false });
 
@@ -527,7 +528,7 @@ export class VoiceMonitorPlugin implements IPlugin {
                 }
             }
 
-            await interaction.reply({ content: 'Voice monitoring **disabled**. All active recordings stopped.', ephemeral: true });
+            await interaction.reply({ content: 'Voice monitoring **disabled**. All active recordings stopped.', flags: MessageFlags.Ephemeral });
         } else if (sub === 'status') {
             const settings = await this.getSettings(interaction.guildId);
             const activeSessions = [...this.activeSessions.values()].filter(s => s.guildId === interaction.guildId);
@@ -543,7 +544,7 @@ export class VoiceMonitorPlugin implements IPlugin {
                     { name: 'Users Recording', value: `${totalRecording}`, inline: true },
                 );
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         } else if (sub === 'notice') {
             const channelOption = interaction.options.getChannel('channel');
             if (channelOption) {
@@ -553,9 +554,9 @@ export class VoiceMonitorPlugin implements IPlugin {
                     noticeMessageId: null,
                 });
                 await this.sendRecordingNotice(interaction.guildId, await this.getSettings(interaction.guildId));
-                await interaction.reply({ content: `Recording notice sent to <#${channelOption.id}>.`, ephemeral: true });
+                await interaction.reply({ content: `Recording notice sent to <#${channelOption.id}>.`, flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ content: 'Please specify a channel.', ephemeral: true });
+                await interaction.reply({ content: 'Please specify a channel.', flags: MessageFlags.Ephemeral });
             }
         }
     }
@@ -597,7 +598,7 @@ export class VoiceMonitorPlugin implements IPlugin {
 
         await interaction.reply({
             content: `Voice report submitted (ID: \`${report.id.slice(0, 8)}\`). Staff will review the recording.`,
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     }
 

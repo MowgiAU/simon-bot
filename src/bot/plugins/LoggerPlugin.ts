@@ -7,6 +7,7 @@ import {
     ChatInputCommandInteraction,
     ChannelType,
     Collection
+    MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -68,7 +69,7 @@ export class LoggerPlugin implements IPlugin {
         if (!this.context) return;
         
         if (!interaction.memberPermissions?.has('Administrator')) {
-            await interaction.reply({ content: '❌ You need Administrator permissions to clear logs.', ephemeral: true });
+            await interaction.reply({ content: '❌ You need Administrator permissions to clear logs.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -76,7 +77,7 @@ export class LoggerPlugin implements IPlugin {
         
         // Confirmation dialog (simple version via follow-up question, or just execute with warning for now)
         // Ideally use buttons, but for speed:
-        await interaction.reply({ content: `⚠️ Deleting ALL logs in category **${category}**...`, ephemeral: true });
+        await interaction.reply({ content: `⚠️ Deleting ALL logs in category **${category}**...`, flags: MessageFlags.Ephemeral });
 
         try {
             const { count } = await this.context.db.actionLog.deleteMany({
@@ -85,10 +86,10 @@ export class LoggerPlugin implements IPlugin {
                     action: category
                 }
             });
-            await interaction.followUp({ content: `✅ Deleted ${count} logs in category ${category}.`, ephemeral: true });
+            await interaction.followUp({ content: `✅ Deleted ${count} logs in category ${category}.`, flags: MessageFlags.Ephemeral });
         } catch (error) {
             this.logger.error('Clear logs failed', error);
-            await interaction.followUp({ content: '❌ Failed to clear logs.', ephemeral: true });
+            await interaction.followUp({ content: '❌ Failed to clear logs.', flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -100,7 +101,7 @@ export class LoggerPlugin implements IPlugin {
         
         // Check permissions
         if (!interaction.memberPermissions?.has('Administrator')) {
-            await interaction.reply({ content: '❌ You need Administrator permissions to import logs.', ephemeral: true });
+            await interaction.reply({ content: '❌ You need Administrator permissions to import logs.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -108,11 +109,11 @@ export class LoggerPlugin implements IPlugin {
         const category = interaction.options.getString('category') || 'historical';
         
         if (!channel || channel.type !== ChannelType.GuildText) {
-            await interaction.reply({ content: '❌ Invalid channel.', ephemeral: true });
+            await interaction.reply({ content: '❌ Invalid channel.', flags: MessageFlags.Ephemeral });
             return;
         }
 
-        await interaction.reply({ content: `⏳ Starting import of logs from ${channel} as category **${category}**. This may take a while...`, ephemeral: true });
+        await interaction.reply({ content: `⏳ Starting import of logs from ${channel} as category **${category}**. This may take a while...`, flags: MessageFlags.Ephemeral });
 
         let processedCount = 0;
         let lastId: string | undefined = undefined;
@@ -184,15 +185,15 @@ export class LoggerPlugin implements IPlugin {
                 
                 // Update every 500 messages
                 if (processedCount % 500 === 0) {
-                    await interaction.followUp({ content: `✅ Imported ${processedCount} logs so far...`, ephemeral: true });
+                    await interaction.followUp({ content: `✅ Imported ${processedCount} logs so far...`, flags: MessageFlags.Ephemeral });
                 }
             }
 
-            await interaction.followUp({ content: `🎉 **Import Complete!** imported ${processedCount} logs from ${channel} into category ${category}.`, ephemeral: true });
+            await interaction.followUp({ content: `🎉 **Import Complete!** imported ${processedCount} logs from ${channel} into category ${category}.`, flags: MessageFlags.Ephemeral });
 
         } catch (error) {
             this.logger.error('Import failed', error);
-            await interaction.followUp({ content: '❌ Import failed halfway. check bot logs.', ephemeral: true });
+            await interaction.followUp({ content: '❌ Import failed halfway. check bot logs.', flags: MessageFlags.Ephemeral });
         }
     }
 

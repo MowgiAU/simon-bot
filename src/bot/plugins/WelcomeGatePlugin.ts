@@ -18,6 +18,7 @@ import {
     Colors,
     Message,
     VoiceState
+    MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -128,12 +129,12 @@ export class WelcomeGatePlugin implements IPlugin {
         });
 
         if (!settings || !settings.enabled) {
-            return interaction.reply({ content: 'Verification is currently disabled.', ephemeral: true });
+            return interaction.reply({ content: 'Verification is currently disabled.', flags: MessageFlags.Ephemeral });
         }
 
         // Check if user already has verified role
         if (settings.verifiedRoleId && (interaction.member as GuildMember).roles.cache.has(settings.verifiedRoleId)) {
-            return interaction.reply({ content: 'You are already verified!', ephemeral: true });
+            return interaction.reply({ content: 'You are already verified!', flags: MessageFlags.Ephemeral });
         }
 
         const questions = settings.questions && settings.questions.length > 0 
@@ -164,7 +165,7 @@ export class WelcomeGatePlugin implements IPlugin {
     private async handleModalSubmit(interaction: ModalSubmitInteraction) {
         if (interaction.customId !== 'welcome_verify_modal') return;
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const settings = await this.db.welcomeGateSettings.findUnique({
             where: { guildId: interaction.guildId! }
@@ -207,7 +208,7 @@ export class WelcomeGatePlugin implements IPlugin {
     // 3. Setup Command
     private async handleSetupCommand(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-            return interaction.reply({ content: 'Missing Permissions', ephemeral: true });
+            return interaction.reply({ content: 'Missing Permissions', flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -234,13 +235,13 @@ export class WelcomeGatePlugin implements IPlugin {
                 data: { welcomeChannelId: channel.id }
             });
 
-            await interaction.reply({ content: `Verification panel sent to ${channel}`, ephemeral: true });
+            await interaction.reply({ content: `Verification panel sent to ${channel}`, flags: MessageFlags.Ephemeral });
         } catch (error: any) {
             this.logger.error('Error in setup-welcome command', error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: `Failed to send panel: ${error.message}. Check bot permissions in that channel.`, ephemeral: true });
+                await interaction.reply({ content: `Failed to send panel: ${error.message}. Check bot permissions in that channel.`, flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.followUp({ content: `Failed to send panel: ${error.message}`, ephemeral: true });
+                await interaction.followUp({ content: `Failed to send panel: ${error.message}`, flags: MessageFlags.Ephemeral });
             }
         }
     }

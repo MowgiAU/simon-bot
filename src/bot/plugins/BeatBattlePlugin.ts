@@ -4,6 +4,7 @@ import {
     SlashCommandBuilder,
     EmbedBuilder,
     TextChannel,
+    MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -90,7 +91,7 @@ export class BeatBattlePlugin implements IPlugin {
         });
 
         if (!battle) {
-            await interaction.reply({ content: 'No active beat battle right now. Stay tuned!', ephemeral: true });
+            await interaction.reply({ content: 'No active beat battle right now. Stay tuned!', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -143,7 +144,7 @@ export class BeatBattlePlugin implements IPlugin {
         });
 
         if (!battle || battle.entries.length === 0) {
-            await interaction.reply({ content: 'No entries to show yet.', ephemeral: true });
+            await interaction.reply({ content: 'No entries to show yet.', flags: MessageFlags.Ephemeral });
             return;
         }
 

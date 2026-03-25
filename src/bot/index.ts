@@ -6,6 +6,7 @@ import {
     REST, 
     Routes,
     SlashCommandBuilder
+    MessageFlags,
 } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
@@ -320,7 +321,7 @@ export class SimonBot {
        if (!interaction.guildId) {
            if (interaction.isRepliable()) {
                try {
-                   await interaction.reply({ content: 'I can only be used in servers!', ephemeral: true });
+                   await interaction.reply({ content: 'I can only be used in servers!', flags: MessageFlags.Ephemeral });
                } catch (e) {
                    // Ignore if already replied or missing permissions
                }

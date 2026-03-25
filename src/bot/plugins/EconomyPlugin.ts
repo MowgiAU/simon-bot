@@ -13,6 +13,7 @@ import {
     ChatInputCommandInteraction,
     AutocompleteInteraction,
     Interaction
+    MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -286,7 +287,7 @@ export class EconomyPlugin implements IPlugin {
         });
 
         if (!item) {
-            return interaction.reply({ content: 'Item not found.', ephemeral: true });
+            return interaction.reply({ content: 'Item not found.', flags: MessageFlags.Ephemeral });
         }
 
         const settings = await this.getSettings(interaction.guildId);
@@ -294,10 +295,10 @@ export class EconomyPlugin implements IPlugin {
 
         // Checks
         if (account.balance < item.price) {
-            return interaction.reply({ content: `You need ${settings.currencyEmoji} ${item.price - account.balance} more to buy this.`, ephemeral: true });
+            return interaction.reply({ content: `You need ${settings.currencyEmoji} ${item.price - account.balance} more to buy this.`, flags: MessageFlags.Ephemeral });
         }
         if (item.stock !== null && item.stock <= 0) {
-            return interaction.reply({ content: 'This item is out of stock.', ephemeral: true });
+            return interaction.reply({ content: 'This item is out of stock.', flags: MessageFlags.Ephemeral });
         }
 
         // Process Transaction
@@ -341,7 +342,7 @@ export class EconomyPlugin implements IPlugin {
 
         } catch (e) {
             this.logger.error('Purchase failed', e);
-            interaction.reply({ content: 'Transaction failed via database error.', ephemeral: true });
+            interaction.reply({ content: 'Transaction failed via database error.', flags: MessageFlags.Ephemeral });
         }
     }
 

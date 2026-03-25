@@ -1,4 +1,5 @@
-import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType } from 'discord.js';
+import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType     MessageFlags,
+} from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
@@ -433,7 +434,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
         const hasRole = allowedRoles.some((r: string) => member.roles.cache.has(r));
 
         if (!isAdmin && !hasRole) {
-            await interaction.reply({ content: '❌ You do not have permission to review feedback.', ephemeral: true });
+            await interaction.reply({ content: '❌ You do not have permission to review feedback.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -442,13 +443,13 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
         const post = await this.context.db.feedbackPost.findUnique({ where: { id: postId } });
         if (!post) {
-            await interaction.followUp({ content: 'Post not found', ephemeral: true });
+            await interaction.followUp({ content: 'Post not found', flags: MessageFlags.Ephemeral });
             return;
         }
 
         // Check if already processed
         if (post.aiState === 'APPROVED' || post.aiState === 'REJECTED') {
-             await interaction.followUp({ content: `Already ${post.aiState}`, ephemeral: true });
+             await interaction.followUp({ content: `Already ${post.aiState}`, flags: MessageFlags.Ephemeral });
              return;
         }
 
@@ -534,7 +535,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
              } catch (e) {
                  this.logger.error('Approval failed', e);
-                 await interaction.followUp({ content: 'Approval failed internally.', ephemeral: true });
+                 await interaction.followUp({ content: 'Approval failed internally.', flags: MessageFlags.Ephemeral });
              }
 
         } else if (action === 'deny') {

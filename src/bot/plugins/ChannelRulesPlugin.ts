@@ -9,6 +9,7 @@ import {
     Attachment,
     ComponentType,
     ChannelType
+    MessageFlags,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -344,7 +345,7 @@ export class ChannelRulesPlugin implements IPlugin {
         });
 
         if (!data) {
-            return interaction.reply({ content: '❌ Data for this message expired, was lost, (or already processed).', ephemeral: true });
+            return interaction.reply({ content: '❌ Data for this message expired, was lost, (or already processed).', flags: MessageFlags.Ephemeral });
         }
         
         // Remove immediately to prevent race conditions
@@ -354,7 +355,7 @@ export class ChannelRulesPlugin implements IPlugin {
 
         const targetChannel = interaction.guild?.channels.cache.get(data.channelId) as TextChannel;
         if (!targetChannel) {
-             return interaction.reply({ content: 'Target channel not found.', ephemeral: true });
+             return interaction.reply({ content: 'Target channel not found.', flags: MessageFlags.Ephemeral });
         }
         
         // Defer reply since webhook might take a moment

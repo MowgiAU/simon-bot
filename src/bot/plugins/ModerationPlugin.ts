@@ -7,6 +7,7 @@ import {
     EmbedBuilder,
     TextChannel,
     Colors
+    MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -152,12 +153,12 @@ export class ModerationPlugin implements IPlugin {
         const reason = interaction.options.getString('reason') || 'No reason provided';
         
         if (!target) {
-            return interaction.reply({ content: 'User not found.', ephemeral: true });
+            return interaction.reply({ content: 'User not found.', flags: MessageFlags.Ephemeral });
         }
 
         // Basic self-check permissions
         if (!target.kickable) {
-            return interaction.reply({ content: 'I cannot kick this user (missing permissions or target has higher role).', ephemeral: true });
+            return interaction.reply({ content: 'I cannot kick this user (missing permissions or target has higher role).', flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -176,7 +177,7 @@ export class ModerationPlugin implements IPlugin {
 
         } catch (error) {
             this.logger.error('Kick failed', error);
-            await interaction.reply({ content: 'Kick failed due to an error.', ephemeral: true });
+            await interaction.reply({ content: 'Kick failed due to an error.', flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -186,17 +187,17 @@ export class ModerationPlugin implements IPlugin {
          const reason = interaction.options.getString('reason') || 'No reason provided';
          const durationStr = interaction.options.getString('duration');
          
-         if (!user) return interaction.reply({ content: 'User not found', ephemeral: true });
+         if (!user) return interaction.reply({ content: 'User not found', flags: MessageFlags.Ephemeral });
 
          // If member object exists, check permissions
-         if (targetMember && !targetMember.bannable) return interaction.reply({ content: 'Cannot ban user (higher role or missing permissions).', ephemeral: true });
+         if (targetMember && !targetMember.bannable) return interaction.reply({ content: 'Cannot ban user (higher role or missing permissions).', flags: MessageFlags.Ephemeral });
 
          try {
              let unbanDate: Date | null = null;
              if (durationStr) {
                  const ms = this.parseDuration(durationStr);
                  if (!ms) {
-                     return interaction.reply({ content: 'Invalid duration. Use 1d, 24h, 30m etc.', ephemeral: true });
+                     return interaction.reply({ content: 'Invalid duration. Use 1d, 24h, 30m etc.', flags: MessageFlags.Ephemeral });
                  }
                  unbanDate = new Date(Date.now() + ms);
              }
@@ -228,7 +229,7 @@ export class ModerationPlugin implements IPlugin {
              await interaction.reply({ content: msg });
          } catch (e) {
              this.logger.error('Ban failed', e);
-             await interaction.reply({ content: 'Ban failed.', ephemeral: true });
+             await interaction.reply({ content: 'Ban failed.', flags: MessageFlags.Ephemeral });
          }
     }
 
@@ -237,8 +238,8 @@ export class ModerationPlugin implements IPlugin {
         const durationMinutes = interaction.options.getInteger('duration') || 5;
         const reason = interaction.options.getString('reason') || 'No reason provided';
 
-        if (!target) return interaction.reply({ content: 'User not found', ephemeral: true });
-        if (!target.moderatable) return interaction.reply({ content: 'Cannot timeout user.', ephemeral: true });
+        if (!target) return interaction.reply({ content: 'User not found', flags: MessageFlags.Ephemeral });
+        if (!target.moderatable) return interaction.reply({ content: 'Cannot timeout user.', flags: MessageFlags.Ephemeral });
 
         try {
             await this.sendDM(interaction.guildId!, target, 'timeout', reason, `${durationMinutes}m`);
@@ -248,14 +249,14 @@ export class ModerationPlugin implements IPlugin {
             await interaction.reply({ content: `⏳ **${target.user.tag}** timed out for ${durationMinutes} minutes.`, ephemeral: false });
         } catch (e) {
             this.logger.error('Timeout failed', e);
-            await interaction.reply({ content: 'Timeout failed.', ephemeral: true });
+            await interaction.reply({ content: 'Timeout failed.', flags: MessageFlags.Ephemeral });
         }
     }
 
     private async handlePurge(interaction: ChatInputCommandInteraction) {
         const amount = interaction.options.getInteger('amount');
         if (!amount || amount < 1 || amount > 100) {
-            return interaction.reply({ content: 'Amount must be between 1 and 100.', ephemeral: true });
+            return interaction.reply({ content: 'Amount must be between 1 and 100.', flags: MessageFlags.Ephemeral });
         }
 
         const channel = interaction.channel as TextChannel;
@@ -265,10 +266,10 @@ export class ModerationPlugin implements IPlugin {
             const deleted = await channel.bulkDelete(amount, true);
             await this.logAction(interaction.guildId!, 'purge', interaction.user.id, channel.id, { amount: deleted.size, channel: channel.name });
             
-            await interaction.reply({ content: `Deleted ${deleted.size} messages.`, ephemeral: true });
+            await interaction.reply({ content: `Deleted ${deleted.size} messages.`, flags: MessageFlags.Ephemeral });
         } catch (e) {
             this.logger.error('Purge failed', e);
-            await interaction.reply({ content: 'Failed to delete messages. Messages older than 14 days cannot be bulk deleted.', ephemeral: true });
+            await interaction.reply({ content: 'Failed to delete messages. Messages older than 14 days cannot be bulk deleted.', flags: MessageFlags.Ephemeral });
         }
     }
 

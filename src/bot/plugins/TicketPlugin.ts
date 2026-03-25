@@ -15,6 +15,7 @@ import {
     Colors,
     Collection,
     Message
+    MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -155,7 +156,7 @@ export class TicketPlugin implements IPlugin {
 
     private async handleSetup(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-            await interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+            await interaction.reply({ content: 'You need Administrator permissions.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -178,24 +179,24 @@ export class TicketPlugin implements IPlugin {
             }
         });
 
-        await interaction.reply({ content: `Ticket system configured!\nCategory: ${category.name}${initialRole ? `\nStaff Role: ${initialRole.name}` : ''}`, ephemeral: true });
+        await interaction.reply({ content: `Ticket system configured!\nCategory: ${category.name}${initialRole ? `\nStaff Role: ${initialRole.name}` : ''}`, flags: MessageFlags.Ephemeral });
     }
 
     private async handleStaffAdd(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+            return interaction.reply({ content: 'You need Administrator permissions.', flags: MessageFlags.Ephemeral });
         }
         if (!interaction.guildId) return;
         const role = interaction.options.getRole('role', true);
 
         const settings = await this.db.ticketSettings.findUnique({ where: { guildId: interaction.guildId } });
         if (!settings) {
-            return interaction.reply({ content: 'Please run /ticket setup first.', ephemeral: true });
+            return interaction.reply({ content: 'Please run /ticket setup first.', flags: MessageFlags.Ephemeral });
         }
 
         const currentRoles = settings.staffRoleIds || [];
         if (currentRoles.includes(role.id)) {
-            return interaction.reply({ content: 'That role is already a staff role.', ephemeral: true });
+            return interaction.reply({ content: 'That role is already a staff role.', flags: MessageFlags.Ephemeral });
         }
 
         await this.db.ticketSettings.update({
@@ -203,19 +204,19 @@ export class TicketPlugin implements IPlugin {
             data: { staffRoleIds: { push: role.id } }
         });
 
-        await interaction.reply({ content: `Added ${role.name} to ticket staff roles.`, ephemeral: true });
+        await interaction.reply({ content: `Added ${role.name} to ticket staff roles.`, flags: MessageFlags.Ephemeral });
     }
 
     private async handleStaffRemove(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+            return interaction.reply({ content: 'You need Administrator permissions.', flags: MessageFlags.Ephemeral });
         }
         if (!interaction.guildId) return;
         const role = interaction.options.getRole('role', true);
 
         const settings = await this.db.ticketSettings.findUnique({ where: { guildId: interaction.guildId } });
         if (!settings) {
-            return interaction.reply({ content: 'Please run /ticket setup first.', ephemeral: true });
+            return interaction.reply({ content: 'Please run /ticket setup first.', flags: MessageFlags.Ephemeral });
         }
 
         const currentRoles = settings.staffRoleIds || [];
@@ -226,12 +227,12 @@ export class TicketPlugin implements IPlugin {
             data: { staffRoleIds: newRoles }
         });
 
-        await interaction.reply({ content: `Removed ${role.name} from ticket staff roles.`, ephemeral: true });
+        await interaction.reply({ content: `Removed ${role.name} from ticket staff roles.`, flags: MessageFlags.Ephemeral });
     }
 
     private async handleTranscriptChannel(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+            return interaction.reply({ content: 'You need Administrator permissions.', flags: MessageFlags.Ephemeral });
         }
         if (!interaction.guildId) return;
 
@@ -246,12 +247,12 @@ export class TicketPlugin implements IPlugin {
             }
         });
 
-        await interaction.reply({ content: `Transcript logs will be sent to ${channel}.`, ephemeral: true });
+        await interaction.reply({ content: `Transcript logs will be sent to ${channel}.`, flags: MessageFlags.Ephemeral });
     }
 
     private async handlePanel(interaction: ChatInputCommandInteraction) {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-            await interaction.reply({ content: 'You need Administrator permissions.', ephemeral: true });
+            await interaction.reply({ content: 'You need Administrator permissions.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -271,11 +272,11 @@ export class TicketPlugin implements IPlugin {
         );
 
         await channel.send({ embeds: [embed], components: [row] });
-        await interaction.reply({ content: 'Panel sent!', ephemeral: true });
+        await interaction.reply({ content: 'Panel sent!', flags: MessageFlags.Ephemeral });
     }
 
     private async handleCreateTicket(interaction: ButtonInteraction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
 
@@ -390,7 +391,7 @@ export class TicketPlugin implements IPlugin {
         });
 
         if (!ticket || ticket.status !== 'open') {
-            await interaction.reply({ content: 'This is not an open ticket channel.', ephemeral: true });
+            await interaction.reply({ content: 'This is not an open ticket channel.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -488,7 +489,7 @@ export class TicketPlugin implements IPlugin {
         });
 
         if (!ticket || ticket.status !== 'open') {
-            await interaction.reply({ content: 'This is not an open ticket channel.', ephemeral: true });
+            await interaction.reply({ content: 'This is not an open ticket channel.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -509,7 +510,7 @@ export class TicketPlugin implements IPlugin {
         });
 
         if (!ticket || ticket.status !== 'open') {
-            await interaction.reply({ content: 'This is not an open ticket channel.', ephemeral: true });
+            await interaction.reply({ content: 'This is not an open ticket channel.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -517,7 +518,7 @@ export class TicketPlugin implements IPlugin {
         const channel = interaction.channel as TextChannel;
 
         if (user.id === ticket.ownerId) {
-             await interaction.reply({ content: 'Cannot remove the ticket owner.', ephemeral: true });
+             await interaction.reply({ content: 'Cannot remove the ticket owner.', flags: MessageFlags.Ephemeral });
              return;
         }
 
@@ -531,7 +532,7 @@ export class TicketPlugin implements IPlugin {
         });
 
         if (!ticket || ticket.status !== 'open') {
-            await interaction.reply({ content: 'This is not an open ticket channel.', ephemeral: true });
+            await interaction.reply({ content: 'This is not an open ticket channel.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -571,7 +572,7 @@ export class TicketPlugin implements IPlugin {
         } catch (error) {
             await interaction.reply({ 
                 content: `Priority updated to **${level.toUpperCase()}** ${emoji}, but failed to rename channel (rate limit?).`,
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     }

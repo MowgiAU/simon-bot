@@ -8,6 +8,7 @@ import {
     TextInputStyle,
     ActionRowBuilder,
     ModalActionRowComponentBuilder
+    MessageFlags,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -73,7 +74,7 @@ export class MusicianProfilePlugin implements IPlugin {
         if (!profile) {
             return interaction.reply({ 
                 content: `${user.username} hasn't set up a profile yet! ${user.id === interaction.user.id ? 'Use `/profile edit` to start.' : ''}`, 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 
@@ -147,7 +148,7 @@ export class MusicianProfilePlugin implements IPlugin {
             location
         });
 
-        await interaction.reply({ content: '✅ Profile updated! Use `/profile view` to see it.', ephemeral: true });
+        await interaction.reply({ content: '✅ Profile updated! Use `/profile view` to see it.', flags: MessageFlags.Ephemeral });
     }
 
     getSlashCommandJSON() {
