@@ -28,10 +28,9 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { authenticator } = require('otplib');
-const QRCode = require('qrcode');
+import otplibPkg from 'otplib';
+const { generateSecret, verifySync, generateURI } = otplibPkg;
+import QRCode from 'qrcode';
 
 // Augment express-session to include custom fields
 declare module 'express-session' {
@@ -1119,7 +1118,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
                 return res.status(200).json({ requiresTwoFactor: true });
             }
             // Verify TOTP code or backup code
-            const isValidTotp = authenticator.check(totpCode, dbUser.totpSecret);
+            const isValidTotp = verifySync({ secret: dbUser.totpSecret, token: totpCode }).valid;
             if (!isValidTotp) {
                 // Try backup codes
                 let usedBackup = false;
@@ -1250,11 +1249,11 @@ app.post('/api/auth/2fa/setup', requireAuth, async (req: any, res) => {
         if (!dbUser) return res.status(404).json({ error: 'Account not found' });
         if (dbUser.totpEnabled) return res.status(400).json({ error: 'Two-factor authentication is already enabled' });
 
-        const secret = authenticator.generateSecret();
+        const secret = generateSecret();
         // Store the secret temporarily — will finalize when user confirms with a valid code
         await db.user.update({ where: { id: dbUser.id }, data: { totpSecret: secret } });
 
-        const otpauth = authenticator.keyuri(dbUser.email || dbUser.username, 'Fuji Studio', secret);
+        const otpauth = generateURI({ strategy: 'totp', secret, issuer: 'Fuji Studio', label: dbUser.email || dbUser.username });
         const qrDataUrl = await QRCode.toDataURL(otpauth);
 
         res.json({ secret, qrCode: qrDataUrl });
@@ -1274,7 +1273,7 @@ app.post('/api/auth/2fa/verify', requireAuth, async (req: any, res) => {
         if (!dbUser || !dbUser.totpSecret) return res.status(400).json({ error: 'No 2FA setup in progress' });
         if (dbUser.totpEnabled) return res.status(400).json({ error: '2FA is already active' });
 
-        const isValid = authenticator.check(code, dbUser.totpSecret);
+        const isValid = verifySync({ secret: dbUser.totpSecret, token: code }).valid;
         if (!isValid) return res.status(401).json({ error: 'Invalid code. Make sure you entered the current code from your authenticator app.' });
 
         // Generate backup codes
