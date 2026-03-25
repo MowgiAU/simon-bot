@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserCog, Mail, Lock, CheckCircle, XCircle, Send, Eye, EyeOff, Shield, Smartphone, Link2, Unlink, Copy, AlertTriangle } from 'lucide-react';
+import { UserCog, Mail, Lock, CheckCircle, XCircle, Send, Eye, EyeOff, Shield, Smartphone, Link2, Unlink, Copy, AlertTriangle, User as UserIcon, AtSign } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 
@@ -35,6 +35,25 @@ export const AccountSettingsPage: React.FC = () => {
     const [disablePassword, setDisablePassword] = useState('');
     const [showDisable, setShowDisable] = useState(false);
 
+    // Username change state
+    const [newUsername, setNewUsername] = useState('');
+    const [usernamePassword, setUsernamePassword] = useState('');
+    const [usernameLoading, setUsernameLoading] = useState(false);
+    const [usernameError, setUsernameError] = useState('');
+    const [usernameSuccess, setUsernameSuccess] = useState('');
+
+    // Email change state
+    const [newEmail, setNewEmail] = useState('');
+    const [emailChangePassword, setEmailChangePassword] = useState('');
+    const [emailChangeLoading, setEmailChangeLoading] = useState(false);
+    const [emailChangeError, setEmailChangeError] = useState('');
+    const [emailChangeSuccess, setEmailChangeSuccess] = useState('');
+    const [pendingEmailChange, setPendingEmailChange] = useState('');
+
+    // Confirm email change token handling
+    const [confirmEmailMsg, setConfirmEmailMsg] = useState('');
+    const [confirmEmailError, setConfirmEmailError] = useState('');
+
     // Discord linking state
     const [discordLinked, setDiscordLinked] = useState(false);
     const [discordId, setDiscordId] = useState<string | null>(null);
@@ -54,6 +73,7 @@ export const AccountSettingsPage: React.FC = () => {
                     setDiscordId(data.discordId || null);
                     setAccountUsername(data.username || '');
                     setBackupCodesRemaining(data.backupCodesRemaining || 0);
+                    setPendingEmailChange(data.pendingEmail || '');
                 }
             })
             .catch(() => {});
@@ -72,7 +92,66 @@ export const AccountSettingsPage: React.FC = () => {
         if (linkErr === 'already_linked') setLinkError('That Discord account is already linked to another user.');
         else if (linkErr === 'invalid_token') setLinkError('Link session expired. Please try again.');
         else if (linkErr === 'failed') setLinkError('Failed to link Discord account. Please try again.');
+
+        const confirmEmailToken = searchParams.get('confirmEmailToken');
+        if (confirmEmailToken) {
+            fetch('/api/auth/confirm-email-change', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: confirmEmailToken }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        setConfirmEmailMsg('Your email address has been updated successfully!');
+                        setPendingEmailChange('');
+                        refreshAccountStatus();
+                    } else {
+                        setConfirmEmailError(data.error || 'Email confirmation failed. The link may be expired.');
+                    }
+                })
+                .catch(() => setConfirmEmailError('Request failed. Please try again.'));
+        }
     }, []);
+
+    const handleChangeUsername = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setUsernameError(''); setUsernameSuccess('');
+        setUsernameLoading(true);
+        try {
+            const res = await fetch('/api/auth/change-username', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newUsername, currentPassword: usernamePassword }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setUsernameError(data.error || 'Failed'); return; }
+            setUsernameSuccess(`Username changed to ${data.username}.`);
+            setAccountUsername(data.username);
+            setNewUsername(''); setUsernamePassword('');
+            refreshAccountStatus();
+        } catch { setUsernameError('Request failed'); }
+        finally { setUsernameLoading(false); }
+    };
+
+    const handleChangeEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setEmailChangeError(''); setEmailChangeSuccess('');
+        setEmailChangeLoading(true);
+        try {
+            const res = await fetch('/api/auth/change-email', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newEmail, currentPassword: emailChangePassword }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setEmailChangeError(data.error || 'Failed'); return; }
+            setEmailChangeSuccess(`Confirmation email sent to ${newEmail}. Click the link in that email to complete the change.`);
+            setPendingEmailChange(newEmail);
+            setNewEmail(''); setEmailChangePassword('');
+        } catch { setEmailChangeError('Request failed'); }
+        finally { setEmailChangeLoading(false); }
+    };
 
     const handleSetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -218,6 +297,50 @@ export const AccountSettingsPage: React.FC = () => {
                 </p>
             </div>
 
+            {/* Email change confirmation/error from URL token */}
+            {confirmEmailMsg && (
+                <div style={{ background: `${colors.success}15`, border: `1px solid ${colors.success}40`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                    <CheckCircle size={16} color={colors.success} />
+                    <p style={{ margin: 0, color: colors.success, fontSize: '14px' }}>{confirmEmailMsg}</p>
+                </div>
+            )}
+            {confirmEmailError && (
+                <div style={{ background: `${colors.error}15`, border: `1px solid ${colors.error}40`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                    <XCircle size={16} color={colors.error} />
+                    <p style={{ margin: 0, color: colors.error, fontSize: '14px' }}>{confirmEmailError}</p>
+                </div>
+            )}
+
+            {/* Username */}
+            <div style={sectionStyle}>
+                <div style={sectionHeaderStyle}>
+                    <UserIcon size={20} color={colors.primary} />
+                    <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Username</h2>
+                </div>
+                <div style={{ marginBottom: spacing.lg, background: colors.background, borderRadius: borderRadius.lg, padding: spacing.lg }}>
+                    <span style={{ color: colors.textSecondary, fontSize: '13px' }}>Current: </span>
+                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{accountUsername || '—'}</span>
+                </div>
+                <form onSubmit={handleChangeUsername} style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', color: colors.textSecondary, marginBottom: spacing.xs }}>New Username</label>
+                        <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} required placeholder="3–30 chars, letters/numbers/-/_"
+                            style={{ width: '100%', padding: '10px 12px', background: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '14px', boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', color: colors.textSecondary, marginBottom: spacing.xs }}>Current Password</label>
+                        <input type="password" value={usernamePassword} onChange={e => setUsernamePassword(e.target.value)} required placeholder="Confirm with your password"
+                            style={{ width: '100%', padding: '10px 12px', background: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '14px', boxSizing: 'border-box' }} />
+                    </div>
+                    {usernameError && <p style={{ color: colors.error, fontSize: '13px', margin: 0 }}>{usernameError}</p>}
+                    {usernameSuccess && <p style={{ color: colors.success, fontSize: '13px', margin: 0 }}>{usernameSuccess}</p>}
+                    <button type="submit" disabled={usernameLoading}
+                        style={{ padding: '12px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '14px', cursor: usernameLoading ? 'not-allowed' : 'pointer', opacity: usernameLoading ? 0.7 : 1 }}>
+                        {usernameLoading ? 'Saving…' : 'Change Username'}
+                    </button>
+                </form>
+            </div>
+
             {/* Email & Verification */}
             <div style={sectionStyle}>
                 <div style={sectionHeaderStyle}>
@@ -249,6 +372,37 @@ export const AccountSettingsPage: React.FC = () => {
                             </>
                         )}
                         {emailVerified && verifyMsg && <p style={{ color: colors.success, fontSize: '13px', margin: 0 }}>{verifyMsg}</p>}
+
+                        {/* Change email form */}
+                        <div style={{ marginTop: spacing.xl, borderTop: `1px solid ${colors.border}`, paddingTop: spacing.xl }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+                                <AtSign size={16} color={colors.primary} />
+                                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Change Email Address</h3>
+                            </div>
+                            {pendingEmailChange && (
+                                <div style={{ background: `${colors.warning}15`, border: `1px solid ${colors.warning}30`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md, fontSize: '13px', color: colors.warning }}>
+                                    Pending change to <strong>{pendingEmailChange}</strong> — check that inbox for the confirmation link.
+                                </div>
+                            )}
+                            <form onSubmit={handleChangeEmail} style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '13px', color: colors.textSecondary, marginBottom: spacing.xs }}>New Email Address</label>
+                                    <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required placeholder="new@example.com"
+                                        style={{ width: '100%', padding: '10px 12px', background: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '14px', boxSizing: 'border-box' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '13px', color: colors.textSecondary, marginBottom: spacing.xs }}>Current Password</label>
+                                    <input type="password" value={emailChangePassword} onChange={e => setEmailChangePassword(e.target.value)} required placeholder="Confirm with your password"
+                                        style={{ width: '100%', padding: '10px 12px', background: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '14px', boxSizing: 'border-box' }} />
+                                </div>
+                                {emailChangeError && <p style={{ color: colors.error, fontSize: '13px', margin: 0 }}>{emailChangeError}</p>}
+                                {emailChangeSuccess && <p style={{ color: colors.success, fontSize: '13px', margin: 0 }}>{emailChangeSuccess}</p>}
+                                <button type="submit" disabled={emailChangeLoading}
+                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '12px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '14px', cursor: emailChangeLoading ? 'not-allowed' : 'pointer', opacity: emailChangeLoading ? 0.7 : 1, justifyContent: 'center' }}>
+                                    <Send size={14} /> {emailChangeLoading ? 'Sending…' : 'Send Confirmation Email'}
+                                </button>
+                            </form>
+                        </div>
                     </>
                 ) : (
                     <div style={{ color: colors.textSecondary, fontSize: '14px', padding: spacing.lg, background: colors.background, borderRadius: borderRadius.md }}>

@@ -35,6 +35,11 @@ model User {
   passwordResetToken       String?   @unique
   passwordResetExpiry      DateTime?
 
+  // Pending email change (verified before applying)
+  pendingEmail             String?
+  pendingEmailToken        String?   @unique
+  pendingEmailExpiry       DateTime?
+
   @@map("users")
 }
 

@@ -1386,6 +1386,7 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
             backupCodesRemaining: dbUser.totpBackupCodes.length,
             lastLoginAt: dbUser.lastLoginAt,
             createdAt: dbUser.createdAt,
+            pendingEmail: dbUser.pendingEmail || null,
         });
     } catch (e) {
         logger.error('[Auth] Failed to get account info', e);
@@ -1527,6 +1528,144 @@ app.post('/api/auth/change-password', requireAuth, async (req: any, res) => {
     } catch (e) {
         logger.error('[Auth] change-password error', e);
         res.status(500).json({ error: 'Failed to change password' });
+    }
+});
+
+// =============================================
+// CHANGE USERNAME
+// =============================================
+app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
+    try {
+        const { newUsername, currentPassword } = req.body;
+        if (!newUsername) return res.status(400).json({ error: 'New username is required' });
+        if (!/^[a-zA-Z0-9_-]{3,30}$/.test(newUsername)) {
+            return res.status(400).json({ error: 'Username must be 3–30 characters: letters, numbers, underscores, hyphens only' });
+        }
+
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+
+        // Require password verification
+        if (!dbUser.passwordHash) return res.status(400).json({ error: 'Set a password first to verify your identity' });
+        if (!currentPassword) return res.status(400).json({ error: 'Current password is required to change username' });
+        const valid = await verifyPassword(currentPassword, dbUser.passwordHash);
+        if (!valid) return res.status(401).json({ error: 'Incorrect password' });
+
+        // Check uniqueness (case-insensitive)
+        const existing = await db.user.findFirst({ where: { username: { equals: newUsername, mode: 'insensitive' }, NOT: { id: dbUser.id } } });
+        if (existing) return res.status(409).json({ error: 'That username is already taken' });
+
+        await db.user.update({ where: { id: dbUser.id }, data: { username: newUsername } });
+        res.json({ success: true, username: newUsername });
+    } catch (e) {
+        logger.error('[Auth] change-username error', e);
+        res.status(500).json({ error: 'Failed to change username' });
+    }
+});
+
+// =============================================
+// CHANGE EMAIL (sends verification to new email)
+// =============================================
+app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
+    try {
+        const { newEmail, currentPassword } = req.body;
+        if (!newEmail) return res.status(400).json({ error: 'New email is required' });
+        const emailNorm = String(newEmail).toLowerCase().trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) return res.status(400).json({ error: 'Invalid email address' });
+
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+
+        // Require password verification
+        if (!dbUser.passwordHash) return res.status(400).json({ error: 'Set a password first to verify your identity' });
+        if (!currentPassword) return res.status(400).json({ error: 'Current password is required to change email' });
+        const valid = await verifyPassword(currentPassword, dbUser.passwordHash);
+        if (!valid) return res.status(401).json({ error: 'Incorrect password' });
+
+        if (emailNorm === dbUser.email) return res.status(400).json({ error: 'That is already your current email address' });
+
+        // Check email not already taken
+        const existing = await db.user.findUnique({ where: { email: emailNorm } });
+        if (existing) return res.status(409).json({ error: 'That email is already associated with another account' });
+
+        // Rate limit: only once per 5 minutes
+        if (dbUser.pendingEmailExpiry && dbUser.pendingEmailExpiry > new Date(Date.now() - 1000 * 60 * 5)) {
+            return res.status(429).json({ error: 'A confirmation email was already sent recently. Please wait a few minutes.' });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { pendingEmail: emailNorm, pendingEmailToken: token, pendingEmailExpiry: expiry },
+        });
+
+        let resendKey = process.env.RESEND_API_KEY;
+        if (!resendKey) { try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {} }
+        if (!resendKey) return res.status(500).json({ error: 'Email service not configured' });
+
+        const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
+        const confirmUrl = `${dashboardOrigin}/account?confirmEmailToken=${token}`;
+        const resendClient = new Resend(resendKey);
+        await resendClient.emails.send({
+            from: 'Fuji Studio <noreply@fujistud.io>',
+            to: [emailNorm],
+            subject: 'Confirm your new email – Fuji Studio',
+            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                <h2 style="color:#2b8d70;margin-top:0;">Confirm email change</h2>
+                <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
+                <p>Click below to confirm <strong>${emailNorm}</strong> as your new email address. This link expires in 24 hours.</p>
+                <a href="${confirmUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Confirm New Email</a>
+                <p style="color:#8A92A0;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+            </div>`,
+        });
+
+        res.json({ success: true, message: `Confirmation email sent to ${emailNorm}` });
+    } catch (e) {
+        logger.error('[Auth] change-email error', e);
+        res.status(500).json({ error: 'Failed to initiate email change' });
+    }
+});
+
+// =============================================
+// CONFIRM EMAIL CHANGE (via token link)
+// =============================================
+app.post('/api/auth/confirm-email-change', async (req: any, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ error: 'Token is required' });
+
+        const dbUser = await db.user.findUnique({ where: { pendingEmailToken: token } });
+        if (!dbUser || !dbUser.pendingEmail) return res.status(400).json({ error: 'Invalid or expired confirmation link' });
+        if (dbUser.pendingEmailExpiry && dbUser.pendingEmailExpiry < new Date()) {
+            return res.status(400).json({ error: 'This confirmation link has expired. Please request a new email change.' });
+        }
+
+        // Double-check email isn't taken by someone else now
+        const conflict = await db.user.findUnique({ where: { email: dbUser.pendingEmail } });
+        if (conflict && conflict.id !== dbUser.id) return res.status(409).json({ error: 'That email is already in use' });
+
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: {
+                email: dbUser.pendingEmail,
+                emailVerified: new Date(),
+                pendingEmail: null,
+                pendingEmailToken: null,
+                pendingEmailExpiry: null,
+            },
+        });
+
+        // Update session if this is the logged-in user
+        if (req.session?.user?._localId === dbUser.id) {
+            req.session.user._email = dbUser.pendingEmail;
+            req.session.user._emailVerified = true;
+        }
+
+        res.json({ success: true, email: dbUser.pendingEmail });
+    } catch (e) {
+        logger.error('[Auth] confirm-email-change error', e);
+        res.status(500).json({ error: 'Failed to confirm email change' });
     }
 });
 
@@ -2626,7 +2765,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management'] 
             };
             if (!req.session.permissionsCache) req.session.permissionsCache = {};
             req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };
@@ -6321,6 +6460,240 @@ app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, re
 });
 
 // Admin: List tracks for a profile (including suspended/deleted)
+// ─── Admin Account Management ───────────────────────────────────────────────
+
+// GET /api/admin/accounts — list + search accounts
+app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
+    try {
+        const search = (req.query.search as string || '').trim();
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+        const skip = (page - 1) * limit;
+
+        const where: any = search ? {
+            OR: [
+                { username: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { displayName: { contains: search, mode: 'insensitive' } },
+            ]
+        } : {};
+
+        const [users, total] = await Promise.all([
+            db.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    username: true,
+                    displayName: true,
+                    email: true,
+                    emailVerified: true,
+                    totpEnabled: true,
+                    discordId: true,
+                    hasPassword: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            db.user.count({ where }),
+        ]);
+
+        res.json({ users, total, page, limit, pages: Math.ceil(total / limit) });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/admin/accounts/:id — full account detail
+app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const user = await db.user.findUnique({
+            where: { id: req.params.id },
+            select: {
+                id: true,
+                username: true,
+                displayName: true,
+                email: true,
+                emailVerified: true,
+                totpEnabled: true,
+                discordId: true,
+                hasPassword: true,
+                pendingEmail: true,
+                createdAt: true,
+                updatedAt: true,
+                passwordResetExpiry: true,
+            },
+        });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// PUT /api/admin/accounts/:id — update account fields
+app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const { username, email, displayName } = req.body;
+        const targetId = req.params.id;
+
+        const updates: any = {};
+
+        if (typeof username === 'string') {
+            const usernameClean = username.trim();
+            if (!/^[a-zA-Z0-9_-]{3,30}$/.test(usernameClean)) {
+                return res.status(400).json({ error: 'Username must be 3-30 characters (letters, numbers, - or _)' });
+            }
+            const existing = await db.user.findFirst({
+                where: { username: { equals: usernameClean, mode: 'insensitive' }, NOT: { id: targetId } }
+            });
+            if (existing) return res.status(409).json({ error: 'Username already taken' });
+            updates.username = usernameClean;
+        }
+
+        if (typeof email === 'string') {
+            const emailClean = email.trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
+                return res.status(400).json({ error: 'Invalid email address' });
+            }
+            const existing = await db.user.findFirst({
+                where: { email: emailClean, NOT: { id: targetId } }
+            });
+            if (existing) return res.status(409).json({ error: 'Email already in use' });
+            updates.email = emailClean;
+            updates.emailVerified = new Date(); // admin setting email counts as verified
+        }
+
+        if (typeof displayName === 'string') {
+            updates.displayName = displayName.trim().slice(0, 64) || null;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: 'No valid fields to update' });
+        }
+
+        const updated = await db.user.update({ where: { id: targetId }, data: updates });
+        res.json({ success: true, user: { id: updated.id, username: updated.username, email: updated.email, displayName: updated.displayName } });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// DELETE /api/admin/accounts/:id — delete account (cannot delete self)
+app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const targetId = req.params.id;
+        const adminUser = await db.user.findUnique({ where: { discordId: req.session.userId } });
+        if (adminUser && adminUser.id === targetId) {
+            return res.status(400).json({ error: 'You cannot delete your own account via admin panel' });
+        }
+        await db.user.delete({ where: { id: targetId } });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/accounts/:id/force-verify — mark email as verified
+app.post('/api/admin/accounts/:id/force-verify', requireAdmin, async (req: any, res) => {
+    try {
+        await db.user.update({
+            where: { id: req.params.id },
+            data: { emailVerified: new Date() },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/accounts/:id/send-password-reset — send password reset email
+app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req: any, res) => {
+    try {
+        const user = await db.user.findUnique({ where: { id: req.params.id } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user.email) return res.status(400).json({ error: 'User has no email address' });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.user.update({
+            where: { id: user.id },
+            data: { passwordResetToken: token, passwordResetExpiry: expiry },
+        });
+
+        const resetLink = `${dashboardOrigin}/reset-password?token=${token}`;
+        await resend.emails.send({
+            from: 'noreply@fujistud.io',
+            to: user.email,
+            subject: 'Reset your Fuji Studio password',
+            html: `<p>An admin has initiated a password reset for your account. Click the link below to set a new password. This link expires in 24 hours.</p><p><a href="${resetLink}">${resetLink}</a></p>`,
+        });
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/accounts/:id/disable-2fa — disable TOTP
+app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, res) => {
+    try {
+        await db.user.update({
+            where: { id: req.params.id },
+            data: { totpEnabled: false, totpSecret: null, backupCodes: [] },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/accounts/:id/remove-discord — unlink Discord
+app.post('/api/admin/accounts/:id/remove-discord', requireAdmin, async (req: any, res) => {
+    try {
+        await db.user.update({
+            where: { id: req.params.id },
+            data: { discordId: null },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/admin/accounts/:id/set-password — admin sets password directly
+app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, res) => {
+    try {
+        const { newPassword } = req.body;
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
+        const hash = await new Promise<string>((resolve, reject) => {
+            const salt = crypto.randomBytes(16).toString('hex');
+            crypto.scrypt(newPassword, salt, 64, (err, key) => {
+                if (err) return reject(err);
+                resolve(`${salt}:${key.toString('hex')}`);
+            });
+        });
+        await db.user.update({
+            where: { id: req.params.id },
+            data: { passwordHash: hash, hasPassword: true },
+        });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.status(404).json({ error: 'User not found' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── End Admin Account Management ────────────────────────────────────────────
+
 app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any, res) => {
     try {
         const { id } = req.params;

@@ -27,6 +27,7 @@ import {
   Palette,
   MonitorPlay,
   Mic,
+  Users,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -251,6 +252,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
                 <span className="nav-label">Discover & Profiles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('account-management') && (
+            <button
+                className={`nav-item ${activeSection === 'account-management' ? 'active' : ''}`}
+                onClick={() => onNavigate('account-management')}
+                title={collapsed ? "Accounts" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
+                <span className="nav-label">Accounts</span>
             </button>
           )}
 
