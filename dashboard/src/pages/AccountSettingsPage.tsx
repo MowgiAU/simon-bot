@@ -153,6 +153,12 @@ export const AccountSettingsPage: React.FC = () => {
                 })
                 .catch(() => setConfirmEmailError('Request failed. Please try again.'));
         }
+
+        const emailChanged = searchParams.get('emailChanged');
+        if (emailChanged === 'true') { setConfirmEmailMsg('Your email address has been updated successfully!'); setPendingEmailChange(''); refreshAccountStatus(); }
+        else if (emailChanged === 'false') { setConfirmEmailError('Email change link is invalid or expired. Please request a new one.'); }
+        else if (emailChanged === 'expired') { setConfirmEmailError('This email change link has expired. Please request a new email change.'); }
+        else if (emailChanged === 'conflict') { setConfirmEmailError('That email address is already in use by another account.'); }
     }, []);
 
     const handleChangeUsername = async (e: React.FormEvent) => {

@@ -1135,7 +1135,7 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
             }
             if (resendKey) {
                 const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
-                const verifyUrl = `${dashboardOrigin}/verify-email?token=${token}`;
+                const verifyUrl = `${dashboardOrigin}/api/auth/verify-email?token=${token}`;
                 const resendClient = new Resend(resendKey);
                 await resendClient.emails.send({
                     from: 'Fuji Studio <noreply@fujistud.io>',
@@ -1495,7 +1495,7 @@ app.post('/api/auth/send-verification', async (req: any, res) => {
         });
 
         const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
-        const verifyUrl = `${dashboardOrigin}/verify-email?token=${token}`;
+        const verifyUrl = `${dashboardOrigin}/api/auth/verify-email?token=${token}`;
 
         // Get Resend key â€” prefer env var, fall back to email plugin settings
         let resendKey = process.env.RESEND_API_KEY;
@@ -1678,7 +1678,7 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
         if (!resendKey) return res.status(500).json({ error: 'Email service not configured' });
 
         const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
-        const confirmUrl = `${dashboardOrigin}/account?confirmEmailToken=${token}`;
+        const confirmUrl = `${dashboardOrigin}/api/auth/confirm-email-change?token=${token}`;
         const resendClient = new Resend(resendKey);
         await resendClient.emails.send({
             from: 'Fuji Studio <noreply@fujistud.io>',
@@ -1701,8 +1701,52 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
 });
 
 // =============================================
-// CONFIRM EMAIL CHANGE (via token link)
+// CONFIRM EMAIL CHANGE (via token link – GET for email links)
 // =============================================
+app.get('/api/auth/confirm-email-change', async (req, res) => {
+    try {
+        const { token } = req.query;
+        if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Invalid token' });
+
+        const dashboardOrigin = process.env.DASHBOARD_ORIGIN || '';
+
+        const dbUser = await db.user.findUnique({ where: { pendingEmailToken: token } });
+        if (!dbUser || !dbUser.pendingEmail) {
+            return res.redirect(`${dashboardOrigin}/account?emailChanged=false`);
+        }
+        if (dbUser.pendingEmailExpiry && dbUser.pendingEmailExpiry < new Date()) {
+            return res.redirect(`${dashboardOrigin}/account?emailChanged=expired`);
+        }
+
+        const conflict = await db.user.findUnique({ where: { email: dbUser.pendingEmail } });
+        if (conflict && conflict.id !== dbUser.id) {
+            return res.redirect(`${dashboardOrigin}/account?emailChanged=conflict`);
+        }
+
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: {
+                email: dbUser.pendingEmail,
+                emailVerified: new Date(),
+                pendingEmail: null,
+                pendingEmailToken: null,
+                pendingEmailExpiry: null,
+            },
+        });
+
+        if ((req.session as any)?.user?._localId === dbUser.id) {
+            (req.session as any).user._email = dbUser.pendingEmail;
+            (req.session as any).user._emailVerified = true;
+        }
+
+        res.redirect(`${dashboardOrigin}/account?emailChanged=true`);
+    } catch (e) {
+        logger.error('[Auth] confirm-email-change GET error', e);
+        res.status(500).json({ error: 'Failed to confirm email change' });
+    }
+});
+
+// CONFIRM EMAIL CHANGE (POST – legacy/API usage)
 app.post('/api/auth/confirm-email-change', async (req: any, res) => {
     try {
         const { token } = req.body;
