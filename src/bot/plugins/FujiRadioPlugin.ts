@@ -118,7 +118,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     // ─── Slash Commands ──────────────────────────────────────────────────
 
-    getSlashCommands() {
+    registerCommands() {
         return [
             new SlashCommandBuilder()
                 .setName('radio')
@@ -166,7 +166,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     // ─── Event Handlers ──────────────────────────────────────────────────
 
-    async handleInteraction(interaction: any): Promise<boolean> {
+    async onInteractionCreate(interaction: any): Promise<boolean> {
         if (!interaction.isChatInputCommand()) return false;
 
         const { commandName } = interaction;
@@ -192,7 +192,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     async handleEvent(event: string, ...args: any[]): Promise<void> {
         if (event === 'voiceStateUpdate') {
-            await this.handleVoiceStateUpdate(args[0], args[1]);
+            await this.onVoiceStateUpdate(args[0], args[1]);
         }
     }
 
@@ -560,7 +560,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     // ─── Voice State Update (Audio Ducking + Listener Tracking) ──────────
 
-    private async handleVoiceStateUpdate(oldState: any, newState: any): Promise<void> {
+    async onVoiceStateUpdate(oldState: any, newState: any): Promise<void> {
         const guildId = newState.guild?.id || oldState.guild?.id;
         if (!guildId) return;
 
