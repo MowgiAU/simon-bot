@@ -92,7 +92,7 @@ CREATE INDEX "radio_ad_slots_guildId_active_idx" ON "radio_ad_slots"("guildId", 
 ALTER TABLE "radio_settings" ADD CONSTRAINT "radio_settings_guildId_fkey" FOREIGN KEY ("guildId") REFERENCES "guilds"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "radio_queue" ADD CONSTRAINT "radio_queue_trackId_fkey" FOREIGN KEY ("trackId") REFERENCES "tracks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "radio_queue" ADD CONSTRAINT "radio_queue_trackId_fkey" FOREIGN KEY ("trackId") REFERENCES "musician_tracks"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "radio_history" ADD CONSTRAINT "radio_history_trackId_fkey" FOREIGN KEY ("trackId") REFERENCES "tracks"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "radio_history" ADD CONSTRAINT "radio_history_trackId_fkey" FOREIGN KEY ("trackId") REFERENCES "musician_tracks"("id") ON DELETE SET NULL ON UPDATE CASCADE;
