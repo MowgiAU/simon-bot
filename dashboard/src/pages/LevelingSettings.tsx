@@ -48,10 +48,15 @@ interface RoleReward {
 
 interface LeaderboardEntry {
     userId: string;
+    username: string | null;
+    avatar: string | null;
     totalXp: number;
     level: number;
     messagesCount: number;
     voiceMinutes: number;
+    // power score fields
+    powerScore?: number;
+    balance?: number;
 }
 
 const defaultSettings: LevelingSettingsData = {
@@ -813,7 +818,16 @@ export const LevelingSettings: React.FC = () => {
                                         }}>
                                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
                                         </span>
-                                        <span style={{ color: colors.textPrimary }}>{entry.userId}</span>
+                                        {entry.avatar && (
+                                            <img
+                                                src={entry.avatar}
+                                                alt=""
+                                                style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0 }}
+                                            />
+                                        )}
+                                        <span style={{ color: colors.textPrimary }}>
+                                            {entry.username || entry.userId}
+                                        </span>
                                     </div>
                                     <div style={{ display: 'flex', gap: spacing.lg, color: colors.textSecondary, fontSize: '13px' }}>
                                         <span>Lvl {entry.level}</span>

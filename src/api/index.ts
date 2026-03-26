@@ -1841,6 +1841,39 @@ const isTrueAdmin = (guildId: string, req: any) => {
     return Boolean(guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8));
 };
 
+// Simple TTL cache for Discord user lookups (60-second TTL)
+const discordUserCache = new Map<string, { username: string; avatar: string | null; expiresAt: number }>();
+
+async function fetchDiscordUsername(userId: string): Promise<{ username: string; avatar: string | null }> {
+    const cached = discordUserCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) {
+        return { username: cached.username, avatar: cached.avatar };
+    }
+    try {
+        const resp = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
+            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+        });
+        const user = resp.data;
+        const username = user.global_name || user.username || userId;
+        const avatar = user.avatar
+            ? `https://cdn.discordapp.com/avatars/${userId}/${user.avatar}.png`
+            : null;
+        discordUserCache.set(userId, { username, avatar, expiresAt: Date.now() + 60_000 });
+        return { username, avatar };
+    } catch {
+        return { username: userId, avatar: null };
+    }
+}
+
+async function enrichMembersWithUsernames<T extends { userId: string }>(members: T[]): Promise<(T & { username: string; avatar: string | null })[]> {
+    const results = await Promise.allSettled(members.map(m => fetchDiscordUsername(m.userId)));
+    return members.map((m, i) => {
+        const r = results[i];
+        const { username, avatar } = r.status === 'fulfilled' ? r.value : { username: m.userId, avatar: null };
+        return { ...m, username, avatar };
+    });
+}
+
 // Helper: Check Plugin Access
 const checkPluginAccess = async (guildId: string, req: any, pluginId: string): Promise<boolean> => {
     const user = req.session.user;
@@ -2305,7 +2338,8 @@ app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
 
       const total = scored.length;
       const members = scored.slice(page * perPage, (page + 1) * perPage);
-      return res.json({ members, total, page, perPage });
+      const enrichedPower = await enrichMembersWithUsernames(members);
+      return res.json({ members: enrichedPower, total, page, perPage });
     }
 
     const orderBy = type === 'voice' ? { voiceMinutes: 'desc' as const }
@@ -2322,7 +2356,8 @@ app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
       db.member.count({ where: { guildId } }),
     ]);
 
-    res.json({ members, total, page, perPage });
+    const enriched = await enrichMembersWithUsernames(members);
+    res.json({ members: enriched, total, page, perPage });
   } catch (error) {
     logger.error('Failed to get leaderboard', error);
     res.status(500).json({ error: 'Failed to get leaderboard' });
