@@ -2240,6 +2240,11 @@ app.post('/api/leveling/settings/:guildId', async (req, res) => {
       'reactionGivenXp', 'reactionReceivedXp', 'messageCooldownSec',
       'levelUpChannelId', 'blacklistedChannels', 'blacklistedRoles',
       'levelUpMessage', 'announceRoleReward',
+      // Economy synergy fields
+      'economyRewardsEnabled', 'levelUpCurrencyReward', 'milestoneLevels',
+      'microRewardsEnabled', 'microRewardAmount', 'microRewardReactions', 'microRewardVoiceMin',
+      'activityScalingEnabled', 'xpBoosterEnabled', 'xpBoosterPrice',
+      'xpBoosterMultiplier', 'xpBoosterDurationMin',
     ];
 
     const data: Record<string, any> = {};
@@ -2279,6 +2284,29 @@ app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
     const type = (req.query.type as string) || 'xp';
     const page = Math.max(0, parseInt(req.query.page as string) || 0);
     const perPage = 20;
+
+    // Power Score leaderboard — computed in-memory
+    if (type === 'power') {
+      const allMembers = await db.member.findMany({
+        where: { guildId },
+        select: { userId: true, level: true, totalXp: true },
+      });
+      const accounts = await db.economyAccount.findMany({
+        where: { guildId },
+        select: { userId: true, balance: true },
+      }).catch(() => [] as { userId: string; balance: number }[]);
+
+      const balanceMap = new Map(accounts.map((a: any) => [a.userId, a.balance]));
+      const scored = allMembers.map(m => ({
+        ...m,
+        balance: balanceMap.get(m.userId) ?? 0,
+        powerScore: m.level * 100 + (balanceMap.get(m.userId) ?? 0),
+      })).sort((a, b) => b.powerScore - a.powerScore);
+
+      const total = scored.length;
+      const members = scored.slice(page * perPage, (page + 1) * perPage);
+      return res.json({ members, total, page, perPage });
+    }
 
     const orderBy = type === 'voice' ? { voiceMinutes: 'desc' as const }
       : type === 'messages' ? { messagesCount: 'desc' as const }
@@ -2368,6 +2396,24 @@ app.delete('/api/leveling/role-rewards/:guildId/:level', async (req, res) => {
   } catch (error) {
     logger.error('Failed to delete role reward', error);
     res.status(500).json({ error: 'Failed to delete role reward' });
+  }
+});
+
+// GET active XP boosters for a guild
+app.get('/api/leveling/boosters/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const boosters = await db.xpBooster.findMany({
+      where: { guildId, expiresAt: { gt: new Date() } },
+      orderBy: { expiresAt: 'asc' },
+    });
+
+    res.json(boosters);
+  } catch (error) {
+    logger.error('Failed to get XP boosters', error);
+    res.status(500).json({ error: 'Failed to get boosters' });
   }
 });
 

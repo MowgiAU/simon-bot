@@ -3,7 +3,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
-import { TrendingUp, Plus, Trash2, Save } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Save, Zap } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 import axios from 'axios';
 
@@ -24,6 +24,19 @@ interface LevelingSettingsData {
     blacklistedRoles: string[];
     levelUpMessage: string;
     announceRoleReward: boolean;
+    // Economy synergy
+    economyRewardsEnabled: boolean;
+    levelUpCurrencyReward: number;
+    milestoneLevels: { level: number; reward: number }[];
+    microRewardsEnabled: boolean;
+    microRewardAmount: number;
+    microRewardReactions: number;
+    microRewardVoiceMin: number;
+    activityScalingEnabled: boolean;
+    xpBoosterEnabled: boolean;
+    xpBoosterPrice: number;
+    xpBoosterMultiplier: number;
+    xpBoosterDurationMin: number;
 }
 
 interface RoleReward {
@@ -58,6 +71,19 @@ const defaultSettings: LevelingSettingsData = {
     blacklistedRoles: [],
     levelUpMessage: '🎉 {user} reached **Level {level}**!',
     announceRoleReward: true,
+    // Economy synergy
+    economyRewardsEnabled: false,
+    levelUpCurrencyReward: 50,
+    milestoneLevels: [],
+    microRewardsEnabled: false,
+    microRewardAmount: 5,
+    microRewardReactions: 10,
+    microRewardVoiceMin: 10,
+    activityScalingEnabled: false,
+    xpBoosterEnabled: false,
+    xpBoosterPrice: 500,
+    xpBoosterMultiplier: 1.5,
+    xpBoosterDurationMin: 60,
 };
 
 const API_BASE = '/api/leveling';
@@ -74,7 +100,9 @@ export const LevelingSettings: React.FC = () => {
     const [newRewardLevel, setNewRewardLevel] = useState('');
     const [newRewardRoleId, setNewRewardRoleId] = useState('');
     const [newRewardSticky, setNewRewardSticky] = useState(true);
-    const [activeTab, setActiveTab] = useState<'settings' | 'rewards' | 'leaderboard'>('settings');
+    const [activeTab, setActiveTab] = useState<'settings' | 'rewards' | 'leaderboard' | 'economy'>('settings');
+    const [newMilestoneLevel, setNewMilestoneLevel] = useState('');
+    const [newMilestoneReward, setNewMilestoneReward] = useState('');
 
     const guildId = selectedGuild?.id;
 
@@ -105,6 +133,19 @@ export const LevelingSettings: React.FC = () => {
                     blacklistedRoles: s.blacklistedRoles || [],
                     levelUpMessage: s.levelUpMessage,
                     announceRoleReward: s.announceRoleReward,
+                    // Economy synergy
+                    economyRewardsEnabled: s.economyRewardsEnabled ?? false,
+                    levelUpCurrencyReward: s.levelUpCurrencyReward ?? 50,
+                    milestoneLevels: (() => { try { return typeof s.milestoneLevels === 'string' ? JSON.parse(s.milestoneLevels) : (s.milestoneLevels || []); } catch { return []; } })(),
+                    microRewardsEnabled: s.microRewardsEnabled ?? false,
+                    microRewardAmount: s.microRewardAmount ?? 5,
+                    microRewardReactions: s.microRewardReactions ?? 10,
+                    microRewardVoiceMin: s.microRewardVoiceMin ?? 10,
+                    activityScalingEnabled: s.activityScalingEnabled ?? false,
+                    xpBoosterEnabled: s.xpBoosterEnabled ?? false,
+                    xpBoosterPrice: s.xpBoosterPrice ?? 500,
+                    xpBoosterMultiplier: s.xpBoosterMultiplier ?? 1.5,
+                    xpBoosterDurationMin: s.xpBoosterDurationMin ?? 60,
                 });
                 setRoleRewards(rewardsRes.data || []);
                 setLeaderboard(lbRes.data?.members || []);
@@ -240,9 +281,10 @@ export const LevelingSettings: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.xl }}>
+            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.xl, flexWrap: 'wrap' }}>
                 <button style={tabStyle(activeTab === 'settings')} onClick={() => setActiveTab('settings')}>Settings</button>
                 <button style={tabStyle(activeTab === 'rewards')} onClick={() => setActiveTab('rewards')}>Role Rewards</button>
+                <button style={tabStyle(activeTab === 'economy')} onClick={() => setActiveTab('economy')}>Economy Rewards</button>
                 <button style={tabStyle(activeTab === 'leaderboard')} onClick={() => setActiveTab('leaderboard')}>Leaderboard</button>
             </div>
 
@@ -548,6 +590,198 @@ export const LevelingSettings: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </>
+            )}
+
+            {activeTab === 'economy' && (
+                <>
+                    {/* Economy Rewards Explanation */}
+                    <div style={{
+                        backgroundColor: colors.surface,
+                        padding: spacing.md,
+                        borderRadius: borderRadius.md,
+                        marginBottom: spacing.lg,
+                        borderLeft: `4px solid #FFD700`,
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                            <Zap size={18} color="#FFD700" />
+                            <span style={{ color: colors.textPrimary, fontWeight: 600 }}>Economy × Leveling Integration</span>
+                        </div>
+                        <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px' }}>
+                            Reward members with currency when they level up, hit milestones, or stay active. Members can also buy XP Boosters with their wallet balance. Requires the Economy plugin to be enabled.
+                        </p>
+                    </div>
+
+                    {/* Master Economy Toggle */}
+                    <div style={cardStyle}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ margin: 0, color: colors.textPrimary }}>Enable Economy Rewards</h3>
+                                <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>Award currency for leveling milestones and activities</p>
+                            </div>
+                            <button style={toggleStyle(settings.economyRewardsEnabled)} onClick={() => setSettings(s => ({ ...s, economyRewardsEnabled: !s.economyRewardsEnabled }))}>
+                                <div style={toggleDot(settings.economyRewardsEnabled)} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {settings.economyRewardsEnabled && (
+                        <>
+                            {/* Level-Up Currency */}
+                            <div style={cardStyle}>
+                                <h3 style={{ margin: '0 0 16px', color: colors.textPrimary }}>Level-Up Bonus</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: spacing.lg }}>
+                                    <div>
+                                        <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Coins per Level-Up</label>
+                                        <input type="number" min={0} value={settings.levelUpCurrencyReward} onChange={e => setSettings(s => ({ ...s, levelUpCurrencyReward: parseInt(e.target.value) || 0 }))} style={inputStyle} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Milestone Jackpots */}
+                            <div style={cardStyle}>
+                                <h3 style={{ margin: '0 0 16px', color: colors.textPrimary }}>Milestone Jackpots</h3>
+                                <p style={{ color: colors.textSecondary, fontSize: '13px', marginBottom: spacing.md }}>Award bonus currency when members reach specific levels.</p>
+
+                                <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: spacing.md }}>
+                                    <div style={{ minWidth: '80px' }}>
+                                        <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Level</label>
+                                        <input type="number" min={1} value={newMilestoneLevel} onChange={e => setNewMilestoneLevel(e.target.value)} style={{ ...inputStyle, width: '80px' }} placeholder="10" />
+                                    </div>
+                                    <div style={{ minWidth: '120px' }}>
+                                        <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Reward (coins)</label>
+                                        <input type="number" min={1} value={newMilestoneReward} onChange={e => setNewMilestoneReward(e.target.value)} style={{ ...inputStyle, width: '120px' }} placeholder="500" />
+                                    </div>
+                                    <button onClick={() => {
+                                        const lvl = parseInt(newMilestoneLevel);
+                                        const rwd = parseInt(newMilestoneReward);
+                                        if (!lvl || !rwd || lvl < 1 || rwd < 1) return;
+                                        setSettings(s => ({
+                                            ...s,
+                                            milestoneLevels: [...s.milestoneLevels.filter(m => m.level !== lvl), { level: lvl, reward: rwd }].sort((a, b) => a.level - b.level),
+                                        }));
+                                        setNewMilestoneLevel('');
+                                        setNewMilestoneReward('');
+                                    }} style={{
+                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                        padding: `${spacing.sm} ${spacing.lg}`,
+                                        backgroundColor: colors.primary, color: '#fff',
+                                        border: 'none', borderRadius: borderRadius.md,
+                                        cursor: 'pointer', fontWeight: 500,
+                                    }}>
+                                        <Plus size={16} /> Add
+                                    </button>
+                                </div>
+
+                                {settings.milestoneLevels.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                                        {settings.milestoneLevels.map(m => (
+                                            <div key={m.level} style={{
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                padding: spacing.md, backgroundColor: colors.background,
+                                                borderRadius: borderRadius.md, border: `1px solid ${colors.border}`,
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+                                                    <span style={{ backgroundColor: '#FFD700', color: '#000', padding: `2px ${spacing.sm}`, borderRadius: borderRadius.sm, fontWeight: 600, fontSize: '13px' }}>
+                                                        Lvl {m.level}
+                                                    </span>
+                                                    <span style={{ color: colors.textPrimary }}>{m.reward.toLocaleString()} coins</span>
+                                                </div>
+                                                <button onClick={() => setSettings(s => ({ ...s, milestoneLevels: s.milestoneLevels.filter(ms => ms.level !== m.level) }))} style={{ background: 'none', border: 'none', color: colors.error, cursor: 'pointer', padding: spacing.xs }}>
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Micro-Rewards */}
+                            <div style={cardStyle}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, color: colors.textPrimary }}>Micro-Rewards</h3>
+                                        <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>Award small currency amounts for reactions and voice activity</p>
+                                    </div>
+                                    <button style={toggleStyle(settings.microRewardsEnabled)} onClick={() => setSettings(s => ({ ...s, microRewardsEnabled: !s.microRewardsEnabled }))}>
+                                        <div style={toggleDot(settings.microRewardsEnabled)} />
+                                    </button>
+                                </div>
+                                {settings.microRewardsEnabled && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: spacing.lg }}>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Coins per Milestone</label>
+                                            <input type="number" min={1} value={settings.microRewardAmount} onChange={e => setSettings(s => ({ ...s, microRewardAmount: parseInt(e.target.value) || 1 }))} style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Every N Reactions</label>
+                                            <input type="number" min={1} value={settings.microRewardReactions} onChange={e => setSettings(s => ({ ...s, microRewardReactions: parseInt(e.target.value) || 1 }))} style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Every N Voice Minutes</label>
+                                            <input type="number" min={1} value={settings.microRewardVoiceMin} onChange={e => setSettings(s => ({ ...s, microRewardVoiceMin: parseInt(e.target.value) || 1 }))} style={inputStyle} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Activity Scaling */}
+                            <div style={cardStyle}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, color: colors.textPrimary }}>Activity Scaling</h3>
+                                        <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>Higher-level members earn +2% more Economy coins per 5 levels</p>
+                                    </div>
+                                    <button style={toggleStyle(settings.activityScalingEnabled)} onClick={() => setSettings(s => ({ ...s, activityScalingEnabled: !s.activityScalingEnabled }))}>
+                                        <div style={toggleDot(settings.activityScalingEnabled)} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* XP Booster Shop */}
+                            <div style={cardStyle}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, color: colors.textPrimary }}>XP Booster Shop</h3>
+                                        <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>Members can spend coins to buy temporary XP multipliers</p>
+                                    </div>
+                                    <button style={toggleStyle(settings.xpBoosterEnabled)} onClick={() => setSettings(s => ({ ...s, xpBoosterEnabled: !s.xpBoosterEnabled }))}>
+                                        <div style={toggleDot(settings.xpBoosterEnabled)} />
+                                    </button>
+                                </div>
+                                {settings.xpBoosterEnabled && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: spacing.lg }}>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Price (coins)</label>
+                                            <input type="number" min={1} value={settings.xpBoosterPrice} onChange={e => setSettings(s => ({ ...s, xpBoosterPrice: parseInt(e.target.value) || 1 }))} style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Multiplier (e.g. 1.5x)</label>
+                                            <input type="number" min={1.1} max={5} step={0.1} value={settings.xpBoosterMultiplier} onChange={e => setSettings(s => ({ ...s, xpBoosterMultiplier: parseFloat(e.target.value) || 1.5 }))} style={inputStyle} />
+                                        </div>
+                                        <div>
+                                            <label style={{ color: colors.textSecondary, fontSize: '12px', display: 'block', marginBottom: '4px' }}>Duration (minutes)</label>
+                                            <input type="number" min={5} value={settings.xpBoosterDurationMin} onChange={e => setSettings(s => ({ ...s, xpBoosterDurationMin: parseInt(e.target.value) || 60 }))} style={inputStyle} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Save Button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+                                <button onClick={saveSettings} disabled={saving} style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: `${spacing.sm} ${spacing.xl}`,
+                                    backgroundColor: saving ? colors.surfaceLight : colors.primary,
+                                    color: '#fff', border: 'none', borderRadius: borderRadius.md,
+                                    cursor: saving ? 'default' : 'pointer', fontWeight: 600, fontSize: '14px',
+                                }}>
+                                    <Save size={16} /> {saving ? 'Saving...' : 'Save Economy Settings'}
+                                </button>
+                                {saveMessage && <span style={{ color: saveMessage.includes('Failed') ? colors.error : colors.success, fontSize: '13px' }}>{saveMessage}</span>}
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 

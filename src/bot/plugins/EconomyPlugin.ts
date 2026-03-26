@@ -121,8 +121,25 @@ export class EconomyPlugin implements IPlugin {
         if (now - lastEarn < cooldown) return;
         if (message.content.length < settings.minMessageLength) return;
 
+        // Activity Scaling: +2% per 5 levels if enabled in leveling settings
+        let reward = settings.messageReward;
+        try {
+            const levelingSettings = await this.db.levelingSettings.findUnique({ where: { guildId: message.guild.id } });
+            if (levelingSettings?.activityScalingEnabled) {
+                const member = await this.db.member.findUnique({
+                    where: { guildId_userId: { guildId: message.guild.id, userId: message.author.id } },
+                    select: { level: true },
+                });
+                if (member && member.level >= 5) {
+                    const bonusTiers = Math.floor(member.level / 5);
+                    const scalingMultiplier = 1 + bonusTiers * 0.02;
+                    reward = Math.floor(reward * scalingMultiplier);
+                }
+            }
+        } catch { /* leveling tables may not exist */ }
+
         // Give reward
-        await this.addBalance(message.guild.id, message.author.id, settings.messageReward, 'MESSAGE', 'Message Activity Reward');
+        await this.addBalance(message.guild.id, message.author.id, reward, 'MESSAGE', 'Message Activity Reward');
         
         this.messageCooldowns.set(message.author.id, now);
     }

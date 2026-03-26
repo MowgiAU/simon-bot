@@ -56,7 +56,7 @@ export class LevelingPlugin implements IPlugin {
     readonly author = 'Fuji Studio';
 
     readonly requiredPermissions = [PermissionFlagsBits.ManageRoles];
-    readonly commands = ['rank', 'leaderboard', 'xp', 'leveling-sync'];
+    readonly commands = ['rank', 'leaderboard', 'xp', 'leveling-sync', 'xpboost'];
     readonly events = ['interactionCreate', 'messageCreate', 'voiceStateUpdate', 'messageReactionAdd', 'guildMemberAdd'];
     readonly dashboardSections = ['leveling'];
     readonly defaultEnabled = true;
@@ -126,6 +126,7 @@ export class LevelingPlugin implements IPlugin {
                         { name: 'XP', value: 'xp' },
                         { name: 'Voice', value: 'voice' },
                         { name: 'Messages', value: 'messages' },
+                        { name: 'Power Score', value: 'power' },
                     )
             )
             .addIntegerOption(o =>
@@ -160,7 +161,11 @@ export class LevelingPlugin implements IPlugin {
             .setDescription('Re-scan and fix your level roles (admin: sync a user)')
             .addUserOption(o => o.setName('user').setDescription('User to sync (admin only)'));
 
-        return [rank, leaderboard, xp, sync];
+        const xpboost = new SlashCommandBuilder()
+            .setName('xpboost')
+            .setDescription('Purchase a temporary XP multiplier boost using your economy balance');
+
+        return [rank, leaderboard, xp, sync, xpboost];
     }
 
     // ─────────────────────────────────────────
@@ -174,6 +179,7 @@ export class LevelingPlugin implements IPlugin {
                 case 'leaderboard': return this.handleLeaderboard(interaction);
                 case 'xp': return this.handleXpAdmin(interaction);
                 case 'leveling-sync': return this.handleSync(interaction);
+                case 'xpboost': return this.handleXpBoost(interaction);
             }
         }
         if (interaction.isButton() && interaction.customId.startsWith('lb_')) {
@@ -199,9 +205,10 @@ export class LevelingPlugin implements IPlugin {
         if (now - last < (settings.messageCooldownSec * 1000)) return;
         this.messageCooldowns.set(key, now);
 
-        // Calculate XP with multiplier
+        // Calculate XP with multiplier + active booster
         const baseXp = Math.floor(Math.random() * (settings.messageXpMax - settings.messageXpMin + 1)) + settings.messageXpMin;
-        const xp = Math.floor(baseXp * settings.xpMultiplier);
+        const boosterMult = await this.getActiveBoosterMultiplier(message.author.id, message.guild.id);
+        const xp = Math.floor(baseXp * settings.xpMultiplier * boosterMult);
 
         await this.addXP(message.author.id, message.guild.id, xp, 'message');
     }
@@ -243,13 +250,15 @@ export class LevelingPlugin implements IPlugin {
         if (!settings?.enabled || !settings.reactionXpEnabled) return;
 
         // XP for giving a reaction
-        const giverXp = Math.floor(settings.reactionGivenXp * settings.xpMultiplier);
+        const boosterMult = await this.getActiveBoosterMultiplier(user.id, guildId);
+        const giverXp = Math.floor(settings.reactionGivenXp * settings.xpMultiplier * boosterMult);
         if (giverXp > 0) await this.addXP(user.id, guildId, giverXp, 'reaction_given');
 
         // XP for receiving a reaction (if not self-reacting)
         const authorId = reaction.message.author?.id;
         if (authorId && authorId !== user.id) {
-            const receiverXp = Math.floor(settings.reactionReceivedXp * settings.xpMultiplier);
+            const receiverBoost = await this.getActiveBoosterMultiplier(authorId, guildId);
+            const receiverXp = Math.floor(settings.reactionReceivedXp * settings.xpMultiplier * receiverBoost);
             if (receiverXp > 0) await this.addXP(authorId, guildId, receiverXp, 'reaction_received');
         }
     }
@@ -347,6 +356,10 @@ export class LevelingPlugin implements IPlugin {
                     data: { xp: currentProgress },
                 });
             }
+
+            // ── Economy Synergy: Micro-Rewards ──
+            await this.checkMicroRewards(userId, guildId, member, source);
+
         } catch (e) {
             this.logger.error(`addXP error for ${userId}`, e);
         }
@@ -440,6 +453,26 @@ export class LevelingPlugin implements IPlugin {
             }
         }
 
+        // ── Economy Synergy: Level-Up Currency Reward ──
+        let currencyAwarded = 0;
+        let milestoneBonus = 0;
+        if (settings.economyRewardsEnabled) {
+            // Per-level currency reward
+            if (settings.levelUpCurrencyReward > 0) {
+                currencyAwarded = settings.levelUpCurrencyReward * (newLevel - oldLevel);
+                await this.awardCurrency(guildId, userId, currencyAwarded, 'LEVELUP', `Leveled up to ${newLevel}`);
+            }
+
+            // Milestone jackpots
+            const milestones = this.parseMilestones(settings.milestoneLevels);
+            for (const ms of milestones) {
+                if (ms.level > oldLevel && ms.level <= newLevel && ms.reward > 0) {
+                    milestoneBonus += ms.reward;
+                    await this.awardCurrency(guildId, userId, ms.reward, 'LEVELUP', `Milestone: Level ${ms.level} jackpot`);
+                }
+            }
+        }
+
         // Send level-up notification
         if (settings.levelUpChannelId) {
             const channel = this.client.channels.cache.get(settings.levelUpChannelId) as TextChannel;
@@ -459,6 +492,13 @@ export class LevelingPlugin implements IPlugin {
                     if (roleNames.length > 0) {
                         content += `\n🏅 Earned: **${roleNames.join('**, **')}**`;
                     }
+                }
+
+                // Announce economy rewards
+                const totalCoins = currencyAwarded + milestoneBonus;
+                if (totalCoins > 0) {
+                    content += `\n💰 +${totalCoins.toLocaleString()} coins`;
+                    if (milestoneBonus > 0) content += ` (includes **${milestoneBonus.toLocaleString()}** milestone bonus!)`;
                 }
 
                 channel.send(content).catch(() => {});
@@ -484,7 +524,8 @@ export class LevelingPlugin implements IPlugin {
             const humanMembers = vs.channel.members.filter(m => !m.user.bot);
             if (humanMembers.size < 2) continue;
 
-            const xp = Math.floor(settings.voiceXpPerMinute * settings.xpMultiplier);
+            const boosterMult = await this.getActiveBoosterMultiplier(userId, guildId);
+            const xp = Math.floor(settings.voiceXpPerMinute * settings.xpMultiplier * boosterMult);
             if (xp > 0) await this.addXP(userId, guildId, xp, 'voice');
 
             this.voiceTracker.set(key, now); // Reset timer
@@ -550,6 +591,11 @@ export class LevelingPlugin implements IPlugin {
 
     private async sendLeaderboardPage(interaction: any, type: string, page: number, perPage: number): Promise<void> {
         const guildId = interaction.guildId!;
+
+        // Power Score leaderboard: combined Level × 100 + Wallet
+        if (type === 'power') {
+            return this.sendPowerLeaderboard(interaction, page, perPage);
+        }
 
         const orderBy = type === 'voice' ? { voiceMinutes: 'desc' as const }
             : type === 'messages' ? { messagesCount: 'desc' as const }
@@ -808,5 +854,209 @@ export class LevelingPlugin implements IPlugin {
     // Invalidate when settings change from dashboard
     public invalidateSettingsCache(guildId: string): void {
         this.settingsCache.delete(guildId);
+    }
+
+    // ─────────────────────────────────────────
+    // Economy Synergy Helpers
+    // ─────────────────────────────────────────
+
+    private async awardCurrency(guildId: string, userId: string, amount: number, type: string, reason: string): Promise<boolean> {
+        if (amount <= 0) return false;
+        try {
+            await this.db.economyAccount.upsert({
+                where: { guildId_userId: { guildId, userId } },
+                update: {
+                    balance: { increment: amount },
+                    totalEarned: { increment: amount },
+                },
+                create: { guildId, userId, balance: amount, totalEarned: amount },
+            });
+            await this.db.economyTransaction.create({
+                data: { guildId, amount, type, toUserId: userId, reason },
+            });
+            return true;
+        } catch {
+            // Economy tables may not exist or be disabled — fail silently
+            return false;
+        }
+    }
+
+    private async getActiveBoosterMultiplier(userId: string, guildId: string): Promise<number> {
+        try {
+            const booster = await this.db.xpBooster.findUnique({
+                where: { guildId_userId: { guildId, userId } },
+            });
+            if (!booster) return 1;
+            if (booster.expiresAt < new Date()) {
+                // Expired — clean up
+                await this.db.xpBooster.delete({ where: { guildId_userId: { guildId, userId } } }).catch(() => {});
+                return 1;
+            }
+            return booster.multiplier;
+        } catch {
+            return 1;
+        }
+    }
+
+    private async checkMicroRewards(userId: string, guildId: string, member: any, source: string): Promise<void> {
+        const settings = await this.getSettings(guildId);
+        if (!settings?.economyRewardsEnabled || !settings.microRewardsEnabled) return;
+
+        const amount = settings.microRewardAmount || 5;
+
+        if (source === 'reaction' && settings.microRewardReactions > 0) {
+            const total = (member.reactionsGiven || 0) + (member.reactionsReceived || 0);
+            if (total > 0 && total % settings.microRewardReactions === 0) {
+                await this.awardCurrency(guildId, userId, amount, 'LEVELUP', `Micro-reward: ${settings.microRewardReactions} reactions milestone`);
+            }
+        }
+
+        if (source === 'voice' && settings.microRewardVoiceMin > 0) {
+            if (member.voiceMinutes > 0 && member.voiceMinutes % settings.microRewardVoiceMin === 0) {
+                await this.awardCurrency(guildId, userId, amount, 'LEVELUP', `Micro-reward: ${settings.microRewardVoiceMin} voice min milestone`);
+            }
+        }
+    }
+
+    private parseMilestones(milestoneLevels: any): { level: number; reward: number }[] {
+        try {
+            const arr = typeof milestoneLevels === 'string' ? JSON.parse(milestoneLevels) : milestoneLevels;
+            if (!Array.isArray(arr)) return [];
+            return arr.filter((m: any) => typeof m.level === 'number' && typeof m.reward === 'number');
+        } catch {
+            return [];
+        }
+    }
+
+    private async handleXpBoost(interaction: ChatInputCommandInteraction): Promise<void> {
+        const guildId = interaction.guildId!;
+        const userId = interaction.user.id;
+
+        const settings = await this.getSettings(guildId);
+        if (!settings?.xpBoosterEnabled) {
+            return void interaction.reply({ content: '❌ XP Boosters are not enabled on this server.', flags: MessageFlags.Ephemeral });
+        }
+
+        // Check for existing active booster
+        const existing = await this.db.xpBooster.findUnique({
+            where: { guildId_userId: { guildId, userId } },
+        });
+        if (existing && existing.expiresAt > new Date()) {
+            const remaining = Math.ceil((existing.expiresAt.getTime() - Date.now()) / 60_000);
+            return void interaction.reply({
+                content: `⚡ You already have an active **${existing.multiplier}x XP Booster** with **${remaining} minutes** remaining!`,
+                flags: MessageFlags.Ephemeral,
+            });
+        }
+
+        // Check economy balance
+        const price = settings.xpBoosterPrice || 500;
+        let account: any;
+        try {
+            account = await this.db.economyAccount.findUnique({
+                where: { guildId_userId: { guildId, userId } },
+            });
+        } catch {
+            return void interaction.reply({ content: '❌ Economy system is not available.', flags: MessageFlags.Ephemeral });
+        }
+
+        if (!account || account.balance < price) {
+            const bal = account?.balance ?? 0;
+            return void interaction.reply({
+                content: `❌ You need **${price.toLocaleString()} coins** to buy an XP Booster but only have **${bal.toLocaleString()} coins**.`,
+                flags: MessageFlags.Ephemeral,
+            });
+        }
+
+        const multiplier = settings.xpBoosterMultiplier || 1.5;
+        const durationMin = settings.xpBoosterDurationMin || 60;
+        const expiresAt = new Date(Date.now() + durationMin * 60_000);
+
+        // Deduct balance and create booster in a transaction
+        await this.db.$transaction([
+            this.db.economyAccount.update({
+                where: { guildId_userId: { guildId, userId } },
+                data: { balance: { decrement: price } },
+            }),
+            this.db.economyTransaction.create({
+                data: { guildId, amount: -price, type: 'SHOP', fromUserId: userId, reason: `XP Booster (${multiplier}x, ${durationMin}min)` },
+            }),
+            this.db.xpBooster.upsert({
+                where: { guildId_userId: { guildId, userId } },
+                update: { multiplier, expiresAt },
+                create: { guildId, userId, multiplier, expiresAt },
+            }),
+        ]);
+
+        await interaction.reply({
+            content: `⚡ **XP Booster Activated!**\n> **${multiplier}x** XP for **${durationMin} minutes**\n> Cost: **${price.toLocaleString()} coins**`,
+            flags: MessageFlags.Ephemeral,
+        });
+    }
+
+    private async sendPowerLeaderboard(interaction: any, page: number, perPage: number): Promise<void> {
+        const guildId = interaction.guildId!;
+
+        // Fetch all members with their economy balance
+        const members = await this.db.member.findMany({
+            where: { guildId },
+            select: { userId: true, level: true, totalXp: true },
+        });
+
+        // Fetch economy accounts for this guild
+        const accounts = await this.db.economyAccount.findMany({
+            where: { guildId },
+            select: { userId: true, balance: true },
+        }).catch(() => [] as { userId: string; balance: number }[]);
+
+        const balanceMap = new Map(accounts.map(a => [a.userId, a.balance]));
+
+        // Compute power score and sort
+        const scored = members.map(m => ({
+            userId: m.userId,
+            level: m.level,
+            totalXp: m.totalXp,
+            balance: balanceMap.get(m.userId) ?? 0,
+            powerScore: m.level * 100 + (balanceMap.get(m.userId) ?? 0),
+        })).sort((a, b) => b.powerScore - a.powerScore);
+
+        const total = scored.length;
+        const maxPage = Math.max(0, Math.ceil(total / perPage) - 1);
+        page = Math.min(page, maxPage);
+
+        const slice = scored.slice(page * perPage, (page + 1) * perPage);
+
+        const lines: string[] = [];
+        for (let i = 0; i < slice.length; i++) {
+            const m = slice[i];
+            const rank = page * perPage + i + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+            lines.push(`${medal} <@${m.userId}> — ⚡ ${m.powerScore.toLocaleString()} (Lvl ${m.level} + ${m.balance.toLocaleString()} coins)`);
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle('⚡ Power Score Leaderboard')
+            .setDescription(lines.join('\n') || 'No data yet.')
+            .setColor(0xFFD700)
+            .setFooter({ text: `Page ${page + 1} / ${maxPage + 1} • ${total} members` });
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`lb_power_${page - 1}`)
+                .setLabel('◀ Prev')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page === 0),
+            new ButtonBuilder()
+                .setCustomId(`lb_power_${page + 1}`)
+                .setLabel('Next ▶')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(page >= maxPage),
+        );
+
+        if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({ embeds: [embed], components: [row] });
+        } else {
+            await interaction.update({ embeds: [embed], components: [row] });
+        }
     }
 }

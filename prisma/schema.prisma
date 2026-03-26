@@ -1535,6 +1535,20 @@ model LevelingSettings {
   levelUpMessage     String   @default("{user} leveled up to **Level {level}**! 🎉")
   announceRoleReward Boolean  @default(true)
 
+  // ── Economy Synergy ──
+  economyRewardsEnabled  Boolean  @default(false)
+  levelUpCurrencyReward  Int      @default(50)       // Coins awarded per level-up
+  milestoneLevels        Json     @default("[]")      // e.g. [{"level":10,"reward":500},{"level":25,"reward":2000}]
+  microRewardsEnabled    Boolean  @default(false)
+  microRewardAmount      Int      @default(5)         // Coins per micro-reward trigger
+  microRewardReactions   Int      @default(10)        // Reactions needed to trigger micro-reward
+  microRewardVoiceMin    Int      @default(10)        // Voice minutes needed to trigger micro-reward
+  activityScalingEnabled Boolean  @default(false)     // +2% economy earnings per 5 levels
+  xpBoosterEnabled       Boolean  @default(false)
+  xpBoosterPrice         Int      @default(500)       // Cost to buy 1h XP booster
+  xpBoosterMultiplier    Float    @default(1.5)       // Booster multiplier
+  xpBoosterDurationMin   Int      @default(60)        // Booster duration in minutes
+
   // Role rewards
   roleRewards        LevelRoleReward[]
 
@@ -1557,6 +1571,18 @@ model LevelRoleReward {
 
   @@unique([settingsId, level])
   @@map("level_role_rewards")
+}
+
+model XpBooster {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  multiplier Float    @default(1.5)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@map("xp_boosters")
 }
 
 model AntiPiracySettings {
