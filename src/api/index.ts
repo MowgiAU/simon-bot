@@ -3229,14 +3229,12 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
 
         const isAdmin = isTrueAdmin(guildId, req);
 
-        // If admin, they have everything
+        // If admin, they have everything (no caching — list is static/instant)
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
                 accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling'] 
             };
-            if (!req.session.permissionsCache) req.session.permissionsCache = {};
-            req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };
             return res.json(adminResult);
         }
 

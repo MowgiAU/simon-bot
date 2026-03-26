@@ -951,7 +951,29 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 );
                             }
 
-                            // 8. Fallback
+                            // 8. Anti-Piracy Logs
+                            if (log.action === 'piracy_detected') {
+                                const d = log.details || {};
+                                const verdictColor = d.aiVerdict === 'VIOLATION' ? colors.error : d.aiVerdict === 'SAFE' ? colors.success : colors.textSecondary;
+                                const actionColors: Record<string, string> = { delete: colors.error, timeout: colors.highlight, warn: '#FBBF24', log: colors.textSecondary };
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                            <span style={{ fontWeight: 600, color: colors.error }}>Piracy Detected</span>
+                                            {d.aiVerdict && <span style={{ background: verdictColor + '22', color: verdictColor, padding: '1px 6px', borderRadius: 4, fontSize: '11px', fontWeight: 700 }}>{d.aiVerdict}</span>}
+                                            {d.actionTaken && <span style={{ background: (actionColors[d.actionTaken] || colors.primary) + '22', color: actionColors[d.actionTaken] || colors.primary, padding: '1px 6px', borderRadius: 4, fontSize: '11px', textTransform: 'uppercase' }}>{d.actionTaken}</span>}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, color: colors.textSecondary }}>
+                                            {d.originalContent && <span style={{ fontStyle: 'italic', color: colors.textTertiary }}>"<span style={{ color: colors.textPrimary }}>{String(d.originalContent).slice(0, 200)}{String(d.originalContent).length > 200 ? '…' : ''}</span>"</span>}
+                                            {d.aiReason && <span>AI: <span style={{ color: colors.textPrimary }}>{d.aiReason}</span></span>}
+                                            {d.matchedKeywords?.length > 0 && <span>Keywords: <span style={{ color: colors.highlight }}>{Array.isArray(d.matchedKeywords) ? d.matchedKeywords.join(', ') : d.matchedKeywords}</span></span>}
+                                            {d.channelName && <span>Channel: <span style={{ color: colors.textPrimary }}>#{d.channelName}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // 9. Fallback
                             return (
                                 <div style={{ wordBreak: 'break-word', fontSize: '13px' }}>
                                     {log.details?.content || (typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}).slice(0, 150))}
