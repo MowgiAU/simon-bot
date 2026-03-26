@@ -2056,6 +2056,100 @@ app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req
   }
 });
 
+// ─── Anti-Piracy Plugin Routes ────────────────────────────────────────────────
+
+app.get('/api/anti-piracy/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'anti-piracy')) return res.status(403).json({ error: 'Forbidden' });
+
+    let settings = await db.antiPiracySettings.findUnique({
+      where: { guildId },
+    });
+
+    if (!settings) {
+      // Auto-create defaults
+      await db.guild.upsert({
+        where: { id: guildId },
+        update: {},
+        create: { id: guildId, name: 'Unknown' },
+      });
+      settings = await db.antiPiracySettings.create({
+        data: {
+          guildId,
+          enabled: true,
+          aiEnabled: true,
+          actionType: 'delete_and_warn',
+          reminderMessage: 'Piracy discussion is not allowed in this server. Please support developers by purchasing software legally.',
+          excludedChannels: [],
+          excludedRoles: [],
+          customKeywords: [],
+        },
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to get anti-piracy settings', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+app.post('/api/anti-piracy/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'anti-piracy')) return res.status(403).json({ error: 'Forbidden' });
+
+    const allowedFields = ['enabled', 'aiEnabled', 'actionType', 'reminderMessage', 'excludedChannels', 'excludedRoles', 'customKeywords'];
+    const data: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        data[key] = req.body[key];
+      }
+    }
+
+    // Validate actionType if provided
+    if (data.actionType && !['warn', 'delete', 'delete_and_warn'].includes(data.actionType)) {
+      return res.status(400).json({ error: 'Invalid actionType' });
+    }
+
+    const settings = await db.antiPiracySettings.upsert({
+      where: { guildId },
+      update: data,
+      create: {
+        guildId,
+        ...data,
+      },
+    });
+
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to update anti-piracy settings', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+app.get('/api/anti-piracy/logs/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'anti-piracy')) return res.status(403).json({ error: 'Forbidden' });
+
+    const logs = await db.actionLog.findMany({
+      where: {
+        guildId,
+        pluginId: 'anti-piracy',
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    res.json(logs);
+  } catch (error) {
+    logger.error('Failed to get anti-piracy logs', error);
+    res.status(500).json({ error: 'Failed to get logs' });
+  }
+});
+
 // Guild Emojis Route
 app.get('/api/guilds/:guildId/emojis', async (req, res) => {
   try {
@@ -2872,7 +2966,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy'] 
             };
             if (!req.session.permissionsCache) req.session.permissionsCache = {};
             req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };

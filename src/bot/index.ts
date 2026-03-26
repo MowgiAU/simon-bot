@@ -28,6 +28,7 @@ import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
 import { ProjectViewerPlugin } from './plugins/ProjectViewerPlugin';
 import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
 import { VoiceMonitorPlugin } from './plugins/VoiceMonitorPlugin';
+import { AntiPiracyPlugin } from './plugins/AntiPiracyPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 
@@ -108,6 +109,7 @@ export class SimonBot {
       this.pluginManager.register(new ProjectViewerPlugin(this.db));
       this.pluginManager.register(new BeatBattlePlugin());
       this.pluginManager.register(new VoiceMonitorPlugin());
+      this.pluginManager.register(new AntiPiracyPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

@@ -8,6 +8,7 @@ import {
   Type, 
   ShieldAlert, 
   Shield,
+  ShieldOff,
   Coins,
   Settings, 
   User as UserIcon,
@@ -148,6 +149,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
                 <span className="nav-label">Word Filter</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('anti-piracy') && (
+            <button
+                className={`nav-item ${activeSection === 'anti-piracy' ? 'active' : ''}`}
+                onClick={() => onNavigate('anti-piracy')}
+                title={collapsed ? "Anti-Piracy" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={ShieldOff} size={20} /></span>
+                <span className="nav-label">Anti-Piracy</span>
             </button>
           )}
 

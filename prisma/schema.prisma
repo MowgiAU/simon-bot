@@ -95,6 +95,9 @@ model Guild {
   voiceSessions        VoiceSession[]
   voiceReports         VoiceReport[]
 
+  // Anti-Piracy
+  antiPiracySettings   AntiPiracySettings?
+
   @@map("guilds")
 }
 
@@ -1477,4 +1480,26 @@ model VoiceReport {
   @@index([guildId, status])
   @@index([guildId, createdAt(sort: Desc)])
   @@map("voice_reports")
+}
+
+// Anti-Piracy Plugin
+model AntiPiracySettings {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+
+  enabled          Boolean  @default(true)
+  aiEnabled        Boolean  @default(true)
+  actionType       String   @default("delete_and_warn") // warn | delete | delete_and_warn
+  reminderMessage  String   @default("Piracy discussion is not allowed in this server. Please support developers by purchasing software legally.")
+
+  excludedChannels String[] @default([])
+  excludedRoles    String[] @default([])
+  customKeywords   String[] @default([])
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("anti_piracy_settings")
 }

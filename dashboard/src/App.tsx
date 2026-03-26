@@ -38,6 +38,7 @@ const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then
 const ArtistDiscoveryV2Page  = lazy(() => import("./pages/ArtistDiscoveryV2").then(m => ({ default: m.ArtistDiscoveryV2Page })));
 const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
+const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
 const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
@@ -96,7 +97,8 @@ type Section =
   | "battle-archive"
   | "featured-content"
   | "voice-monitor"
-  | "account-management";
+  | "account-management"
+  | "anti-piracy";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -270,6 +272,8 @@ const AdminDashboard: React.FC = () => {
       switch (activeSection) {
         case "word-filter-settings":
           return <WordFilterSettings guildId={selectedGuild.id} />;
+        case "anti-piracy":
+          return <AntiPiracySettingsPage guildId={selectedGuild.id} />;
         case "moderation":
           return <ModerationSettingsPage />;
         case "economy":
