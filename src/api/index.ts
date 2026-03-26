@@ -40,6 +40,8 @@ declare module 'express-session' {
         user?: any;
         isGuildMember?: boolean;
         permissionsCache?: Record<string, { data: any, timestamp: number }>;
+        _discordLinkToken?: string;
+        _discordLinkReturn?: string;
     }
 }
 
@@ -1231,9 +1233,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
 // Keep legacy endpoint working (redirects to new login)
 app.post('/api/auth/email/login', loginLimiter, async (req, res) => {
-    // Forward to new login handler
+    // Forward to new login handler by re-routing internally
     req.url = '/api/auth/login';
-    app.handle(req, res);
+    (app as any).handle(req, res);
 });
 
 // =============================================
@@ -6931,7 +6933,7 @@ app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, r
     try {
         await db.user.update({
             where: { id: req.params.id },
-            data: { totpEnabled: false, totpSecret: null, backupCodes: [] },
+            data: { totpEnabled: false, totpSecret: null, totpBackupCodes: [] },
         });
         res.json({ success: true });
     } catch (e: any) {
