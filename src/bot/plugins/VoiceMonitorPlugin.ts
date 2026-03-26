@@ -140,18 +140,24 @@ export class VoiceMonitorPlugin implements IPlugin {
         const oldChannelId = oldState.channelId;
         const newChannelId = newState.channelId;
 
+        // Never monitor the Fuji FM radio channel — the bot owns it for playback
+        const radioSettings = await this.context.db.radioSettings.findUnique({ where: { guildId } });
+        const radioChannelId = radioSettings?.voiceChannelId ?? null;
+
         // User joined a voice channel
         if (!oldChannelId && newChannelId) {
+            if (newChannelId === radioChannelId) return;
             await this.handleUserJoin(newState, settings);
         }
         // User left a voice channel
         else if (oldChannelId && !newChannelId) {
+            if (oldChannelId === radioChannelId) return;
             await this.handleUserLeave(oldState, member);
         }
         // User moved channels
         else if (oldChannelId && newChannelId && oldChannelId !== newChannelId) {
-            await this.handleUserLeave(oldState, member);
-            await this.handleUserJoin(newState, settings);
+            if (oldChannelId !== radioChannelId) await this.handleUserLeave(oldState, member);
+            if (newChannelId !== radioChannelId) await this.handleUserJoin(newState, settings);
         }
     }
 
