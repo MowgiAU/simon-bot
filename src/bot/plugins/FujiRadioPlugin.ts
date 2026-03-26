@@ -455,6 +455,17 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         state.volume = level / 100;
+
+        // Volume is baked into the FFmpeg filter, so we must restart the current track.
+        // Put the currently playing track back at the front of the queue, then stop
+        // the player — the Idle event will immediately fire playNextTrack with the new volume.
+        if (state.nowPlaying && state.player) {
+            state.queue.unshift(state.nowPlaying);
+            state.nowPlaying = null;
+            state.killStream?.();
+            state.player.stop(false);
+        }
+
         await interaction.reply(`🔊 Volume set to ${level}%`);
         return true;
     }
@@ -612,9 +623,22 @@ export class FujiRadioPlugin implements IPlugin {
                 // Duck when host unmutes, unduck when mutes
                 if (!newState.selfMute && oldState.selfMute && !state.ducked) {
                     state.ducked = true;
-                    // Volume ducking is handled by the resource volume inline transform
+                    // Restart stream with duck volume baked into FFmpeg filter
+                    if (state.nowPlaying && state.player) {
+                        state.queue.unshift(state.nowPlaying);
+                        state.nowPlaying = null;
+                        state.killStream?.();
+                        state.player.stop(false);
+                    }
                 } else if (newState.selfMute && !oldState.selfMute && state.ducked) {
                     state.ducked = false;
+                    // Restart stream with full volume baked into FFmpeg filter
+                    if (state.nowPlaying && state.player) {
+                        state.queue.unshift(state.nowPlaying);
+                        state.nowPlaying = null;
+                        state.killStream?.();
+                        state.player.stop(false);
+                    }
                 }
             }
         }
