@@ -27,6 +27,11 @@ import {
 import { z } from 'zod';
 import type { IPlugin, IPluginContext } from '../types/plugin.js';
 import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { PassThrough } from 'stream';
+
+ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +59,7 @@ interface RadioState {
     songsSinceAd: number;
     paused: boolean;
     listeners: Set<string>;
+    killStream?: () => void;
 }
 
 // ─── Plugin ─────────────────────────────────────────────────────────────────
@@ -651,15 +657,16 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         try {
-            // Stream audio directly from R2/CDN URL
-            const resource = createAudioResource(next.url, {
-                inputType: StreamType.Arbitrary,
-                inlineVolume: true,
+            // Stream audio via high-quality FFmpeg pipeline (explicit 48kHz stereo PCM + loudnorm)
+            state.killStream?.();
+            const { stream: audioStream, kill: killStream } = this.createHighQualityStream(
+                next.url,
+                state.ducked ? settings.duckVolume : state.volume,
+            );
+            state.killStream = killStream;
+            const resource = createAudioResource(audioStream, {
+                inputType: StreamType.Raw,
             });
-
-            if (resource.volume) {
-                resource.volume.setVolume(state.ducked ? settings.duckVolume : state.volume);
-            }
 
             next.startedAt = Date.now();
             state.nowPlaying = next;
@@ -698,11 +705,11 @@ export class FujiRadioPlugin implements IPlugin {
         if (ad?.adType === 'audio' && ad.audioUrl) {
             // Play uploaded audio ad
             try {
-                const resource = createAudioResource(ad.audioUrl, {
-                    inputType: StreamType.Arbitrary,
-                    inlineVolume: true,
+                const { stream: adStream, kill: killAdStream } = this.createHighQualityStream(ad.audioUrl, state.volume);
+                state.killStream = killAdStream;
+                const resource = createAudioResource(adStream, {
+                    inputType: StreamType.Raw,
                 });
-                if (resource.volume) resource.volume.setVolume(state.volume);
                 state.player!.play(resource);
 
                 // Decrement plays
@@ -1096,9 +1103,40 @@ export class FujiRadioPlugin implements IPlugin {
 
     // ─── Helpers ─────────────────────────────────────────────────────────
 
+    private createHighQualityStream(url: string, volume: number): { stream: PassThrough; kill: () => void } {
+        const passthrough = new PassThrough();
+        let killed = false;
+        const cmd = ffmpeg(url)
+            .inputOptions(['-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5'])
+            .audioFrequency(48000)
+            .audioChannels(2)
+            .audioCodec('pcm_s16le')
+            .format('s16le')
+            .audioFilters([
+                `volume=${Math.max(0.01, volume)}`,
+                'loudnorm=I=-16:LRA=11:TP=-1.5',
+            ])
+            .on('error', (err: Error) => {
+                if (!killed && !err.message.includes('SIGKILL') && !err.message.includes('killed')) {
+                    this.logger.error(`[FujiRadio] FFmpeg stream error: ${err.message}`);
+                }
+                if (!passthrough.destroyed) passthrough.destroy();
+            });
+        cmd.pipe(passthrough, { end: true });
+        return {
+            stream: passthrough,
+            kill: () => {
+                killed = true;
+                try { cmd.kill('SIGKILL'); } catch { /* ignored */ }
+                if (!passthrough.destroyed) passthrough.destroy();
+            },
+        };
+    }
+
     private cleanupGuild(guildId: string): void {
         const state = this.radioStates.get(guildId);
         if (state) {
+            state.killStream?.();
             state.player?.stop(true);
             state.connection?.destroy();
         }
