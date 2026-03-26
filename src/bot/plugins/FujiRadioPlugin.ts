@@ -267,15 +267,25 @@ export class FujiRadioPlugin implements IPlugin {
 
             this.radioStates.set(guildId, state);
 
-            // Handle connection disconnect
+            // Handle connection disconnect — try to reconnect if booted from channel
             connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
                 try {
+                    // Give Discord 5s to auto-reconnect (e.g. network hiccup)
                     await Promise.race([
                         entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
                         entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
                     ]);
                 } catch {
-                    this.cleanupGuild(guildId);
+                    // Auto-reconnect failed — bot was likely force-disconnected
+                    // Destroy old connection, wait briefly, then rejoin
+                    try { connection.destroy(); } catch { /* ignore */ }
+                    this.radioStates.delete(guildId);
+                    this.logger.info(`[FujiRadio] Disconnected from ${guildId}, attempting rejoin in 5s...`);
+                    setTimeout(() => {
+                        this.startAuto(guildId).catch(err =>
+                            this.logger.error(`[FujiRadio] Rejoin failed for ${guildId}: ${err}`)
+                        );
+                    }, 5_000);
                 }
             });
 
@@ -308,8 +318,7 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdStop(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         await interaction.deferReply();
 
-        const member = interaction.member as GuildMember;
-        if (!member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+        if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
             await interaction.editReply('⚠️ You need Manage Server permission to stop the radio.');
             return true;
         }
@@ -323,8 +332,7 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdHost(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         await interaction.deferReply();
 
-        const member = interaction.member as GuildMember;
-        if (!member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+        if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
             await interaction.editReply('⚠️ You need Manage Server permission to host.');
             return true;
         }
@@ -1059,7 +1067,14 @@ export class FujiRadioPlugin implements IPlugin {
                     entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
                 ]);
             } catch {
-                this.cleanupGuild(guildId);
+                try { connection.destroy(); } catch { /* ignore */ }
+                this.radioStates.delete(guildId);
+                this.logger.info(`[FujiRadio] Disconnected from ${guildId}, attempting rejoin in 5s...`);
+                setTimeout(() => {
+                    this.startAuto(guildId).catch(err =>
+                        this.logger.error(`[FujiRadio] Rejoin failed for ${guildId}: ${err}`)
+                    );
+                }, 5_000);
             }
         });
 
