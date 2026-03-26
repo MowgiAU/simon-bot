@@ -144,11 +144,6 @@ export class FujiRadioPlugin implements IPlugin {
                             opt.setName('track').setDescription('Track title to search for').setRequired(true)))
                 .addSubcommand(sub =>
                     sub.setName('np').setDescription('Show what\'s currently playing'))
-                .addSubcommand(sub =>
-                    sub.setName('volume')
-                        .setDescription('Set the volume')
-                        .addIntegerOption(opt =>
-                            opt.setName('level').setDescription('Volume 1-100').setMinValue(1).setMaxValue(100).setRequired(true)))
                 .toJSON(),
 
             new SlashCommandBuilder()
@@ -215,7 +210,6 @@ export class FujiRadioPlugin implements IPlugin {
             case 'skip': return await this.cmdSkip(interaction, guildId);
             case 'queue': return await this.cmdQueue(interaction, guildId);
             case 'np': return await this.cmdNowPlaying(interaction, guildId);
-            case 'volume': return await this.cmdVolume(interaction, guildId);
             default: return false;
         }
     }
@@ -442,31 +436,6 @@ export class FujiRadioPlugin implements IPlugin {
 
         const embed = this.buildNowPlayingEmbed(state);
         await interaction.reply({ embeds: [embed] });
-        return true;
-    }
-
-    // ── /radio volume ──
-    private async cmdVolume(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
-        const level = interaction.options.getInteger('level', true);
-        const state = this.radioStates.get(guildId);
-        if (!state) {
-            await interaction.reply({ content: '⚠️ Radio is not running.', ephemeral: true });
-            return true;
-        }
-
-        state.volume = level / 100;
-
-        // Volume is baked into the FFmpeg filter, so we must restart the current track.
-        // Put the currently playing track back at the front of the queue, then stop
-        // the player — the Idle event will immediately fire playNextTrack with the new volume.
-        if (state.nowPlaying && state.player) {
-            state.queue.unshift(state.nowPlaying);
-            state.nowPlaying = null;
-            state.killStream?.();
-            state.player.stop(false);
-        }
-
-        await interaction.reply(`🔊 Volume set to ${level}%`);
         return true;
     }
 
@@ -1045,11 +1014,6 @@ export class FujiRadioPlugin implements IPlugin {
         });
 
         return entry;
-    }
-
-    async setVolume(guildId: string, vol: number): Promise<void> {
-        const state = this.radioStates.get(guildId);
-        if (state) state.volume = Math.max(0, Math.min(1, vol));
     }
 
     async startAuto(guildId: string): Promise<boolean> {
