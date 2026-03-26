@@ -29,6 +29,7 @@ import {
   MonitorPlay,
   Mic,
   Users,
+  TrendingUp,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -160,6 +161,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={ShieldOff} size={20} /></span>
                 <span className="nav-label">Anti-Piracy</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('leveling') && (
+            <button
+                className={`nav-item ${activeSection === 'leveling' ? 'active' : ''}`}
+                onClick={() => onNavigate('leveling')}
+                title={collapsed ? "Leveling" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={TrendingUp} size={20} /></span>
+                <span className="nav-label">Leveling</span>
             </button>
           )}
 

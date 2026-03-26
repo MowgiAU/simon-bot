@@ -29,6 +29,7 @@ import { ProjectViewerPlugin } from './plugins/ProjectViewerPlugin';
 import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
 import { VoiceMonitorPlugin } from './plugins/VoiceMonitorPlugin';
 import { AntiPiracyPlugin } from './plugins/AntiPiracyPlugin';
+import { LevelingPlugin } from './plugins/LevelingPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 
@@ -64,6 +65,7 @@ export class SimonBot {
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildBans,
         GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessageReactions,
       ],
     });
 
@@ -110,6 +112,7 @@ export class SimonBot {
       this.pluginManager.register(new BeatBattlePlugin());
       this.pluginManager.register(new VoiceMonitorPlugin());
       this.pluginManager.register(new AntiPiracyPlugin());
+      this.pluginManager.register(new LevelingPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

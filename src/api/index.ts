@@ -2196,6 +2196,181 @@ app.get('/api/anti-piracy/logs/:guildId', async (req, res) => {
   }
 });
 
+// ─── Leveling Plugin Routes ────────────────────────────────────────────────────
+
+// GET leveling settings
+app.get('/api/leveling/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    let settings = await db.levelingSettings.findUnique({
+      where: { guildId },
+      include: { roleRewards: { orderBy: { level: 'asc' } } },
+    });
+
+    if (!settings) {
+      await db.guild.upsert({
+        where: { id: guildId },
+        update: {},
+        create: { id: guildId, name: 'Unknown' },
+      });
+      settings = await db.levelingSettings.create({
+        data: { guildId },
+        include: { roleRewards: { orderBy: { level: 'asc' } } },
+      });
+    }
+
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to get leveling settings', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+// POST update leveling settings
+app.post('/api/leveling/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const allowedFields = [
+      'enabled', 'messageXpEnabled', 'voiceXpEnabled', 'reactionXpEnabled',
+      'xpMultiplier', 'messageXpMin', 'messageXpMax', 'voiceXpPerMinute',
+      'reactionGivenXp', 'reactionReceivedXp', 'messageCooldownSec',
+      'levelUpChannelId', 'blacklistedChannels', 'blacklistedRoles',
+      'levelUpMessage', 'announceRoleReward',
+    ];
+
+    const data: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        data[key] = req.body[key];
+      }
+    }
+
+    // Validate numeric ranges
+    if (data.xpMultiplier !== undefined && (data.xpMultiplier < 0.1 || data.xpMultiplier > 10)) {
+      return res.status(400).json({ error: 'xpMultiplier must be between 0.1 and 10' });
+    }
+    if (data.messageCooldownSec !== undefined && (data.messageCooldownSec < 0 || data.messageCooldownSec > 600)) {
+      return res.status(400).json({ error: 'messageCooldownSec must be between 0 and 600' });
+    }
+
+    const settings = await db.levelingSettings.upsert({
+      where: { guildId },
+      update: data,
+      create: { guildId, ...data },
+    });
+
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to update leveling settings', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// GET leaderboard
+app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const type = (req.query.type as string) || 'xp';
+    const page = Math.max(0, parseInt(req.query.page as string) || 0);
+    const perPage = 20;
+
+    const orderBy = type === 'voice' ? { voiceMinutes: 'desc' as const }
+      : type === 'messages' ? { messagesCount: 'desc' as const }
+      : { totalXp: 'desc' as const };
+
+    const [members, total] = await Promise.all([
+      db.member.findMany({
+        where: { guildId },
+        orderBy,
+        skip: page * perPage,
+        take: perPage,
+      }),
+      db.member.count({ where: { guildId } }),
+    ]);
+
+    res.json({ members, total, page, perPage });
+  } catch (error) {
+    logger.error('Failed to get leaderboard', error);
+    res.status(500).json({ error: 'Failed to get leaderboard' });
+  }
+});
+
+// GET role rewards
+app.get('/api/leveling/role-rewards/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const settings = await db.levelingSettings.findUnique({ where: { guildId } });
+    if (!settings) return res.json([]);
+
+    const rewards = await db.levelRoleReward.findMany({
+      where: { settingsId: settings.id },
+      orderBy: { level: 'asc' },
+    });
+
+    res.json(rewards);
+  } catch (error) {
+    logger.error('Failed to get role rewards', error);
+    res.status(500).json({ error: 'Failed to get role rewards' });
+  }
+});
+
+// POST add/update role reward
+app.post('/api/leveling/role-rewards/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { level, roleId, sticky } = req.body;
+    if (!level || !roleId || typeof level !== 'number' || typeof roleId !== 'string') {
+      return res.status(400).json({ error: 'level (number) and roleId (string) are required' });
+    }
+
+    let settings = await db.levelingSettings.findUnique({ where: { guildId } });
+    if (!settings) {
+      settings = await db.levelingSettings.create({ data: { guildId } });
+    }
+
+    const reward = await db.levelRoleReward.upsert({
+      where: { settingsId_level: { settingsId: settings.id, level } },
+      update: { roleId, sticky: sticky ?? true },
+      create: { settingsId: settings.id, level, roleId, sticky: sticky ?? true },
+    });
+
+    res.json(reward);
+  } catch (error) {
+    logger.error('Failed to save role reward', error);
+    res.status(500).json({ error: 'Failed to save role reward' });
+  }
+});
+
+// DELETE role reward
+app.delete('/api/leveling/role-rewards/:guildId/:level', async (req, res) => {
+  try {
+    const { guildId, level } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'leveling')) return res.status(403).json({ error: 'Forbidden' });
+
+    const settings = await db.levelingSettings.findUnique({ where: { guildId } });
+    if (!settings) return res.status(404).json({ error: 'Settings not found' });
+
+    await db.levelRoleReward.delete({
+      where: { settingsId_level: { settingsId: settings.id, level: parseInt(level) } },
+    }).catch(() => {});
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to delete role reward', error);
+    res.status(500).json({ error: 'Failed to delete role reward' });
+  }
+});
+
 // Guild Emojis Route
 app.get('/api/guilds/:guildId/emojis', async (req, res) => {
   try {
@@ -3012,7 +3187,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling'] 
             };
             if (!req.session.permissionsCache) req.session.permissionsCache = {};
             req.session.permissionsCache[guildId] = { data: adminResult, timestamp: Date.now() };

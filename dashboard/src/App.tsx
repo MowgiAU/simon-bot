@@ -39,6 +39,7 @@ const ArtistDiscoveryV2Page  = lazy(() => import("./pages/ArtistDiscoveryV2").th
 const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
+const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
 const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
@@ -98,7 +99,8 @@ type Section =
   | "featured-content"
   | "voice-monitor"
   | "account-management"
-  | "anti-piracy";
+  | "anti-piracy"
+  | "leveling";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -274,6 +276,8 @@ const AdminDashboard: React.FC = () => {
           return <WordFilterSettings guildId={selectedGuild.id} />;
         case "anti-piracy":
           return <AntiPiracySettingsPage guildId={selectedGuild.id} />;
+        case "leveling":
+          return <LevelingSettingsPage />;
         case "moderation":
           return <ModerationSettingsPage />;
         case "economy":

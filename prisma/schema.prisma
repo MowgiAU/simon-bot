@@ -95,6 +95,9 @@ model Guild {
   voiceSessions        VoiceSession[]
   voiceReports         VoiceReport[]
 
+  // Leveling
+  levelingSettings     LevelingSettings?
+
   // Anti-Piracy
   antiPiracySettings   AntiPiracySettings?
 
@@ -222,8 +225,20 @@ model Member {
   userId    String
   
   // Leveling system
-  level     Int      @default(1)
+  level     Int      @default(0)
   xp        Int      @default(0)
+  totalXp   Int      @default(0)
+  
+  // Leveling tracking
+  voiceMinutes     Int      @default(0)
+  messagesCount    Int      @default(0)
+  reactionsGiven   Int      @default(0)
+  reactionsReceived Int     @default(0)
+  currentStreak    Int      @default(0)
+  longestStreak    Int      @default(0)
+  lastMessageAt    DateTime?
+  lastDailyAt      DateTime?
+  earnedRoles      String[] @default([])
   
   // Currency system
   balance   Int      @default(0)
@@ -239,6 +254,8 @@ model Member {
   feedbackProfile    FeedbackProfile?
 
   @@unique([guildId, userId])
+  @@index([guildId, totalXp])
+  @@index([guildId, voiceMinutes])
   @@map("members")
 }
 
@@ -1483,6 +1500,65 @@ model VoiceReport {
 }
 
 // Anti-Piracy Plugin
+// ──────────────────────────────────────────────
+// Leveling Plugin
+// ──────────────────────────────────────────────
+
+model LevelingSettings {
+  id                 String   @id @default(cuid())
+  guildId            String   @unique
+
+  enabled            Boolean  @default(true)
+
+  // XP Sources toggles
+  messageXpEnabled   Boolean  @default(true)
+  voiceXpEnabled     Boolean  @default(true)
+  reactionXpEnabled  Boolean  @default(true)
+
+  // XP Rates
+  xpMultiplier       Float    @default(1.0)
+  messageXpMin       Int      @default(15)
+  messageXpMax       Int      @default(25)
+  voiceXpPerMinute   Int      @default(5)
+  reactionGivenXp    Int      @default(3)
+  reactionReceivedXp Int      @default(5)
+
+  // Cooldowns
+  messageCooldownSec Int      @default(60)
+
+  // Channels
+  levelUpChannelId   String?
+  blacklistedChannels String[] @default([])
+  blacklistedRoles    String[] @default([])
+
+  // Notifications
+  levelUpMessage     String   @default("{user} leveled up to **Level {level}**! 🎉")
+  announceRoleReward Boolean  @default(true)
+
+  // Role rewards
+  roleRewards        LevelRoleReward[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  guild              Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("leveling_settings")
+}
+
+model LevelRoleReward {
+  id         String   @id @default(cuid())
+  settingsId String
+  level      Int
+  roleId     String
+  sticky     Boolean  @default(true) // Restore on rejoin
+
+  settings   LevelingSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@unique([settingsId, level])
+  @@map("level_role_rewards")
+}
+
 model AntiPiracySettings {
   id               String   @id @default(cuid())
   guildId          String   @unique
