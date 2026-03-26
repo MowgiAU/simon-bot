@@ -30,6 +30,7 @@ import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
 import { VoiceMonitorPlugin } from './plugins/VoiceMonitorPlugin';
 import { AntiPiracyPlugin } from './plugins/AntiPiracyPlugin';
 import { LevelingPlugin } from './plugins/LevelingPlugin';
+import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 
@@ -113,6 +114,7 @@ export class SimonBot {
       this.pluginManager.register(new VoiceMonitorPlugin());
       this.pluginManager.register(new AntiPiracyPlugin());
       this.pluginManager.register(new LevelingPlugin());
+      this.pluginManager.register(new FujiRadioPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

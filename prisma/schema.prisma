@@ -101,6 +101,9 @@ model Guild {
   // Anti-Piracy
   antiPiracySettings   AntiPiracySettings?
 
+  // Radio
+  radioSettings        RadioSettings?
+
   @@map("guilds")
 }
 
@@ -807,6 +810,8 @@ model Track {
   favourites      TrackFavourite[]
   reposts         TrackRepost[]
   playlistTracks  PlaylistTrack[]
+  radioQueues     RadioQueue[]
+  radioHistories  RadioHistory[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1604,4 +1609,102 @@ model AntiPiracySettings {
   guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("anti_piracy_settings")
+}
+
+// ─── Fuji FM / Radio ────────────────────────────────────────────────────────
+
+model RadioSettings {
+  id                  String   @id @default(cuid())
+  guildId             String   @unique
+
+  enabled             Boolean  @default(true)
+  voiceChannelId      String?           // Dedicated radio VC
+  textChannelId       String?           // #radio-chat for now-playing embeds
+  nowPlayingMessageId String?           // Persistent embed message ID
+
+  // Auto-Pilot settings
+  autoEnabled         Boolean  @default(true)   // 24/7 auto-radio
+  autoSource          String   @default("trending") // trending | newest | random | genre
+  autoGenreFilter     String?           // Genre slug for genre rotation
+  ttsAnnounce         Boolean  @default(true)    // TTS announce before songs
+
+  // Ad injection
+  adsEnabled          Boolean  @default(false)
+  adFrequency         Int      @default(5)       // Play ad every N songs
+  adTtsDefault        String   @default("This hour of Fuji FM is brought to you by the community!")
+
+  // Listener XP
+  listenerXpEnabled   Boolean  @default(false)
+  listenerXpPerMinute Int      @default(1)
+
+  // Economy tip integration
+  tipEnabled          Boolean  @default(true)
+  minTipAmount        Int      @default(1)
+
+  // Volume
+  defaultVolume       Float    @default(0.5)     // 0.0 - 1.0
+  duckVolume          Float    @default(0.15)    // Volume during host speech
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  guild               Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("radio_settings")
+}
+
+model RadioQueue {
+  id          String   @id @default(cuid())
+  guildId     String
+  trackId     String
+  addedBy     String?          // User who queued it (null = auto)
+  position    Int              // Order in queue
+  isAd        Boolean  @default(false)
+  adText      String?          // TTS ad text
+  adAudioUrl  String?          // Uploaded ad audio clip
+  playedAt    DateTime?
+  skipped     Boolean  @default(false)
+
+  track       Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, position])
+  @@map("radio_queue")
+}
+
+model RadioHistory {
+  id          String   @id @default(cuid())
+  guildId     String
+  trackId     String?
+  trackTitle  String
+  artistName  String
+  coverUrl    String?
+  duration    Int      @default(0)
+  listenCount Int      @default(0)   // Members in VC during play
+  isAd        Boolean  @default(false)
+  hostedBy    String?               // Host user ID if in host mode
+
+  track       Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  playedAt    DateTime @default(now())
+
+  @@index([guildId, playedAt])
+  @@map("radio_history")
+}
+
+model RadioAdSlot {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String               // Who bought it
+  adType      String   @default("tts") // tts | audio
+  adText      String?              // TTS message
+  audioUrl    String?              // Uploaded audio clip URL
+  costPaid    Int      @default(0) // Economy points spent
+  playsLeft   Int      @default(3) // How many plays remaining
+  approved    Boolean  @default(false) // Mod-approved
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, active])
+  @@map("radio_ad_slots")
 }

@@ -30,6 +30,7 @@ import {
   Mic,
   Users,
   TrendingUp,
+  Radio,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -238,6 +239,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Mic} size={20} /></span>
                 <span className="nav-label">Voice Monitor</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('fuji-radio') && (
+            <button
+                className={`nav-item ${activeSection === 'fuji-radio' ? 'active' : ''}`}
+                onClick={() => onNavigate('fuji-radio')}
+                title={collapsed ? "Fuji FM" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Radio} size={20} /></span>
+                <span className="nav-label">Fuji FM</span>
             </button>
           )}
 

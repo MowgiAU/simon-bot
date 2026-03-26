@@ -61,6 +61,7 @@ const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").th
 const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
 const VoiceMonitorPage       = lazy(() => import("./pages/VoiceMonitor").then(m => ({ default: m.VoiceMonitorPage })));
+const FujiRadioPage          = lazy(() => import("./pages/FujiRadio").then(m => ({ default: m.FujiRadioPage })));
 const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").then(m => ({ default: m.AccountManagementPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
@@ -100,7 +101,8 @@ type Section =
   | "voice-monitor"
   | "account-management"
   | "anti-piracy"
-  | "leveling";
+  | "leveling"
+  | "fuji-radio";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -325,6 +327,8 @@ const AdminDashboard: React.FC = () => {
           return <FeaturedContentSettings />;
         case "voice-monitor":
           return <VoiceMonitorPage />;
+        case "fuji-radio":
+          return <FujiRadioPage />;
         case "account-management":
           return <AccountManagementPage />;
         case "genres-list":

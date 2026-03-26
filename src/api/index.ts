@@ -3268,7 +3268,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio'] 
             };
             return res.json(adminResult);
         }
@@ -10186,6 +10186,279 @@ app.get('/api/klipy/search', async (req: any, res) => {
     } catch {
         res.json({ results: [] });
     }
+});
+
+// ─── Fuji FM (Radio) Plugin Routes ─────────────────────────────────────────────
+
+// GET radio settings
+app.get('/api/radio/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    let settings = await db.radioSettings.findUnique({ where: { guildId } });
+    if (!settings) {
+      await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+      settings = await db.radioSettings.create({ data: { guildId } });
+    }
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to get radio settings', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+// POST update radio settings
+app.post('/api/radio/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const allowedFields = [
+      'voiceChannelId', 'textChannelId', 'autoEnabled', 'autoSource',
+      'autoGenreFilter', 'ttsAnnounce', 'adsEnabled', 'adFrequency',
+      'adTtsDefault', 'listenerXpEnabled', 'listenerXpPerMinute',
+      'tipEnabled', 'minTipAmount', 'defaultVolume', 'duckVolume',
+    ];
+
+    const data: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+
+    // Validate numeric bounds
+    if (data.defaultVolume !== undefined && (data.defaultVolume < 0 || data.defaultVolume > 1)) {
+      return res.status(400).json({ error: 'defaultVolume must be between 0 and 1' });
+    }
+    if (data.duckVolume !== undefined && (data.duckVolume < 0 || data.duckVolume > 1)) {
+      return res.status(400).json({ error: 'duckVolume must be between 0 and 1' });
+    }
+    if (data.adFrequency !== undefined && (data.adFrequency < 1 || data.adFrequency > 100)) {
+      return res.status(400).json({ error: 'adFrequency must be between 1 and 100' });
+    }
+
+    const settings = await db.radioSettings.upsert({
+      where: { guildId },
+      update: data,
+      create: { guildId, ...data },
+    });
+
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to update radio settings', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// GET radio state (what's playing, queue, listeners)
+app.get('/api/radio/state/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    // We expose a snapshot; the plugin stores live state in memory
+    // If plugin not running, return offline state
+    const settings = await db.radioSettings.findUnique({ where: { guildId } });
+    res.json({
+      online: false, // Real state comes from WebSocket; this is fallback
+      settings: settings || null,
+    });
+  } catch (error) {
+    logger.error('Failed to get radio state', error);
+    res.status(500).json({ error: 'Failed to get state' });
+  }
+});
+
+// GET radio history
+app.get('/api/radio/history/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const history = await db.radioHistory.findMany({
+      where: { guildId },
+      orderBy: { playedAt: 'desc' },
+      take: limit,
+    });
+    res.json(history);
+  } catch (error) {
+    logger.error('Failed to get radio history', error);
+    res.status(500).json({ error: 'Failed to get history' });
+  }
+});
+
+// GET radio queue (from DB)
+app.get('/api/radio/queue/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const queue = await db.radioQueue.findMany({
+      where: { guildId, playedAt: null },
+      orderBy: { position: 'asc' },
+      include: { track: { include: { profile: true } } },
+      take: 50,
+    });
+    res.json(queue);
+  } catch (error) {
+    logger.error('Failed to get radio queue', error);
+    res.status(500).json({ error: 'Failed to get queue' });
+  }
+});
+
+// POST add track to radio queue
+app.post('/api/radio/queue/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { trackId } = req.body;
+    if (!trackId) return res.status(400).json({ error: 'trackId required' });
+
+    const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+    if (!track) return res.status(404).json({ error: 'Track not found' });
+
+    const position = await db.radioQueue.count({ where: { guildId, playedAt: null } });
+    const entry = await db.radioQueue.create({
+      data: { guildId, trackId, addedBy: (req as any).user?.id, position: position + 1 },
+      include: { track: { include: { profile: true } } },
+    });
+    res.json(entry);
+  } catch (error) {
+    logger.error('Failed to add to radio queue', error);
+    res.status(500).json({ error: 'Failed to add to queue' });
+  }
+});
+
+// DELETE remove track from radio queue
+app.delete('/api/radio/queue/:guildId/:queueId', async (req, res) => {
+  try {
+    const { guildId, queueId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    await db.radioQueue.deleteMany({ where: { id: queueId, guildId } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to remove from radio queue', error);
+    res.status(500).json({ error: 'Failed to remove from queue' });
+  }
+});
+
+// GET radio ad slots
+app.get('/api/radio/ads/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const ads = await db.radioAdSlot.findMany({
+      where: { guildId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json(ads);
+  } catch (error) {
+    logger.error('Failed to get radio ads', error);
+    res.status(500).json({ error: 'Failed to get ads' });
+  }
+});
+
+// POST create ad slot (self-serve purchase)
+app.post('/api/radio/ads/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { adType, adText, audioUrl, costPaid, playsRequested } = req.body;
+    if (!adType || !['tts', 'audio'].includes(adType)) {
+      return res.status(400).json({ error: 'adType must be "tts" or "audio"' });
+    }
+    if (adType === 'tts' && (!adText || adText.length > 200)) {
+      return res.status(400).json({ error: 'adText required and max 200 chars' });
+    }
+
+    const ad = await db.radioAdSlot.create({
+      data: {
+        guildId,
+        userId: (req as any).user?.id || 'unknown',
+        adType,
+        adText: adText || null,
+        audioUrl: audioUrl || null,
+        costPaid: costPaid || 0,
+        playsLeft: playsRequested || 3,
+        approved: false,
+        active: false,
+      },
+    });
+    res.json(ad);
+  } catch (error) {
+    logger.error('Failed to create radio ad', error);
+    res.status(500).json({ error: 'Failed to create ad' });
+  }
+});
+
+// POST approve/toggle ad slot (admin)
+app.post('/api/radio/ads/:guildId/:adId/approve', async (req, res) => {
+  try {
+    const { guildId, adId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const ad = await db.radioAdSlot.findFirst({ where: { id: adId, guildId } });
+    if (!ad) return res.status(404).json({ error: 'Ad not found' });
+
+    const updated = await db.radioAdSlot.update({
+      where: { id: adId },
+      data: { approved: !ad.approved, active: !ad.approved },
+    });
+    res.json(updated);
+  } catch (error) {
+    logger.error('Failed to approve radio ad', error);
+    res.status(500).json({ error: 'Failed to approve ad' });
+  }
+});
+
+// DELETE remove ad slot
+app.delete('/api/radio/ads/:guildId/:adId', async (req, res) => {
+  try {
+    const { guildId, adId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    await db.radioAdSlot.deleteMany({ where: { id: adId, guildId } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to delete radio ad', error);
+    res.status(500).json({ error: 'Failed to delete ad' });
+  }
+});
+
+// GET search tracks for queue (reuse existing tracks)
+app.get('/api/radio/tracks/search/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const q = (req.query.q as string || '').trim();
+    if (!q) return res.json([]);
+
+    const tracks = await db.track.findMany({
+      where: {
+        isPublic: true,
+        status: 'active',
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { profile: { displayName: { contains: q, mode: 'insensitive' } } },
+          { profile: { username: { contains: q, mode: 'insensitive' } } },
+        ],
+      },
+      include: { profile: { select: { displayName: true, username: true, avatar: true } } },
+      take: 20,
+      orderBy: { playCount: 'desc' },
+    });
+    res.json(tracks);
+  } catch (error) {
+    logger.error('Failed to search radio tracks', error);
+    res.status(500).json({ error: 'Failed to search tracks' });
+  }
 });
 
 app.listen(PORT, async () => {
