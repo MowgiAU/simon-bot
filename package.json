@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/bot/start.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "npx prisma generate && node --max-old-space-size=2048 node_modules/typescript/bin/tsc",
     "start": "tsx src/bot/start.ts",
     "dashboard:dev": "cd dashboard && npm run dev",
     "dashboard:build": "cd dashboard && npm run build",
