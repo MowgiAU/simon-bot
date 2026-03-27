@@ -104,6 +104,9 @@ model Guild {
   // Radio
   radioSettings        RadioSettings?
 
+  // Studio Guide
+  studioGuideSettings  StudioGuideSettings?
+
   @@map("guilds")
 }
 
@@ -1707,4 +1710,47 @@ model RadioAdSlot {
 
   @@index([guildId, active])
   @@map("radio_ad_slots")
+}
+
+// ─── Studio Guide ─────────────────────────────────────────────────────────────
+
+model StudioGuideSettings {
+  id                String   @id @default(cuid())
+  guildId           String   @unique
+
+  enabled           Boolean  @default(true)
+  channelId         String?              // Single channel the bot monitors
+  pauseRoles        String[] @default([]) // Roles that can pause the bot
+  cooldownSeconds   Int      @default(30) // Per-user cooldown between AI answers
+  systemPrompt      String?              // Custom system prompt override
+  model             String   @default("gpt-4o-mini")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  conversations     StudioGuideConversation[]
+
+  @@map("studio_guide_settings")
+}
+
+model StudioGuideConversation {
+  id          String   @id @default(cuid())
+  guildId     String
+  channelId   String
+  userId      String
+  settingsId  String
+
+  // Conversation history stored as JSON array of {role, content} messages
+  messages    Json     @default("[]")
+  topic       String?              // AI-generated summary of the conversation topic
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  settings    StudioGuideSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, channelId, userId, active])
+  @@map("studio_guide_conversations")
 }

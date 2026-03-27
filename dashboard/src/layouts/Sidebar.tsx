@@ -253,6 +253,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('studio-guide') && (
+            <button
+                className={`nav-item ${activeSection === 'studio-guide' ? 'active' : ''}`}
+                onClick={() => onNavigate('studio-guide')}
+                title={collapsed ? "Studio Guide" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={20} /></span>
+                <span className="nav-label">Studio Guide</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('production-feedback') && (
             <button
                 className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}

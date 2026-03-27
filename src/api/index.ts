@@ -3268,7 +3268,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             const adminResult = { 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide'] 
             };
             return res.json(adminResult);
         }
@@ -10458,6 +10458,74 @@ app.get('/api/radio/tracks/search/:guildId', async (req, res) => {
   } catch (error) {
     logger.error('Failed to search radio tracks', error);
     res.status(500).json({ error: 'Failed to search tracks' });
+  }
+});
+
+// ─── Studio Guide Settings ─────────────────────────────────────────────────
+
+app.get('/api/studio-guide/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    let settings = await db.studioGuideSettings.findUnique({ where: { guildId } });
+    if (!settings) {
+      await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+      settings = await db.studioGuideSettings.create({ data: { guildId } });
+    }
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to get studio-guide settings', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+app.post('/api/studio-guide/settings/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const allowedFields = ['enabled', 'channelId', 'pauseRoles', 'cooldownSeconds', 'systemPrompt', 'model'];
+    const data: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        data[key] = req.body[key];
+      }
+    }
+
+    // Validate types
+    if (data.cooldownSeconds !== undefined) data.cooldownSeconds = Math.max(0, Math.min(300, Number(data.cooldownSeconds) || 30));
+    if (data.model !== undefined && !['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1-nano'].includes(data.model)) {
+      return res.status(400).json({ error: 'Invalid model' });
+    }
+
+    const settings = await db.studioGuideSettings.upsert({
+      where: { guildId },
+      update: data,
+      create: { guildId, ...data },
+    });
+    res.json(settings);
+  } catch (error) {
+    logger.error('Failed to update studio-guide settings', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+app.get('/api/studio-guide/conversations/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const conversations = await db.studioGuideConversation.findMany({
+      where: { guildId },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+      select: { id: true, userId: true, channelId: true, topic: true, active: true, createdAt: true, updatedAt: true },
+    });
+    res.json(conversations);
+  } catch (error) {
+    logger.error('Failed to get studio-guide conversations', error);
+    res.status(500).json({ error: 'Failed to get conversations' });
   }
 });
 
