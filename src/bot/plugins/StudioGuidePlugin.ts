@@ -403,6 +403,14 @@ export class StudioGuidePlugin implements IPlugin {
         const lastAnswer = this.cooldowns.get(message.author.id) ?? 0;
         if (Date.now() - lastAnswer < (settings.cooldownSeconds * 1000)) return;
 
+        // Skip GIF / sticker / meme-only messages — nothing to answer
+        const hasStickers = message.stickers.size > 0;
+        const hasGifAttachment = message.attachments.some(a => (a.contentType ?? '').startsWith('image/gif'));
+        const hasGifEmbed = message.embeds.some(e =>
+            /tenor\.com|giphy\.com/i.test(e.url ?? '') || /tenor\.com|giphy\.com/i.test(e.thumbnail?.url ?? ''),
+        );
+        if ((hasStickers || hasGifAttachment || hasGifEmbed) && message.content.trim().length < 10) return;
+
         // Build message content with attachments
         const { textContent, imageUrls, hasAudio, hasVideo } = this.extractMessageContent(message);
 
