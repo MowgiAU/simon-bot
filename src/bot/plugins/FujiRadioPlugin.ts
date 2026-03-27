@@ -693,7 +693,7 @@ export class FujiRadioPlugin implements IPlugin {
             orderBy: { createdAt: 'asc' },
         });
 
-        if (!ad && !settings.adTtsDefault) return false;
+        if (!ad) return false;
 
         if (ad?.adType === 'audio' && ad.audioUrl) {
             // Play uploaded audio ad
