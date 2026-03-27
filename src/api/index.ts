@@ -10529,6 +10529,89 @@ app.get('/api/studio-guide/conversations/:guildId', async (req, res) => {
   }
 });
 
+// ── Studio Guide Knowledge Base CRUD ──────────────────────────────────────────
+
+app.get('/api/studio-guide/knowledge/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+    const entries = await db.studioGuideKnowledge.findMany({
+      where: { guildId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(entries);
+  } catch (error) {
+    logger.error('Failed to get studio-guide knowledge', error);
+    res.status(500).json({ error: 'Failed to get knowledge entries' });
+  }
+});
+
+app.post('/api/studio-guide/knowledge/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { title, content, category } = req.body;
+    if (!title || typeof title !== 'string' || title.trim().length === 0) return res.status(400).json({ error: 'title is required' });
+    if (!content || typeof content !== 'string' || content.trim().length === 0) return res.status(400).json({ error: 'content is required' });
+
+    await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+    const entry = await db.studioGuideKnowledge.create({
+      data: {
+        guildId,
+        title: title.trim().substring(0, 200),
+        content: content.trim().substring(0, 4000),
+        category: (typeof category === 'string' && category.trim()) ? category.trim().substring(0, 50) : 'general',
+      },
+    });
+    res.json(entry);
+  } catch (error) {
+    logger.error('Failed to create studio-guide knowledge entry', error);
+    res.status(500).json({ error: 'Failed to create entry' });
+  }
+});
+
+app.patch('/api/studio-guide/knowledge/:guildId/:id', async (req, res) => {
+  try {
+    const { guildId, id } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const existing = await db.studioGuideKnowledge.findFirst({ where: { id, guildId } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    const allowedFields = ['title', 'content', 'category', 'enabled'];
+    const data: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    if (typeof data.title === 'string') data.title = data.title.trim().substring(0, 200);
+    if (typeof data.content === 'string') data.content = data.content.trim().substring(0, 4000);
+    if (typeof data.category === 'string') data.category = data.category.trim().substring(0, 50);
+
+    const entry = await db.studioGuideKnowledge.update({ where: { id }, data });
+    res.json(entry);
+  } catch (error) {
+    logger.error('Failed to update studio-guide knowledge entry', error);
+    res.status(500).json({ error: 'Failed to update entry' });
+  }
+});
+
+app.delete('/api/studio-guide/knowledge/:guildId/:id', async (req, res) => {
+  try {
+    const { guildId, id } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const existing = await db.studioGuideKnowledge.findFirst({ where: { id, guildId } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    await db.studioGuideKnowledge.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to delete studio-guide knowledge entry', error);
+    res.status(500).json({ error: 'Failed to delete entry' });
+  }
+});
+
 app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
   if (!R2Storage.isConfigured()) {

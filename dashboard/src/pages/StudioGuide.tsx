@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { colors, spacing, borderRadius, typography } from '../theme/theme';
-import { BookOpen, Save, RefreshCw, Settings, MessageSquare, Pause, Play } from 'lucide-react';
+import { BookOpen, Save, RefreshCw, MessageSquare, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
@@ -28,6 +28,26 @@ interface Conversation {
     updatedAt: string;
 }
 
+interface KnowledgeEntry {
+    id: string;
+    guildId: string;
+    title: string;
+    content: string;
+    category: string;
+    enabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+const CATEGORY_OPTIONS = [
+    { value: 'general', label: 'General' },
+    { value: 'fl-studio', label: 'FL Studio' },
+    { value: 'mixing', label: 'Mixing & Mastering' },
+    { value: 'music-theory', label: 'Music Theory' },
+    { value: 'sound-design', label: 'Sound Design' },
+    { value: 'community', label: 'Community Rules' },
+];
+
 const MODEL_OPTIONS = [
     { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast, Affordable)' },
     { value: 'gpt-4o', label: 'GPT-4o (Best quality)' },
@@ -49,16 +69,19 @@ export const StudioGuidePage: React.FC = () => {
     });
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [knowledge, setKnowledge] = useState<KnowledgeEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [tab, setTab] = useState<'settings' | 'conversations' | 'test'>('settings');
+    const [tab, setTab] = useState<'settings' | 'knowledge' | 'conversations'>('settings');
 
-    // Test query state
-    const [testQuery, setTestQuery] = useState('');
-    const [testResult, setTestResult] = useState<string | null>(null);
-    const [testLoading, setTestLoading] = useState(false);
+    // Knowledge form state
+    const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general' });
+    const [addingEntry, setAddingEntry] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editEntry, setEditEntry] = useState({ title: '', content: '', category: 'general' });
+    const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!guildId) return;
@@ -66,9 +89,10 @@ export const StudioGuidePage: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const [settingsRes, convoRes] = await Promise.all([
+            const [settingsRes, convoRes, knowRes] = await Promise.all([
                 fetch(`${API}/api/studio-guide/settings/${guildId}`, { credentials: 'include', signal: controller.signal }),
                 fetch(`${API}/api/studio-guide/conversations/${guildId}`, { credentials: 'include', signal: controller.signal }),
+                fetch(`${API}/api/studio-guide/knowledge/${guildId}`, { credentials: 'include', signal: controller.signal }),
             ]);
             if (settingsRes.ok) {
                 const data = await settingsRes.json();
@@ -82,6 +106,7 @@ export const StudioGuidePage: React.FC = () => {
                 });
             }
             if (convoRes.ok) setConversations(await convoRes.json());
+            if (knowRes.ok) setKnowledge(await knowRes.json());
         } catch (err: any) {
             if (err.name !== 'AbortError') setError(err.message || 'Failed to load data');
         } finally {
@@ -111,6 +136,72 @@ export const StudioGuidePage: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const addKnowledgeEntry = async () => {
+        if (!guildId || !newEntry.title.trim() || !newEntry.content.trim()) return;
+        setKnowledgeError(null);
+        try {
+            const res = await fetch(`${API}/api/studio-guide/knowledge/${guildId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(newEntry),
+            });
+            if (!res.ok) throw new Error(`Failed to add entry (${res.status})`);
+            const entry = await res.json();
+            setKnowledge(k => [entry, ...k]);
+            setNewEntry({ title: '', content: '', category: 'general' });
+            setAddingEntry(false);
+        } catch (err: any) {
+            setKnowledgeError(err.message || 'Failed to add entry');
+        }
+    };
+
+    const saveKnowledgeEdit = async (id: string) => {
+        if (!guildId) return;
+        setKnowledgeError(null);
+        try {
+            const res = await fetch(`${API}/api/studio-guide/knowledge/${guildId}/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(editEntry),
+            });
+            if (!res.ok) throw new Error(`Failed to update entry (${res.status})`);
+            const updated = await res.json();
+            setKnowledge(k => k.map(e => e.id === id ? updated : e));
+            setEditingId(null);
+        } catch (err: any) {
+            setKnowledgeError(err.message || 'Failed to update entry');
+        }
+    };
+
+    const toggleKnowledgeEnabled = async (entry: KnowledgeEntry) => {
+        if (!guildId) return;
+        try {
+            const res = await fetch(`${API}/api/studio-guide/knowledge/${guildId}/${entry.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: !entry.enabled }),
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setKnowledge(k => k.map(e => e.id === entry.id ? updated : e));
+            }
+        } catch { /* ignore */ }
+    };
+
+    const deleteKnowledgeEntry = async (id: string) => {
+        if (!guildId || !confirm('Delete this knowledge entry?')) return;
+        try {
+            const res = await fetch(`${API}/api/studio-guide/knowledge/${guildId}/${id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            if (res.ok) setKnowledge(k => k.filter(e => e.id !== id));
+        } catch { /* ignore */ }
     };
 
     if (!guildId) return <div style={{ padding: spacing.xl, color: colors.textSecondary }}>Select a server first.</div>;
@@ -152,7 +243,7 @@ export const StudioGuidePage: React.FC = () => {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.lg, borderBottom: `1px solid ${colors.border}`, paddingBottom: spacing.sm }}>
-                {(['settings', 'conversations', 'test'] as const).map(t => (
+                {(['settings', 'knowledge', 'conversations'] as const).map(t => (
                     <button
                         key={t}
                         onClick={() => setTab(t)}
@@ -166,9 +257,10 @@ export const StudioGuidePage: React.FC = () => {
                             fontSize: typography.body.fontSize,
                             fontWeight: tab === t ? 600 : 400,
                             textTransform: 'capitalize',
+                            display: 'flex', alignItems: 'center', gap: '6px',
                         }}
                     >
-                        {t === 'test' ? 'Knowledge Lab' : t}
+                        {t === 'knowledge' ? `Knowledge Base${knowledge.length > 0 ? ` (${knowledge.filter(k => k.enabled).length})` : ''}` : t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
                 ))}
             </div>
@@ -382,71 +474,156 @@ export const StudioGuidePage: React.FC = () => {
                 </div>
             )}
 
-            {/* ─── Knowledge Lab Tab ─── */}
-            {tab === 'test' && (
+            {/* ─── Knowledge Base Tab ─── */}
+            {tab === 'knowledge' && (
                 <div>
-                    <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg, marginBottom: spacing.md }}>
-                        <h3 style={{ margin: '0 0 8px', color: colors.textPrimary }}>Knowledge Lab</h3>
-                        <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px' }}>
-                            Test the AI's knowledge base by asking questions. This uses the same RAG pipeline as the live bot.
+                    <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                        <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px' }}>
+                            Add specific facts, Q&amp;A pairs, or community-specific information here. These are injected directly into every AI response as authoritative knowledge, so the bot will always use them when relevant — even without the FAISS index.
                         </p>
-                        <div style={{ display: 'flex', gap: spacing.sm }}>
-                            <input
-                                type="text"
-                                value={testQuery}
-                                onChange={e => setTestQuery(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && !testLoading && runTest()}
-                                placeholder="Ask a question about FL Studio..."
-                                style={{
-                                    flex: 1, padding: spacing.sm, background: colors.background,
-                                    color: colors.textPrimary, border: `1px solid ${colors.border}`,
-                                    borderRadius: borderRadius.sm, fontSize: '14px',
-                                }}
-                            />
-                            <button
-                                onClick={runTest}
-                                disabled={testLoading || !testQuery.trim()}
-                                style={{
-                                    padding: `${spacing.sm} ${spacing.md}`,
-                                    background: colors.primary, color: '#fff',
-                                    border: 'none', borderRadius: borderRadius.sm,
-                                    cursor: testLoading ? 'wait' : 'pointer', fontSize: '14px', fontWeight: 600,
-                                    opacity: (testLoading || !testQuery.trim()) ? 0.6 : 1,
-                                }}
-                            >
-                                {testLoading ? 'Thinking...' : 'Ask'}
-                            </button>
-                        </div>
                     </div>
 
-                    {testResult && (
-                        <div style={{
-                            background: colors.surface, borderRadius: borderRadius.md,
-                            padding: spacing.lg, whiteSpace: 'pre-wrap',
-                            color: colors.textPrimary, fontSize: '14px', lineHeight: '1.6',
-                            borderLeft: `4px solid ${colors.primary}`,
-                        }}>
-                            {testResult}
+                    {knowledgeError && (
+                        <div style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.3)', borderRadius: borderRadius.md, padding: spacing.sm, marginBottom: spacing.md, color: '#ff4444' }}>
+                            {knowledgeError}
+                        </div>
+                    )}
+
+                    {/* Add new entry form */}
+                    {addingEntry ? (
+                        <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg, marginBottom: spacing.md, border: `1px solid ${colors.primary}` }}>
+                            <h4 style={{ margin: '0 0 12px', color: colors.textPrimary }}>New Knowledge Entry</h4>
+                            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>
+                                <input
+                                    type="text"
+                                    value={newEntry.title}
+                                    onChange={e => setNewEntry(n => ({ ...n, title: e.target.value }))}
+                                    placeholder="Title / Topic (e.g. How to sidechain in FL Studio)"
+                                    style={{ flex: 1, padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '14px' }}
+                                />
+                                <select
+                                    value={newEntry.category}
+                                    onChange={e => setNewEntry(n => ({ ...n, category: e.target.value }))}
+                                    style={{ padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '13px' }}
+                                >
+                                    {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                </select>
+                            </div>
+                            <textarea
+                                value={newEntry.content}
+                                onChange={e => setNewEntry(n => ({ ...n, content: e.target.value }))}
+                                placeholder="The knowledge / answer text. Be as specific and detailed as you need."
+                                rows={5}
+                                style={{ width: '100%', padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', marginBottom: spacing.sm }}
+                            />
+                            <div style={{ display: 'flex', gap: spacing.sm }}>
+                                <button
+                                    onClick={addKnowledgeEntry}
+                                    disabled={!newEntry.title.trim() || !newEntry.content.trim()}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: `${spacing.sm} ${spacing.md}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontSize: '14px', fontWeight: 600, opacity: (!newEntry.title.trim() || !newEntry.content.trim()) ? 0.5 : 1 }}
+                                >
+                                    <Check size={14} /> Save Entry
+                                </button>
+                                <button
+                                    onClick={() => { setAddingEntry(false); setNewEntry({ title: '', content: '', category: 'general' }); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: `${spacing.sm} ${spacing.md}`, background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, cursor: 'pointer', fontSize: '14px' }}
+                                >
+                                    <X size={14} /> Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setAddingEntry(true)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: `${spacing.sm} ${spacing.md}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontSize: '14px', fontWeight: 600, marginBottom: spacing.md }}
+                        >
+                            <Plus size={16} /> Add Knowledge Entry
+                        </button>
+                    )}
+
+                    {/* Entries list */}
+                    {knowledge.length === 0 && !addingEntry ? (
+                        <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>
+                            <BookOpen size={40} style={{ marginBottom: spacing.sm, opacity: 0.4 }} />
+                            <p>No custom knowledge yet. Add entries to teach the bot community-specific answers.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                            {knowledge.map(entry => (
+                                <div key={entry.id} style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, opacity: entry.enabled ? 1 : 0.5 }}>
+                                    {editingId === entry.id ? (
+                                        <div>
+                                            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>
+                                                <input
+                                                    type="text"
+                                                    value={editEntry.title}
+                                                    onChange={e => setEditEntry(n => ({ ...n, title: e.target.value }))}
+                                                    style={{ flex: 1, padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '14px' }}
+                                                />
+                                                <select
+                                                    value={editEntry.category}
+                                                    onChange={e => setEditEntry(n => ({ ...n, category: e.target.value }))}
+                                                    style={{ padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '13px' }}
+                                                >
+                                                    {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                                </select>
+                                            </div>
+                                            <textarea
+                                                value={editEntry.content}
+                                                onChange={e => setEditEntry(n => ({ ...n, content: e.target.value }))}
+                                                rows={5}
+                                                style={{ width: '100%', padding: spacing.sm, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', marginBottom: spacing.sm }}
+                                            />
+                                            <div style={{ display: 'flex', gap: spacing.sm }}>
+                                                <button onClick={() => saveKnowledgeEdit(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: `${spacing.xs} ${spacing.sm}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                                                    <Check size={13} /> Save
+                                                </button>
+                                                <button onClick={() => setEditingId(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: `${spacing.xs} ${spacing.sm}`, background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, cursor: 'pointer', fontSize: '13px' }}>
+                                                    <X size={13} /> Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.md }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: '4px' }}>
+                                                    <span style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px' }}>{entry.title}</span>
+                                                    <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(43,140,113,0.15)', color: colors.primary }}>{entry.category}</span>
+                                                    {!entry.enabled && <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(255,68,68,0.1)', color: '#ff4444' }}>disabled</span>}
+                                                </div>
+                                                <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{entry.content}</p>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                                <button
+                                                    onClick={() => toggleKnowledgeEnabled(entry)}
+                                                    title={entry.enabled ? 'Disable' : 'Enable'}
+                                                    style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: entry.enabled ? 'rgba(43,140,113,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${entry.enabled ? colors.primary : colors.border}`, borderRadius: borderRadius.sm, cursor: 'pointer' }}
+                                                >
+                                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: entry.enabled ? colors.primary : colors.border }} />
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditingId(entry.id); setEditEntry({ title: entry.title, content: entry.content, category: entry.category }); }}
+                                                    title="Edit"
+                                                    style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, cursor: 'pointer', color: colors.textSecondary }}
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteKnowledgeEntry(entry.id)}
+                                                    title="Delete"
+                                                    style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: `1px solid rgba(255,68,68,0.3)`, borderRadius: borderRadius.sm, cursor: 'pointer', color: '#ff4444' }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
             )}
         </div>
     );
-
-    async function runTest() {
-        if (!guildId || !testQuery.trim()) return;
-        setTestLoading(true);
-        setTestResult(null);
-        try {
-            // Use the /guide ask pattern via a simple proxy endpoint
-            // For now, we call the settings endpoint to confirm connectivity
-            // The actual test would need a dedicated endpoint in the future
-            setTestResult('Knowledge Lab testing requires the bot to be online. Use /guide ask <question> in Discord to test the AI response pipeline.');
-        } catch {
-            setTestResult('Failed to run test.');
-        } finally {
-            setTestLoading(false);
-        }
-    }
 };

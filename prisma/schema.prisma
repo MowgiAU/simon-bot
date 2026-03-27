@@ -106,6 +106,7 @@ model Guild {
 
   // Studio Guide
   studioGuideSettings  StudioGuideSettings?
+  studioGuideKnowledge StudioGuideKnowledge[]
 
   @@map("guilds")
 }
@@ -1753,4 +1754,21 @@ model StudioGuideConversation {
 
   @@index([guildId, channelId, userId, active])
   @@map("studio_guide_conversations")
+}
+
+model StudioGuideKnowledge {
+  id        String   @id @default(cuid())
+  guildId   String
+  title     String               // Short label (e.g. "How to sidechain in FL Studio")
+  content   String               // The actual knowledge / answer text
+  category  String   @default("general") // e.g. "fl-studio", "music-theory", "mixing"
+  enabled   Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, enabled])
+  @@map("studio_guide_knowledge")
 }

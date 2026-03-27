@@ -423,6 +423,12 @@ export class StudioGuidePlugin implements IPlugin {
         // Show typing indicator
         try { await (message.channel as TextChannel).sendTyping(); } catch { /* ignore */ }
 
+        // Fetch custom knowledge entries for this guild
+        const knowledge = await this.db.studioGuideKnowledge.findMany({
+            where: { guildId, enabled: true },
+            orderBy: { createdAt: 'asc' },
+        });
+
         // Generate response
         const answer = await this.generateResponse(
             guildId,
@@ -433,6 +439,7 @@ export class StudioGuidePlugin implements IPlugin {
             settings.model,
             hasAudio,
             hasVideo,
+            knowledge,
         );
 
         if (!answer || answer.trim().length === 0) return;
@@ -588,6 +595,7 @@ export class StudioGuidePlugin implements IPlugin {
         model: string = 'gpt-4o-mini',
         hasAudio: boolean = false,
         hasVideo: boolean = false,
+        knowledge: Array<{ title: string; content: string; category: string }> = [],
     ): Promise<string> {
         if (!this.openai) return '';
 
@@ -601,6 +609,12 @@ export class StudioGuidePlugin implements IPlugin {
 
             // Build system prompt
             let systemPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
+            if (knowledge.length > 0) {
+                const knowledgeBlock = knowledge
+                    .map(k => `[${k.category.toUpperCase()}] ${k.title}:\n${k.content}`)
+                    .join('\n\n');
+                systemPrompt += `\n\nCUSTOM KNOWLEDGE BASE (treat these as authoritative facts — prioritise these over general knowledge):\n${knowledgeBlock}`;
+            }
             if (ragContext) {
                 systemPrompt += `\n\nREFERENCE MATERIAL FROM THE FL STUDIO MANUAL & MUSIC THEORY GUIDE:\n${ragContext}`;
             }
