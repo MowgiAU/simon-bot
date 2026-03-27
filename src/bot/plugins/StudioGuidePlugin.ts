@@ -437,16 +437,37 @@ export class StudioGuidePlugin implements IPlugin {
 
         if (!answer || answer.trim().length === 0) return;
 
+        const footer = '\n\n-# Not helpful? Use `/guide optout` to stop replies.';
+        const THREAD_THRESHOLD = 500; // chars — thread if response is substantial
+
         // Send response
         try {
-            const reply = await message.reply({ content: answer.substring(0, 2000), allowedMentions: { repliedUser: true } });
-
-            // If answer is longer, send continuations
-            if (answer.length > 2000) {
-                const remaining = answer.substring(2000);
-                for (const chunk of this.splitMessage(remaining)) {
-                    await (message.channel as TextChannel).send(chunk);
+            if (answer.length > THREAD_THRESHOLD) {
+                // Long answer: notify in channel then dump full response in a thread
+                const notify = await message.reply({
+                    content: `📖 I've got a detailed answer for you — check the thread below.${footer}`,
+                    allowedMentions: { repliedUser: true },
+                });
+                try {
+                    const thread = await notify.startThread({
+                        name: `${message.author.displayName}: ${textContent.substring(0, 60).trim()}`,
+                        autoArchiveDuration: 60,
+                    });
+                    for (const chunk of this.splitMessage(answer)) {
+                        await thread.send(chunk);
+                    }
+                } catch {
+                    // Thread creation failed (e.g. no permission) — fall back to channel
+                    for (const chunk of this.splitMessage(answer)) {
+                        await (message.channel as TextChannel).send(chunk);
+                    }
                 }
+            } else {
+                // Short answer: reply directly with footer
+                await message.reply({
+                    content: answer + footer,
+                    allowedMentions: { repliedUser: true },
+                });
             }
 
             // Update conversation history
