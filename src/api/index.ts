@@ -4125,7 +4125,7 @@ app.post('/api/email/send', requireAdmin, upload.array('attachments'), async (re
             attachments
         });
 
-        if (error) throw error;
+        if (error) throw new Error((error as any).message || JSON.stringify(error));
 
         await emailService.addEmail({
             threadId: `sent_${Date.now()}`,
@@ -4142,9 +4142,9 @@ app.post('/api/email/send', requireAdmin, upload.array('attachments'), async (re
 
         res.json({ success: true, id: data?.id });
 
-    } catch (e) {
+    } catch (e: any) {
         logger.error('Send email error', e);
-        res.status(500).json({ error: 'Failed to send email' });
+        res.status(500).json({ error: e?.message || 'Failed to send email' });
     }
 });
 

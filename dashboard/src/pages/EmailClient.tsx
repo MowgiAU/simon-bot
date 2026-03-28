@@ -272,8 +272,9 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 fetchThread(selectedEmail.subject);
             }
             fetchEmails(view);
-        } catch (e) {
-            showToast('Failed to send email', 'error');
+        } catch (e: any) {
+            const msg = e?.response?.data?.error || 'Failed to send email';
+            showToast(msg, 'error');
             console.error(e);
         }
     };
