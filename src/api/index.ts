@@ -4164,7 +4164,8 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
 });
 
 // Send Email
-app.post('/api/email/send', requireAdmin, upload.array('attachments'), async (req, res) => {
+const emailUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+app.post('/api/email/send', requireAdmin, emailUpload.array('attachments'), async (req, res) => {
     
     try {
         const settings = await emailService.getSettings();

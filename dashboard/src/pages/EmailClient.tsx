@@ -51,6 +51,8 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     
     // Compose / Reply State
     const [composing, setComposing] = useState(false);
+    const [inlineReplying, setInlineReplying] = useState(false);
+    const inlineReplyFileRef = React.useRef<HTMLInputElement>(null);
     const [composeData, setComposeData] = useState<{
         to: string;
         subject: string;
@@ -208,17 +210,19 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
         setSelectedEmail(email);
     };
 
-    // Prepare a reply
+    // Prepare a reply — inline under the thread
     const startReply = () => {
         if (!selectedEmail) return;
-        setComposeData({
-            to: selectedEmail.fromEmail,
-            subject: selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
-            body: '', // Start empty, maybe quote later
+        setInlineReplying(true);
+        const lastMsg = currentThread[currentThread.length - 1] || selectedEmail;
+        setComposeData(prev => ({
+            ...prev,
+            to: lastMsg.fromEmail,
+            subject: lastMsg.subject.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject}`,
+            body: '',
             attachments: [],
-            replyToMsg: selectedEmail
-        });
-        setComposing(true);
+            replyToMsg: lastMsg
+        }));
     };
 
     // Prepare a new email
@@ -264,6 +268,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
             
             showToast('Email sent!', 'success');
             setComposing(false);
+            setInlineReplying(false);
             setComposeData({ to: '', subject: '', body: '', attachments: [] });
             
             // Refresh logic:
@@ -606,12 +611,41 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                              `}</style>
                         </div>
                         
-                        {/* Quick Reply Button (Always visible at bottom of thread) */}
-                        <div style={{ padding: '16px 24px', borderTop: `1px solid ${colors.border}`, marginBottom: '40px' }}>
-                            <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.textSecondary, cursor: 'pointer', fontWeight: 500 }}>
-                                <RefreshCw size={16} /> Reply
-                            </button>
-                        </div>
+                        {/* Inline Reply Box */}
+                        {inlineReplying ? (
+                            <div style={{ margin: '16px', border: `1px solid ${colors.border}`, borderRadius: '8px', background: colors.surface, overflow: 'hidden' }}>
+                                <div style={{ padding: '10px 16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '13px', color: colors.textSecondary }}>Reply to {composeData.to}</span>
+                                    <button onClick={() => setInlineReplying(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: 0 }}><X size={16} /></button>
+                                </div>
+                                {composeData.attachments && composeData.attachments.length > 0 && (
+                                    <div style={{ padding: '6px 16px', display: 'flex', gap: '6px', flexWrap: 'wrap', background: colors.background }}>
+                                        {composeData.attachments.map((f, i) => (
+                                            <div key={i} style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '3px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textPrimary }}>
+                                                {f.name} <button onClick={() => removeAttachment(i)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary }}><X size={12}/></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <EditorToolbar />
+                                <div
+                                    contentEditable
+                                    onInput={e => setComposeData(prev => ({...prev, body: e.currentTarget.innerHTML}))}
+                                    style={{ padding: '12px 16px', outline: 'none', minHeight: '100px', maxHeight: '250px', overflowY: 'auto', fontSize: '14px', color: colors.textPrimary }}
+                                />
+                                <div style={{ padding: '10px 16px', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <button onClick={handleSend} style={{ background: colors.primary, color: colors.textPrimary, border: 'none', padding: '8px 20px', borderRadius: '18px', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>Send</button>
+                                    <button onClick={() => inlineReplyFileRef.current?.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '6px' }} title="Attach files"><Paperclip size={18} /></button>
+                                    <input type="file" multiple ref={inlineReplyFileRef} style={{ display: 'none' }} onChange={e => { if (e.target.files) setComposeData(prev => ({...prev, attachments: [...(prev.attachments||[]), ...Array.from(e.target.files!)]})); }} />
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ padding: '16px 24px' }}>
+                                <button onClick={startReply} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '8px 24px', borderRadius: '20px', border: `1px solid ${colors.border}`, background: colors.surface, color: colors.textSecondary, cursor: 'pointer', fontWeight: 500 }}>
+                                    <RefreshCw size={16} /> Reply
+                                </button>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: colors.textSecondary }}>
