@@ -337,30 +337,43 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
 
     // Renders HTML email body in an isolated iframe to prevent style bleed
     const EmailBodyFrame = ({ html }: { html: string }) => {
-        const ref = React.useRef<HTMLIFrameElement>(null);
+        const frameRef = React.useRef<HTMLIFrameElement>(null);
+        const sanitized = DOMPurify.sanitize(html);
+        const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+            html { margin: 0; padding: 0; }
+            body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1a1a1a; word-break: break-word; overflow-x: hidden; background: #ffffff; }
+            a { color: #0066cc; }
+            img { max-width: 100%; height: auto; }
+            p { margin: 0 0 10px; }
+            blockquote { margin: 0 0 10px 16px; padding-left: 12px; border-left: 3px solid #ccc; color: #555; }
+            pre, code { font-family: monospace; font-size: 13px; background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+        </style></head><body>${sanitized}</body></html>`;
+
         React.useEffect(() => {
-            const iframe = ref.current;
-            if (!iframe) return;
-            const doc = iframe.contentDocument || iframe.contentWindow?.document;
-            if (!doc) return;
-            const sanitized = DOMPurify.sanitize(html);
-            doc.open();
-            doc.write(`<!DOCTYPE html><html><head><style>
-                body { margin: 0; padding: 0; font-family: sans-serif; font-size: 14px; background: #fff; color: #000; word-break: break-word; }
-                a { color: #0066cc; }
-                img { max-width: 100%; height: auto; }
-            </style></head><body>${sanitized}</body></html>`);
-            doc.close();
-            // Auto-resize iframe to content height
-            const resize = () => {
-                if (iframe.contentDocument?.body) {
-                    iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
-                }
+            const frame = frameRef.current;
+            if (!frame) return;
+            const onLoad = () => {
+                try {
+                    if (frame.contentDocument?.body) {
+                        frame.style.height = frame.contentDocument.body.scrollHeight + 32 + 'px';
+                    }
+                } catch (_) { /* cross-origin guard */ }
             };
-            iframe.onload = resize;
-            setTimeout(resize, 100);
+            frame.addEventListener('load', onLoad);
+            return () => frame.removeEventListener('load', onLoad);
         }, [html]);
-        return <iframe ref={ref} sandbox="allow-same-origin" style={{ width: '100%', border: 'none', borderRadius: '4px', background: '#fff', minHeight: '40px' }} />;
+
+        return (
+            <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#ffffff', margin: '4px 0' }}>
+                <iframe
+                    ref={frameRef}
+                    srcDoc={srcdoc}
+                    sandbox="allow-same-origin"
+                    style={{ width: '100%', border: 'none', display: 'block', minHeight: '60px', background: '#fff' }}
+                    title="Email content"
+                />
+            </div>
+        );
     };
 
     // --- Editor Component (Simple) ---
@@ -630,7 +643,8 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                 <EditorToolbar />
                                 <div
                                     contentEditable
-                                    onInput={e => setComposeData(prev => ({...prev, body: e.currentTarget.innerHTML}))}
+                                    suppressContentEditableWarning
+                                    onInput={e => { const html = (e.currentTarget as HTMLElement).innerHTML; setComposeData(prev => ({...prev, body: html})); }}
                                     style={{ padding: '12px 16px', outline: 'none', minHeight: '100px', maxHeight: '250px', overflowY: 'auto', fontSize: '14px', color: colors.textPrimary }}
                                 />
                                 <div style={{ padding: '10px 16px', borderTop: `1px solid ${colors.border}`, display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -858,7 +872,8 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                         </div>
                         <div 
                             contentEditable
-                            onInput={e => setComposeData({...composeData, body: e.currentTarget.innerHTML})}
+                            suppressContentEditableWarning
+                            onInput={e => { const html = (e.currentTarget as HTMLElement).innerHTML; setComposeData(prev => ({...prev, body: html})); }}
                             style={{ flex: 1, padding: '24px', outline: 'none', overflowY: 'auto', fontSize: '14px', fontFamily: 'Arial, sans-serif', color: colors.textPrimary, minHeight: '100px' }}
                             data-placeholder="Message body..."
                         />
