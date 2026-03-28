@@ -4018,70 +4018,98 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
              return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        // Handle different body formats (JSON with 'raw', 'body', 'email' or just raw string)
-        let rawEmail = '';
+        // Parse request body — express.text() always gives us a string
+        let bodyObj: any = null;
         if (typeof req.body === 'string') {
-            rawEmail = req.body;
+            try { bodyObj = JSON.parse(req.body); } catch {}
         } else if (req.body && typeof req.body === 'object') {
-            rawEmail = req.body.raw || req.body.body || req.body.email || '';
+            bodyObj = req.body;
         }
-
-        if (!rawEmail) {
-             // Try parsing JSON if express.text caught a JSON string
-             try {
-                 const json = JSON.parse(req.body);
-                 rawEmail = json.raw || json.body || json.email || '';
-             } catch {}
-        }
-
-        if (!rawEmail) {
-            logger.error('[Email Webhook] No email body found in request');
-            return res.status(400).json({ error: 'No email body found' });
-        }
-
-        logger.info(`[Email Webhook] Parsing email... Size: ${rawEmail.length} bytes`);
-        const parsed = await simpleParser(rawEmail);
-        logger.info(`[Email Webhook] Parsed: ${parsed.subject} from ${parsed.from?.text}`);
 
         const threadId = `live_${Date.now()}`;
-        
-        // Handle Attachments
-        const attachmentsDir = path.join(process.cwd(), 'data', 'attachments');
-        if (!fs.existsSync(attachmentsDir)) {
-            fs.mkdirSync(attachmentsDir, { recursive: true });
-        }
+        let parsedSubject = '(No Subject)';
+        let parsedFrom = 'Unknown';
+        let parsedFromEmail = 'unknown@example.com';
+        let parsedToEmail = '';
+        let parsedBody = '';
+        let parsedMessageId: string | undefined;
+        let parsedInReplyTo: string | undefined;
+        let parsedReferences: string[] = [];
+        const savedAttachments: Array<{ filename: string; path: string }> = [];
 
-        const savedAttachments = [];
-        if (parsed.attachments && parsed.attachments.length > 0) {
-            for (const att of parsed.attachments) {
-                const safeName = (att.filename || 'attachment').replace(/[^a-z0-9.]/gi, '_');
-                const fileName = `${threadId}_${safeName}`;
-                const filePath = path.join(attachmentsDir, fileName);
-                
-                // Write buffer to disk
-                fs.writeFileSync(filePath, att.content);
-                
-                savedAttachments.push({
-                    filename: att.filename || 'attachment',
-                    path: fileName // Store just the filename, we serve from attachments dir
-                });
+        // Resend inbound format: { type: "email.received", data: { from, to, subject, html, text, ... } }
+        const resendData = bodyObj?.data || (bodyObj?.type === 'email.received' ? bodyObj : null);
+        if (resendData?.subject !== undefined || resendData?.from !== undefined) {
+            logger.info(`[Email Webhook] Detected Resend structured format`);
+            parsedSubject = resendData.subject || '(No Subject)';
+            parsedFrom = resendData.from || 'Unknown';
+            // Extract email address from "Name <email>" format
+            const fromMatch = (resendData.from || '').match(/<(.+?)>/);
+            parsedFromEmail = fromMatch ? fromMatch[1] : (resendData.from || 'unknown@example.com');
+            const toList = Array.isArray(resendData.to) ? resendData.to : [resendData.to];
+            parsedToEmail = toList[0] || '';
+            parsedBody = resendData.html || resendData.text || '';
+            parsedMessageId = resendData.headers?.['message-id'] || resendData.messageId;
+            parsedInReplyTo = resendData.headers?.['in-reply-to'] || resendData.inReplyTo;
+            const refs = resendData.headers?.['references'] || resendData.references;
+            parsedReferences = refs ? (Array.isArray(refs) ? refs : [refs]) : [];
+        } else {
+            // Fall back to raw MIME parsing (for other providers)
+            let rawEmail = '';
+            if (typeof req.body === 'string' && !bodyObj) {
+                rawEmail = req.body;
+            } else if (bodyObj) {
+                rawEmail = bodyObj.raw || bodyObj.body || bodyObj.email || '';
+            }
+
+            if (!rawEmail) {
+                logger.error('[Email Webhook] No email body found in request');
+                return res.status(400).json({ error: 'No email body found' });
+            }
+
+            logger.info(`[Email Webhook] Parsing raw MIME email... Size: ${rawEmail.length} bytes`);
+            const parsed = await simpleParser(rawEmail);
+            logger.info(`[Email Webhook] Parsed: ${parsed.subject} from ${parsed.from?.text}`);
+
+            parsedSubject = parsed.subject || '(No Subject)';
+            parsedFrom = parsed.from?.text || 'Unknown';
+            parsedFromEmail = parsed.from?.value?.[0]?.address || 'unknown@example.com';
+            parsedToEmail = parsed.to && Array.isArray(parsed.to) ? (parsed.to[0] as any).text : (parsed.to as any)?.text || '';
+            parsedBody = parsed.html || parsed.textAsHtml || parsed.text || '';
+            parsedMessageId = parsed.messageId;
+            parsedInReplyTo = parsed.inReplyTo;
+            parsedReferences = Array.isArray(parsed.references) ? parsed.references : (parsed.references ? [parsed.references] : []);
+
+            // Handle Attachments (raw MIME only)
+            const attachmentsDir = path.join(process.cwd(), 'data', 'attachments');
+            if (!fs.existsSync(attachmentsDir)) {
+                fs.mkdirSync(attachmentsDir, { recursive: true });
+            }
+            if (parsed.attachments && parsed.attachments.length > 0) {
+                for (const att of parsed.attachments) {
+                    const safeName = (att.filename || 'attachment').replace(/[^a-z0-9.]/gi, '_');
+                    const fileName = `${threadId}_${safeName}`;
+                    const filePath = path.join(attachmentsDir, fileName);
+                    fs.writeFileSync(filePath, att.content);
+                    savedAttachments.push({ filename: att.filename || 'attachment', path: fileName });
+                }
             }
         }
 
         const newEmail = {
             threadId,
-            from: parsed.from?.text || 'Unknown',
-            fromEmail: parsed.from?.value?.[0]?.address || 'unknown@example.com',
-            toEmail: parsed.to && Array.isArray(parsed.to) ? parsed.to[0].text : (parsed.to as any)?.text || '',
-            subject: parsed.subject || '(No Subject)',
-            body: parsed.html || parsed.textAsHtml || parsed.text || '',
+            from: parsedFrom,
+            fromEmail: parsedFromEmail,
+            toEmail: parsedToEmail,
+            subject: parsedSubject,
+            body: parsedBody,
             date: new Date().toISOString(),
             category: 'inbox' as const,
             read: false,
             notified: false,
-            messageId: parsed.messageId,
-            inReplyTo: parsed.inReplyTo,
-            references: Array.isArray(parsed.references) ? parsed.references : (parsed.references ? [parsed.references] : []),
+            messageId: parsedMessageId,
+            inReplyTo: parsedInReplyTo,
+            references: parsedReferences,
             attachments: savedAttachments
         };
 
