@@ -839,10 +839,14 @@ app.get('/api/auth/discord/callback', async (req, res) => {
   const state = req.query.state as string | undefined;
   if (!code) return res.status(400).send('No code provided');
   // SEC-04: Verify OAuth state to prevent CSRF
-  if (!state || state !== (req.session as any)?._oauthState) {
-    return res.status(403).send('Invalid OAuth state â€” please try logging in again.');
+  // Link flows use state=link_<token> and are verified separately below
+  const isLinkFlow = state && state.startsWith('link_');
+  if (!isLinkFlow) {
+    if (!state || state !== (req.session as any)?._oauthState) {
+      return res.status(403).send('Invalid OAuth state - please try logging in again.');
+    }
+    delete (req.session as any)._oauthState;
   }
-  delete (req.session as any)._oauthState;
   try {
     // Exchange code for token
     const tokenRes = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
@@ -1488,7 +1492,9 @@ app.get('/api/auth/discord/link', requireAuth, (req: any, res) => {
         state: `link_${linkToken}`,
         prompt: 'consent',
     });
-    res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+    req.session.save(() => {
+        res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+    });
 });
 
 // Unlink Discord from account (requires password set)
