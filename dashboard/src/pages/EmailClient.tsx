@@ -609,15 +609,18 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
             <h2 style={{ marginTop: 0, color: colors.textPrimary, fontSize: '20px', fontWeight: 600, marginBottom: '20px' }}>Email Settings</h2>
             
             <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Webhook Signing Secret</label>
-                <input 
-                    style={{ ...settingsInputStyle, width: '100%', boxSizing: 'border-box' }}
-                    value={settings.webhookSecret || ''}
-                    onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
-                    placeholder="whsec_..."
-                />
+                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Webhook Secret</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                        style={{ ...settingsInputStyle, flex: 1 }}
+                        value={settings.webhookSecret || ''}
+                        onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
+                        placeholder="Paste whsec_ from Resend, or generate a simple secret"
+                    />
+                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.primary, color: colors.textPrimary, border: 'none', padding: '8px 12px', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap' }}>Generate</button>
+                </div>
                 <p style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '6px' }}>
-                    Copy this from Resend → Webhooks → your webhook's signing secret.
+                    For Cloudflare Email Workers: generate a secret here and set the same value as <code>WEBHOOK_SECRET</code> in the Worker env vars.
                 </p>
             </div>
 
