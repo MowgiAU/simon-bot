@@ -4156,10 +4156,11 @@ app.post('/api/email/send', requireAdmin, upload.array('attachments'), async (re
     
     try {
         const settings = await emailService.getSettings();
-        if (!settings.resendApiKey) return res.status(400).json({ error: 'Resend API Key not configured' });
+        const resendApiKey = settings.resendApiKey || process.env.RESEND_API_KEY;
+        if (!resendApiKey) return res.status(400).json({ error: 'Resend API Key not configured' });
 
         const { to, subject, body, replyTo, inReplyTo, references } = req.body;
-        const resend = new Resend(settings.resendApiKey);
+        const resend = new Resend(resendApiKey);
 
         const attachments = (req.files as Express.Multer.File[])?.map(f => ({
             filename: f.originalname,
