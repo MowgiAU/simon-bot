@@ -5,6 +5,7 @@ import type { RequestHandler } from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import axios, { AxiosError } from 'axios';
@@ -670,7 +671,13 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
+const PgSession = connectPgSimple(session);
 app.use(session({
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'session',
+    createTableIfMissing: true,
+  }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
