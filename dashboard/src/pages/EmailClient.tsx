@@ -330,6 +330,34 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
         return { mainBody: html, quotedBody: '' };
     }
 
+    // Renders HTML email body in an isolated iframe to prevent style bleed
+    const EmailBodyFrame = ({ html }: { html: string }) => {
+        const ref = React.useRef<HTMLIFrameElement>(null);
+        React.useEffect(() => {
+            const iframe = ref.current;
+            if (!iframe) return;
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) return;
+            const sanitized = DOMPurify.sanitize(html);
+            doc.open();
+            doc.write(`<!DOCTYPE html><html><head><style>
+                body { margin: 0; padding: 0; font-family: sans-serif; font-size: 14px; background: #fff; color: #000; word-break: break-word; }
+                a { color: #0066cc; }
+                img { max-width: 100%; height: auto; }
+            </style></head><body>${sanitized}</body></html>`);
+            doc.close();
+            // Auto-resize iframe to content height
+            const resize = () => {
+                if (iframe.contentDocument?.body) {
+                    iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
+                }
+            };
+            iframe.onload = resize;
+            setTimeout(resize, 100);
+        }, [html]);
+        return <iframe ref={ref} sandbox="allow-same-origin" style={{ width: '100%', border: 'none', borderRadius: '4px', background: '#fff', minHeight: '40px' }} />;
+    };
+
     // --- Editor Component (Simple) ---
     const EditorToolbar = () => {
         const cmd = (c: string, v?: string) => {
@@ -430,7 +458,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             </div>
                         )}
 
-                        <div className="email-content-reset" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mainBody) }} />
+                        <EmailBodyFrame html={mainBody} />
                         
                         {quotedBody && (
                                 <div style={{ marginTop: '16px' }}>
@@ -441,7 +469,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                         <MoreHorizontal size={14} />
                                     </button>
                                     {showQuoted && (
-                                        <div className="email-content-reset gmail_quote_container" style={{ marginTop: '16px', borderLeft: `1px solid ${colors.border}`, paddingLeft: '8px', color: colors.textSecondary }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(quotedBody) }} />
+                                        <div style={{ marginTop: '16px', borderLeft: `1px solid ${colors.border}`, paddingLeft: '8px' }}><EmailBodyFrame html={quotedBody} /></div>
                                     )}
                                 </div>
                         )}
