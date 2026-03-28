@@ -4069,6 +4069,9 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
 
         // Resend inbound format: { type: "email.received", data: { from, to, subject, html, text, ... } }
         const resendData = bodyObj?.data || (bodyObj?.type === 'email.received' ? bodyObj : null);
+        logger.info(`[Email Webhook] bodyObj keys: ${JSON.stringify(Object.keys(bodyObj || {}))}`);
+        logger.info(`[Email Webhook] resendData keys: ${JSON.stringify(Object.keys(resendData || {}))}`);
+        logger.info(`[Email Webhook] html length: ${resendData?.html?.length}, text length: ${resendData?.text?.length}`);
         if (resendData?.subject !== undefined || resendData?.from !== undefined) {
             logger.info(`[Email Webhook] Detected Resend structured format`);
             parsedSubject = resendData.subject || '(No Subject)';
