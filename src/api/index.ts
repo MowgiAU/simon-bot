@@ -4009,13 +4009,43 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
     
     try {
         const settings = await emailService.getSettings();
-        const token = req.headers['x-auth-token'];
-        
-        if (!settings.webhookSecret || typeof token !== 'string' ||
-            token.length !== settings.webhookSecret.length ||
-            !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(settings.webhookSecret))) {
-             logger.warn(`[Email Webhook] Unauthorized attempt from ${req.ip}`);
-             return res.status(401).json({ error: 'Unauthorized' });
+
+        if (settings.webhookSecret) {
+            const secret = settings.webhookSecret;
+            const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+
+            if (secret.startsWith('whsec_')) {
+                // Resend HMAC signature verification
+                const svixId = req.headers['svix-id'] as string;
+                const svixTimestamp = req.headers['svix-timestamp'] as string;
+                const svixSignature = req.headers['svix-signature'] as string;
+
+                if (!svixId || !svixTimestamp || !svixSignature) {
+                    logger.warn(`[Email Webhook] Missing Resend signature headers from ${req.ip}`);
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+
+                const keyBytes = Buffer.from(secret.replace('whsec_', ''), 'base64');
+                const toSign = `${svixId}.${svixTimestamp}.${rawBody}`;
+                const hmac = crypto.createHmac('sha256', keyBytes).update(toSign).digest('base64');
+                const expectedSig = `v1,${hmac}`;
+                const signatures = svixSignature.split(' ');
+                const valid = signatures.some(sig => sig === expectedSig);
+
+                if (!valid) {
+                    logger.warn(`[Email Webhook] Invalid Resend signature from ${req.ip}`);
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+            } else {
+                // Simple x-auth-token bearer check (other providers)
+                const token = req.headers['x-auth-token'];
+                if (typeof token !== 'string' ||
+                    token.length !== secret.length ||
+                    !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+                    logger.warn(`[Email Webhook] Unauthorized attempt from ${req.ip}`);
+                    return res.status(401).json({ error: 'Unauthorized' });
+                }
+            }
         }
 
         // Parse request body — express.text() always gives us a string

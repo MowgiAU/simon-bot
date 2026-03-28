@@ -609,17 +609,15 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
             <h2 style={{ marginTop: 0, color: colors.textPrimary, fontSize: '20px', fontWeight: 600, marginBottom: '20px' }}>Email Settings</h2>
             
             <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Webhook Secret (x-auth-token)</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                        style={{ ...settingsInputStyle, flex: 1 }}
-                        value={settings.webhookSecret || ''}
-                        onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
-                    />
-                    <button onClick={() => setSettings({...settings, webhookSecret: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)})} style={{ background: colors.primary, color: colors.textPrimary, border: 'none', padding: '8px 12px', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Generate</button>
-                </div>
+                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary, fontSize: '13px', fontWeight: 500 }}>Webhook Signing Secret</label>
+                <input 
+                    style={{ ...settingsInputStyle, width: '100%', boxSizing: 'border-box' }}
+                    value={settings.webhookSecret || ''}
+                    onChange={e => setSettings({...settings, webhookSecret: e.target.value})}
+                    placeholder="whsec_..."
+                />
                 <p style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '6px' }}>
-                    Set this token in your email worker to authenticate webhook requests.
+                    Copy this from Resend → Webhooks → your webhook's signing secret.
                 </p>
             </div>
 
