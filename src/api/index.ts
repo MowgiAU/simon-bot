@@ -4067,26 +4067,34 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
         let parsedReferences: string[] = [];
         const savedAttachments: Array<{ filename: string; path: string }> = [];
 
-        // Resend inbound format: { type: "email.received", data: { from, to, subject, html, text, ... } }
+        // Resend inbound format: { type: "email.received", data: { email_id, from, to, subject, ... } }
+        // Body is NOT included in the webhook — must be fetched via Resend API using email_id
         const resendData = bodyObj?.data || (bodyObj?.type === 'email.received' ? bodyObj : null);
-        logger.info(`[Email Webhook] RAW BODY (first 500): ${typeof req.body === 'string' ? req.body.substring(0, 500) : JSON.stringify(bodyObj).substring(0, 500)}`);
-        logger.info(`[Email Webhook] bodyObj keys: ${JSON.stringify(Object.keys(bodyObj || {}))}`);
-        logger.info(`[Email Webhook] resendData keys: ${JSON.stringify(Object.keys(resendData || {}))}`);
-        logger.info(`[Email Webhook] html length: ${resendData?.html?.length}, text length: ${resendData?.text?.length}`);
-        if (resendData?.subject !== undefined || resendData?.from !== undefined) {
-            logger.info(`[Email Webhook] Detected Resend structured format`);
+        if (resendData?.email_id !== undefined || resendData?.from !== undefined) {
+            logger.info(`[Email Webhook] Detected Resend structured format, email_id: ${resendData.email_id}`);
             parsedSubject = resendData.subject || '(No Subject)';
             parsedFrom = resendData.from || 'Unknown';
-            // Extract email address from "Name <email>" format
             const fromMatch = (resendData.from || '').match(/<(.+?)>/);
             parsedFromEmail = fromMatch ? fromMatch[1] : (resendData.from || 'unknown@example.com');
             const toList = Array.isArray(resendData.to) ? resendData.to : [resendData.to];
             parsedToEmail = toList[0] || '';
-            parsedBody = resendData.html || resendData.text || '';
-            parsedMessageId = resendData.headers?.['message-id'] || resendData.messageId;
-            parsedInReplyTo = resendData.headers?.['in-reply-to'] || resendData.inReplyTo;
-            const refs = resendData.headers?.['references'] || resendData.references;
-            parsedReferences = refs ? (Array.isArray(refs) ? refs : [refs]) : [];
+            parsedMessageId = resendData.message_id || resendData.messageId;
+
+            // Fetch full email body from Resend API using email_id
+            if (resendData.email_id) {
+                try {
+                    const resendApiKey = process.env.RESEND_API_KEY;
+                    const emailRes = await axios.get(`https://api.resend.com/emails/${resendData.email_id}`, {
+                        headers: { Authorization: `Bearer ${resendApiKey}` }
+                    });
+                    const fullEmail = emailRes.data;
+                    parsedBody = fullEmail.html || fullEmail.text || '';
+                    parsedInReplyTo = fullEmail.headers?.['in-reply-to'] || fullEmail.reply_to?.[0] || '';
+                    logger.info(`[Email Webhook] Fetched full email body, length: ${parsedBody.length}`);
+                } catch (fetchErr: any) {
+                    logger.error(`[Email Webhook] Failed to fetch full email from Resend: ${fetchErr?.message}`);
+                }
+            }
         } else {
             // Fall back to raw MIME parsing (for other providers)
             let rawEmail = '';
