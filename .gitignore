@@ -14,3 +14,8 @@ prisma/dev.db
 # Data files (FAISS index, PDFs, etc.)
 data/fl_studio_index/
 data/*.pdf
+
+# Runtime data files (emails, settings) — managed live on server, never overwrite
+data/email_db.json
+data/email_settings.json
+data/docstore.json
