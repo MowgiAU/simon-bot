@@ -215,9 +215,14 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
         if (!selectedEmail) return;
         setInlineReplying(true);
         const lastMsg = currentThread[currentThread.length - 1] || selectedEmail;
+        // Find the most recent inbound message (not sent by us) to get the correct reply-to address.
+        // Using selectedEmail.fromEmail as our own "from" address to detect sent messages.
+        const ownEmail = settings.fromEmail?.toLowerCase();
+        const lastInbound = [...currentThread].reverse().find(m => m.fromEmail?.toLowerCase() !== ownEmail && m.category !== 'sent')
+            || selectedEmail;
         setComposeData(prev => ({
             ...prev,
-            to: lastMsg.fromEmail,
+            to: lastInbound.fromEmail,
             subject: lastMsg.subject.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject}`,
             body: '',
             attachments: [],
