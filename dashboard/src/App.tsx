@@ -14,6 +14,7 @@ import logoUrl from "./assets/logo.svg";
 
 // ─── Lazy-loaded pages ────────────────────────────────────────────────────────
 // Each import becomes its own JS chunk — users only download what they navigate to.
+const ComingSoonPage         = lazy(() => import("./pages/ComingSoon").then(m => ({ default: m.ComingSoonPage })));
 const Dashboard              = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
 const WordFilterSettings     = lazy(() => import("./pages/WordFilterSettings").then(m => ({ default: m.WordFilterSettings })));
 const ModerationSettingsPage = lazy(() => import("./pages/ModerationSettings").then(m => ({ default: m.ModerationSettingsPage })));
@@ -491,6 +492,17 @@ const AdminDashboard: React.FC = () => {
  */
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
+  const { user, invited, role, mutualAdminGuilds, loading } = useAuth();
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [betaChecked, setBetaChecked] = useState(false);
+
+  // Check if invite-only mode is active
+  useEffect(() => {
+    fetch('/api/beta/status').then(r => r.json()).then(d => {
+      setInviteOnly(!!d.inviteOnly);
+      setBetaChecked(true);
+    }).catch(() => setBetaChecked(true));
+  }, []);
 
   useEffect(() => {
     const titles: { test: (p: string) => boolean; title: string }[] = [
@@ -525,6 +537,25 @@ const AppInternal: React.FC = () => {
       document.title = 'Fuji Studio';
     }
   }, [currentPath]);
+
+  // Wait for beta status check
+  if (!betaChecked || loading) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
+  }
+
+  // Invite-only gate: exempt routes are /dashboard, /login, /register, /terms, auth-related
+  const isExemptRoute = currentPath.startsWith('/dashboard') ||
+    currentPath === '/login' || currentPath === '/register' ||
+    currentPath === '/terms' || currentPath === '/forgot-password' ||
+    currentPath === '/reset-password' || currentPath === '/verify-email' ||
+    currentPath === '/account';
+
+  if (inviteOnly && !isExemptRoute) {
+    const isAdmin = mutualAdminGuilds.length > 0 || role === 'admin';
+    if (!user || (!invited && !isAdmin)) {
+      return <Suspense fallback={<PageSpinner />}><ComingSoonPage /></Suspense>;
+    }
+  }
 
   // /dashboard → Full admin dashboard
   if (currentPath.startsWith('/dashboard')) {

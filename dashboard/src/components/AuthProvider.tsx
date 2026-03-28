@@ -14,6 +14,8 @@ export interface User {
   _emailVerified?: boolean;
   _totpEnabled?: boolean;
   _loginMethod?: 'email' | 'discord';
+  _invited?: boolean;
+  _role?: string;
 }
 
 export interface Guild {
@@ -41,6 +43,8 @@ interface AuthContextType {
   emailVerified: boolean;
   totpEnabled: boolean;
   loginMethod: string | null;
+  invited: boolean;
+  role: string;
   login: () => void;
   logout: () => void;
   emailLogin: (email: string, password: string, totpCode?: string) => Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string; code?: string }>;
@@ -64,6 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [emailVerified, setEmailVerified] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [loginMethod, setLoginMethod] = useState<string | null>(null);
+  const [invited, setInvited] = useState(false);
+  const [role, setRole] = useState('user');
 
   // Fetch permissions when guild changes
   useEffect(() => {
@@ -96,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setEmailVerified(!!data.emailVerified);
           setTotpEnabled(!!data.totpEnabled);
           setLoginMethod(data.loginMethod || null);
+          setInvited(!!data.invited);
+          setRole(data.role || 'user');
           if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
              setSelectedGuild(data.mutualAdminGuilds[0]);
           }
@@ -200,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, login, logout, emailLogin, register, refreshAccountStatus }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, invited, role, login, logout, emailLogin, register, refreshAccountStatus }}>
       {children}
     </AuthContext.Provider>
   );

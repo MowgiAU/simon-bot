@@ -709,6 +709,45 @@ const uploadLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 app.use('/api/', apiLimiter);
 
+// --- Invite-Only Global Guard ---
+// When INVITE_ONLY=true, block unauthenticated/non-invited users from public frontend API routes.
+// Auth, webhook, admin, dashboard, beta status, and guild/plugin config routes are exempt.
+app.use('/api/', (req, res, next) => {
+    if (process.env.INVITE_ONLY !== 'true') return next();
+    const path = req.path;
+    // Always allow auth routes, webhook endpoints, beta status check, and the admin dashboard config endpoints
+    if (path.startsWith('/auth/') ||
+        path.startsWith('/email/webhook') ||
+        path.startsWith('/beta/') ||
+        path.startsWith('/admin/') ||
+        path.startsWith('/guilds/') ||
+        path.startsWith('/dashboard/') ||
+        path.startsWith('/plugins/') ||
+        path.startsWith('/bot/') ||
+        path.startsWith('/email/') || 
+        path.startsWith('/guilds/') ||
+        path.startsWith('/voice-monitor/') ||
+        path.startsWith('/moderation/') ||
+        path.startsWith('/ticket') ||
+        path.startsWith('/feedback/') ||
+        path.startsWith('/channel-rules/') ||
+        path.startsWith('/leveling/') ||
+        path.startsWith('/studio-guide/')) {
+        return next();
+    }
+    // Admins always pass
+    if ((req.session.mutualAdminGuilds as any)?.length) return next();
+    if (req.session.user?._role === 'admin') return next();
+    // Must be authenticated AND invited
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!req.session.user._invited) {
+        return res.status(403).json({ error: 'invite_required', message: 'This feature is available to invited users only.' });
+    }
+    next();
+});
+
 // --- Auth Middleware ---
 const requireAuth: RequestHandler = (req, res, next) => {
     if (!req.session.user) {
@@ -724,6 +763,27 @@ const requireAdmin: RequestHandler = (req, res, next) => {
     }
     if (!(req.session.mutualAdminGuilds as any)?.length) {
         res.status(403).json({ error: 'Admin access required' });
+        return;
+    }
+    next();
+};
+
+// Invite-only middleware: blocks non-invited users on public frontend routes
+// Admin/dashboard routes are exempt (they use requireAdmin)
+const requireInvited: RequestHandler = (req, res, next) => {
+    // If invite-only mode is disabled, let everyone through
+    if (process.env.INVITE_ONLY !== 'true') return next();
+    // Not logged in — block
+    if (!req.session.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    // Admins always pass
+    if ((req.session.mutualAdminGuilds as any)?.length) return next();
+    if (req.session.user._role === 'admin') return next();
+    // Check invited flag
+    if (!req.session.user._invited) {
+        res.status(403).json({ error: 'invite_required', message: 'This feature is available to invited users only.' });
         return;
     }
     next();
@@ -921,6 +981,8 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         user._emailVerified = !!dbUser.emailVerified;
         user._totpEnabled = !!dbUser.totpEnabled;
         user._loginMethod = 'discord';
+        user._invited = !!dbUser.invited;
+        user._role = dbUser.role || 'user';
     } catch (e) {
         logger.warn('[Auth] Failed to find/update account during Discord login', e);
         return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=server_error`);
@@ -1000,6 +1062,8 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
         _emailVerified: !!dbUser.emailVerified,
         _loginMethod: loginMethod,
         _totpEnabled: !!dbUser.totpEnabled,
+        _invited: !!dbUser.invited,
+        _role: dbUser.role || 'user',
     };
 
     // If user has a linked Discord account, use bot token to resolve guild/admin status
@@ -1815,6 +1879,8 @@ app.get('/api/auth/status', (req, res) => {
       emailVerified: !!req.session.user._emailVerified,
       totpEnabled: !!req.session.user._totpEnabled,
       loginMethod: req.session.user._loginMethod || 'discord',
+      invited: !!req.session.user._invited,
+      role: req.session.user._role || 'user',
     });
   } else {
     res.json({ authenticated: false });
@@ -10682,6 +10748,96 @@ app.delete('/api/studio-guide/knowledge/:guildId/:id', async (req, res) => {
     logger.error('Failed to delete studio-guide knowledge entry', error);
     res.status(500).json({ error: 'Failed to delete entry' });
   }
+});
+
+// =============================================
+// INVITE MANAGEMENT (Private Beta)
+// =============================================
+
+// Public: Check if invite-only mode is active
+app.get('/api/beta/status', (req, res) => {
+    res.json({ inviteOnly: process.env.INVITE_ONLY === 'true' });
+});
+
+// Admin: List all users with invite status
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const users = await db.user.findMany({
+            select: { id: true, username: true, displayName: true, email: true, discordId: true, invited: true, role: true, createdAt: true, lastLoginAt: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(users);
+    } catch (e) {
+        logger.error('Failed to fetch users', e);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// Admin: Invite a user (set invited=true)
+app.post('/api/admin/users/:userId/invite', requireAdmin, async (req, res) => {
+    try {
+        const user = await db.user.update({
+            where: { id: req.params.userId },
+            data: { invited: true },
+            select: { id: true, username: true, invited: true },
+        });
+        res.json(user);
+    } catch (e) {
+        logger.error('Failed to invite user', e);
+        res.status(500).json({ error: 'Failed to invite user' });
+    }
+});
+
+// Admin: Revoke invite
+app.post('/api/admin/users/:userId/revoke', requireAdmin, async (req, res) => {
+    try {
+        const user = await db.user.update({
+            where: { id: req.params.userId },
+            data: { invited: false },
+            select: { id: true, username: true, invited: true },
+        });
+        res.json(user);
+    } catch (e) {
+        logger.error('Failed to revoke user invite', e);
+        res.status(500).json({ error: 'Failed to revoke invite' });
+    }
+});
+
+// Admin: Update user role
+app.post('/api/admin/users/:userId/role', requireAdmin, async (req, res) => {
+    try {
+        const { role } = req.body;
+        if (!['user', 'admin', 'moderator'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+        const user = await db.user.update({
+            where: { id: req.params.userId },
+            data: { role },
+            select: { id: true, username: true, role: true },
+        });
+        res.json(user);
+    } catch (e) {
+        logger.error('Failed to update user role', e);
+        res.status(500).json({ error: 'Failed to update role' });
+    }
+});
+
+// Admin: Bulk invite users
+app.post('/api/admin/users/bulk-invite', requireAdmin, async (req, res) => {
+    try {
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ error: 'userIds array required' });
+        }
+        await db.user.updateMany({
+            where: { id: { in: userIds } },
+            data: { invited: true },
+        });
+        res.json({ success: true, count: userIds.length });
+    } catch (e) {
+        logger.error('Failed to bulk invite users', e);
+        res.status(500).json({ error: 'Failed to bulk invite' });
+    }
 });
 
 app.listen(PORT, async () => {

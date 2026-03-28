@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // --- User Accounts (Native auth with optional Discord linking) ---
@@ -39,6 +40,10 @@ model User {
   pendingEmail             String?
   pendingEmailToken        String?   @unique
   pendingEmailExpiry       DateTime?
+
+  // Access control for invite-only beta
+  role                     String    @default("user")   // "user" | "admin" | "moderator"
+  invited                  Boolean   @default(false)    // Invite-only gate for private beta
 
   @@map("users")
 }
