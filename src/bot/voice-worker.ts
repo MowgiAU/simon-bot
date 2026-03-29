@@ -130,9 +130,10 @@ async function releaseChannel(guildId: string, channelId: string): Promise<void>
 
 // ─── Voice Connection ─────────────────────────────────────────────────────────
 
-async function createConnection(channelId: string, guildId: string, state: VoiceState): Promise<VoiceConnection> {
+async function createConnection(channelId: string, guildId: string): Promise<VoiceConnection> {
     // Pre-flight: check bot permissions in the channel
-    const guild = client.guilds.cache.get(guildId) ?? state.guild;
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) throw new Error(`Guild ${guildId} not in cache`);
     const channel = guild.channels.cache.get(channelId);
     const me = guild.members.me;
     if (channel && me) {
@@ -278,13 +279,13 @@ async function stopUserRecording(session: ActiveSession, userId: string): Promis
 
 // ─── Session Management ───────────────────────────────────────────────────────
 
-async function startSession(state: VoiceState): Promise<void> {
-    const channelId   = state.channelId!;
-    const guildId     = state.guild.id;
-    const channelName = state.channel?.name ?? channelId;
+async function startSession(guildId: string, channelId: string): Promise<void> {
+    const guild = client.guilds.cache.get(guildId);
+    const channelObj = guild?.channels.cache.get(channelId);
+    const channelName = channelObj?.name ?? channelId;
 
     try {
-        const connection = await createConnection(channelId, guildId, state);
+        const connection = await createConnection(channelId, guildId);
 
         const dbSession = await db.voiceSession.create({
             data: { guildId, channelId, channelName, workerId: WORKER_ID },
@@ -301,10 +302,9 @@ async function startSession(state: VoiceState): Promise<void> {
 
         log(`Started session in #${channelName}`);
 
-        // Record everyone currently in the channel (re-fetch after connect for accuracy)
-        const channel = state.guild.channels.cache.get(channelId);
-        if (channel && channel.isVoiceBased()) {
-            for (const [, member] of channel.members) {
+        // Record everyone currently in the channel
+        if (channelObj && channelObj.isVoiceBased()) {
+            for (const [, member] of channelObj.members) {
                 if (!member.user.bot) await startUserRecording(session, member);
             }
         }
@@ -379,7 +379,7 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
             if (await isChannelClaimed(guildId, newChannelId)) return;
             const claimed = await claimChannel(guildId, newChannelId);
             if (!claimed) return;
-            await startSession(newState);
+            await startSession(guildId, newChannelId);
         }
         return;
     }
@@ -423,7 +423,7 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
             } else {
                 if (await isChannelClaimed(guildId, newChannelId)) return;
                 const claimed = await claimChannel(guildId, newChannelId);
-                if (claimed) await startSession(newState);
+                if (claimed) await startSession(guildId, newChannelId);
             }
         }
     }
@@ -448,6 +448,41 @@ function startFlushLoop(): void {
             }
         }
     }, 5 * 60 * 1000);
+}
+
+// ─── Startup Scan — pick up channels that already have users ──────────────────
+
+async function scanExistingVoiceChannels(): Promise<void> {
+    for (const [, guild] of client.guilds.cache) {
+        const guildId = guild.id;
+
+        // Check if voice monitoring is enabled for this guild
+        const settings = await db.voiceMonitorSettings.findUnique({ where: { guildId } });
+        if (!settings?.enabled) continue;
+
+        const monitoredChannels = (settings.monitoredChannelIds as string[]) ?? [];
+
+        // Skip radio channel
+        const radioSettings = await db.radioSettings.findUnique({ where: { guildId } }).catch(() => null);
+        const radioChannelId = radioSettings?.voiceChannelId ?? null;
+
+        for (const [, channel] of guild.channels.cache) {
+            if (!channel.isVoiceBased() || channel.type !== ChannelType.GuildVoice) continue;
+            if (channel.id === radioChannelId) continue;
+            if (monitoredChannels.length > 0 && !monitoredChannels.includes(channel.id)) continue;
+
+            const humans = [...channel.members.values()].filter(m => !m.user.bot);
+            if (humans.length === 0) continue;
+
+            // Try to claim this channel
+            if (await isChannelClaimed(guildId, channel.id)) continue;
+            const claimed = await claimChannel(guildId, channel.id);
+            if (!claimed) continue;
+
+            log(`Startup scan: found ${humans.length} user(s) in #${channel.name}, starting session`);
+            await startSession(guildId, channel.id);
+        }
+    }
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
@@ -483,9 +518,12 @@ async function boot(): Promise<void> {
 
     startFlushLoop();
 
-    client.once(Events.ClientReady, () => {
+    client.once(Events.ClientReady, async () => {
         log(`Ready as ${client.user?.tag}`);
         log(`In ${client.guilds.cache.size} guild(s): ${[...client.guilds.cache.values()].map(g => `${g.name} (${g.id})`).join(', ')}`);
+
+        // Scan for voice channels that already have users in them
+        await scanExistingVoiceChannels();
     });
 
     client.on('voiceStateUpdate', async (oldState, newState) => {
