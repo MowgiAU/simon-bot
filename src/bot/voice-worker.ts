@@ -121,8 +121,9 @@ async function releaseChannel(guildId: string, channelId: string): Promise<void>
 
 async function createConnection(channelId: string, guildId: string, state: VoiceState): Promise<VoiceConnection> {
     // Pre-flight: check bot permissions in the channel
-    const channel = state.guild.channels.cache.get(channelId);
-    const me = state.guild.members.me;
+    const guild = client.guilds.cache.get(guildId) ?? state.guild;
+    const channel = guild.channels.cache.get(channelId);
+    const me = guild.members.me;
     if (channel && me) {
         const perms = channel.permissionsFor(me);
         log(`Permissions in #${channel.name}: CONNECT=${perms?.has('Connect')} VIEW=${perms?.has('ViewChannel')} SPEAK=${perms?.has('Speak')}`);
@@ -133,6 +134,18 @@ async function createConnection(channelId: string, guildId: string, state: Voice
         log(`Warning: channel or bot member not cached (channel=${!!channel}, me=${!!me})`);
     }
 
+    // Wrap the adapter creator to debug sendPayload
+    const wrappedAdapter: any = (methods: any) => {
+        const adapter = guild.voiceAdapterCreator(methods);
+        const origSend = adapter.sendPayload;
+        adapter.sendPayload = (payload: any) => {
+            const result = origSend(payload);
+            log(`adapter.sendPayload: op=${payload.op} channel=${payload.d?.channel_id} result=${result}`);
+            return result;
+        };
+        return adapter;
+    };
+
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -142,10 +155,12 @@ async function createConnection(channelId: string, guildId: string, state: Voice
             await new Promise(r => setTimeout(r, 1000));
         }
 
+        log(`Attempt ${attempt}: joining channel ${channelId} in guild ${guildId}...`);
+
         const connection = joinVoiceChannel({
             channelId,
             guildId,
-            adapterCreator: state.guild.voiceAdapterCreator as any,
+            adapterCreator: wrappedAdapter,
             selfDeaf: false,
             selfMute: true,
         });
