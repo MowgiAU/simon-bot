@@ -268,7 +268,7 @@ export class TicketPlugin implements IPlugin {
                 .setCustomId('create_ticket')
                 .setLabel('Open Ticket')
                 .setStyle(ButtonStyle.Primary)
-                .setEmoji('🎫')
+                .setEmoji('\u{1F3AB}')
         );
 
         await channel.send({ embeds: [embed], components: [row] });
@@ -540,12 +540,12 @@ export class TicketPlugin implements IPlugin {
         
         // Map level to emoji
         const emojis: Record<string, string> = {
-            'low': '🟢',
-            'medium': '🟡',
-            'high': '🔴'
+            'low': '\u{1F7E2}',
+            'medium': '\u{1F7E1}',
+            'high': '\u{1F534}'
         };
 
-        const emoji = emojis[level] || '🟢';
+        const emoji = emojis[level] || '\u{1F7E2}';
 
         // Update DB
         await this.db.ticket.update({
@@ -559,7 +559,7 @@ export class TicketPlugin implements IPlugin {
         let newName = channel.name;
         
         // Regex to remove existing circle emojis at start
-        newName = newName.replace(/^[🟢🟡🔴]-?/, '');
+        newName = newName.replace(/^[\u{1F7E2}\u{1F7E1}\u{1F534}]-?/u, '');
 
         // 2. Prepend new emoji
         newName = `${emoji}-${newName}`;
