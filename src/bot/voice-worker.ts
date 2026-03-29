@@ -106,6 +106,16 @@ async function isChannelClaimed(guildId: string, channelId: string): Promise<boo
     return rows.length > 0;
 }
 
+/** Check if a voice bot is already present in a voice channel. */
+function hasBotInChannel(guildId: string, channelId: string): boolean {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return false;
+    const channel = guild.channels.cache.get(channelId);
+    if (!channel || !channel.isVoiceBased()) return false;
+    // Check if any bot (other than this worker, which hasn't joined yet) is in the channel
+    return [...channel.members.values()].some(m => m.user.bot);
+}
+
 /** Atomically claim a channel for this worker. Returns true on success. */
 async function claimChannel(guildId: string, channelId: string): Promise<boolean> {
     const affected = await db.$executeRaw`
@@ -201,13 +211,27 @@ async function startUserRecording(session: ActiveSession, member: GuildMember): 
         end: { behavior: EndBehaviorType.Manual },
     });
 
+    let opusPackets = 0;
+    opusStream.on('data', () => { opusPackets++; });
+    // Log after 5 seconds whether we're receiving any opus packets
+    setTimeout(() => {
+        log(`Recording check for ${userName}: ${opusPackets} opus packets received in first 5s`);
+    }, 5000);
+
     const tmpFile = path.join(tmpDir, `${session.sessionId}_${userId}_${Date.now()}.ogg`);
 
     const ffmpeg = spawn('ffmpeg', [
         '-f', 's16le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0',
         '-c:a', 'libvorbis', '-b:a', '32k', '-ac', '1', '-ar', '48000',
         '-y', tmpFile,
-    ], { stdio: ['pipe', 'ignore', 'ignore'] });
+    ], { stdio: ['pipe', 'ignore', 'pipe'] });
+
+    // Capture FFmpeg errors
+    let ffmpegStderr = '';
+    ffmpeg.stderr?.on('data', (chunk: Buffer) => { ffmpegStderr += chunk.toString(); });
+    ffmpeg.on('close', (code) => {
+        if (code !== 0 && ffmpegStderr) logError(`FFmpeg exited ${code} for ${userName}: ${ffmpegStderr.slice(-200)}`);
+    });
 
     const recording: UserRecording = {
         ffmpeg, filePath: tmpFile, userId, userName,
@@ -244,7 +268,10 @@ async function stopUserRecording(session: ActiveSession, userId: string): Promis
         recording.ffmpeg.on('close', () => { clearTimeout(timeout); resolve(); });
     });
 
-    if (!fs.existsSync(recording.filePath)) return;
+    if (!fs.existsSync(recording.filePath)) {
+        log(`No file found for ${recording.userName} — no audio was received`);
+        return;
+    }
 
     const stat = fs.statSync(recording.filePath);
     if (stat.size > 0) {
@@ -272,6 +299,8 @@ async function stopUserRecording(session: ActiveSession, userId: string): Promis
         } catch (err) {
             logError(`Failed to upload segment for ${userId}`, err);
         }
+    } else {
+        log(`Empty recording file for ${recording.userName} (${recording.bytesWritten} bytes decoded, file=${stat.size})`);
     }
 
     try { fs.unlinkSync(recording.filePath); } catch { /* ok */ }
@@ -375,7 +404,8 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
         if (session) {
             await startUserRecording(session, member);
         } else {
-            // Quick pre-check: skip if another worker already owns this channel
+            // Skip if a bot is already in the channel or another worker owns it
+            if (hasBotInChannel(guildId, newChannelId)) return;
             if (await isChannelClaimed(guildId, newChannelId)) return;
             const claimed = await claimChannel(guildId, newChannelId);
             if (!claimed) return;
@@ -421,6 +451,7 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
             if (session) {
                 await startUserRecording(session, member);
             } else {
+                if (hasBotInChannel(guildId, newChannelId)) return;
                 if (await isChannelClaimed(guildId, newChannelId)) return;
                 const claimed = await claimChannel(guildId, newChannelId);
                 if (claimed) await startSession(guildId, newChannelId);
@@ -474,7 +505,12 @@ async function scanExistingVoiceChannels(): Promise<void> {
             const humans = [...channel.members.values()].filter(m => !m.user.bot);
             if (humans.length === 0) continue;
 
-            // Try to claim this channel
+            // Skip if a bot is already in the channel or it's already claimed
+            const bots = [...channel.members.values()].filter(m => m.user.bot);
+            if (bots.length > 0) {
+                log(`Startup scan: skipping #${channel.name} — bot already present (${bots.map(b => b.user.tag).join(', ')})`);
+                continue;
+            }
             if (await isChannelClaimed(guildId, channel.id)) continue;
             const claimed = await claimChannel(guildId, channel.id);
             if (!claimed) continue;
@@ -500,11 +536,13 @@ async function boot(): Promise<void> {
     await db.$connect();
 
     // Release stale locks held by this worker before it crashed
+    // NOTE: Only clear THIS worker's locks, not all locks.
+    // Other workers may be healthy and holding valid locks.
     try {
         const r = await db.$executeRaw`
             DELETE FROM voice_worker_locks WHERE "workerId" = ${WORKER_ID}
         `;
-        if (r > 0) log(`Released ${r} stale lock(s) from previous crash`);
+        if (r > 0) log(`Released ${r} stale lock(s) from previous run`);
     } catch { /* ok */ }
 
     // Mark orphaned sessions as closed
