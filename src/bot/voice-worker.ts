@@ -36,7 +36,10 @@ import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { R2Storage } from '../services/R2Storage.js';
+
+const FFMPEG_PATH = process.env.FFMPEG_PATH || ffmpegInstaller.path;
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -220,11 +223,17 @@ async function startUserRecording(session: ActiveSession, member: GuildMember): 
 
     const tmpFile = path.join(tmpDir, `${session.sessionId}_${userId}_${Date.now()}.ogg`);
 
-    const ffmpeg = spawn('ffmpeg', [
+    const ffmpeg = spawn(FFMPEG_PATH, [
         '-f', 's16le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0',
         '-c:a', 'libvorbis', '-b:a', '32k', '-ac', '1', '-ar', '48000',
         '-y', tmpFile,
     ], { stdio: ['pipe', 'ignore', 'pipe'] });
+
+    // Handle spawn errors gracefully (e.g. ffmpeg binary not found)
+    ffmpeg.on('error', (err) => {
+        logError(`FFmpeg spawn error for ${userName}`, err);
+        session.recordings.delete(userId);
+    });
 
     // Capture FFmpeg errors
     let ffmpegStderr = '';
