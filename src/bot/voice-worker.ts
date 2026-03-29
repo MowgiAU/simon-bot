@@ -120,6 +120,19 @@ async function releaseChannel(guildId: string, channelId: string): Promise<void>
 // ─── Voice Connection ─────────────────────────────────────────────────────────
 
 async function createConnection(channelId: string, guildId: string, state: VoiceState): Promise<VoiceConnection> {
+    // Pre-flight: check bot permissions in the channel
+    const channel = state.guild.channels.cache.get(channelId);
+    const me = state.guild.members.me;
+    if (channel && me) {
+        const perms = channel.permissionsFor(me);
+        log(`Permissions in #${channel.name}: CONNECT=${perms?.has('Connect')} VIEW=${perms?.has('ViewChannel')} SPEAK=${perms?.has('Speak')}`);
+        if (!perms?.has('Connect') || !perms?.has('ViewChannel')) {
+            throw new Error(`Missing permissions in #${channel.name} — CONNECT=${perms?.has('Connect')} VIEW=${perms?.has('ViewChannel')}`);
+        }
+    } else {
+        log(`Warning: channel or bot member not cached (channel=${!!channel}, me=${!!me})`);
+    }
+
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -138,6 +151,9 @@ async function createConnection(channelId: string, guildId: string, state: Voice
         });
 
         connection.on('error', (err) => logError('Connection error', err));
+        connection.on('stateChange' as any, (_old: any, cur: any) => {
+            log(`Voice state transition: ${_old.status} → ${cur.status}`);
+        });
 
         connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
             try {
@@ -460,6 +476,15 @@ async function boot(): Promise<void> {
 
     client.once(Events.ClientReady, () => {
         log(`Ready as ${client.user?.tag}`);
+        // Log guild count and verify bot is in the target server
+        log(`In ${client.guilds.cache.size} guild(s): ${[...client.guilds.cache.values()].map(g => `${g.name} (${g.id})`).join(', ')}`);
+    });
+
+    // Debug raw gateway events for voice connection troubleshooting
+    client.on('raw' as any, (event: any) => {
+        if (event.t === 'VOICE_SERVER_UPDATE' || event.t === 'VOICE_STATE_UPDATE') {
+            log(`Gateway ${event.t}: guild=${event.d?.guild_id} channel=${event.d?.channel_id ?? 'N/A'}`);
+        }
     });
 
     client.on('voiceStateUpdate', async (oldState, newState) => {
