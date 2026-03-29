@@ -98,22 +98,22 @@ const tmpDir = path.join(os.tmpdir(), `fuji-voice-${WORKER_INDEX}`);
 
 /** Atomically claim a channel for this worker. Returns true on success. */
 async function claimChannel(guildId: string, channelId: string): Promise<boolean> {
-    try {
-        await db.voiceWorkerLock.create({
-            data: { guildId, channelId, workerId: WORKER_ID! },
-        });
-        return true;
-    } catch (err: any) {
-        if (err?.code === 'P2002') return false; // unique constraint — another worker claimed it
-        throw err;
-    }
+    // Use raw SQL so this works even if prisma generate hasn't run yet for the new model.
+    // ON CONFLICT DO NOTHING returns 0 rows affected if another worker already owns the channel.
+    const affected = await db.$executeRaw`
+        INSERT INTO voice_worker_locks ("guildId", "channelId", "workerId", "claimedAt")
+        VALUES (${guildId}, ${channelId}, ${WORKER_ID}, NOW())
+        ON CONFLICT ("guildId", "channelId") DO NOTHING
+    `;
+    return affected > 0;
 }
 
 async function releaseChannel(guildId: string, channelId: string): Promise<void> {
     try {
-        await db.voiceWorkerLock.deleteMany({
-            where: { guildId, channelId, workerId: WORKER_ID },
-        });
+        await db.$executeRaw`
+            DELETE FROM voice_worker_locks
+            WHERE "guildId" = ${guildId} AND "channelId" = ${channelId} AND "workerId" = ${WORKER_ID}
+        `;
     } catch { /* ok */ }
 }
 
@@ -439,8 +439,10 @@ async function boot(): Promise<void> {
 
     // Release stale locks held by this worker before it crashed
     try {
-        const r = await db.voiceWorkerLock.deleteMany({ where: { workerId: WORKER_ID } });
-        if (r.count > 0) log(`Released ${r.count} stale lock(s) from previous crash`);
+        const r = await db.$executeRaw`
+            DELETE FROM voice_worker_locks WHERE "workerId" = ${WORKER_ID}
+        `;
+        if (r > 0) log(`Released ${r} stale lock(s) from previous crash`);
     } catch { /* ok */ }
 
     // Mark orphaned sessions as closed
