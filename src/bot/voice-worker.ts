@@ -152,12 +152,14 @@ async function createConnection(channelId: string, guildId: string, state: Voice
         });
 
         try {
-            await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+            await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
             return connection;
         } catch (err) {
+            const status = connection.state.status;
+            log(`Voice connection attempt ${attempt}/${maxAttempts} failed — stuck in status: ${status}`);
             if (connection.state.status !== VoiceConnectionStatus.Destroyed) connection.destroy();
             if (attempt < maxAttempts) await new Promise(r => setTimeout(r, attempt * 2000));
-            else throw new Error(`Voice connection failed after ${maxAttempts} attempts`);
+            else throw new Error(`Voice connection failed after ${maxAttempts} attempts (last status: ${status})`);
         }
     }
 
