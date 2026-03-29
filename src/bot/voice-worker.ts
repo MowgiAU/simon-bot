@@ -204,62 +204,78 @@ async function createConnection(channelId: string, guildId: string): Promise<Voi
 
 // ─── Per-User Recording ───────────────────────────────────────────────────────
 
+// Pre-load prism-media once at startup so we don't await mid-stream
+let prismMedia: typeof import('prism-media') | null = null;
+async function loadPrism() {
+    if (!prismMedia) prismMedia = await import('prism-media');
+    return prismMedia;
+}
+
 async function startUserRecording(session: ActiveSession, member: GuildMember): Promise<void> {
     if (session.recordings.has(member.id)) return;
 
     const userId   = member.id;
     const userName = member.displayName;
 
-    const opusStream = session.connection.receiver.subscribe(userId, {
-        end: { behavior: EndBehaviorType.Manual },
-    });
+    try {
+        // Load prism BEFORE subscribing so the pipe chain is set up synchronously
+        const prism = await loadPrism();
 
-    let opusPackets = 0;
-    opusStream.on('data', () => { opusPackets++; });
-    // Log after 5 seconds whether we're receiving any opus packets
-    setTimeout(() => {
-        log(`Recording check for ${userName}: ${opusPackets} opus packets received in first 5s`);
-    }, 5000);
+        const tmpFile = path.join(tmpDir, `${session.sessionId}_${userId}_${Date.now()}.ogg`);
 
-    const tmpFile = path.join(tmpDir, `${session.sessionId}_${userId}_${Date.now()}.ogg`);
+        const ffmpeg = spawn(FFMPEG_PATH, [
+            '-f', 's16le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0',
+            '-c:a', 'libvorbis', '-b:a', '32k', '-ac', '1', '-ar', '48000',
+            '-y', tmpFile,
+        ], { stdio: ['pipe', 'ignore', 'pipe'] });
 
-    const ffmpeg = spawn(FFMPEG_PATH, [
-        '-f', 's16le', '-ar', '48000', '-ac', '2', '-i', 'pipe:0',
-        '-c:a', 'libvorbis', '-b:a', '32k', '-ac', '1', '-ar', '48000',
-        '-y', tmpFile,
-    ], { stdio: ['pipe', 'ignore', 'pipe'] });
+        // Capture FFmpeg errors
+        let ffmpegStderr = '';
+        ffmpeg.stderr?.on('data', (chunk: Buffer) => { ffmpegStderr += chunk.toString(); });
+        ffmpeg.on('close', (code) => {
+            if (code !== 0 && ffmpegStderr) logError(`FFmpeg exited ${code} for ${userName}: ${ffmpegStderr.slice(-200)}`);
+        });
 
-    // Handle spawn errors gracefully (e.g. ffmpeg binary not found)
-    ffmpeg.on('error', (err) => {
-        logError(`FFmpeg spawn error for ${userName}`, err);
+        const recording: UserRecording = {
+            ffmpeg, filePath: tmpFile, userId, userName,
+            startedAt: new Date(), bytesWritten: 0,
+        };
+
+        // Handle spawn errors — mark recording as failed so flush loop can restart it
+        ffmpeg.on('error', (err) => {
+            logError(`FFmpeg spawn error for ${userName}`, err);
+            recording.bytesWritten = -1; // sentinel: recording is broken
+        });
+
+        session.recordings.set(userId, recording);
+
+        // Subscribe AFTER prism is loaded so the pipe chain is connected synchronously —
+        // no data is lost between subscribe and pipe.
+        const opusStream = session.connection.receiver.subscribe(userId, {
+            end: { behavior: EndBehaviorType.Manual },
+        });
+
+        const decoder = new prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 });
+
+        // Error handler on decoder — prevents silent pipe breakage
+        decoder.on('error', (err: Error) => {
+            logError(`Opus decoder error for ${userName}`, err);
+        });
+
+        // Connect the full pipe chain synchronously
+        opusStream.pipe(decoder).pipe(ffmpeg.stdin!).on('error', (err: Error) => {
+            if ((err as NodeJS.ErrnoException).code !== 'EPIPE') {
+                logError(`FFmpeg stdin error for ${userId}`, err);
+            }
+        });
+
+        decoder.on('data', (chunk: Buffer) => { recording.bytesWritten += chunk.length; });
+
+        log(`Started recording ${userName} in session ${session.sessionId}`);
+    } catch (err) {
+        logError(`Failed to start recording for ${userName}`, err);
         session.recordings.delete(userId);
-    });
-
-    // Capture FFmpeg errors
-    let ffmpegStderr = '';
-    ffmpeg.stderr?.on('data', (chunk: Buffer) => { ffmpegStderr += chunk.toString(); });
-    ffmpeg.on('close', (code) => {
-        if (code !== 0 && ffmpegStderr) logError(`FFmpeg exited ${code} for ${userName}: ${ffmpegStderr.slice(-200)}`);
-    });
-
-    const recording: UserRecording = {
-        ffmpeg, filePath: tmpFile, userId, userName,
-        startedAt: new Date(), bytesWritten: 0,
-    };
-    session.recordings.set(userId, recording);
-
-    const prism = await import('prism-media');
-    const decoder = new prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 });
-
-    opusStream.pipe(decoder).pipe(ffmpeg.stdin!).on('error', (err: Error) => {
-        if ((err as NodeJS.ErrnoException).code !== 'EPIPE') {
-            logError(`FFmpeg stdin error for ${userId}`, err);
-        }
-    });
-
-    decoder.on('data', (chunk: Buffer) => { recording.bytesWritten += chunk.length; });
-
-    log(`Started recording ${userName} in session ${session.sessionId}`);
+    }
 }
 
 async function stopUserRecording(session: ActiveSession, userId: string): Promise<void> {
@@ -283,7 +299,10 @@ async function stopUserRecording(session: ActiveSession, userId: string): Promis
     }
 
     const stat = fs.statSync(recording.filePath);
-    if (stat.size > 0) {
+    // Only upload if we actually received decoded audio data.
+    // Files with 0 bytesWritten are just empty OGG headers (~3-4KB) and won't play.
+    const MIN_AUDIO_BYTES = 4800; // ~50ms of stereo 48kHz PCM
+    if (stat.size > 0 && recording.bytesWritten >= MIN_AUDIO_BYTES) {
         const durationMs = Date.now() - recording.startedAt.getTime();
         const r2Key = `voice/${session.guildId}/${session.sessionId}/${userId}_${recording.startedAt.getTime()}.ogg`;
 
@@ -474,16 +493,34 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
 function startFlushLoop(): void {
     setInterval(async () => {
         for (const session of activeSessions.values()) {
+            const guildObj  = client.guilds.cache.get(session.guildId);
+            const channelObj = guildObj?.channels.cache.get(session.channelId);
+
+            // 1. Flush existing recordings (stop → restart)
             for (const userId of [...session.recordings.keys()]) {
                 try {
-                    const guildObj = client.guilds.cache.get(session.guildId);
-                    const mem      = guildObj?.members.cache.get(userId);
+                    const mem = guildObj?.members.cache.get(userId);
                     await stopUserRecording(session, userId);
                     if (mem && mem.voice?.channelId === session.channelId) {
                         await startUserRecording(session, mem);
                     }
                 } catch (err) {
                     logError(`Flush failed for ${userId}`, err);
+                }
+            }
+
+            // 2. Catch any channel members who aren't being recorded
+            //    (e.g., their FFmpeg died, or they joined during a race window)
+            if (channelObj && channelObj.isVoiceBased()) {
+                for (const [, member] of channelObj.members) {
+                    if (member.user.bot) continue;
+                    if (session.recordings.has(member.id)) continue;
+                    try {
+                        log(`Flush: starting missing recording for ${member.displayName}`);
+                        await startUserRecording(session, member);
+                    } catch (err) {
+                        logError(`Flush: failed to start recording for ${member.displayName}`, err);
+                    }
                 }
             }
         }
