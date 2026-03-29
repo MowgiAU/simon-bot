@@ -1460,6 +1460,7 @@ model VoiceSession {
   guildId     String
   channelId   String
   channelName String?
+  workerId    String?   // which voice worker process recorded this (null = main bot)
   startedAt   DateTime  @default(now())
   endedAt     DateTime?
 
@@ -1511,6 +1512,18 @@ model VoiceReport {
   @@index([guildId, status])
   @@index([guildId, createdAt(sort: Desc)])
   @@map("voice_reports")
+}
+
+// Tracks which voice worker bot currently owns a voice channel for recording.
+// Composite PK prevents two workers from claiming the same channel.
+model VoiceWorkerLock {
+  guildId    String
+  channelId  String
+  workerId   String   // e.g. "voice-worker-1"
+  claimedAt  DateTime @default(now())
+
+  @@id([guildId, channelId])
+  @@map("voice_worker_locks")
 }
 
 // Anti-Piracy Plugin

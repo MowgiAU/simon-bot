@@ -123,6 +123,11 @@ export class VoiceMonitorPlugin implements IPlugin {
 
     async onVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): Promise<void> {
         if (!this.context) return;
+
+        // When voice workers are enabled, they handle all channel joining/recording.
+        // The main bot only manages commands, settings, and Dashboard reporting.
+        if (process.env.VOICE_WORKERS_ENABLED === 'true') return;
+
         const guildId = newState.guild.id;
 
         const settings = await this.getSettings(guildId);
@@ -537,17 +542,38 @@ export class VoiceMonitorPlugin implements IPlugin {
             await interaction.reply({ content: 'Voice monitoring **disabled**. All active recordings stopped.', flags: MessageFlags.Ephemeral });
         } else if (sub === 'status') {
             const settings = await this.getSettings(interaction.guildId);
-            const activeSessions = [...this.activeSessions.values()].filter(s => s.guildId === interaction.guildId);
-            const totalRecording = activeSessions.reduce((sum, s) => sum + s.recordings.size, 0);
+
+            let activeSessionCount = 0;
+            let usersRecording = 0;
+            let workerInfo = '';
+
+            if (process.env.VOICE_WORKERS_ENABLED === 'true') {
+                // Query DB — workers update this in real-time
+                const dbSessions = await this.context.db.voiceSession.findMany({
+                    where: { guildId: interaction.guildId, endedAt: null },
+                    include: { segments: { where: { endedAt: null } } },
+                });
+                const locks = await this.context.db.voiceWorkerLock.findMany({
+                    where: { guildId: interaction.guildId },
+                });
+                activeSessionCount = dbSessions.length;
+                usersRecording     = (locks as any[]).length; // one lock = one channel = N users in it
+                workerInfo = `\nActive Workers: ${(locks as any[]).map((l: any) => l.workerId).join(', ') || 'none'}`;
+            } else {
+                const localSessions = [...this.activeSessions.values()].filter(s => s.guildId === interaction.guildId);
+                activeSessionCount = localSessions.length;
+                usersRecording     = localSessions.reduce((sum, s) => sum + s.recordings.size, 0);
+            }
 
             const embed = new EmbedBuilder()
                 .setTitle('Voice Monitor Status')
                 .setColor(settings?.enabled ? 0x10B981 : 0xEF4444)
                 .addFields(
-                    { name: 'Enabled', value: settings?.enabled ? 'Yes' : 'No', inline: true },
-                    { name: 'Retention', value: `${settings?.retentionDays ?? 30} days`, inline: true },
-                    { name: 'Active Sessions', value: `${activeSessions.length}`, inline: true },
-                    { name: 'Users Recording', value: `${totalRecording}`, inline: true },
+                    { name: 'Enabled',         value: settings?.enabled ? 'Yes' : 'No',                    inline: true },
+                    { name: 'Retention',        value: `${settings?.retentionDays ?? 30} days`,             inline: true },
+                    { name: 'Active Sessions',  value: `${activeSessionCount}`,                             inline: true },
+                    { name: 'Channels Active',  value: `${activeSessionCount}${workerInfo}`,                inline: false },
+                    { name: 'Mode',             value: process.env.VOICE_WORKERS_ENABLED === 'true' ? 'Worker Bots' : 'Main Bot', inline: true },
                 );
 
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
