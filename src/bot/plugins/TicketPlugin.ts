@@ -557,12 +557,13 @@ export class TicketPlugin implements IPlugin {
         });
 
         // Rename channel
-        // 1. Remove existing emoji prefix if any
+        // 1. Remove existing emoji prefix if any (handles correct emoji AND accumulated mojibake
+        //    from old corrupted renames like "ðÿÿ¡-ÿ"´-ticket-name")
         const channel = interaction.channel as TextChannel;
         let newName = channel.name;
-        
-        // Strip any existing circle emoji prefix (low/med/high)
-        newName = newName.replace(new RegExp(`^[${EMOJI_LOW}${EMOJI_MED}${EMOJI_HIGH}]-?`), '');
+
+        // Strip all leading non-alphanumeric segments (emoji or mojibake) + their trailing dash
+        newName = newName.replace(/^([^a-zA-Z0-9]+-?)+/, '');
 
         // 2. Prepend new emoji
         newName = `${emoji}-${newName}`;
