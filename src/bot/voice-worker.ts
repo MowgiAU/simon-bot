@@ -96,15 +96,26 @@ const tmpDir = path.join(os.tmpdir(), `fuji-voice-${WORKER_INDEX}`);
 
 // ─── Channel Locking ──────────────────────────────────────────────────────────
 
+/** Check if any worker already owns this channel. */
+async function isChannelClaimed(guildId: string, channelId: string): Promise<boolean> {
+    const rows: any[] = await db.$queryRaw`
+        SELECT "workerId" FROM voice_worker_locks
+        WHERE "guildId" = ${guildId} AND "channelId" = ${channelId}
+        LIMIT 1
+    `;
+    return rows.length > 0;
+}
+
 /** Atomically claim a channel for this worker. Returns true on success. */
 async function claimChannel(guildId: string, channelId: string): Promise<boolean> {
-    // Use raw SQL so this works even if prisma generate hasn't run yet for the new model.
-    // ON CONFLICT DO NOTHING returns 0 rows affected if another worker already owns the channel.
     const affected = await db.$executeRaw`
         INSERT INTO voice_worker_locks ("guildId", "channelId", "workerId", "claimedAt")
         VALUES (${guildId}, ${channelId}, ${WORKER_ID}, NOW())
         ON CONFLICT ("guildId", "channelId") DO NOTHING
     `;
+    if (affected > 0) {
+        log(`Claimed channel ${channelId}`);
+    }
     return affected > 0;
 }
 
@@ -126,25 +137,10 @@ async function createConnection(channelId: string, guildId: string, state: Voice
     const me = guild.members.me;
     if (channel && me) {
         const perms = channel.permissionsFor(me);
-        log(`Permissions in #${channel.name}: CONNECT=${perms?.has('Connect')} VIEW=${perms?.has('ViewChannel')} SPEAK=${perms?.has('Speak')}`);
         if (!perms?.has('Connect') || !perms?.has('ViewChannel')) {
             throw new Error(`Missing permissions in #${channel.name} — CONNECT=${perms?.has('Connect')} VIEW=${perms?.has('ViewChannel')}`);
         }
-    } else {
-        log(`Warning: channel or bot member not cached (channel=${!!channel}, me=${!!me})`);
     }
-
-    // Wrap the adapter creator to debug sendPayload
-    const wrappedAdapter: any = (methods: any) => {
-        const adapter = guild.voiceAdapterCreator(methods);
-        const origSend = adapter.sendPayload;
-        adapter.sendPayload = (payload: any) => {
-            const result = origSend(payload);
-            log(`adapter.sendPayload: op=${payload.op} channel=${payload.d?.channel_id} result=${result}`);
-            return result;
-        };
-        return adapter;
-    };
 
     const maxAttempts = 3;
 
@@ -155,20 +151,15 @@ async function createConnection(channelId: string, guildId: string, state: Voice
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        log(`Attempt ${attempt}: joining channel ${channelId} in guild ${guildId}...`);
-
         const connection = joinVoiceChannel({
             channelId,
             guildId,
-            adapterCreator: wrappedAdapter,
+            adapterCreator: guild.voiceAdapterCreator as any,
             selfDeaf: false,
             selfMute: true,
         });
 
         connection.on('error', (err) => logError('Connection error', err));
-        connection.on('stateChange' as any, (_old: any, cur: any) => {
-            log(`Voice state transition: ${_old.status} → ${cur.status}`);
-        });
 
         connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
             try {
@@ -384,8 +375,10 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
         if (session) {
             await startUserRecording(session, member);
         } else {
+            // Quick pre-check: skip if another worker already owns this channel
+            if (await isChannelClaimed(guildId, newChannelId)) return;
             const claimed = await claimChannel(guildId, newChannelId);
-            if (!claimed) return; // another worker got it
+            if (!claimed) return;
             await startSession(newState);
         }
         return;
@@ -428,6 +421,7 @@ async function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState
             if (session) {
                 await startUserRecording(session, member);
             } else {
+                if (await isChannelClaimed(guildId, newChannelId)) return;
                 const claimed = await claimChannel(guildId, newChannelId);
                 if (claimed) await startSession(newState);
             }
@@ -491,15 +485,7 @@ async function boot(): Promise<void> {
 
     client.once(Events.ClientReady, () => {
         log(`Ready as ${client.user?.tag}`);
-        // Log guild count and verify bot is in the target server
         log(`In ${client.guilds.cache.size} guild(s): ${[...client.guilds.cache.values()].map(g => `${g.name} (${g.id})`).join(', ')}`);
-    });
-
-    // Debug raw gateway events for voice connection troubleshooting
-    client.on('raw' as any, (event: any) => {
-        if (event.t === 'VOICE_SERVER_UPDATE' || event.t === 'VOICE_STATE_UPDATE') {
-            log(`Gateway ${event.t}: guild=${event.d?.guild_id} channel=${event.d?.channel_id ?? 'N/A'}`);
-        }
     });
 
     client.on('voiceStateUpdate', async (oldState, newState) => {
