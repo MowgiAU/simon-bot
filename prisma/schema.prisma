@@ -381,6 +381,7 @@ model DashboardAccess {
   id             String   @id @default(cuid())
   guildId        String   @unique
   allowedRoles   String[] @default([]) // Roles that can login to dashboard
+  betaRoleIds    String[] @default([]) // Roles that get auto-invited for beta access
   
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   

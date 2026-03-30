@@ -1053,7 +1053,8 @@ app.get('/api/auth/discord/callback', async (req, res) => {
 
     // ===== ROLE-BASED BETA ACCESS =====
     // Auto-invite users who have specific Discord roles in the primary guild
-    const betaRoleIds = (process.env.BETA_ROLE_IDS || '').split(',').map(r => r.trim()).filter(Boolean);
+    const betaAccess = primaryGuildId ? await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } }) : null;
+    const betaRoleIds = betaAccess?.betaRoleIds || [];
     if (isGuildMember && betaRoleIds.length > 0 && !user._invited && primaryGuildId) {
         try {
             const cacheKey = `${primaryGuildId}:${user.id}`;
@@ -1199,7 +1200,8 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
             req.session.isGuildMember = isGuildMember;
 
             // Check beta role access for email-login users with linked Discord
-            const betaRoleIds = (process.env.BETA_ROLE_IDS || '').split(',').map(r => r.trim()).filter(Boolean);
+            const betaAccess = primaryGuildId ? await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } }) : null;
+            const betaRoleIds = betaAccess?.betaRoleIds || [];
             if (isGuildMember && betaRoleIds.length > 0 && !req.session.user._invited && primaryGuildId) {
                 const cacheKey = `${primaryGuildId}:${dbUser.discordId}`;
                 const cached = memberRoleCache.get(cacheKey);
@@ -10907,6 +10909,41 @@ app.delete('/api/studio-guide/knowledge/:guildId/:id', async (req, res) => {
 // Public: Check if invite-only mode is active
 app.get('/api/beta/status', (req, res) => {
     res.json({ inviteOnly: process.env.INVITE_ONLY === 'true' });
+});
+
+// =============================================
+// BETA ACCESS ROLE SETTINGS
+// =============================================
+app.get('/api/guilds/:guildId/beta-access', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Admin only' });
+        const access = await db.dashboardAccess.findUnique({ where: { guildId } });
+        res.json({ betaRoleIds: access?.betaRoleIds || [] });
+    } catch (e) {
+        logger.error('[Beta] Failed to get beta access settings', e);
+        res.status(500).json({ error: 'Failed to load settings' });
+    }
+});
+
+app.put('/api/guilds/:guildId/beta-access', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Admin only' });
+        const { betaRoleIds } = req.body;
+        if (!Array.isArray(betaRoleIds)) return res.status(400).json({ error: 'betaRoleIds must be an array' });
+        const cleaned = betaRoleIds.filter((r: any) => typeof r === 'string' && r.length > 0);
+        const access = await db.dashboardAccess.upsert({
+            where: { guildId },
+            update: { betaRoleIds: cleaned },
+            create: { guildId, betaRoleIds: cleaned },
+        });
+        logger.info(`[Beta] Updated beta role IDs for guild ${guildId}: ${cleaned.join(', ')}`);
+        res.json({ betaRoleIds: access.betaRoleIds });
+    } catch (e) {
+        logger.error('[Beta] Failed to update beta access settings', e);
+        res.status(500).json({ error: 'Failed to save settings' });
+    }
 });
 
 // Admin: List all users with invite status

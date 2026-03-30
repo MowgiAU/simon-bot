@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import axios from 'axios';
-import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp, UserCheck } from 'lucide-react';
 
 interface PluginMetadata {
     id: string;
@@ -25,6 +25,7 @@ export const PluginManagementPage: React.FC = () => {
     const [plugins, setPlugins] = useState<PluginMetadata[]>([]);
     const [settings, setSettings] = useState<PluginSetting[]>([]);
     const [accessRoles, setAccessRoles] = useState<string[]>([]); // roles allowed to login
+    const [betaRoleIds, setBetaRoleIds] = useState<string[]>([]); // roles auto-invited for beta
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -38,14 +39,16 @@ export const PluginManagementPage: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [metaRes, settingsRes] = await Promise.all([
+                const [metaRes, settingsRes, betaRes] = await Promise.all([
                     axios.get('/api/plugins/list', { withCredentials: true }),
-                    axios.get(`/api/guilds/${selectedGuild.id}/plugins-settings`, { withCredentials: true })
+                    axios.get(`/api/guilds/${selectedGuild.id}/plugins-settings`, { withCredentials: true }),
+                    axios.get(`/api/guilds/${selectedGuild.id}/beta-access`, { withCredentials: true })
                 ]);
                 
                 setPlugins(metaRes.data);
                 setSettings(settingsRes.data.plugins);
                 setAccessRoles(settingsRes.data.access.allowedRoles);
+                setBetaRoleIds(betaRes.data.betaRoleIds || []);
             } catch (error) {
                 console.error('Fetch error:', error);
             } finally {
@@ -132,6 +135,22 @@ export const PluginManagementPage: React.FC = () => {
         }
     };
 
+    const toggleBetaRole = async (roleId: string) => {
+        if (!selectedGuild) return;
+        const hasRole = betaRoleIds.includes(roleId);
+        const newRoles = hasRole
+            ? betaRoleIds.filter(id => id !== roleId)
+            : [...betaRoleIds, roleId];
+        setBetaRoleIds(newRoles);
+        try {
+            await axios.put(`/api/guilds/${selectedGuild.id}/beta-access`, {
+                betaRoleIds: newRoles
+            }, { withCredentials: true });
+        } catch (e) {
+            console.error('Failed to update beta roles', e);
+        }
+    };
+
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: colors.textSecondary }}>
             Loading plugins configuration...
@@ -191,6 +210,45 @@ export const PluginManagementPage: React.FC = () => {
                          );
                     })}
                 </div>
+            </div>
+
+            {/* Beta Access Roles */}
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginBottom: '24px' }}>
+                <h2 style={{ marginTop: 0, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '18px' : '22px' }}>
+                    <UserCheck size={20} /> Beta Access Roles
+                </h2>
+                <p style={{ color: colors.textSecondary, marginBottom: '16px', fontSize: '14px' }}>
+                    Members with these roles will be automatically granted access to the site when they sign in.
+                    This only applies during invite-only / beta mode.
+                </p>
+                
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {filteredRoles.map(role => {
+                         const isSelected = betaRoleIds.includes(role.id);
+                         return (
+                            <div 
+                                key={role.id}
+                                onClick={() => toggleBetaRole(role.id)}
+                                style={{ 
+                                    padding: '6px 12px', 
+                                    borderRadius: '20px', 
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? `${colors.primary}33` : colors.background,
+                                    border: `1px solid ${isSelected ? colors.primary : 'transparent'}`,
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    fontSize: '13px',
+                                    userSelect: 'none'
+                                }}
+                            >
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
+                                {role.name}
+                            </div>
+                         );
+                    })}
+                </div>
+                {betaRoleIds.length === 0 && (
+                    <p style={{ color: colors.textTertiary, fontSize: '13px', fontStyle: 'italic', marginTop: '12px', marginBottom: 0 }}>No roles selected — only manually invited users and admins can access the site.</p>
+                )}
             </div>
 
             {/* Plugin List */}
