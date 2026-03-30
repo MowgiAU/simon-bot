@@ -32,6 +32,7 @@ import { runBackup } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
+import { FileValidator, sanitizeFilename } from '../services/FileValidator.js';
 import * as otplibAll from 'otplib';
 const generateSecret = otplibAll.generateSecret;
 const verifySync = otplibAll.verifySync;
@@ -474,7 +475,14 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 console.log(`[Uploads] Serving static files from: ${uploadsPath}`);
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', (req, res, next) => {
+    // Security headers for user-uploaded content
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    next();
+}, express.static(uploadsPath));
 
 // Debug middleware
 app.use((req, res, next) => {
@@ -676,8 +684,8 @@ app.use(helmet({
 }));
 // Compress all responses >1KB (gzip) â€” critical for large JSON payloads (waveforms, track listings)
 app.use(compression());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
@@ -693,6 +701,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: true,
+    httpOnly: true,
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
   }
@@ -725,6 +734,17 @@ const uploadLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 app.use('/api/', apiLimiter);
+
+// Register-style limiter for non-track uploads (avatars, covers, battle submissions)
+const generalUploadLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10-minute window
+    max: 10,                   // 10 uploads per window per user
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    validate: false,
+    message: { error: 'Upload limit reached. Please wait before uploading again.' },
+});
 
 // --- Invite-Only Global Guard ---
 // When INVITE_ONLY=true, block unauthenticated/non-invited users from public frontend API routes.
@@ -2135,6 +2155,42 @@ async function refreshSessionGuilds(req: any): Promise<void> {
 
         req.session.mutualAdminGuilds = mutualAdminGuilds;
         req.session.mutualStaffGuilds = mutualStaffGuilds;
+
+        // Re-check beta role → invited status for users not yet invited
+        if (!user._invited) {
+            const primaryGuildId = process.env.GUILD_ID;
+            if (primaryGuildId) {
+                try {
+                    const betaAccess = await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } });
+                    const betaRoleIds = betaAccess?.betaRoleIds || [];
+                    if (betaRoleIds.length > 0) {
+                        const cacheKey = `${primaryGuildId}:${discordId}`;
+                        let memberRoles: string[];
+                        const cached = memberRoleCache.get(cacheKey);
+                        if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                            memberRoles = cached.roles;
+                        } else {
+                            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${discordId}`, {
+                                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                                timeout: 5000
+                            });
+                            memberRoles = memberRes.data.roles || [];
+                            memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                        }
+                        if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
+                            const dbUser = await db.user.findUnique({ where: { discordId }, select: { id: true } });
+                            if (dbUser) {
+                                await db.user.update({ where: { id: dbUser.id }, data: { invited: true } });
+                                user._invited = true;
+                                logger.info(`[Auth] Auto-invited user ${user.username} (${discordId}) via session refresh — has beta role`);
+                            }
+                        }
+                    }
+                } catch {
+                    // Non-fatal — user will be re-checked on next status poll
+                }
+            }
+        }
     } catch (e) {
         logger.warn('[Auth] Failed to refresh session guilds', e);
     }
@@ -5481,6 +5537,19 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
+        // Magic byte validation — reject spoofed files before further processing
+        try {
+            FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
+            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
+            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+        } catch (validationErr: any) {
+            // Clean up uploaded files on validation failure
+            try { fs.unlinkSync(audioFile.path); } catch {}
+            if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+            if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
+
         // Virus scan all uploaded files before processing
         await scanFileForViruses(audioFile.path, 'audio');
         if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
@@ -5814,7 +5883,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
 });
 
 // Edit track with file re-uploads (audio, artwork, project)
-app.put('/api/musician/tracks/:trackId', upload.fields([
+app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'artwork', maxCount: 1 },
     { name: 'project', maxCount: 1 }
@@ -5837,6 +5906,18 @@ app.put('/api/musician/tracks/:trackId', upload.fields([
         const audioFile = files['audio']?.[0];
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
+
+        // Magic byte validation — reject spoofed files
+        try {
+            if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
+            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
+            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+        } catch (validationErr: any) {
+            if (audioFile) try { fs.unlinkSync(audioFile.path); } catch {}
+            if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+            if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
 
         // Virus scan any newly uploaded files before processing
         if (audioFile) await scanFileForViruses(audioFile.path, 'audio');
@@ -5998,6 +6079,18 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const audioFile = files['audio']?.[0];
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
+
+        // Magic byte validation — reject spoofed files
+        try {
+            if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
+            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
+            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+        } catch (validationErr: any) {
+            if (audioFile) try { fs.unlinkSync(audioFile.path); } catch {}
+            if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+            if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
 
         // Virus scan any newly uploaded files before processing
         if (audioFile) await scanFileForViruses(audioFile.path, 'audio');
@@ -7152,7 +7245,7 @@ app.get('/api/discovery/genres', async (req, res) => {
 });
 
 // Avatar upload endpoint
-app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async (req: any, res) => {
+app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.single('avatar'), async (req: any, res) => {
     try {
         const { userId } = req.params;
 
@@ -7165,6 +7258,14 @@ app.post('/api/musician/profile/:userId/avatar', upload.single('avatar'), async 
 
         if (!file) {
             return res.status(400).json({ error: 'Avatar file is required' });
+        }
+
+        // Magic byte validation — reject spoofed images
+        try {
+            FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
         }
 
         // Virus scan before processing
@@ -8209,7 +8310,7 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
 });
 
 // --- Auth: Submit entry via web (upload or library track) ---
-app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields([
+app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUploadLimiter, upload.fields([
     { name: 'audio', maxCount: 1 },
     { name: 'cover', maxCount: 1 },
     { name: 'project', maxCount: 1 },
@@ -8294,8 +8395,21 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, upload.fields
             const audioFile = files['audio']?.[0];
             if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
 
-            await scanFileForViruses(audioFile.path, 'audio');
             const artworkFile = files['cover']?.[0] || files['artwork']?.[0];
+
+            // Magic byte validation — reject spoofed files
+            try {
+                FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
+                if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
+                if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+            } catch (validationErr: any) {
+                try { fs.unlinkSync(audioFile.path); } catch {}
+                if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+                if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+                return res.status(400).json({ error: validationErr.message });
+            }
+
+            await scanFileForViruses(audioFile.path, 'audio');
             if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
             if (projectFile) await scanFileForViruses(projectFile.path, 'project');
 
@@ -8849,6 +8963,13 @@ app.delete('/api/beat-battle/admin/sponsors/:id', requireAdmin, async (req: any,
 app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single('sponsorLogo'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(req.file.path), req.file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
         const localUrl = `/uploads/sponsors/${req.file.filename}`;
         const finalUrl = await uploadToR2OrLocal(
             req.file.path,
@@ -8871,6 +8992,13 @@ app.post('/api/beat-battle/admin/sponsors/:id/logo', requireAdmin, upload.single
 app.post('/api/beat-battle/admin/prize-image', requireAdmin, upload.single('prizeImage'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(req.file.path), req.file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
         const localUrl = `/uploads/battle-prizes/${req.file.filename}`;
         const finalUrl = await uploadToR2OrLocal(
             req.file.path,
@@ -8888,6 +9016,13 @@ app.post('/api/beat-battle/admin/prize-image', requireAdmin, upload.single('priz
 app.post('/api/beat-battle/admin/rule-sample', requireAdmin, upload.single('ruleSample'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Magic byte validation
+        try {
+            FileValidator.validateAudio(fs.readFileSync(req.file.path), req.file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
         const localUrl = `/uploads/battle-rule-samples/${req.file.filename}`;
         const finalUrl = await uploadToR2OrLocal(
             req.file.path,
@@ -10297,7 +10432,7 @@ app.put('/api/playlists/:playlistId', requireAuth, async (req: any, res) => {
 });
 
 // Upload playlist cover art
-app.post('/api/playlists/:playlistId/cover', requireAuth, upload.single('cover'), async (req: any, res) => {
+app.post('/api/playlists/:playlistId/cover', requireAuth, generalUploadLimiter, upload.single('cover'), async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { playlistId } = req.params;
@@ -10307,6 +10442,14 @@ app.post('/api/playlists/:playlistId/cover', requireAuth, upload.single('cover')
 
         const coverFile = req.file as Express.Multer.File | undefined;
         if (!coverFile) return res.status(400).json({ error: 'No cover image provided' });
+
+        // Magic byte validation — reject spoofed images
+        try {
+            FileValidator.validateImage(fs.readFileSync(coverFile.path), coverFile.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(coverFile.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
 
         await scanFileForViruses(coverFile.path, 'cover');
 
