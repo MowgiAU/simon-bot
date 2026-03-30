@@ -40,7 +40,6 @@ declare module 'express-session' {
     interface SessionData {
         user?: any;
         isGuildMember?: boolean;
-        permissionsCache?: Record<string, { data: any, timestamp: number }>;
         _discordLinkToken?: string;
         _discordLinkReturn?: string;
     }
@@ -3473,26 +3472,18 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         const user = req.session?.user;
         if (!user) return res.json({ canManagePlugins: false, accessiblePlugins: [] });
 
-        // Check session-cached permissions (10-min TTL)
-        const PERMS_CACHE_TTL = 1000 * 60 * 10;
-        const cachedPerms = req.session.permissionsCache?.[guildId];
-        if (cachedPerms && (Date.now() - cachedPerms.timestamp < PERMS_CACHE_TTL)) {
-            return res.json(cachedPerms.data);
-        }
-
         const isAdmin = isTrueAdmin(guildId, req);
 
-        // If admin, they have everything (no caching — list is static/instant)
+        // If admin, they have everything
         if (isAdmin) {
-            const adminResult = { 
+            return res.json({ 
                 canManagePlugins: true, 
                 accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide'] 
-            };
-            return res.json(adminResult);
+            });
         }
 
-        // For non-admins, check role whitelist
-        // 1. Get user roles (with cache)
+        // For non-admins, check role whitelist against live data
+        // 1. Get user roles (with short-lived cache to avoid Discord rate limits)
         const accessiblePlugins: string[] = [];
         const cacheKey = `${guildId}:${user.id}`;
         const cachedMember = memberRoleCache.get(cacheKey);
@@ -3507,29 +3498,19 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
             memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
         }
 
-        // 2. Get all plugin settings for this guild
+        // 2. Get all plugin settings for this guild (fresh from DB)
         const allSettings = await db.pluginSettings.findMany({
             where: { guildId }
         });
 
-        // 3. Match
+        // 3. Match roles against allowedRoles for each plugin
         for (const setting of allSettings) {
              if (setting.enabled && setting.allowedRoles.some((r: string) => memberRoles.includes(r))) {
                  accessiblePlugins.push(setting.pluginId);
              }
         }
 
-        // Special check: Log viewing (often handled by Moderation settings or separate?)
-        // Currently logs are guarded by 'moderation' plugin access in my previous edits? 
-        // No, I guarded logs with 'moderation' check in the API, so that's consistent.
-
-        const permResult = {
-            canManagePlugins: false,
-            accessiblePlugins
-        };
-        if (!req.session.permissionsCache) req.session.permissionsCache = {};
-        req.session.permissionsCache[guildId] = { data: permResult, timestamp: Date.now() };
-        res.json(permResult);
+        res.json({ canManagePlugins: false, accessiblePlugins });
 
     } catch (e) {
         logger.error('Failed to fetching permissions', e);
