@@ -1,0 +1,9 @@
+name = "fuji-email-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+# Set these via: wrangler secret put WEBHOOK_SECRET
+# and:           wrangler secret put API_URL
+# Or configure in Cloudflare dashboard > Workers > Settings > Variables
+[vars]
+API_URL = "https://fujistudio.app"
