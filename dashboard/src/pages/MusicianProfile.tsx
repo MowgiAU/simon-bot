@@ -26,13 +26,7 @@ export const MusicianProfilePage: React.FC = () => {
     const pathParts = pathname.split('/');
     const urlIdentifier = pathParts.length > 2 ? pathParts[2] : null;
 
-    // /profile with no username + logged-in ? redirect to edit page
-    useEffect(() => {
-        if (!urlIdentifier && user) {
-            navigate('/profile/edit', { replace: true });
-        }
-    }, [user?.id, urlIdentifier, authLoading]);
-
+    // /profile with no username + logged-in → check if profile exists first
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -41,6 +35,13 @@ export const MusicianProfilePage: React.FC = () => {
                 if (!identifier) { if (!authLoading) setLoading(false); return; }
                 const res = await axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true });
                 const data = res.data;
+
+                // Own profile with no username in URL → redirect to edit
+                if (!urlIdentifier && user) {
+                    navigate('/profile/edit', { replace: true });
+                    return;
+                }
+
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
                         if (s.platform === 'spotify') data.spotifyUrl = s.url;
