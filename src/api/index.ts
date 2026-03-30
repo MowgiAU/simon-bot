@@ -1084,27 +1084,29 @@ app.get('/api/auth/discord/callback', async (req, res) => {
 
     // ===== ROLE-BASED BETA ACCESS =====
     // Auto-invite users who have specific Discord roles in the primary guild
-    const betaAccess = primaryGuildId ? await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } }) : null;
-    const betaRoleIds = betaAccess?.betaRoleIds || [];
-    if (isGuildMember && betaRoleIds.length > 0 && !user._invited && primaryGuildId) {
+    if (isGuildMember && !user._invited && primaryGuildId) {
         try {
-            const cacheKey = `${primaryGuildId}:${user.id}`;
-            let memberRoles: string[];
-            const cached = memberRoleCache.get(cacheKey);
-            if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
-                memberRoles = cached.roles;
-            } else {
-                const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${user.id}`, {
-                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                    timeout: 5000
-                });
-                memberRoles = memberRes.data.roles || [];
-                memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
-            }
-            if (memberRoles.some(r => betaRoleIds.includes(r))) {
-                await db.user.update({ where: { id: user._localId }, data: { invited: true } });
-                user._invited = true;
-                logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) — has beta role`);
+            const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
+            const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
+            if (betaRoleIds.length > 0) {
+                const cacheKey = `${primaryGuildId}:${user.id}`;
+                let memberRoles: string[];
+                const cached = memberRoleCache.get(cacheKey);
+                if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                    memberRoles = cached.roles;
+                } else {
+                    const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${user.id}`, {
+                        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                        timeout: 5000
+                    });
+                    memberRoles = memberRes.data.roles || [];
+                    memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                }
+                if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
+                    await db.user.update({ where: { id: user._localId }, data: { invited: true } });
+                    user._invited = true;
+                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) — has beta role`);
+                }
             }
         } catch (e) {
             logger.warn(`[Auth] Failed to check beta roles for ${user.id}`, e);
@@ -1236,14 +1238,20 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
             req.session.isGuildMember = isGuildMember;
 
             // Check beta role access for email-login users with linked Discord
-            const betaAccess = primaryGuildId ? await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } }) : null;
-            const betaRoleIds = betaAccess?.betaRoleIds || [];
-            if (isGuildMember && betaRoleIds.length > 0 && !req.session.user._invited && primaryGuildId) {
-                const cacheKey = `${primaryGuildId}:${dbUser.discordId}`;
-                const cached = memberRoleCache.get(cacheKey);
-                if (cached && cached.roles.some((r: string) => betaRoleIds.includes(r))) {
-                    await db.user.update({ where: { id: dbUser.id }, data: { invited: true } });
-                    req.session.user._invited = true;
+            if (isGuildMember && !req.session.user._invited && primaryGuildId) {
+                try {
+                    const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
+                    const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
+                    if (betaRoleIds.length > 0) {
+                        const cacheKey = `${primaryGuildId}:${dbUser.discordId}`;
+                        const cached = memberRoleCache.get(cacheKey);
+                        if (cached && cached.roles.some((r: string) => betaRoleIds.includes(r))) {
+                            await db.user.update({ where: { id: dbUser.id }, data: { invited: true } });
+                            req.session.user._invited = true;
+                        }
+                    }
+                } catch {
+                    // Non-fatal
                 }
             }
         } catch (e) {
@@ -2062,6 +2070,55 @@ app.get('/api/auth/status', async (req, res) => {
     // Refresh guild access on every status check (uses cached Discord roles + fresh DB data)
     await refreshSessionGuilds(req);
 
+    // Re-read invited from DB (catches manual invites + previous auto-invites)
+    let invited = !!req.session.user._invited;
+    try {
+        if (!invited && req.session.user._localId) {
+            const freshUser = await db.user.findUnique({ where: { id: req.session.user._localId }, select: { invited: true } });
+            if (freshUser?.invited) {
+                req.session.user._invited = true;
+                invited = true;
+            }
+        }
+    } catch { /* non-fatal */ }
+
+    // Beta role check: if user has a configured beta role, treat as invited
+    if (!invited && req.session.user.id) {
+        try {
+            const primaryGuildId = process.env.GUILD_ID;
+            if (primaryGuildId) {
+                const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
+                const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
+                if (betaRoleIds.length > 0) {
+                    const cacheKey = `${primaryGuildId}:${req.session.user.id}`;
+                    const cached = memberRoleCache.get(cacheKey);
+                    let memberRoles: string[];
+                    if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                        memberRoles = cached.roles;
+                    } else {
+                        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${req.session.user.id}`, {
+                            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                            timeout: 5000
+                        });
+                        memberRoles = memberRes.data.roles || [];
+                        memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                    }
+                    if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
+                        invited = true;
+                        req.session.user._invited = true;
+                        // Persist to DB so future logins are instant
+                        if (req.session.user._localId) {
+                            db.user.update({ where: { id: req.session.user._localId }, data: { invited: true } }).catch(() => {});
+                        }
+                        logger.info(`[Auth] Beta role match for ${req.session.user.username} (${req.session.user.id})`);
+                    }
+                }
+            }
+        } catch (e) {
+            logger.warn(`[Auth] Beta role check failed in /status`, e);
+        }
+    }
+
     res.json({
       authenticated: true,
       user: req.session.user,
@@ -2074,7 +2131,7 @@ app.get('/api/auth/status', async (req, res) => {
       emailVerified: !!req.session.user._emailVerified,
       totpEnabled: !!req.session.user._totpEnabled,
       loginMethod: req.session.user._loginMethod || 'discord',
-      invited: !!req.session.user._invited,
+      invited,
       role: req.session.user._role || 'user',
     });
   } else {
@@ -2155,42 +2212,6 @@ async function refreshSessionGuilds(req: any): Promise<void> {
 
         req.session.mutualAdminGuilds = mutualAdminGuilds;
         req.session.mutualStaffGuilds = mutualStaffGuilds;
-
-        // Re-check beta role → invited status for users not yet invited
-        if (!user._invited) {
-            const primaryGuildId = process.env.GUILD_ID;
-            if (primaryGuildId) {
-                try {
-                    const betaAccess = await db.dashboardAccess.findUnique({ where: { guildId: primaryGuildId } });
-                    const betaRoleIds = betaAccess?.betaRoleIds || [];
-                    if (betaRoleIds.length > 0) {
-                        const cacheKey = `${primaryGuildId}:${discordId}`;
-                        let memberRoles: string[];
-                        const cached = memberRoleCache.get(cacheKey);
-                        if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
-                            memberRoles = cached.roles;
-                        } else {
-                            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${discordId}`, {
-                                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                                timeout: 5000
-                            });
-                            memberRoles = memberRes.data.roles || [];
-                            memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
-                        }
-                        if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
-                            const dbUser = await db.user.findUnique({ where: { discordId }, select: { id: true } });
-                            if (dbUser) {
-                                await db.user.update({ where: { id: dbUser.id }, data: { invited: true } });
-                                user._invited = true;
-                                logger.info(`[Auth] Auto-invited user ${user.username} (${discordId}) via session refresh — has beta role`);
-                            }
-                        }
-                    }
-                } catch {
-                    // Non-fatal — user will be re-checked on next status poll
-                }
-            }
-        }
     } catch (e) {
         logger.warn('[Auth] Failed to refresh session guilds', e);
     }
@@ -11176,8 +11197,8 @@ app.get('/api/guilds/:guildId/beta-access', async (req, res) => {
     try {
         const { guildId } = req.params;
         if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Admin only' });
-        const access = await db.dashboardAccess.findUnique({ where: { guildId } });
-        res.json({ betaRoleIds: access?.betaRoleIds || [] });
+        const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${guildId} LIMIT 1`;
+        res.json({ betaRoleIds: rows[0]?.betaRoleIds || [] });
     } catch (e) {
         logger.error('[Beta] Failed to get beta access settings', e);
         res.status(500).json({ error: 'Failed to load settings' });
@@ -11191,13 +11212,14 @@ app.put('/api/guilds/:guildId/beta-access', async (req, res) => {
         const { betaRoleIds } = req.body;
         if (!Array.isArray(betaRoleIds)) return res.status(400).json({ error: 'betaRoleIds must be an array' });
         const cleaned = betaRoleIds.filter((r: any) => typeof r === 'string' && r.length > 0);
-        const access = await db.dashboardAccess.upsert({
-            where: { guildId },
-            update: { betaRoleIds: cleaned },
-            create: { guildId, betaRoleIds: cleaned },
-        });
+        // Use raw SQL to bypass Prisma client needing regeneration for betaRoleIds
+        await db.$executeRaw`
+            INSERT INTO "dashboard_access" ("id", "guildId", "betaRoleIds")
+            VALUES (gen_random_uuid(), ${guildId}, ${cleaned}::text[])
+            ON CONFLICT ("guildId") DO UPDATE SET "betaRoleIds" = ${cleaned}::text[]
+        `;
         logger.info(`[Beta] Updated beta role IDs for guild ${guildId}: ${cleaned.join(', ')}`);
-        res.json({ betaRoleIds: access.betaRoleIds });
+        res.json({ betaRoleIds: cleaned });
     } catch (e) {
         logger.error('[Beta] Failed to update beta access settings', e);
         res.status(500).json({ error: 'Failed to save settings' });
