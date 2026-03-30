@@ -7395,6 +7395,14 @@ app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.sing
             return res.status(400).json({ error: 'Avatar file is required' });
         }
 
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
+
         await scanFileForViruses(file.path, 'avatar');
         const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
 
@@ -9039,6 +9047,13 @@ app.post('/api/beat-battle/admin/rule-sample', requireAdmin, upload.single('rule
 app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.single('battleBanner'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(req.file.path), req.file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
         const localUrl = `/uploads/battle-banners/${req.file.filename}`;
         const finalUrl = await uploadToR2OrLocal(
             req.file.path,
@@ -9060,6 +9075,13 @@ app.post('/api/beat-battle/admin/battles/:id/banner', requireAdmin, upload.singl
 app.post('/api/beat-battle/admin/battles/:id/card-image', requireAdmin, upload.single('battleCardImage'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(req.file.path), req.file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
         const localUrl = `/uploads/battle-banners/${req.file.filename}`;
         const finalUrl = await uploadToR2OrLocal(
             req.file.path,
