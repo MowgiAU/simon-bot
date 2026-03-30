@@ -57,6 +57,7 @@ const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").the
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const CompleteAccountPage   = lazy(() => import("./pages/CompleteAccountPage").then(m => ({ default: m.CompleteAccountPage })));
 const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
@@ -492,7 +493,7 @@ const AdminDashboard: React.FC = () => {
  */
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
-  const { user, invited, role, mutualAdminGuilds, loading } = useAuth();
+  const { user, invited, role, mutualAdminGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
   const [inviteOnly, setInviteOnly] = useState(false);
   const [betaChecked, setBetaChecked] = useState(false);
 
@@ -520,6 +521,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/forgot-password',   title: 'Fuji Studio | Forgot Password' },
       { test: p => p === '/reset-password',    title: 'Fuji Studio | Reset Password' },
       { test: p => p === '/account',           title: 'Fuji Studio | Account Settings' },
+      { test: p => p === '/complete-account',    title: 'Fuji Studio | Complete Account' },
       { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
       { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
       { test: p => p === '/my-favourites', title: 'Fuji Studio | My Favourites' },
@@ -548,13 +550,19 @@ const AppInternal: React.FC = () => {
     currentPath === '/login' || currentPath === '/register' ||
     currentPath === '/terms' || currentPath === '/forgot-password' ||
     currentPath === '/reset-password' || currentPath === '/verify-email' ||
-    currentPath === '/account';
+    currentPath === '/account' || currentPath === '/complete-account';
 
   if (inviteOnly && !isExemptRoute) {
     const isAdmin = mutualAdminGuilds.length > 0 || role === 'admin';
     if (!user || (!invited && !isAdmin)) {
       return <Suspense fallback={<PageSpinner />}><ComingSoonPage /></Suspense>;
     }
+  }
+
+  // Redirect Discord-created accounts to complete setup (once per session)
+  const needsSetup = user && loginMethod === 'discord' && (!hasPassword || !email || !emailVerified);
+  if (needsSetup && currentPath !== '/complete-account' && !sessionStorage.getItem('fuji_setup_dismissed')) {
+    return <Suspense fallback={<PageSpinner />}><CompleteAccountPage /></Suspense>;
   }
 
   // /dashboard → Full admin dashboard
@@ -631,6 +639,11 @@ const AppInternal: React.FC = () => {
   // /terms → Terms of Service & Privacy Policy
   if (currentPath === '/terms') {
     return <Suspense fallback={<PageSpinner />}><TermsPage /></Suspense>;
+  }
+
+  // /complete-account → First-time account setup wizard for Discord-created accounts
+  if (currentPath === '/complete-account') {
+    return <Suspense fallback={<PageSpinner />}><CompleteAccountPage /></Suspense>;
   }
 
   // /account → Account settings (password, email verification, 2FA, Discord)
@@ -719,8 +732,6 @@ export const App: React.FC = () => {
           <AppInternal />
           <GlobalPlayer />
           <ToastContainer />
-          {/* Suspense required: SetupPasswordModal is lazy but has no Suspense boundary */}
-          <Suspense fallback={null}><SetupPasswordModal /></Suspense>
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>

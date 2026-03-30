@@ -1584,6 +1584,64 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
     }
 });
 
+// =============================================
+// SET EMAIL (first-time setup — Discord-created accounts without email)
+// =============================================
+app.post('/api/auth/set-email', requireAuth, async (req: any, res) => {
+    try {
+        const { email } = req.body;
+        if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email is required' });
+        const emailNorm = email.toLowerCase().trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) return res.status(400).json({ error: 'Invalid email address' });
+
+        const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
+        if (!dbUser) return res.status(404).json({ error: 'Account not found' });
+        if (dbUser.email) return res.status(400).json({ error: 'Email is already set. Use the change-email endpoint instead.' });
+
+        // Check email not already taken
+        const existing = await db.user.findUnique({ where: { email: emailNorm } });
+        if (existing) return res.status(409).json({ error: 'That email is already associated with another account' });
+
+        // Set email and generate verification token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
+        await db.user.update({
+            where: { id: dbUser.id },
+            data: { email: emailNorm, emailVerificationToken: token, emailVerificationExpiry: expiry },
+        });
+
+        // Update session
+        req.session.user._email = emailNorm;
+        req.session.user._emailVerified = false;
+
+        // Send verification email
+        let resendKey = process.env.RESEND_API_KEY;
+        if (!resendKey) { try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {} }
+        if (resendKey) {
+            const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
+            const verifyUrl = `${dashboardOrigin}/api/auth/verify-email?token=${token}`;
+            const resendClient = new Resend(resendKey);
+            await resendClient.emails.send({
+                from: 'Fuji Studio <noreply@fujistud.io>',
+                to: [emailNorm],
+                subject: 'Verify your Fuji Studio email',
+                html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                    <h2 style="color:#2b8d70;margin-top:0;">Verify your email</h2>
+                    <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
+                    <p>Click the button below to verify your email address for Fuji Studio. This link expires in 24 hours.</p>
+                    <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Verify Email</a>
+                    <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
+                </div>`,
+            });
+        }
+
+        res.json({ success: true, message: `Email set to ${emailNorm}. Verification email sent.` });
+    } catch (e) {
+        logger.error('[Auth] set-email error', e);
+        res.status(500).json({ error: 'Failed to set email' });
+    }
+});
+
 // Send email verification
 app.post('/api/auth/send-verification', async (req: any, res) => {
     try {
