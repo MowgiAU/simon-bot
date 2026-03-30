@@ -7,7 +7,7 @@ import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
-import { Info, ArrowRight } from "lucide-react";
+import { Info, ArrowRight, ShieldAlert } from "lucide-react";
 import { AppStyles } from "./AppStyles";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import logoUrl from "./assets/logo.svg";
@@ -274,7 +274,61 @@ const AdminDashboard: React.FC = () => {
     setSidebarOpen(false);
   };
 
-  const renderContent = () => (
+  // Map dashboard sections to their required plugin IDs
+  const sectionPluginMap: Record<string, string> = {
+    'word-filter-settings': 'word-filter',
+    'anti-piracy': 'anti-piracy',
+    'leveling': 'leveling',
+    'moderation': 'moderation',
+    'economy': 'economy',
+    'feedback': 'production-feedback',
+    'welcome-gate': 'welcome-gate',
+    'email-client': 'email-client',
+    'tickets': 'tickets',
+    'channel-rules': 'channel-rules',
+    'musician-profiles-admin': 'musician-profiles',
+    'musician-profiles': 'musician-profiles',
+    'library': 'fuji-studio',
+    'logs': 'logger',
+    'beat-battle': 'beat-battle',
+    'battle-archive': 'beat-battle',
+    'featured-content': 'featured-content',
+    'voice-monitor': 'voice-monitor',
+    'fuji-radio': 'fuji-radio',
+    'studio-guide': 'studio-guide',
+    'account-management': 'account-management',
+    'genres-list': 'musician-profiles',
+  };
+
+  const renderContent = () => {
+    // Check plugin access — redirect to dashboard if unauthorized
+    const requiredPlugin = sectionPluginMap[activeSection];
+    if (requiredPlugin && !permissions.accessiblePlugins.includes(requiredPlugin)) {
+      return (
+        <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+          <ShieldAlert size={48} color={colors.textTertiary} style={{ marginBottom: '16px' }} />
+          <h2 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Access Denied</h2>
+          <p style={{ color: colors.textSecondary, marginBottom: '24px' }}>You don't have permission to access this plugin. Contact a server administrator to request access.</p>
+          <button onClick={() => handleNavigate('dashboard')} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+            Back to Overview
+          </button>
+        </div>
+      );
+    }
+    if (activeSection === 'plugins' && !permissions.canManagePlugins) {
+      return (
+        <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+          <ShieldAlert size={48} color={colors.textTertiary} style={{ marginBottom: '16px' }} />
+          <h2 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Access Denied</h2>
+          <p style={{ color: colors.textSecondary, marginBottom: '24px' }}>Only administrators can manage plugins.</p>
+          <button onClick={() => handleNavigate('dashboard')} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+            Back to Overview
+          </button>
+        </div>
+      );
+    }
+
+    return (
     <Suspense fallback={<PageSpinner />}>
     {(() => {
       switch (activeSection) {
@@ -344,7 +398,8 @@ const AdminDashboard: React.FC = () => {
       }
     })()}
     </Suspense>
-  );
+    );
+  };
 
   return (
     <div className={`app ${sidebarOpen ? "sidebar-open" : ""}`}>

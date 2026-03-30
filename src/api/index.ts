@@ -2029,8 +2029,11 @@ app.post('/api/auth/refresh-guilds', requireAuth, async (req: any, res) => {
     }
 });
 
-app.get('/api/auth/status', (req, res) => {
+app.get('/api/auth/status', async (req, res) => {
   if (req.session.user) {
+    // Refresh guild access on every status check (uses cached Discord roles + fresh DB data)
+    await refreshSessionGuilds(req);
+
     res.json({
       authenticated: true,
       user: req.session.user,
@@ -2056,6 +2059,78 @@ const getGuildId = async () => {
   const guild = await db.guild.findFirst();
   return guild?.id || 'default-guild';
 };
+
+// Refresh session guild access (admin + staff) using fresh DB data + cached Discord roles
+async function refreshSessionGuilds(req: any): Promise<void> {
+    const user = req.session?.user;
+    if (!user) return;
+    const discordId = user.id;
+    if (!discordId) return;
+
+    try {
+        const botGuilds = await getBotGuildIds();
+        if (!botGuilds.length) return;
+
+        const mutualAdminGuilds: any[] = [];
+        const mutualStaffGuilds: any[] = [];
+
+        // OAuth sessions store guild permissions; email sessions don't
+        const oauthGuilds = req.session.guilds || [];
+        const oauthGuildMap = new Map(oauthGuilds.map((g: any) => [g.id, g]));
+        // Keep track of which guilds were previously admin (for email logins where we can't re-check Discord permissions)
+        const prevAdminIds = new Set((req.session.mutualAdminGuilds || []).map((g: any) => g.id));
+
+        for (const botGuild of botGuilds) {
+            const oauthGuild = oauthGuildMap.get(botGuild.id);
+
+            // Check admin status
+            let isAdmin = false;
+            if (oauthGuild) {
+                // OAuth login — use cached permissions from Discord
+                const perms = BigInt(oauthGuild.permissions);
+                isAdmin = oauthGuild.owner || (perms & BigInt(0x8)) === BigInt(0x8);
+            } else {
+                // Email login — preserve previous admin status (can't re-check without OAuth token)
+                isAdmin = prevAdminIds.has(botGuild.id);
+            }
+
+            if (isAdmin) {
+                mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                continue;
+            }
+
+            // Check staff access (fresh DB read + cached Discord roles)
+            try {
+                const access = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
+                if (access && access.allowedRoles.length > 0) {
+                    const cacheKey = `${botGuild.id}:${discordId}`;
+                    const cached = memberRoleCache.get(cacheKey);
+                    let memberRoles: string[];
+                    if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                        memberRoles = cached.roles;
+                    } else {
+                        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/members/${discordId}`, {
+                            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                            timeout: 5000
+                        });
+                        memberRoles = memberRes.data.roles || [];
+                        memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                    }
+                    if (memberRoles.some((r: string) => access.allowedRoles.includes(r))) {
+                        mutualStaffGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                    }
+                }
+            } catch {
+                // Skip — user may not be a member of this guild
+            }
+        }
+
+        req.session.mutualAdminGuilds = mutualAdminGuilds;
+        req.session.mutualStaffGuilds = mutualStaffGuilds;
+    } catch (e) {
+        logger.warn('[Auth] Failed to refresh session guilds', e);
+    }
+}
 
 // Helper: Check if user has any dashboard access to a guild (admin OR staff role)
 const hasDashboardAccess = (guildId: string, req: any) => {

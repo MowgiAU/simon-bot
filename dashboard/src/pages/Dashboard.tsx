@@ -230,12 +230,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                      </div>
                    )}
                 </div>
+                {(accessiblePlugins.includes('logger') || accessiblePlugins.includes('moderation')) && (
                 <button 
                   onClick={() => onNavigate('logs')}
                   style={{ width: '100%', marginTop: '16px', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.12)', borderRadius: '10px', padding: '9px', color: colors.primary, fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   View All Logs
                 </button>
+                )}
              </div>
           </div>
 
@@ -249,20 +251,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 <h2 style={{ margin: 0 }}>Bot Status</h2>
               </div>
               <div className="card-body" style={{ padding: '16px 24px' }}>
-                <StatusRow label="Word Filter" active={stats?.pluginsData?.filter?.enabled} onClick={() => onNavigate('word-filter-settings')} />
-                <StatusRow label="Welcome Gate" active={stats?.pluginsData?.welcome?.enabled} onClick={() => onNavigate('welcome-gate')} />
+                {accessiblePlugins.includes('word-filter') && (
+                  <StatusRow label="Word Filter" active={stats?.pluginsData?.filter?.enabled} onClick={() => onNavigate('word-filter-settings')} />
+                )}
+                {accessiblePlugins.includes('welcome-gate') && (
+                  <StatusRow label="Welcome Gate" active={stats?.pluginsData?.welcome?.enabled} onClick={() => onNavigate('welcome-gate')} />
+                )}
+                {accessiblePlugins.includes('tickets') && (
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('tickets')}>
                   <span className="info-label">Open Tickets</span>
                   <span className="info-value">{stats?.pluginsData?.tickets?.open || 0}</span>
                 </div>
+                )}
+                {accessiblePlugins.includes('email-client') && (
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('email-client')}>
                   <span className="info-label">Unread Emails</span>
                   <span className="info-value">{stats?.pluginsData?.email?.unread || 0}</span>
                 </div>
+                )}
+                {accessiblePlugins.includes('economy') && (
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('economy')}>
                   <span className="info-label">Economy Balance</span>
                   <span className="info-value">{formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}</span>
                 </div>
+                )}
               </div>
             </div>
 
