@@ -32,6 +32,7 @@ interface Permissions {
 interface AuthContextType {
   user: User | null;
   mutualAdminGuilds: Guild[];
+  dashboardGuilds: Guild[];
   selectedGuild: Guild | null;
   setSelectedGuild: (guild: Guild) => void;
   permissions: Permissions;
@@ -58,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [mutualAdminGuilds, setMutualAdminGuilds] = useState<Guild[]>([]);
+  const [mutualStaffGuilds, setMutualStaffGuilds] = useState<Guild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<Guild | null>(null);
   const [permissions, setPermissions] = useState<Permissions>({ canManagePlugins: false, accessiblePlugins: [] });
   const [isGuildMember, setIsGuildMember] = useState(false);
@@ -95,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.authenticated) {
           setUser(data.user);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
+          setMutualStaffGuilds(data.mutualStaffGuilds || []);
           setIsGuildMember(data.isGuildMember ?? false);
           setHasLocalAccount(!!data.hasLocalAccount);
           setHasPassword(!!data.hasPassword);
@@ -104,8 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoginMethod(data.loginMethod || null);
           setInvited(!!data.invited);
           setRole(data.role || 'user');
-          if (data.mutualAdminGuilds && data.mutualAdminGuilds.length > 0) {
-             setSelectedGuild(data.mutualAdminGuilds[0]);
+          const allGuilds = [...(data.mutualAdminGuilds || []), ...(data.mutualStaffGuilds || [])];
+          if (allGuilds.length > 0) {
+             setSelectedGuild(allGuilds[0]);
           }
           const returnTo = localStorage.getItem(RETURN_TO_KEY);
           if (returnTo) {
@@ -207,8 +211,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/api/auth/logout';
   };
 
+  // Combined guild list for guild selector (admin + staff)
+  const dashboardGuilds = [...mutualAdminGuilds, ...mutualStaffGuilds];
+
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, invited, role, login, logout, emailLogin, register, refreshAccountStatus }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, invited, role, login, logout, emailLogin, register, refreshAccountStatus }}>
       {children}
     </AuthContext.Provider>
   );

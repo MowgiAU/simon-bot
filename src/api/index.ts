@@ -1,4 +1,4 @@
-﻿
+
 import 'dotenv/config';
 import express from 'express';
 import type { RequestHandler } from 'express';
@@ -40,6 +40,9 @@ declare module 'express-session' {
     interface SessionData {
         user?: any;
         isGuildMember?: boolean;
+        mutualAdminGuilds?: any[];
+        mutualStaffGuilds?: any[];
+        guilds?: any[];
         _discordLinkToken?: string;
         _discordLinkReturn?: string;
     }
@@ -741,8 +744,8 @@ app.use('/api/', (req, res, next) => {
         path.startsWith('/studio-guide/')) {
         return next();
     }
-    // Admins always pass
-    if ((req.session.mutualAdminGuilds as any)?.length) return next();
+    // Admins and staff always pass
+    if ((req.session.mutualAdminGuilds as any)?.length || (req.session.mutualStaffGuilds as any)?.length) return next();
     if (req.session.user?._role === 'admin') return next();
     // Must be authenticated AND invited
     if (!req.session.user) {
@@ -767,7 +770,8 @@ const requireAdmin: RequestHandler = (req, res, next) => {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
-    if (!(req.session.mutualAdminGuilds as any)?.length) {
+    // Allow admins and staff with dashboard access
+    if (!(req.session.mutualAdminGuilds as any)?.length && !(req.session.mutualStaffGuilds as any)?.length) {
         res.status(403).json({ error: 'Admin access required' });
         return;
     }
@@ -784,8 +788,8 @@ const requireInvited: RequestHandler = (req, res, next) => {
         res.status(401).json({ error: 'Unauthorized' });
         return;
     }
-    // Admins always pass
-    if ((req.session.mutualAdminGuilds as any)?.length) return next();
+    // Admins and staff always pass
+    if ((req.session.mutualAdminGuilds as any)?.length || (req.session.mutualStaffGuilds as any)?.length) return next();
     if (req.session.user._role === 'admin') return next();
     // Check invited flag
     if (!req.session.user._invited) {
@@ -873,27 +877,25 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     const botGuilds = await getBotGuildIds();
     
     // Find mutual guilds where user is admin/owner OR has allowed role
-    const mutualAdminGuilds = [];
+    const mutualAdminGuilds: any[] = [];  // Real admins (owner or ADMINISTRATOR permission)
+    const mutualStaffGuilds: any[] = [];  // Role-based dashboard access (not full admins)
     const botGuildIdSet = new Set(botGuilds.map((bg: any) => bg.id));
     const candidateGuilds = userGuilds.filter((g: any) => botGuildIdSet.has(g.id));
 
     // Separate admin guilds from guilds needing role checks
-    const adminGuilds: any[] = [];
     const roleCheckGuilds: any[] = [];
 
     for (const guild of candidateGuilds) {
         const permissions = BigInt(guild.permissions);
         const isAdmin = guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8);
         if (isAdmin) {
-            adminGuilds.push(guild);
+            mutualAdminGuilds.push(guild);
         } else {
             roleCheckGuilds.push(guild);
         }
     }
 
-    mutualAdminGuilds.push(...adminGuilds);
-
-    // Check role access for non-admin guilds in parallel
+    // Check role access for non-admin guilds in parallel (these are staff, NOT admins)
     if (roleCheckGuilds.length > 0) {
         const roleCheckResults = await Promise.all(roleCheckGuilds.map(async (guild) => {
             try {
@@ -914,7 +916,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
             }
             return null;
         }));
-        mutualAdminGuilds.push(...roleCheckResults.filter(Boolean));
+        mutualStaffGuilds.push(...roleCheckResults.filter(Boolean));
     }
 
     // ===== DISCORD LINKING FLOW =====
@@ -952,6 +954,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
             req.session.user.discriminator = user.discriminator;
             req.session.guilds = userGuilds;
             req.session.mutualAdminGuilds = mutualAdminGuilds;
+            req.session.mutualStaffGuilds = mutualStaffGuilds;
 
             const primaryGuildId = process.env.GUILD_ID;
             req.session.isGuildMember = primaryGuildId ? userGuilds.some((g: any) => g.id === primaryGuildId) : false;
@@ -1041,6 +1044,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     req.session.user = user;
     req.session.guilds = userGuilds;
     req.session.mutualAdminGuilds = mutualAdminGuilds;
+    req.session.mutualStaffGuilds = mutualStaffGuilds;
 
     // Check if user is a member of the primary community Discord server
     const primaryGuildId = process.env.GUILD_ID;
@@ -1096,7 +1100,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
 // Endpoint to get mutual admin guilds for logged-in user
 app.get('/api/auth/mutual-guilds', (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
-  res.json({ mutualAdminGuilds: req.session.mutualAdminGuilds || [] });
+  res.json({ mutualAdminGuilds: req.session.mutualAdminGuilds || [], mutualStaffGuilds: req.session.mutualStaffGuilds || [] });
 });
 
 app.get('/api/auth/logout', (req, res) => {
@@ -1151,6 +1155,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
             const botGuilds = await getBotGuildIds();
             const primaryGuildId = process.env.GUILD_ID;
             const mutualAdminGuilds: any[] = [];
+            const mutualStaffGuilds: any[] = [];
             let isGuildMember = false;
 
             for (const botGuild of botGuilds) {
@@ -1180,14 +1185,17 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
                         return role && (BigInt(role.permissions) & BigInt(0x8)) === BigInt(0x8);
                     });
 
-                    // Also check dashboard-configured allowed roles
-                    const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
-                    const hasAllowedRole = guildAccess?.allowedRoles?.length
-                        ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
-                        : false;
-
-                    if (isOwner || isDiscordAdmin || hasAllowedRole) {
+                    if (isOwner || isDiscordAdmin) {
                         mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                    } else {
+                        // Check dashboard-configured allowed roles (staff, not admin)
+                        const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
+                        const hasAllowedRole = guildAccess?.allowedRoles?.length
+                            ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
+                            : false;
+                        if (hasAllowedRole) {
+                            mutualStaffGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                        }
                     }
                 } catch (e: any) {
                     // 404 = not a member of this guild, skip
@@ -1196,6 +1204,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
 
             req.session.guilds = [];
             req.session.mutualAdminGuilds = mutualAdminGuilds;
+            req.session.mutualStaffGuilds = mutualStaffGuilds;
             req.session.isGuildMember = isGuildMember;
 
             // Check beta role access for email-login users with linked Discord
@@ -1213,6 +1222,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
             logger.warn('[Auth] Failed to resolve Discord guild status for email login', e);
             req.session.guilds = [];
             req.session.mutualAdminGuilds = [];
+            req.session.mutualStaffGuilds = [];
             req.session.isGuildMember = false;
         }
         return;
@@ -1221,6 +1231,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
     // No Discord linked â€” no guild data
     req.session.guilds = [];
     req.session.mutualAdminGuilds = [];
+    req.session.mutualStaffGuilds = [];
     req.session.isGuildMember = false;
 }
 
@@ -1589,6 +1600,7 @@ app.post('/api/auth/discord/unlink', requireAuth, async (req: any, res) => {
         req.session.user.id = dbUser.id;
         req.session.guilds = [];
         req.session.mutualAdminGuilds = [];
+        req.session.mutualStaffGuilds = [];
         req.session.isGuildMember = false;
 
         res.json({ success: true });
@@ -2011,7 +2023,7 @@ app.post('/api/auth/refresh-guilds', requireAuth, async (req: any, res) => {
         if (!dbUser) return res.status(404).json({ error: 'Account not found' });
         await buildSessionFromUser(req, dbUser, 'email');
         await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
-        res.json({ success: true, mutualAdminGuilds: req.session.mutualAdminGuilds, isGuildMember: req.session.isGuildMember });
+        res.json({ success: true, mutualAdminGuilds: req.session.mutualAdminGuilds, mutualStaffGuilds: req.session.mutualStaffGuilds, isGuildMember: req.session.isGuildMember });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -2023,6 +2035,7 @@ app.get('/api/auth/status', (req, res) => {
       authenticated: true,
       user: req.session.user,
       mutualAdminGuilds: req.session.mutualAdminGuilds || [],
+      mutualStaffGuilds: req.session.mutualStaffGuilds || [],
       isGuildMember: req.session.isGuildMember ?? false,
       hasLocalAccount: !!req.session.user._localId,
       hasPassword: !!req.session.user._hasPassword,
@@ -2042,6 +2055,13 @@ app.get('/api/auth/status', (req, res) => {
 const getGuildId = async () => {
   const guild = await db.guild.findFirst();
   return guild?.id || 'default-guild';
+};
+
+// Helper: Check if user has any dashboard access to a guild (admin OR staff role)
+const hasDashboardAccess = (guildId: string, req: any) => {
+    if (isTrueAdmin(guildId, req)) return true;
+    const mutualStaffGuilds = req.session.mutualStaffGuilds || [];
+    return mutualStaffGuilds.some((g: any) => g.id === guildId);
 };
 
 // Helper: Check if True Admin (Owner or Administrator perm)
@@ -2676,7 +2696,7 @@ app.get('/api/guilds/:guildId/emojis', async (req, res) => {
 
     // Auth check
     if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -2863,7 +2883,7 @@ app.post('/api/logs/:logId/comments', async (req, res) => {
     if (!log) return res.status(404).json({ error: 'Log not found' });
 
     // Check if user is admin in that guild
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === log.guildId)) {
+    if (!hasDashboardAccess(log.guildId, req)) {
         return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -2934,7 +2954,7 @@ app.get('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
     const { guildId, userId } = req.params;
     
     if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -2957,7 +2977,7 @@ app.post('/api/guilds/:guildId/users/:userId/notes', async (req, res) => {
     const { content } = req.body;
     
     if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -2983,7 +3003,7 @@ app.get('/api/guilds/:guildId/tracked-users', async (req, res) => {
     const { guildId } = req.params;
     
     if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -4475,7 +4495,7 @@ app.post('/api/email/settings', requireAdmin, async (req, res) => {
 app.get('/api/voice-monitor/settings/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4492,7 +4512,7 @@ app.get('/api/voice-monitor/settings/:guildId', async (req, res) => {
 app.post('/api/voice-monitor/settings/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4530,7 +4550,7 @@ app.post('/api/voice-monitor/settings/:guildId', async (req, res) => {
 app.get('/api/voice-monitor/sessions/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4560,7 +4580,7 @@ app.get('/api/voice-monitor/sessions/:guildId', async (req, res) => {
 app.get('/api/voice-monitor/sessions/:guildId/:sessionId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId, sessionId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4584,7 +4604,7 @@ app.get('/api/voice-monitor/sessions/:guildId/:sessionId', async (req, res) => {
 app.get('/api/voice-monitor/reports/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4609,7 +4629,7 @@ app.get('/api/voice-monitor/reports/:guildId', async (req, res) => {
 app.patch('/api/voice-monitor/reports/:guildId/:reportId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId, reportId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4641,7 +4661,7 @@ app.patch('/api/voice-monitor/reports/:guildId/:reportId', async (req, res) => {
 app.delete('/api/voice-monitor/segments/:guildId/:segmentId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId, segmentId } = req.params;
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4668,7 +4688,7 @@ app.get('/api/tickets/settings/:guildId', async (req, res) => {
     const { guildId } = req.params;
 
     // Security check
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4685,7 +4705,7 @@ app.post('/api/tickets/settings/:guildId', async (req, res) => {
     const { guildId } = req.params;
 
     // Security check
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -4717,7 +4737,7 @@ app.get('/api/tickets/list/:guildId', async (req, res) => {
     const { guildId } = req.params;
 
     // Security check
-    if (!req.session.mutualAdminGuilds?.some((g: any) => g.id === guildId)) {
+    if (!hasDashboardAccess(guildId, req)) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 

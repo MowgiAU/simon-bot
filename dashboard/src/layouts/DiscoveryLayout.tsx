@@ -44,11 +44,11 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     };
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { user, permissions, mutualAdminGuilds, logout, login } = useAuth();
+    const { user, permissions, dashboardGuilds, logout, login } = useAuth();
     const { player } = usePlayer();
 
     // Check if user has access to ANY guild's dashboard
-    const hasDashboardAccess = permissions.canManagePlugins || mutualAdminGuilds.length > 0;
+    const hasDashboardAccess = permissions.canManagePlugins || dashboardGuilds.length > 0;
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);

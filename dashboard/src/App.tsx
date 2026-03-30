@@ -205,7 +205,7 @@ const AdminDashboard: React.FC = () => {
   const [navigationParams, setNavigationParams] = useState<any>(null);
   const navigate = useNavigate();
 
-  const { user, mutualAdminGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
+  const { user, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout } = useAuth();
 
   if (loading) return (
     <div style={{ 
@@ -224,7 +224,7 @@ const AdminDashboard: React.FC = () => {
     return <WelcomeScreen login={login} />;
   }
 
-  if (mutualAdminGuilds.length === 0) {
+  if (dashboardGuilds.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: "center", backgroundColor: colors.background, minHeight: "100vh", color: colors.textPrimary }}>
         <div style={{ maxWidth: "500px", margin: "100px auto", padding: "40px", borderRadius: "20px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(12px)" }}>
@@ -254,7 +254,7 @@ const AdminDashboard: React.FC = () => {
       <div style={{ padding: 40 }}>
         <h2>Select a server</h2>
         <ul style={{ listStyle: "none", padding: 0 }}>
-          {mutualAdminGuilds.map(g => (
+          {dashboardGuilds.map(g => (
             <li key={g.id} style={{ margin: "16px 0" }}>
               <button onClick={() => setSelectedGuild(g)} style={{ fontSize: 18, padding: "10px 24px" }}>
                 {g.icon && <img src={`https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png`} alt="icon" style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12, verticalAlign: "middle" }} />}
@@ -493,7 +493,7 @@ const AdminDashboard: React.FC = () => {
  */
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
-  const { user, invited, role, mutualAdminGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
+  const { user, invited, role, dashboardGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
   const [inviteOnly, setInviteOnly] = useState(false);
   const [betaChecked, setBetaChecked] = useState(false);
 
@@ -553,7 +553,7 @@ const AppInternal: React.FC = () => {
     currentPath === '/account' || currentPath === '/complete-account';
 
   if (inviteOnly && !isExemptRoute) {
-    const isAdmin = mutualAdminGuilds.length > 0 || role === 'admin';
+    const isAdmin = dashboardGuilds.length > 0 || role === 'admin';
     if (!user || (!invited && !isAdmin)) {
       return <Suspense fallback={<PageSpinner />}><ComingSoonPage /></Suspense>;
     }
