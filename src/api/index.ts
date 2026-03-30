@@ -3599,9 +3599,15 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         });
 
         // 3. Match roles against allowedRoles for each plugin
+        // Map plugin IDs to the dashboard section IDs the frontend expects
+        const pluginIdToDashboardId: Record<string, string> = {
+            'ticket': 'tickets',
+        };
+
         for (const setting of allSettings) {
              if (setting.enabled && setting.allowedRoles.some((r: string) => memberRoles.includes(r))) {
-                 accessiblePlugins.push(setting.pluginId);
+                 const dashboardId = pluginIdToDashboardId[setting.pluginId] || setting.pluginId;
+                 accessiblePlugins.push(dashboardId);
              }
         }
 
