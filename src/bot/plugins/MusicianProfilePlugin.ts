@@ -95,7 +95,7 @@ export class MusicianProfilePlugin implements IPlugin {
         }
 
         // Public Link
-        const publicUrl = `https://fujistudio.app/profile/${user.id}`;
+        const publicUrl = `https://fujistud.io/profile/${user.id}`;
         embed.addFields({ name: '🔗 Public Profile', value: `[View on Web](${publicUrl})` });
 
         await interaction.reply({ embeds: [embed] });

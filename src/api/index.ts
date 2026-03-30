@@ -8407,7 +8407,7 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
     const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
     if (!annChannelId) return 'No announcement channel configured. Set one in Beat Battle settings.';
 
-    const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+    const apiUrl = process.env.API_URL || 'https://fujistud.io';
     let embed: any;
 
     if (battle.status === 'upcoming' || battle.status === 'active') {

@@ -95,7 +95,7 @@ export class BeatBattlePlugin implements IPlugin {
             return;
         }
 
-        const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+        const apiUrl = process.env.API_URL || 'https://fujistud.io';
         const statusLabel: Record<string, string> = { upcoming: '?? Upcoming', active: '?? Submissions Open', voting: '??? Voting Open', completed: '?? Completed' };
 
         const embed = new EmbedBuilder()
@@ -121,7 +121,7 @@ export class BeatBattlePlugin implements IPlugin {
         }
         if (battle.sponsor) {
             let sponsorText = `**${battle.sponsor.name}**`;
-            if (battle.sponsor.websiteUrl) sponsorText += ` — [Website](${battle.sponsor.websiteUrl})`;
+            if (battle.sponsor.websiteUrl) sponsorText += ` ï¿½ [Website](${battle.sponsor.websiteUrl})`;
             embed.addFields({ name: '?? Sponsored by', value: sponsorText });
             if (battle.sponsor.logoUrl) embed.setThumbnail(battle.sponsor.logoUrl);
         }
@@ -150,11 +150,11 @@ export class BeatBattlePlugin implements IPlugin {
 
         const lines = battle.entries.map((e, i) => {
             const medal = i === 0 ? '??' : i === 1 ? '??' : i === 2 ? '??' : `${i + 1}.`;
-            return `${medal} **${e.trackTitle}** by <@${e.userId}> — ${e.voteCount} votes`;
+            return `${medal} **${e.trackTitle}** by <@${e.userId}> ï¿½ ${e.voteCount} votes`;
         });
 
         const embed = new EmbedBuilder()
-            .setTitle(`?? ${battle.title} — Leaderboard`)
+            .setTitle(`?? ${battle.title} ï¿½ Leaderboard`)
             .setDescription(lines.join('\n'))
             .setColor(0x2B8C71)
             .setFooter({ text: 'Fuji Studio Beat Battle' })
@@ -238,7 +238,7 @@ export class BeatBattlePlugin implements IPlugin {
         const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
         if (!annChannelId) return null;
 
-        const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+        const apiUrl = process.env.API_URL || 'https://fujistud.io';
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
@@ -263,7 +263,7 @@ export class BeatBattlePlugin implements IPlugin {
             }
             if (battle.sponsor) {
                 let sponsorText = `**${battle.sponsor.name}**`;
-                if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+                if (battle.sponsor.websiteUrl) sponsorText += ` ï¿½ [Visit Website](${battle.sponsor.websiteUrl})`;
                 embed.addFields({ name: '?? Sponsored by', value: sponsorText });
                 if (battle.sponsor.logoUrl) embed.setThumbnail(battle.sponsor.logoUrl);
             }
@@ -281,14 +281,14 @@ export class BeatBattlePlugin implements IPlugin {
         const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
         if (!annChannelId) return;
 
-        const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+        const apiUrl = process.env.API_URL || 'https://fujistud.io';
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return;
 
             const embed = new EmbedBuilder()
-                .setTitle(`??? ${battle.title} — Voting is Now Open!`)
+                .setTitle(`??? ${battle.title} ï¿½ Voting is Now Open!`)
                 .setDescription('Submissions are closed. Head to the website to listen and vote for your favourite beat!')
                 .setColor(0xFFA500)
                 .addFields({ name: '?? Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` })
@@ -307,14 +307,14 @@ export class BeatBattlePlugin implements IPlugin {
         const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
         if (!annChannelId || !winner) return;
 
-        const apiUrl = process.env.API_URL || 'https://fujistudio.app';
+        const apiUrl = process.env.API_URL || 'https://fujistud.io';
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return;
 
             const embed = new EmbedBuilder()
-                .setTitle(`?? ${battle.title} — Winner!`)
+                .setTitle(`?? ${battle.title} ï¿½ Winner!`)
                 .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`)
                 .setColor(0xFFD700)
                 .addFields({ name: '?? Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })

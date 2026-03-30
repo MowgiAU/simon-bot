@@ -186,7 +186,7 @@ export const BattleDetailPage: React.FC = () => {
         };
         setMeta('og:title', `${battle.title} | Beat Battle`);
         setMeta('og:description', battle.description || 'Join the beat battle on Fuji Studio — submit your track and win prizes.');
-        setMeta('og:image', battle.bannerUrl ? `${API}${battle.bannerUrl}` : 'https://fujistudio.app/og-default.png');
+        setMeta('og:image', battle.bannerUrl ? `${API}${battle.bannerUrl}` : 'https://fujistud.io/og-default.png');
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         setMeta('og:site_name', 'Fuji Studio');
