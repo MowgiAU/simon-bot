@@ -11,7 +11,21 @@ import {
   ChevronRight,
   Search,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Swords,
+  FileText,
+  Mail,
+  MonitorPlay,
+  Radio,
+  TrendingUp,
+  ScrollText,
+  Music,
+  Mic,
+  BarChart,
+  Users,
+  ShieldOff,
+  BookOpen,
+  Palette,
 } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
@@ -31,53 +45,174 @@ const docSections: DocSection[] = [
     title: 'Fuji Studio Overview',
     icon: <Book size={20} />,
     color: colors.primary,
-    content: 'Fuji Studio is a modular, high-performance Discord bot designed specifically for music production communities. It provides advanced tools for moderation, economy, ticket management, and producer-focused utilities.',
-    requirements: ['Node.js 18+', 'PostgreSQL', 'Discord Bot Token']
+    content: 'Fuji Studio is a modular, high-performance Discord bot designed specifically for music production communities. Every feature runs as an independent plugin that can be enabled, disabled, and role-restricted from the Plugin Management page. The dashboard gives admins and authorised staff full control over configuration, moderation tools, and community features — all in one place.',
+    requirements: ['Node.js 18+', 'PostgreSQL via Prisma', 'Discord Bot Token', 'Plugin Management access for admins']
   },
   {
     id: 'moderation',
     title: 'Moderation System',
     icon: <Shield size={20} />,
     color: colors.primary,
-    content: 'A robust suite of tools for maintaining community standards. Includes advanced logging, automated warnings, timed silences, and customizable permissions for staff members.',
-    commands: ['/ban', '/kick', '/timeout', '/warn', '/purge'],
-    requirements: ['Manage Members permission', 'Kick/Ban permissions', 'Bot role must be high in hierarchy']
+    content: 'A comprehensive suite for maintaining community standards. Includes kick, ban (with optional duration for auto-unban), timeout, warnings, and bulk message purge. All actions are logged to the audit trail and generate DM notifications to the affected user. Duration strings support seconds, minutes, hours, days and weeks (e.g. "7d", "24h").',
+    commands: ['/kick [user] [reason]', '/ban [user] [reason] [duration]', '/timeout [user] [duration] [reason]', '/warn [user] [reason]', '/purge [amount]', '/modlog [user]'],
+    requirements: ['Manage Members permission', 'Kick Members / Ban Members permissions', 'Bot role must be higher than target in role hierarchy']
   },
   {
     id: 'word-filter',
     title: 'Word Filter & Protection',
     icon: <ShieldAlert size={20} />,
     color: colors.highlight,
-    content: 'Proactive protection against toxicity, spam, and prohibited content. Group-based filtering allows for nuanced control over different types of content in specific channels.',
-    commands: ['/filter add', '/filter remove', '/filter list'],
-    requirements: ['Manage Messages permission']
+    content: 'Proactive content filtering with group-based word lists. When a filtered word is detected, the message is deleted and optionally reposted via webhook with the word replaced — preserving the author\'s name and avatar. Supports automatic plural detection (e.g. "lime" also catches "limes"), custom replacement text or emoji per group, and per-group channel/role exclusions.',
+    commands: ['/filter add [group] [word]', '/filter remove [group] [word]', '/filter list'],
+    requirements: ['Manage Messages permission', 'Webhook permission (for repost mode)']
+  },
+  {
+    id: 'anti-piracy',
+    title: 'Anti-Piracy Protection',
+    icon: <ShieldOff size={20} />,
+    color: colors.warning,
+    content: 'Automatically detects and moderates software piracy discussion, with a focus on FL Studio and music production tools. Uses a two-stage approach: fast keyword pre-filtering with 30+ default piracy terms, followed by optional AI classification via OpenAI for ambiguous messages. Configurable actions include warn only, delete, or delete and warn. Supports custom keywords, and channel/role exclusions.',
+    requirements: ['OpenAI API key (optional, for AI mode)', 'Manage Messages permission']
+  },
+  {
+    id: 'leveling',
+    title: 'Leveling System',
+    icon: <TrendingUp size={20} />,
+    color: colors.info,
+    content: 'High-performance XP and leveling system with multiple earning methods. Users gain XP from messages (with cooldown), voice chat time (tracked every 60 seconds), reactions, and daily login streaks. The XP curve follows 100 × level^1.5 + 400. Includes configurable role rewards that auto-assign at specific levels, sticky roles that persist when members leave and rejoin, and an economy-integrated XP boost purchase.',
+    commands: ['/rank [user]', '/leaderboard [type] [page]', '/xp give [user] [amount]', '/xp remove [user] [amount]', '/xp set [user] [level]', '/leveling-sync [user]', '/xpboost'],
+    requirements: ['Manage Roles permission (for role rewards)', 'Economy plugin (optional, for /xpboost)']
+  },
+  {
+    id: 'channel-rules',
+    title: 'Channel Rules & Gatekeeper',
+    icon: <FileText size={20} />,
+    color: colors.primary,
+    content: 'Advanced per-channel traffic control and content moderation. Define rules per channel to enforce content standards automatically. Supported rule types: block specific file types, block all files, require attachments, minimum/maximum message length, max newlines, regex pattern matching, caps ratio limiting (default 70%), and domain blocking. Each rule supports role exemptions, and an approval queue system allows moderators to review and approve flagged messages via buttons.',
+    requirements: ['Manage Messages permission', 'Webhook permission (for approval reposts)']
   },
   {
     id: 'tickets',
     title: 'Ticket Support System',
     icon: <MessageSquare size={20} />,
     color: colors.info,
-    content: 'Efficient handling of user inquiries through private, loggable support channels. Includes automatic transcripts and customizable category templates.',
-    commands: ['/ticket open', '/ticket close', '/ticket add-user'],
-    requirements: ['Manage Channels permission', 'Support Role configured']
+    content: 'Private support channels for handling user inquiries. Admins configure a category, staff roles, and a transcript log channel, then deploy a ticket creation panel with a button. Users click to open a private ticket channel visible only to them and staff. Supports adding/removing users from tickets, priority levels (low, medium, high), and automatic transcript generation on close.',
+    commands: ['/ticket setup [category] [initial_role]', '/ticket staff-add [role]', '/ticket staff-remove [role]', '/ticket panel [channel]', '/ticket transcript-channel [channel]', '/ticket close', '/ticket add [user]', '/ticket remove [user]', '/ticket priority [level]'],
+    requirements: ['Manage Channels permission', 'At least one staff role configured']
   },
   {
     id: 'economy',
     title: 'Studio Economy',
     icon: <DollarSign size={20} />,
     color: colors.success,
-    content: 'Reward community engagement with custom currency. Users can earn points for activity and spend them on special roles or producer-related items through the shop.',
-    commands: ['/balance', '/work', '/shop', '/pay', '/daily'],
-    requirements: ['Database connectivity']
+    content: 'Reward community engagement with a custom server currency. Users earn passively by chatting (with configurable cooldown and minimum message length), and can tip each other via emoji reactions (1 coin per reaction). The economy integrates with the Leveling system — earning bonuses scale at +2% per 5 levels. Includes a server shop where admins can list items with stock tracking, and a wealth leaderboard.',
+    commands: ['/wallet [user]', '/wealth', '/market', '/buy [item]'],
+    requirements: ['Database connectivity', 'Leveling plugin (optional, for scaled rewards)']
   },
   {
     id: 'welcome-gate',
     title: 'Welcome Gate & Verify',
     icon: <UserPlus size={20} />,
     color: colors.info,
-    content: 'Streamline onboarding with automated verification and welcome sequences. Prevents raids and ensures newcomers read the rules before joining the general chat.',
-    requirements: ['Manage Roles permission']
-  }
+    content: 'Streamlined onboarding with button-triggered verification. New members are auto-assigned an unverified role on join. Clicking the verify button in the welcome channel opens a modal with up to 5 configurable questions. On submission, the unverified role is swapped for the verified role, granting access to the server. Prevents raids and ensures newcomers acknowledge the rules.',
+    commands: ['/setup-welcome [channel] [title] [description]'],
+    requirements: ['Manage Roles permission', 'Unverified and Verified roles created']
+  },
+  {
+    id: 'production-feedback',
+    title: 'Production Feedback',
+    icon: <Palette size={20} />,
+    color: colors.accent,
+    content: 'AI-assisted music production feedback system built around a forum channel. Users spend economy currency to create feedback threads (configurable cost), then post their audio. Other producers submit text feedback which is scored by an AI service for quality. Approved feedback is reposted to the thread via webhook — reviewers earn a configurable currency reward. Includes an approval workflow with accept/deny buttons for moderators.',
+    commands: ['/feedback-init'],
+    requirements: ['Forum channel configured', 'Economy plugin (for thread cost/rewards)', 'OpenAI API key (for AI scoring)']
+  },
+  {
+    id: 'email-client',
+    title: 'Email Client',
+    icon: <Mail size={20} />,
+    color: colors.highlight,
+    content: 'Dashboard-based email management for community communications. Incoming emails are polled every 15 seconds and displayed in the dashboard inbox with full read/unread tracking, search, and compose capabilities. Optionally sends Discord notifications to a configured channel with role mentions when new mail arrives. All email management happens through the dashboard — no slash commands needed.',
+    requirements: ['Email routing configured (e.g. Cloudflare Email Workers)', 'Notification channel (optional)']
+  },
+  {
+    id: 'beat-battle',
+    title: 'Beat Battles',
+    icon: <Swords size={20} />,
+    color: colors.warning,
+    content: 'Host competitive beat-making contests on the website with Discord integration. Battles progress through lifecycle phases: upcoming → active (submissions open) → voting → completed. Producers submit entries via the website, community members vote, and results are announced in a configurable Discord channel. Supports battle sponsorship, entry archives, and a lifetime leaderboard. Winners are tracked across all battles.',
+    commands: ['/battle info', '/battle leaderboard'],
+    requirements: ['Announcement channel configured (optional)']
+  },
+  {
+    id: 'featured-content',
+    title: 'Featured Content',
+    icon: <MonitorPlay size={20} />,
+    color: colors.accent,
+    content: 'Showcase top community content on the public website\'s discovery page. Admins select which type of content is featured (e.g. featured video, producer spotlight, or community pick). The content type and associated media are configured entirely through the dashboard and displayed prominently on the public-facing site.',
+    requirements: ['Admin access to configure']
+  },
+  {
+    id: 'fuji-radio',
+    title: 'Fuji FM Radio',
+    icon: <Radio size={20} />,
+    color: colors.primary,
+    content: 'Community radio station with two modes: 24/7 auto-pilot that plays approved tracks from the music library, and a live host/DJ mode where a user takes control of the queue. Listeners earn XP every 60 seconds while tuned in. Features include tipping the currently playing artist with economy currency, liking tracks to add them to favourites, and a track queue system. The radio auto-reconnects on voice connection drops.',
+    commands: ['/radio start', '/radio stop', '/radio host', '/radio skip', '/radio queue [track]', '/radio np', '/tip [amount]', '/like', '/nowplaying'],
+    requirements: ['Voice channel access', 'Approved tracks in music library', 'Economy plugin (for tipping)']
+  },
+  {
+    id: 'logger',
+    title: 'Audit Logs',
+    icon: <ScrollText size={20} />,
+    color: colors.textSecondary,
+    content: 'Centralised logging system that records all moderation and system actions with timestamps, executor info, and targets. Supports historical log importing from popular bots (Dyno, Carl) to consolidate your audit trail. Logs are searchable and filterable in the dashboard by action type, user, and date range. Use the clear command to purge logs in a specific category if needed.',
+    commands: ['/logger import [channel] [category]', '/logger clear [category]'],
+    requirements: ['Administrator permission (for clear)']
+  },
+  {
+    id: 'musician-profiles',
+    title: 'Musician Profiles & Discovery',
+    icon: <Music size={20} />,
+    color: colors.accent,
+    content: 'Full-featured producer profiles with public portfolio pages. Members create profiles with their bio, primary DAW, location, genres, and social links. Profiles are publicly accessible at fujistud.io/profile/{username} and appear in the Artist Discovery page. The dashboard admin view allows moderating profiles, managing featured artists, and reviewing profile content. Track uploads, playlists, and favourites are all tied to the profile system.',
+    commands: ['/profile view [user]', '/profile edit'],
+    requirements: ['Profile setup completed by user']
+  },
+  {
+    id: 'voice-monitor',
+    title: 'Voice Monitor',
+    icon: <Mic size={20} />,
+    color: colors.warning,
+    content: 'Moderation tool that records individual voice channel audio streams for review. When monitoring is active, each user\'s audio is captured separately and uploaded to cloud storage (R2). Recordings are automatically purged after a configurable retention period. Active recordings are flushed every 5 minutes, and orphaned sessions are cleaned up on bot restart. Specific roles can be excluded from monitoring.',
+    commands: ['/voicemonitor', '/voicereport'],
+    requirements: ['Voice channel permissions', 'R2 / S3 storage configured', 'FFmpeg installed on server']
+  },
+  {
+    id: 'stats',
+    title: 'Server Statistics',
+    icon: <BarChart size={20} />,
+    color: colors.info,
+    content: 'Passive activity tracking that powers the dashboard Overview charts and analytics. Automatically tracks message counts per channel, voice session durations, bans, and member join/leave events. Data is aggregated daily and displayed as historical graphs on the dashboard. Includes member last-active timestamps and auto-scans for existing voice sessions on startup. No user interaction required — runs entirely in the background.',
+    requirements: ['Runs automatically — no setup needed']
+  },
+  {
+    id: 'studio-guide',
+    title: 'Studio Guide AI',
+    icon: <BookOpen size={20} />,
+    color: colors.primary,
+    content: 'AI-powered assistant that monitors a configured help channel and answers FL Studio, music theory, and production questions using the official manuals and a FAISS vector knowledge base. Only responds when a message is identified as a relevant music production question. Supports image recognition for screenshots. Includes guild-wide pause (for when humans want to answer), per-user opt-out, conversation history tracking (15-minute TTL, 20-message max), and a direct /guide ask command.',
+    commands: ['/guide pause [minutes]', '/guide resume', '/guide optout [minutes]', '/guide optin', '/guide ask [question]', '/guide status'],
+    requirements: ['OpenAI API key', 'FAISS vector store with FL Studio knowledge', 'Designated help channel']
+  },
+  {
+    id: 'account-management',
+    title: 'Account Management',
+    icon: <Users size={20} />,
+    color: colors.textSecondary,
+    content: 'Admin-only dashboard panel for managing user accounts across the platform. View all registered accounts with search and filtering, check account details (Discord link status, email verification, login method, role), and perform administrative actions. Centralises user management for the website and dashboard access system.',
+    requirements: ['Admin access required']
+  },
 ];
 
 export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?: (section: any) => void }> = ({ initialSection, onNavigate }) => {
@@ -99,9 +234,22 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
       'overview': 'dashboard',
       'moderation': 'moderation',
       'word-filter': 'word-filter-settings',
+      'anti-piracy': 'anti-piracy',
+      'leveling': 'leveling',
+      'channel-rules': 'channel-rules',
       'tickets': 'tickets',
       'economy': 'economy',
-      'welcome-gate': 'welcome-gate'
+      'welcome-gate': 'welcome-gate',
+      'production-feedback': 'feedback',
+      'email-client': 'email-client',
+      'beat-battle': 'beat-battle',
+      'featured-content': 'featured-content',
+      'fuji-radio': 'fuji-radio',
+      'logger': 'logs',
+      'musician-profiles': 'musician-profiles-admin',
+      'voice-monitor': 'voice-monitor',
+      'studio-guide': 'studio-guide',
+      'account-management': 'account-management',
     };
 
     const target = settingsMap[activeSection];
