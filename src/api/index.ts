@@ -28,6 +28,9 @@ import { FLPParser } from '../bot/utils/FLPParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
+import { runBackup } from '../services/DatabaseBackup.js';
+import { softDeleteMiddleware } from '../services/softDelete.js';
+import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
 import * as otplibAll from 'otplib';
 const generateSecret = otplibAll.generateSecret;
@@ -374,6 +377,11 @@ if (process.env.NODE_ENV !== 'production') {
     }
   });
 }
+
+// Register retry middleware (retries transient DB errors with exponential backoff)
+db.$use(retryMiddleware);
+// Register soft-delete middleware (converts delete→update, auto-filters deletedAt)
+db.$use(softDeleteMiddleware);
 
 const emailService = new EmailService();
 const profileService = new ProfileService(db);
@@ -3751,21 +3759,22 @@ app.post('/api/economy/vault/:guildId', async (req, res) => {
             newBalance += amount;
         }
 
-        const updated = await db.economyAccount.upsert({
-            where: { guildId_userId: { guildId, userId } },
-            update: { balance: newBalance },
-            create: { guildId, userId, balance: newBalance }
-        });
-
-        // Log admin action
-        await db.economyTransaction.create({
-            data: {
-                guildId,
-                amount: mode === 'set' ? (amount - (account?.balance || 0)) : amount,
-                type: 'ADMIN',
-                reason: 'Vault Adjustment',
-                toUserId: userId
-            }
+        const updated = await db.$transaction(async (tx) => {
+            const acc = await tx.economyAccount.upsert({
+                where: { guildId_userId: { guildId, userId } },
+                update: { balance: newBalance },
+                create: { guildId, userId, balance: newBalance }
+            });
+            await tx.economyTransaction.create({
+                data: {
+                    guildId,
+                    amount: mode === 'set' ? (amount - (account?.balance || 0)) : amount,
+                    type: 'ADMIN',
+                    reason: 'Vault Adjustment',
+                    toUserId: userId
+                }
+            });
+            return acc;
         });
 
         res.json(updated);
@@ -3978,10 +3987,27 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
         }
 
         if (action === 'APPROVE') {
-             // 1. Update DB
-             await db.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
-             
+             // 1. Update DB + reward atomically
              const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
+             await db.$transaction(async (tx) => {
+                 await tx.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
+                 if (settings && settings.currencyReward > 0) {
+                     await tx.economyAccount.upsert({
+                         where: { guildId_userId: { guildId, userId: post.userId } },
+                         update: { balance: { increment: settings.currencyReward }, totalEarned: { increment: settings.currencyReward } },
+                         create: { guildId, userId: post.userId, balance: settings.currencyReward, totalEarned: settings.currencyReward }
+                     });
+                     await tx.economyTransaction.create({
+                         data: {
+                             guildId,
+                             toUserId: post.userId,
+                             amount: settings.currencyReward,
+                             type: 'FEEDBACK_REWARD',
+                             reason: 'Staff approved feedback'
+                         }
+                     });
+                 }
+             });
 
              // Update Mod Log to GREEN
              if (settings?.modLogChannelId && post.moderationMessageId) {
@@ -4009,27 +4035,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                 } catch (e) { /* Ignore */ }
             }
 
-            // 1b. Reward User
-            try {
-                if (settings && settings.currencyReward > 0) {
-                     await db.economyAccount.upsert({
-                        where: { guildId_userId: { guildId, userId: post.userId } },
-                        update: { balance: { increment: settings.currencyReward }, totalEarned: { increment: settings.currencyReward } },
-                        create: { guildId, userId: post.userId, balance: settings.currencyReward, totalEarned: settings.currencyReward }
-                     });
-                     await db.economyTransaction.create({
-                        data: {
-                            guildId,
-                            toUserId: post.userId,
-                            amount: settings.currencyReward,
-                            type: 'FEEDBACK_REWARD',
-                            reason: 'Staff approved feedback'
-                        }
-                    });
-                }
-            } catch (e) {
-                logger.error('Failed to reward user', e);
-            }
+            // Reward already handled in transaction above
 
             // 2. Logic based on type
             // If it has AUDIO, we need to REPOST it
@@ -8140,10 +8146,12 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             where: { entryId_userId: { entryId, userId } },
         });
         if (existingVote) {
-            await db.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
-            const updated = await db.battleEntry.update({
-                where: { id: entryId },
-                data: { voteCount: { decrement: 1 } },
+            const updated = await db.$transaction(async (tx) => {
+                await tx.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
+                return tx.battleEntry.update({
+                    where: { id: entryId },
+                    data: { voteCount: { decrement: 1 } },
+                });
             });
             return res.json({ voteCount: updated.voteCount, voted: false });
         }
@@ -8161,18 +8169,19 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             }
         }
 
-        await db.battleVote.create({
-            data: { entryId, userId, source: 'web' },
+        const updated = await db.$transaction(async (tx) => {
+            await tx.battleVote.create({
+                data: { entryId, userId, source: 'web' },
+            });
+            const updatedEntry = await tx.battleEntry.update({
+                where: { id: entryId },
+                data: { voteCount: { increment: 1 } },
+            });
+            await tx.battleAnalytics.create({
+                data: { battleId: updatedEntry.battleId, eventType: 'vote_cast', userId },
+            });
+            return updatedEntry;
         });
-
-        const updated = await db.battleEntry.update({
-            where: { id: entryId },
-            data: { voteCount: { increment: 1 } },
-        });
-
-        await db.battleAnalytics.create({
-            data: { battleId: entry.battleId, eventType: 'vote_cast', userId },
-        }).catch(() => {});
 
         res.json({ voteCount: updated.voteCount, voted: true });
     } catch (e: any) {
@@ -8187,9 +8196,11 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
         const { entryId } = req.params;
         const entry = await db.battleEntry.findUnique({ where: { id: entryId } });
         if (!entry) return res.status(404).json({ error: 'Entry not found' });
-        // Delete votes first (FK constraint)
-        await db.battleVote.deleteMany({ where: { entryId } });
-        await db.battleEntry.delete({ where: { id: entryId } });
+        // Delete votes + entry atomically
+        await db.$transaction(async (tx) => {
+            await tx.battleVote.deleteMany({ where: { entryId } });
+            await tx.battleEntry.delete({ where: { id: entryId } });
+        });
         res.json({ success: true });
     } catch (e: any) {
         logger.error('Beat Battle API: delete entry failed', e);
@@ -11109,10 +11120,45 @@ app.post('/api/admin/users/bulk-invite', requireAdmin, async (req, res) => {
     }
 });
 
+// ── Manual Backup Trigger (admin only) ──────────────────────────────────────
+app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
+    try {
+        if (!R2Storage.isConfigured()) {
+            return res.status(503).json({ error: 'R2 not configured' });
+        }
+        const result = await runBackup();
+        res.json({ success: true, key: result.key, sizeMB: +(result.sizeBytes / 1024 / 1024).toFixed(2) });
+    } catch (e: any) {
+        logger.error('Manual backup failed', e);
+        res.status(500).json({ error: 'Backup failed' });
+    }
+});
+
 app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
   if (!R2Storage.isConfigured()) {
     logger.warn('R2 not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME missing). ZIP sample audio will be served from local storage.');
+  }
+
+  // ── Scheduled Database Backups (every 6 hours) ───────────────────────────
+  if (R2Storage.isConfigured()) {
+    const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    const doBackup = async () => {
+      try {
+        const result = await runBackup();
+        logger.info(`[Scheduled Backup] Success: ${result.key} (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB)`);
+      } catch (e: any) {
+        logger.error('[Scheduled Backup] Failed', e);
+      }
+    };
+    // Run first backup 60s after startup (let DB connections warm up)
+    setTimeout(() => {
+      doBackup();
+      setInterval(doBackup, BACKUP_INTERVAL_MS);
+    }, 60_000);
+    logger.info('[Scheduled Backup] Enabled — every 6 hours, 30-backup retention');
+  } else {
+    logger.warn('[Scheduled Backup] Disabled — R2 not configured');
   }
 
   // Backfill slugs for any battles that don't have one yet
@@ -11132,3 +11178,19 @@ app.listen(PORT, async () => {
     logger.warn('Slug backfill skipped (migration may not have run yet)');
   }
 });
+
+// ── Graceful Shutdown ─────────────────────────────────────────────────────────
+// On SIGTERM/SIGINT (PM2 restart, deploy, etc.) drain the Prisma connection pool
+// before the process exits so no in-flight queries are cut mid-write.
+async function gracefulShutdown(signal: string) {
+    logger.info(`[Shutdown] Received ${signal} — closing database connections…`);
+    try {
+        await db.$disconnect();
+        logger.info('[Shutdown] Prisma disconnected cleanly');
+    } catch (e) {
+        logger.error('[Shutdown] Error disconnecting Prisma', e);
+    }
+    process.exit(0);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

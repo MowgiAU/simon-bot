@@ -45,6 +45,9 @@ model User {
   role                     String    @default("user")   // "user" | "admin" | "moderator"
   invited                  Boolean   @default(false)    // Invite-only gate for private beta
 
+  // Soft delete
+  deletedAt                DateTime?
+
   @@map("users")
 }
 
@@ -638,6 +641,9 @@ model Ticket {
   createdAt DateTime @default(now())
   closedAt  DateTime?
 
+  // Soft delete
+  deletedAt DateTime?
+
   guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   messages  TicketMessage[]
   @@map("tickets")
@@ -751,6 +757,9 @@ model MusicianProfile {
   // Moderation
   status          String   @default("active") // "active" | "suspended" | "banned"
   statusReason    String?  // Admin-provided note for suspension/ban
+
+  // Soft delete
+  deletedAt       DateTime?
   
   // Genres (Many-to-Many via Join Table)
   genres          ProfileGenre[]
@@ -792,6 +801,9 @@ model Track {
   // Moderation
   status          String   @default("active") // "active" | "suspended" | "deleted"
   statusReason    String?  // Admin-provided note
+
+  // Soft delete
+  deletedAt       DateTime?
 
   // ID3 Metadata (user-editable)
   artist          String?
@@ -1111,6 +1123,9 @@ model BeatBattle {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  // Soft delete
+  deletedAt           DateTime?
+
   guild               Guild          @relation(fields: [guildId], references: [id], onDelete: Cascade)
   sponsor             BattleSponsor? @relation(fields: [sponsorId], references: [id])
   entries             BattleEntry[]
@@ -1141,6 +1156,9 @@ model BattleEntry {
   trackId     String?  // FK to musician Track (library submission)
   source      String   @default("web")
   createdAt   DateTime @default(now())
+
+  // Soft delete
+  deletedAt   DateTime?
 
   battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
   track       Track?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
@@ -1251,6 +1269,9 @@ model Comment {
 
   // Self-referential reply thread (one level deep)
   parentId        String?
+
+  // Soft delete
+  deletedAt       DateTime?
 
   track           Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
   profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -1386,6 +1407,9 @@ model Playlist {
   featuredByProfiles MusicianProfile[] @relation("ProfileFeaturedPlaylist")
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+
+  // Soft delete
+  deletedAt   DateTime?
 
   @@unique([userId, slug])
   @@index([userId])

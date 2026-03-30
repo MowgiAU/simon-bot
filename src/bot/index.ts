@@ -34,6 +34,8 @@ import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
 import { StudioGuidePlugin } from './plugins/StudioGuidePlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
+import { softDeleteMiddleware } from '../services/softDelete.js';
+import { retryMiddleware } from '../services/prismaRetry.js';
 
 dotenv.config();
 
@@ -76,6 +78,8 @@ export class SimonBot {
 
     // Initialize database
     this.db = new PrismaClient();
+    this.db.$use(retryMiddleware);
+    this.db.$use(softDeleteMiddleware);
 
     // Initialize plugin system
     this.pluginManager = new PluginManager();
