@@ -969,23 +969,63 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     }
 
     // ===== STANDARD DISCORD LOGIN FLOW =====
-    // Discord can only log in to an EXISTING account that has this discordId linked.
-    // It does NOT create new accounts â€” users must register with email first.
+    // If no account exists for this Discord user, auto-create one.
     try {
-        const dbUser = await db.user.findUnique({ where: { discordId: user.id } });
+        let dbUser = await db.user.findUnique({ where: { discordId: user.id } });
         if (!dbUser) {
-            // No account linked to this Discord â€” redirect to register page
-            logger.info(`[Auth] Discord login attempt with no linked account: discordId=${user.id}`);
-            return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=no_account`);
+            // Auto-create account from Discord profile
+            const discordUsername = (user.username || `user_${user.id}`).toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 30);
+
+            // Ensure username is unique
+            let finalUsername = discordUsername;
+            const existingUsername = await db.user.findUnique({ where: { username: finalUsername } });
+            if (existingUsername) {
+                finalUsername = `${discordUsername.slice(0, 25)}_${user.id.slice(-4)}`;
+            }
+
+            // Check if Discord email already belongs to a local account
+            let emailToUse = user.email || null;
+            if (emailToUse) {
+                const emailOwner = await db.user.findUnique({ where: { email: emailToUse } });
+                if (emailOwner) {
+                    // Link Discord to existing account that shares this email
+                    dbUser = await db.user.update({
+                        where: { id: emailOwner.id },
+                        data: {
+                            discordId: user.id,
+                            displayName: user.global_name || user.username,
+                            avatar: user.avatar,
+                            lastLoginAt: new Date(),
+                        },
+                    });
+                    logger.info(`[Auth] Linked Discord ${user.id} to existing email account ${emailOwner.id} (${emailToUse})`);
+                }
+            }
+
+            if (!dbUser) {
+                dbUser = await db.user.create({
+                    data: {
+                        discordId: user.id,
+                        username: finalUsername,
+                        displayName: user.global_name || user.username,
+                        avatar: user.avatar,
+                        email: emailToUse,
+                        emailVerified: emailToUse ? new Date() : null,
+                        lastLoginAt: new Date(),
+                    },
+                });
+                logger.info(`[Auth] Auto-created account ${dbUser.id} for Discord user ${user.username} (${user.id})`);
+            }
+        } else {
+            await db.user.update({
+                where: { id: dbUser.id },
+                data: {
+                    displayName: user.global_name || user.username,
+                    avatar: user.avatar,
+                    lastLoginAt: new Date(),
+                },
+            });
         }
-        await db.user.update({
-            where: { id: dbUser.id },
-            data: {
-                displayName: user.global_name || user.username,
-                avatar: user.avatar,
-                lastLoginAt: new Date(),
-            },
-        });
         user._localId = dbUser.id;
         user._hasPassword = !!dbUser.passwordHash;
         user._email = dbUser.email;

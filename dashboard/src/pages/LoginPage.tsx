@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
     const [totpCode, setTotpCode] = useState('');
     const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(urlError === 'no_account' ? 'No account is linked to that Discord profile. Please create an account first.' : '');
+    const [error, setError] = useState(urlError === 'server_error' ? 'Something went wrong during sign in. Please try again.' : '');
     const [success, setSuccess] = useState('');
     const [showResendVerification, setShowResendVerification] = useState(false);
     const [resendEmail, setResendEmail] = useState('');
