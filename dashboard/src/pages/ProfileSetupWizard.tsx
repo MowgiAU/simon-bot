@@ -31,13 +31,14 @@ const GEAR_CATEGORIES = [
 ];
 
 export const ProfileSetupWizard: React.FC = () => {
-    const { user, isGuildMember } = useAuth();
+    const { user, isGuildMember, refreshAccountStatus } = useAuth();
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [recheckLoading, setRecheckLoading] = useState(false);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -176,15 +177,27 @@ export const ProfileSetupWizard: React.FC = () => {
                                 <p style={{ margin: '0 0 14px', color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
                                     You must be a member of the Fuji Studio Discord server to create a profile, upload tracks, and participate in battles.
                                 </p>
-                                <a
-                                    href="https://discord.gg/flstudio"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#5865F2', color: 'white', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '14px' }}
-                                >
-                                    <MessageCircle size={16} /> Join Discord Server
-                                </a>
-                                <p style={{ margin: '10px 0 0', color: colors.textSecondary, fontSize: '11px' }}>After joining, log out and log back in to refresh your status.</p>
+                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <a
+                                        href="https://discord.gg/flstudio"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: '#5865F2', color: 'white', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '14px' }}
+                                    >
+                                        <MessageCircle size={16} /> Join Discord Server
+                                    </a>
+                                    <button
+                                        onClick={async () => {
+                                            setRecheckLoading(true);
+                                            refreshAccountStatus();
+                                            setTimeout(() => setRecheckLoading(false), 2000);
+                                        }}
+                                        disabled={recheckLoading}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 700, fontSize: '14px', cursor: recheckLoading ? 'wait' : 'pointer', opacity: recheckLoading ? 0.6 : 1 }}
+                                    >
+                                        <Check size={16} /> {recheckLoading ? 'Checking...' : 'I\'ve joined — re-check'}
+                                    </button>
+                                </div>
                             </div>
                         )}
 

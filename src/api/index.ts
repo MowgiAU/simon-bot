@@ -2269,6 +2269,31 @@ async function refreshSessionGuilds(req: any): Promise<void> {
 
         req.session.mutualAdminGuilds = mutualAdminGuilds;
         req.session.mutualStaffGuilds = mutualStaffGuilds;
+
+        // Refresh primary guild membership status
+        const primaryGuildId = process.env.GUILD_ID;
+        if (primaryGuildId && discordId) {
+            const cacheKey = `${primaryGuildId}:${discordId}`;
+            const cached = memberRoleCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                req.session.isGuildMember = true;
+            } else {
+                try {
+                    const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${discordId}`, {
+                        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                        timeout: 5000
+                    });
+                    const memberRoles: string[] = memberRes.data.roles || [];
+                    memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                    req.session.isGuildMember = true;
+                } catch (e: any) {
+                    if (e.response?.status === 404) {
+                        req.session.isGuildMember = false;
+                    }
+                    // Other errors: keep existing value
+                }
+            }
+        }
     } catch (e) {
         logger.warn('[Auth] Failed to refresh session guilds', e);
     }
@@ -9990,6 +10015,27 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
             orderBy: { createdAt: 'desc' },
             take: 50,
         });
+
+        // Check if user has a musician profile — if not, prepend a prompt notification
+        try {
+            const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
+            if (!profile) {
+                notifications.unshift({
+                    id: '_create_profile',
+                    userId,
+                    type: 'system',
+                    title: 'Create your musician profile',
+                    message: 'Set up your artist profile to upload tracks, join battles, and connect with other producers.',
+                    link: '/profile/setup',
+                    actorId: null,
+                    actorName: 'Fuji Studio',
+                    actorAvatar: null,
+                    isRead: false,
+                    createdAt: new Date().toISOString(),
+                });
+            }
+        } catch { /* non-fatal */ }
+
         res.json(notifications);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
