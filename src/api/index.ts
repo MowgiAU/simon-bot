@@ -3573,7 +3573,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'voice-monitor', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity'] 
             });
         }
 

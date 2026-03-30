@@ -123,6 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Overview</span>
           </button>
 
+          {permissions.accessiblePlugins.includes('bot-identity') && (
           <button
             className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`}
             onClick={() => onNavigate('bot-identity')}
@@ -131,6 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><AnimatedWrapper icon={UserIcon} size={20} /></span>
             <span className="nav-label">Bot Identity</span>
           </button>
+          )}
 
           {permissions.accessiblePlugins.includes('moderation') && (
           <button

@@ -276,6 +276,7 @@ const AdminDashboard: React.FC = () => {
 
   // Map dashboard sections to their required plugin IDs
   const sectionPluginMap: Record<string, string> = {
+    'bot-identity': 'bot-identity',
     'word-filter-settings': 'word-filter',
     'anti-piracy': 'anti-piracy',
     'leveling': 'leveling',
