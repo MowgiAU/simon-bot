@@ -1051,6 +1051,34 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     }
     req.session.isGuildMember = isGuildMember;
 
+    // ===== ROLE-BASED BETA ACCESS =====
+    // Auto-invite users who have specific Discord roles in the primary guild
+    const betaRoleIds = (process.env.BETA_ROLE_IDS || '').split(',').map(r => r.trim()).filter(Boolean);
+    if (isGuildMember && betaRoleIds.length > 0 && !user._invited && primaryGuildId) {
+        try {
+            const cacheKey = `${primaryGuildId}:${user.id}`;
+            let memberRoles: string[];
+            const cached = memberRoleCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+                memberRoles = cached.roles;
+            } else {
+                const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${user.id}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                    timeout: 5000
+                });
+                memberRoles = memberRes.data.roles || [];
+                memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+            }
+            if (memberRoles.some(r => betaRoleIds.includes(r))) {
+                await db.user.update({ where: { id: user._localId }, data: { invited: true } });
+                user._invited = true;
+                logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) — has beta role`);
+            }
+        } catch (e) {
+            logger.warn(`[Auth] Failed to check beta roles for ${user.id}`, e);
+        }
+    }
+
     // Save session before redirecting to ensure cookie is set
     req.session.save((err) => {
       if (err) {
@@ -1169,6 +1197,17 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
             req.session.guilds = [];
             req.session.mutualAdminGuilds = mutualAdminGuilds;
             req.session.isGuildMember = isGuildMember;
+
+            // Check beta role access for email-login users with linked Discord
+            const betaRoleIds = (process.env.BETA_ROLE_IDS || '').split(',').map(r => r.trim()).filter(Boolean);
+            if (isGuildMember && betaRoleIds.length > 0 && !req.session.user._invited && primaryGuildId) {
+                const cacheKey = `${primaryGuildId}:${dbUser.discordId}`;
+                const cached = memberRoleCache.get(cacheKey);
+                if (cached && cached.roles.some((r: string) => betaRoleIds.includes(r))) {
+                    await db.user.update({ where: { id: dbUser.id }, data: { invited: true } });
+                    req.session.user._invited = true;
+                }
+            }
         } catch (e) {
             logger.warn('[Auth] Failed to resolve Discord guild status for email login', e);
             req.session.guilds = [];
