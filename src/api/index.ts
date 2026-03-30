@@ -985,7 +985,31 @@ app.get('/api/auth/discord/callback', async (req, res) => {
             req.session.mutualStaffGuilds = mutualStaffGuilds;
 
             const primaryGuildId = process.env.GUILD_ID;
-            req.session.isGuildMember = primaryGuildId ? userGuilds.some((g: any) => g.id === primaryGuildId) : false;
+            const isGuildMember = primaryGuildId ? userGuilds.some((g: any) => g.id === primaryGuildId) : false;
+            req.session.isGuildMember = isGuildMember;
+
+            // Auto-invite if user has a beta role in the primary guild
+            if (isGuildMember && !req.session.user._invited && primaryGuildId) {
+                try {
+                    const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
+                    const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
+                    if (betaRoleIds.length > 0) {
+                        const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${user.id}`, {
+                            headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                            timeout: 5000
+                        });
+                        const memberRoles: string[] = memberRes.data.roles || [];
+                        memberRoleCache.set(`${primaryGuildId}:${user.id}`, { roles: memberRoles, timestamp: Date.now() });
+                        if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
+                            await db.user.update({ where: { id: req.session.user._localId }, data: { invited: true } });
+                            req.session.user._invited = true;
+                            logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) via Discord link — has beta role`);
+                        }
+                    }
+                } catch (e) {
+                    logger.warn(`[Auth] Failed to check beta roles during Discord link for ${user.id}`, e);
+                }
+            }
 
             req.session.save((err) => {
                 if (err) logger.error('[Auth] Session save error during Discord link', err);
@@ -1298,9 +1322,19 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Invalid email address' });
         }
 
-        // Check uniqueness
+        // Check uniqueness (include soft-deleted records to handle reactivation)
         const existing = await db.user.findFirst({
             where: {
+                OR: [
+                    { email: emailNorm },
+                    { username: { equals: username, mode: 'insensitive' } },
+                ]
+            }
+        });
+        // Also check for soft-deleted records (the middleware filters them out)
+        const softDeleted = await db.user.findFirst({
+            where: {
+                deletedAt: { not: null },
                 OR: [
                     { email: emailNorm },
                     { username: { equals: username, mode: 'insensitive' } },
@@ -1313,15 +1347,32 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
         }
 
         const passwordHash = await hashPassword(password);
-        const dbUser = await db.user.create({
-            data: {
-                username,
-                displayName: username,
-                email: emailNorm,
-                passwordHash,
-                lastLoginAt: new Date(),
-            },
-        });
+        let dbUser;
+
+        if (softDeleted && softDeleted.email === emailNorm) {
+            // Reactivate the soft-deleted account with fresh credentials
+            dbUser = await db.user.update({
+                where: { id: softDeleted.id },
+                data: {
+                    username,
+                    displayName: username,
+                    passwordHash,
+                    deletedAt: null,
+                    lastLoginAt: new Date(),
+                },
+            });
+            logger.info(`[Auth] Reactivated soft-deleted account ${softDeleted.id} for email ${emailNorm}`);
+        } else {
+            dbUser = await db.user.create({
+                data: {
+                    username,
+                    displayName: username,
+                    email: emailNorm,
+                    passwordHash,
+                    lastLoginAt: new Date(),
+                },
+            });
+        }
 
         await buildSessionFromUser(req, dbUser, 'email');
 
@@ -2086,15 +2137,18 @@ app.get('/api/auth/status', async (req, res) => {
     if (!invited && req.session.user.id) {
         try {
             const primaryGuildId = process.env.GUILD_ID;
+            logger.info(`[Auth/Beta] Checking beta roles for ${req.session.user.username} (${req.session.user.id}), guildId=${primaryGuildId}`);
             if (primaryGuildId) {
                 const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
                 const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
+                logger.info(`[Auth/Beta] betaRoleIds from DB: ${JSON.stringify(betaRoleIds)} (count=${betaRoleIds.length})`);
                 if (betaRoleIds.length > 0) {
                     const cacheKey = `${primaryGuildId}:${req.session.user.id}`;
                     const cached = memberRoleCache.get(cacheKey);
                     let memberRoles: string[];
                     if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
                         memberRoles = cached.roles;
+                        logger.info(`[Auth/Beta] Using cached roles for ${req.session.user.id}: ${JSON.stringify(memberRoles)}`);
                     } else {
                         const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${req.session.user.id}`, {
                             headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
@@ -2102,8 +2156,11 @@ app.get('/api/auth/status', async (req, res) => {
                         });
                         memberRoles = memberRes.data.roles || [];
                         memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+                        logger.info(`[Auth/Beta] Fetched Discord roles for ${req.session.user.id}: ${JSON.stringify(memberRoles)}`);
                     }
-                    if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
+                    const hasMatch = memberRoles.some((r: string) => betaRoleIds.includes(r));
+                    logger.info(`[Auth/Beta] Role match result: ${hasMatch}`);
+                    if (hasMatch) {
                         invited = true;
                         req.session.user._invited = true;
                         // Persist to DB so future logins are instant
