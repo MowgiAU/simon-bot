@@ -4947,6 +4947,61 @@ app.delete('/api/voice-monitor/segments/:guildId/:segmentId', async (req, res) =
     res.json({ success: true });
 });
 
+// Get transcript for a voice segment
+app.get('/api/voice-monitor/segments/:guildId/:segmentId/transcript', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, segmentId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const segment = await db.voiceSegment.findFirst({
+        where: { id: segmentId, session: { guildId } },
+        select: { id: true, transcript: true, transcriptStatus: true, userName: true },
+    });
+    if (!segment) return res.status(404).json({ error: 'Segment not found' });
+
+    res.json({ transcript: segment.transcript, status: segment.transcriptStatus, userName: segment.userName });
+});
+
+// Request transcription for a voice segment
+app.post('/api/voice-monitor/segments/:guildId/:segmentId/transcribe', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, segmentId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: 'Transcription not available — OPENAI_API_KEY not configured' });
+    }
+
+    const segment = await db.voiceSegment.findFirst({
+        where: { id: segmentId, session: { guildId } },
+    });
+    if (!segment) return res.status(404).json({ error: 'Segment not found' });
+
+    // If already transcribed, return cached result
+    if (segment.transcriptStatus === 'done' && segment.transcript !== null) {
+        return res.json({ transcript: segment.transcript, status: 'done' });
+    }
+
+    // If already pending, don't double-fire
+    if (segment.transcriptStatus === 'pending') {
+        return res.json({ transcript: null, status: 'pending' });
+    }
+
+    try {
+        const { TranscriptionService } = await import('../services/TranscriptionService.js');
+        const svc = new TranscriptionService(db);
+        const text = await svc.transcribeSegment(segmentId);
+        res.json({ transcript: text, status: 'done' });
+    } catch (err: any) {
+        logger.error(`Transcription failed for segment ${segmentId}: ${err.message}`);
+        res.status(500).json({ error: 'Transcription failed', detail: err.message });
+    }
+});
+
 // --- Ticket System Endpoints ---
 
 // Get Ticket Settings

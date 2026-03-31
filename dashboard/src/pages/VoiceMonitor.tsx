@@ -3,7 +3,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Mic, AlertTriangle, Play, Pause, Clock, Users, Shield, Hash,
     Volume2, Trash2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight,
-    SkipBack, SkipForward, ZoomIn, ZoomOut, ArrowLeft
+    SkipBack, SkipForward, ZoomIn, ZoomOut, ArrowLeft, FileText, Loader, X
 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 
@@ -50,6 +50,8 @@ interface VoiceSegmentDetail {
     fileSize: number;
     startedAt: string;
     endedAt: string | null;
+    transcript?: string | null;
+    transcriptStatus?: string;
 }
 
 interface VoiceSessionDetail {
@@ -132,6 +134,138 @@ function generateWaveformPath(segId: string, barCount: number, viewH: number): s
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// TranscriptModal — popup showing transcription for a voice segment
+// ══════════════════════════════════════════════════════════════════════════════
+
+function TranscriptModal({ segment, guildId, onClose }: {
+    segment: VoiceSegmentDetail;
+    guildId: string;
+    onClose: () => void;
+}) {
+    const [transcript, setTranscript] = useState<string | null>(segment.transcript ?? null);
+    const [status, setStatus] = useState<string>(segment.transcriptStatus || 'none');
+    const [error, setError] = useState<string | null>(null);
+
+    const requestTranscription = async () => {
+        setStatus('pending');
+        setError(null);
+        try {
+            const res = await fetch(`${API}/api/voice-monitor/segments/${guildId}/${segment.id}/transcribe`, {
+                method: 'POST', credentials: 'include',
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || data.detail || 'Transcription failed');
+                setStatus('error');
+                return;
+            }
+            setTranscript(data.transcript);
+            setStatus(data.status);
+            // Update the segment object in-place so re-opening doesn't re-request
+            segment.transcript = data.transcript;
+            segment.transcriptStatus = data.status;
+        } catch {
+            setError('Network error');
+            setStatus('error');
+        }
+    };
+
+    // Auto-request if no transcript yet
+    useEffect(() => {
+        if (status === 'none' || status === 'error') {
+            // Don't auto-request, let user click
+        }
+    }, []);
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+            {/* Backdrop */}
+            <div onClick={onClose} style={{
+                position: 'absolute', inset: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)',
+            }} />
+            {/* Modal */}
+            <div style={{
+                position: 'relative', zIndex: 1,
+                backgroundColor: colors.surface, border: `1px solid ${colors.border}`,
+                borderRadius: borderRadius.lg, padding: spacing.lg,
+                width: '90%', maxWidth: '560px', maxHeight: '80vh',
+                display: 'flex', flexDirection: 'column',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FileText size={20} color={colors.primary} />
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '15px', color: colors.textPrimary }}>
+                                Transcript
+                            </h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                                {segment.userName || segment.userId.slice(0, 8)} &middot; {formatDuration(segment.durationMs)} &middot; {formatDate(segment.startedAt)}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} style={{
+                        background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: '4px',
+                    }}>
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div style={{
+                    flex: 1, overflowY: 'auto', minHeight: '120px',
+                    backgroundColor: colors.background, borderRadius: borderRadius.md,
+                    padding: spacing.md, border: `1px solid ${colors.border}`,
+                }}>
+                    {status === 'pending' && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px 0', color: colors.textSecondary }}>
+                            <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                            <span style={{ fontSize: '13px' }}>Transcribing audio with Whisper...</span>
+                        </div>
+                    )}
+                    {status === 'done' && (
+                        <p style={{
+                            margin: 0, fontSize: '13px', lineHeight: '1.7',
+                            color: transcript ? colors.textPrimary : colors.textTertiary,
+                            whiteSpace: 'pre-wrap',
+                        }}>
+                            {transcript || '(No speech detected in this segment)'}
+                        </p>
+                    )}
+                    {(status === 'none' || status === 'error') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '30px 0' }}>
+                            {error && (
+                                <p style={{ margin: 0, fontSize: '12px', color: '#EF4444' }}>{error}</p>
+                            )}
+                            <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary, textAlign: 'center' }}>
+                                Generate a transcript of this voice segment using OpenAI Whisper.
+                            </p>
+                            <button onClick={requestTranscription} style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                backgroundColor: colors.primary, color: '#fff', border: 'none',
+                                borderRadius: borderRadius.sm, padding: '8px 20px',
+                                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                            }}>
+                                <FileText size={14} />
+                                {status === 'error' ? 'Retry Transcription' : 'Transcribe'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Spinner keyframe */}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
+        </div>
+    );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SegmentReviewTimeline — DAW-style multi-track audio reviewer
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -158,6 +292,9 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
     const [mutedUsers, setMutedUsers] = useState<Set<string>>(new Set());
     const [soloUser, setSoloUser] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [transcriptSegment, setTranscriptSegment] = useState<VoiceSegmentDetail | null>(null);
+
+    const { selectedGuild } = useAuth();
 
     const playheadRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -446,7 +583,8 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
                         const waveformPath = generateWaveformPath(seg.id, barCount, 36);
 
                         return (
-                            <div key={seg.id} title={`${track.userName} · ${formatDuration(seg.durationMs)} · ${formatSize(seg.fileSize)}`}
+                            <div key={seg.id} title={`${track.userName} · ${formatDuration(seg.durationMs)} · ${formatSize(seg.fileSize)} · Click for transcript`}
+                                onClick={(e) => { e.stopPropagation(); setTranscriptSegment(seg); }}
                                 style={{
                                     position: 'absolute',
                                     left: `${leftPct}%`,
@@ -458,6 +596,8 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
                                     overflow: 'hidden',
                                     minWidth: '4px',
                                     contain: 'layout style paint',
+                                    cursor: 'pointer',
+                                    zIndex: 5,
                                 }}>
                                 <svg viewBox={`0 0 ${barCount * 1.2} 36`} preserveAspectRatio="none"
                                     style={{ position: 'absolute', inset: '3px 2px', width: 'calc(100% - 4px)', height: 'calc(100% - 6px)' }}>
@@ -769,6 +909,16 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
                                 }}>
                                     <Play size={10} style={{ marginLeft: '1px' }} />
                                 </button>
+                                <button onClick={() => setTranscriptSegment(seg)}
+                                    style={{
+                                        background: seg.transcriptStatus === 'done' ? `${colors.primary}18` : 'none',
+                                        border: seg.transcriptStatus === 'done' ? `1px solid ${colors.primary}40` : 'none',
+                                        borderRadius: '50%', width: '24px', height: '24px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        cursor: 'pointer', color: seg.transcriptStatus === 'done' ? colors.primary : colors.textTertiary, flexShrink: 0,
+                                    }} title="View transcript">
+                                    <FileText size={12} />
+                                </button>
                                 <button onClick={() => { if (confirm('Delete this audio segment? This cannot be undone.')) onDeleteSegment(seg.id); }}
                                     style={{
                                         background: 'none', border: 'none', cursor: 'pointer',
@@ -792,6 +942,15 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
                         <ReportCard key={report.id} report={report} onUpdate={() => {}} />
                     ))}
                 </div>
+            )}
+
+            {/* Transcript modal */}
+            {transcriptSegment && selectedGuild && (
+                <TranscriptModal
+                    segment={transcriptSegment}
+                    guildId={selectedGuild.id}
+                    onClose={() => setTranscriptSegment(null)}
+                />
             )}
         </div>
     );

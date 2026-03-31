@@ -1499,16 +1499,18 @@ model VoiceSession {
 }
 
 model VoiceSegment {
-  id          String   @id @default(cuid())
-  sessionId   String
-  userId      String
-  userName    String?
-  r2Key       String   // R2 object key: voice/{guildId}/{sessionId}/{userId}_{ts}.ogg
-  r2Url       String   // CDN URL to the audio file
-  durationMs  Int      @default(0)
-  fileSize    Int      @default(0) // bytes
-  startedAt   DateTime @default(now())
-  endedAt     DateTime?
+  id                String   @id @default(cuid())
+  sessionId         String
+  userId            String
+  userName          String?
+  r2Key             String   // R2 object key: voice/{guildId}/{sessionId}/{userId}_{ts}.ogg
+  r2Url             String   // CDN URL to the audio file
+  durationMs        Int      @default(0)
+  fileSize          Int      @default(0) // bytes
+  startedAt         DateTime @default(now())
+  endedAt           DateTime?
+  transcript        String?  @db.Text  // Whisper transcription text
+  transcriptStatus  String   @default("none") // none | pending | done | error
 
   session     VoiceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
