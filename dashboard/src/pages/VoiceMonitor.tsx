@@ -3,7 +3,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Mic, AlertTriangle, Play, Pause, Clock, Users, Shield, Hash,
     Volume2, Trash2, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight,
-    SkipBack, SkipForward, ZoomIn, ZoomOut, ArrowLeft, FileText, Loader, X
+    SkipBack, SkipForward, ZoomIn, ZoomOut, ArrowLeft, FileText, Loader, X, Download
 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 
@@ -919,6 +919,16 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
                                     }} title="View transcript">
                                     <FileText size={12} />
                                 </button>
+                                <a href={seg.r2Url} download={`${seg.userName || seg.userId}_${new Date(seg.startedAt).toISOString().slice(0, 19).replace(/:/g, '-')}.ogg`}
+                                    style={{
+                                        background: 'none', border: 'none',
+                                        borderRadius: '50%', width: '24px', height: '24px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        cursor: 'pointer', color: colors.textTertiary, flexShrink: 0,
+                                        textDecoration: 'none',
+                                    }} title="Download segment">
+                                    <Download size={13} />
+                                </a>
                                 <button onClick={() => { if (confirm('Delete this audio segment? This cannot be undone.')) onDeleteSegment(seg.id); }}
                                     style={{
                                         background: 'none', border: 'none', cursor: 'pointer',
