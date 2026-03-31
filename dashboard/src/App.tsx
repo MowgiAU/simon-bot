@@ -62,7 +62,6 @@ const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => 
 const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
-const VoiceMonitorPage       = lazy(() => import("./pages/VoiceMonitor").then(m => ({ default: m.VoiceMonitorPage })));
 const FujiRadioPage          = lazy(() => import("./pages/FujiRadio").then(m => ({ default: m.FujiRadioPage })));
 const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").then(m => ({ default: m.AccountManagementPage })));
 const StudioGuidePage        = lazy(() => import("./pages/StudioGuide").then(m => ({ default: m.StudioGuidePage })));
@@ -101,7 +100,6 @@ type Section =
   | "beat-battle"
   | "battle-archive"
   | "featured-content"
-  | "voice-monitor"
   | "account-management"
   | "anti-piracy"
   | "leveling"
@@ -294,7 +292,6 @@ const AdminDashboard: React.FC = () => {
     'beat-battle': 'beat-battle',
     'battle-archive': 'beat-battle',
     'featured-content': 'featured-content',
-    'voice-monitor': 'voice-monitor',
     'fuji-radio': 'fuji-radio',
     'studio-guide': 'studio-guide',
     'account-management': 'account-management',
@@ -384,8 +381,6 @@ const AdminDashboard: React.FC = () => {
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":
           return <FeaturedContentSettings />;
-        case "voice-monitor":
-          return <VoiceMonitorPage />;
         case "fuji-radio":
           return <FujiRadioPage />;
         case "studio-guide":

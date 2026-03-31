@@ -27,7 +27,6 @@ import {
   Bot,
   Palette,
   MonitorPlay,
-  Mic,
   Users,
   TrendingUp,
   Radio,
@@ -230,17 +229,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
                 <span className="nav-label">Tickets</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('voice-monitor') && (
-            <button
-                className={`nav-item ${activeSection === 'voice-monitor' ? 'active' : ''}`}
-                onClick={() => onNavigate('voice-monitor')}
-                title={collapsed ? "Voice Monitor" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Mic} size={20} /></span>
-                <span className="nav-label">Voice Monitor</span>
             </button>
           )}
 

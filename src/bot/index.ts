@@ -27,7 +27,6 @@ import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
 import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
 import { ProjectViewerPlugin } from './plugins/ProjectViewerPlugin';
 import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
-import { VoiceMonitorPlugin } from './plugins/VoiceMonitorPlugin';
 import { AntiPiracyPlugin } from './plugins/AntiPiracyPlugin';
 import { LevelingPlugin } from './plugins/LevelingPlugin';
 import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
@@ -116,7 +115,6 @@ export class SimonBot {
       this.pluginManager.register(new MusicianProfilePlugin());
       this.pluginManager.register(new ProjectViewerPlugin(this.db));
       this.pluginManager.register(new BeatBattlePlugin());
-      this.pluginManager.register(new VoiceMonitorPlugin());
       this.pluginManager.register(new AntiPiracyPlugin());
       this.pluginManager.register(new LevelingPlugin());
       this.pluginManager.register(new FujiRadioPlugin());
@@ -324,9 +322,6 @@ export class SimonBot {
 
       // Start Bot Identity Manager
       this.startIdentityLoop();
-
-      // Scan existing voice channel members for voice-monitor plugin
-      await this.scanExistingVoiceMembers();
     });
 
     this.client.on('interactionCreate', async interaction => {
@@ -605,53 +600,6 @@ export class SimonBot {
   }
 
   /**
-   * Scan existing voice channel members on startup and trigger voiceStateUpdate
-   * for the voice-monitor plugin. This handles the case where users were already
-   * in voice channels when the bot restarted.
-   */
-  private async scanExistingVoiceMembers(): Promise<void> {
-      const voicePlugin = this.pluginManager.getEnabled().find(p => p.id === 'voice-monitor');
-      if (!voicePlugin || !voicePlugin.events.includes('voiceStateUpdate')) {
-          this.logger.info('[Startup Scan] Voice monitor plugin not found or not enabled, skipping scan');
-          return;
-      }
-
-      const p = voicePlugin as any;
-      if (typeof p.onVoiceStateUpdate !== 'function') return;
-
-      this.logger.info('[Startup Scan] Scanning existing voice channel members...');
-      let totalMembers = 0;
-
-      for (const [guildId, guild] of this.client.guilds.cache) {
-          const isEnabled = await this.isPluginEnabled(guildId, 'voice-monitor');
-          if (!isEnabled) continue;
-
-          for (const [channelId, channel] of guild.channels.cache) {
-              if (channel.type !== 2) continue; // GuildVoice = 2
-              const voiceChannel = channel as any;
-              if (!voiceChannel.members || voiceChannel.members.size === 0) continue;
-
-              for (const [memberId, member] of voiceChannel.members) {
-                  if ((member as any).user?.bot) continue;
-                  totalMembers++;
-
-                  // Create a synthetic "join" event: oldState has no channel, newState has the channel
-                  const fakeOldState = { channelId: null, channel: null, guild, member } as any;
-                  const newState = { channelId, channel: voiceChannel, guild, member, id: memberId } as any;
-
-                  try {
-                      await p.onVoiceStateUpdate(fakeOldState, newState);
-                  } catch (error) {
-                      this.logger.error(`[Startup Scan] Error processing member ${memberId} in channel ${channelId}`, error);
-                  }
-              }
-          }
-      }
-
-      this.logger.info(`[Startup Scan] Finished scanning. Found ${totalMembers} members in voice channels.`);
-  }
-
-  /**
    * Register Slash Commands
    */
   private async registerSlashCommands(targetGuildId?: string): Promise<void> {
@@ -761,35 +709,6 @@ export class SimonBot {
         .addStringOption(opt => opt.setName('description').setDescription('Embed Description'));
 
     commands.push(setupWelcomeCommand.toJSON());
-
-    // 5. Voice Monitor Commands
-    const voiceMonitorCommand = new SlashCommandBuilder()
-        .setName('voicemonitor')
-        .setDescription('Manage voice channel recording')
-        .setDefaultMemberPermissions(0x0000000000000020) // MANAGE_GUILD
-        .addSubcommand(sub => sub.setName('enable').setDescription('Enable voice monitoring'))
-        .addSubcommand(sub => sub.setName('disable').setDescription('Disable voice monitoring'))
-        .addSubcommand(sub => sub.setName('status').setDescription('View voice monitor status'))
-        .addSubcommand(sub =>
-            sub.setName('notice')
-                .setDescription('Send/resend the recording notice to a channel')
-                .addChannelOption(opt =>
-                    opt.setName('channel').setDescription('Channel to post the notice in').setRequired(true)
-                )
-        );
-
-    const voiceReportCommand = new SlashCommandBuilder()
-        .setName('voicereport')
-        .setDescription('Report a voice channel incident')
-        .addStringOption(opt =>
-            opt.setName('reason').setDescription('Reason for the report').setRequired(true)
-        )
-        .addUserOption(opt =>
-            opt.setName('user').setDescription('User to report (optional)').setRequired(false)
-        );
-
-    commands.push(voiceMonitorCommand.toJSON());
-    commands.push(voiceReportCommand.toJSON());
 
     // 6. Load commands from plugins
     const plugins = this.pluginManager.getEnabled();

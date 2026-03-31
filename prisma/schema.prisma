@@ -98,11 +98,6 @@ model Guild {
   battleSponsors       BattleSponsor[]
   beatBattleSettings   BeatBattleSettings?
 
-  // Voice Monitor
-  voiceMonitorSettings VoiceMonitorSettings?
-  voiceSessions        VoiceSession[]
-  voiceReports         VoiceReport[]
-
   // Leveling
   levelingSettings     LevelingSettings?
 
@@ -1462,96 +1457,6 @@ model ChartEntry {
   @@unique([snapshotId, position])
   @@index([trackId])
   @@map("chart_entries")
-}
-
-// ─── Voice Monitor System ────────────────────────────────────────────────────
-
-model VoiceMonitorSettings {
-  id                  String   @id @default(cuid())
-  guildId             String   @unique
-  enabled             Boolean  @default(false)
-  retentionDays       Int      @default(30)
-  noticeChannelId     String?  // Channel where one-time recording notice was posted
-  noticeSent          Boolean  @default(false)
-  noticeMessageId     String?  // Discord message ID of the notice
-  monitoredChannelIds String[] // Empty = all voice channels
-  excludedRoleIds     String[] // Roles exempt from recording
-
-  guild               Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  @@map("voice_monitor_settings")
-}
-
-model VoiceSession {
-  id          String    @id @default(cuid())
-  guildId     String
-  channelId   String
-  channelName String?
-  workerId    String?   // which voice worker process recorded this (null = main bot)
-  startedAt   DateTime  @default(now())
-  endedAt     DateTime?
-
-  guild       Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  segments    VoiceSegment[]
-  reports     VoiceReport[]
-
-  @@index([guildId, startedAt(sort: Desc)])
-  @@map("voice_sessions")
-}
-
-model VoiceSegment {
-  id                String   @id @default(cuid())
-  sessionId         String
-  userId            String
-  userName          String?
-  r2Key             String   // R2 object key: voice/{guildId}/{sessionId}/{userId}_{ts}.ogg
-  r2Url             String   // CDN URL to the audio file
-  durationMs        Int      @default(0)
-  fileSize          Int      @default(0) // bytes
-  startedAt         DateTime @default(now())
-  endedAt           DateTime?
-  transcript        String?  @db.Text  // Whisper transcription text
-  transcriptStatus  String   @default("none") // none | pending | done | error
-
-  session     VoiceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@index([userId])
-  @@map("voice_segments")
-}
-
-model VoiceReport {
-  id          String   @id @default(cuid())
-  guildId     String
-  sessionId   String?
-  reporterId  String
-  reporterName String?
-  targetId    String?  // Specific user being reported (null = whole session)
-  targetName  String?
-  reason      String
-  status      String   @default("open") // open | reviewed | resolved | dismissed
-  notes       String?  // Staff notes
-  reviewedBy  String?  // Staff member who reviewed
-  createdAt   DateTime @default(now())
-  resolvedAt  DateTime?
-
-  guild       Guild         @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  session     VoiceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-
-  @@index([guildId, status])
-  @@index([guildId, createdAt(sort: Desc)])
-  @@map("voice_reports")
-}
-
-// Tracks which voice worker bot currently owns a voice channel for recording.
-// Composite PK prevents two workers from claiming the same channel.
-model VoiceWorkerLock {
-  guildId    String
-  channelId  String
-  workerId   String   // e.g. "voice-worker-1"
-  claimedAt  DateTime @default(now())
-
-  @@id([guildId, channelId])
-  @@map("voice_worker_locks")
 }
 
 // Anti-Piracy Plugin

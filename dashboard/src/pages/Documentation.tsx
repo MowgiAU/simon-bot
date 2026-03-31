@@ -20,7 +20,6 @@ import {
   TrendingUp,
   ScrollText,
   Music,
-  Mic,
   BarChart,
   Users,
   ShieldOff,
@@ -180,15 +179,6 @@ const docSections: DocSection[] = [
     requirements: ['Profile setup completed by user']
   },
   {
-    id: 'voice-monitor',
-    title: 'Voice Monitor',
-    icon: <Mic size={20} />,
-    color: colors.warning,
-    content: 'Moderation tool that records individual voice channel audio streams for review. When monitoring is active, each user\'s audio is captured separately and uploaded to cloud storage (R2). Recordings are automatically purged after a configurable retention period. Active recordings are flushed every 5 minutes, and orphaned sessions are cleaned up on bot restart. Specific roles can be excluded from monitoring.',
-    commands: ['/voicemonitor', '/voicereport'],
-    requirements: ['Voice channel permissions', 'R2 / S3 storage configured', 'FFmpeg installed on server']
-  },
-  {
     id: 'stats',
     title: 'Server Statistics',
     icon: <BarChart size={20} />,
@@ -247,7 +237,6 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
       'fuji-radio': 'fuji-radio',
       'logger': 'logs',
       'musician-profiles': 'musician-profiles-admin',
-      'voice-monitor': 'voice-monitor',
       'studio-guide': 'studio-guide',
       'account-management': 'account-management',
     };
