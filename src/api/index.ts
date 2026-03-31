@@ -4824,9 +4824,11 @@ app.get('/api/voice-monitor/sessions/:guildId', async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
 
+    const where = { guildId, segments: { some: {} } };
+
     const [sessions, total] = await Promise.all([
         db.voiceSession.findMany({
-            where: { guildId },
+            where,
             include: {
                 segments: {
                     select: { id: true, userId: true, userName: true, durationMs: true, fileSize: true, startedAt: true, endedAt: true },
@@ -4837,7 +4839,7 @@ app.get('/api/voice-monitor/sessions/:guildId', async (req, res) => {
             skip: (page - 1) * limit,
             take: limit,
         }),
-        db.voiceSession.count({ where: { guildId } }),
+        db.voiceSession.count({ where }),
     ]);
 
     res.json({ sessions, total, page, totalPages: Math.ceil(total / limit) });
