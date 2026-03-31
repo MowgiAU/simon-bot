@@ -2239,12 +2239,12 @@ async function refreshSessionGuilds(req: any): Promise<void> {
 
         // OAuth sessions store guild permissions; email sessions don't
         const oauthGuilds = req.session.guilds || [];
-        const oauthGuildMap = new Map(oauthGuilds.map((g: any) => [g.id, g]));
+        const oauthGuildMap = new Map<string, any>(oauthGuilds.map((g: any) => [g.id, g]));
         // Keep track of which guilds were previously admin (for email logins where we can't re-check Discord permissions)
         const prevAdminIds = new Set((req.session.mutualAdminGuilds || []).map((g: any) => g.id));
 
         for (const botGuild of botGuilds) {
-            const oauthGuild = oauthGuildMap.get(botGuild.id);
+            const oauthGuild = oauthGuildMap.get(botGuild.id) as { permissions: string; owner: boolean } | undefined;
 
             // Check admin status
             let isAdmin = false;
@@ -10226,7 +10226,7 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
                     actorName: 'Fuji Studio',
                     actorAvatar: null,
                     isRead: false,
-                    createdAt: new Date().toISOString(),
+                    createdAt: new Date(),
                 });
             }
         } catch { /* non-fatal */ }

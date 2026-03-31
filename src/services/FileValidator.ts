@@ -1,176 +1,124 @@
 /**
- * FileValidator — Security-hardened file upload validation.
+ * FileValidator — OWASP-aligned file upload security.
  *
- * Validates uploads by checking:
- *   1. Magic bytes (file signatures) — not just MIME or extension
- *   2. File size limits per category
- *   3. Filename sanitisation (strips path traversal, null bytes, control chars)
- *   4. Extension whitelist per field type
- *
- * Usage:
- *   import { FileValidator, sanitizeFilename } from '../services/FileValidator.js';
- *   FileValidator.validateAudio(buffer);   // throws on invalid
- *   FileValidator.validateImage(buffer);
- *   FileValidator.validateProject(buffer, originalname);
+ * Validates file content by magic bytes (not just extension) to prevent
+ * MIME-type confusion attacks and path traversal. Throws on invalid input.
  */
 
-import path from 'node:path';
+// Max sizes
+const MAX_AUDIO_BYTES   = 50 * 1024 * 1024;  // 50 MB
+const MAX_IMAGE_BYTES   = 10 * 1024 * 1024;  // 10 MB
+const MAX_PROJECT_BYTES = 100 * 1024 * 1024; // 100 MB
 
-// ── Magic Byte Signatures ──────────────────────────────────────────────────
+type MagicEntry = { bytes: (number | null)[]; desc: string };
 
-interface MagicSignature {
-    /** Human label */
-    name: string;
-    /** Byte pattern at the given offset */
-    bytes: number[];
-    /** Byte offset where the signature starts (default 0) */
-    offset?: number;
+/** Check whether a buffer starts with a given magic byte sequence. Null = wildcard. */
+function matchesMagic(buf: Buffer, magic: (number | null)[]): boolean {
+    if (buf.length < magic.length) return false;
+    return magic.every((b, i) => b === null || buf[i] === b);
 }
 
-const AUDIO_SIGNATURES: MagicSignature[] = [
-    // MP3 — ID3 tag or sync word
-    { name: 'MP3-ID3', bytes: [0x49, 0x44, 0x33] },               // "ID3"
-    { name: 'MP3-sync', bytes: [0xFF, 0xFB] },                     // MPEG sync (MPEG1 Layer3)
-    { name: 'MP3-sync2', bytes: [0xFF, 0xF3] },                    // MPEG2 Layer3
-    { name: 'MP3-sync3', bytes: [0xFF, 0xF2] },                    // MPEG2.5 Layer3
-    // WAV — "RIFF" + "WAVE"
-    { name: 'WAV', bytes: [0x52, 0x49, 0x46, 0x46] },             // "RIFF" header
-    // FLAC
-    { name: 'FLAC', bytes: [0x66, 0x4C, 0x61, 0x43] },            // "fLaC"
-    // OGG Vorbis / Opus
-    { name: 'OGG', bytes: [0x4F, 0x67, 0x67, 0x53] },             // "OggS"
-    // AAC (ADTS)
-    { name: 'AAC', bytes: [0xFF, 0xF1] },
-    { name: 'AAC2', bytes: [0xFF, 0xF9] },
-    // M4A/MP4 — ftyp box
-    { name: 'M4A', bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 },  // "ftyp" at offset 4
-    // AIFF
-    { name: 'AIFF', bytes: [0x46, 0x4F, 0x52, 0x4D] },            // "FORM"
-    // WebM
-    { name: 'WebM', bytes: [0x1A, 0x45, 0xDF, 0xA3] },            // EBML header
-];
-
-const IMAGE_SIGNATURES: MagicSignature[] = [
-    { name: 'PNG', bytes: [0x89, 0x50, 0x4E, 0x47] },             // "\x89PNG"
-    { name: 'JPEG', bytes: [0xFF, 0xD8, 0xFF] },                    // JPEG SOI
-    { name: 'GIF87a', bytes: [0x47, 0x49, 0x46, 0x38, 0x37, 0x61] },
-    { name: 'GIF89a', bytes: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61] },
-    { name: 'WebP', bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 }, // "WEBP" at offset 8
-    { name: 'BMP', bytes: [0x42, 0x4D] },                          // "BM"
-    { name: 'AVIF', bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 }, // AVIF uses "ftyp" too
-];
-
-const PROJECT_SIGNATURES: MagicSignature[] = [
-    // FL Studio project — starts with "FLhd"
-    { name: 'FLP', bytes: [0x46, 0x4C, 0x68, 0x64] },             // "FLhd"
-    // ZIP archive (for .zip bundles)
-    { name: 'ZIP', bytes: [0x50, 0x4B, 0x03, 0x04] },             // "PK\x03\x04"
-    { name: 'ZIP-empty', bytes: [0x50, 0x4B, 0x05, 0x06] },       // Empty ZIP
-];
-
-// ── Per-category size limits ───────────────────────────────────────────────
-
-export const SIZE_LIMITS = {
-    audio: 300 * 1024 * 1024,      // 300 MB (WAV files)
-    image: 10 * 1024 * 1024,       // 10 MB
-    project: 500 * 1024 * 1024,    // 500 MB (ZIP bundles can be large)
-    avatar: 5 * 1024 * 1024,       //  5 MB
-} as const;
-
-// ── Extension whitelists ───────────────────────────────────────────────────
-
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif', '.wma', '.webm', '.opus']);
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif']);
-const PROJECT_EXTENSIONS = new Set(['.flp', '.zip']);
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function matchesMagic(buffer: Buffer, signatures: MagicSignature[]): MagicSignature | null {
-    for (const sig of signatures) {
-        const offset = sig.offset ?? 0;
-        if (buffer.length < offset + sig.bytes.length) continue;
-        let match = true;
-        for (let i = 0; i < sig.bytes.length; i++) {
-            if (buffer[offset + i] !== sig.bytes[i]) { match = false; break; }
-        }
-        if (match) return sig;
+function checkMagic(buf: Buffer, signatures: MagicEntry[], errorType: string): void {
+    const matched = signatures.some(sig => matchesMagic(buf, sig.bytes));
+    if (!matched) {
+        throw new Error(`Invalid ${errorType} file: content does not match any accepted format`);
     }
-    return null;
 }
 
-// ── Public API ─────────────────────────────────────────────────────────────
+/** Audio magic byte signatures */
+const AUDIO_SIGS: MagicEntry[] = [
+    // OGG (OggS)
+    { bytes: [0x4F, 0x67, 0x67, 0x53], desc: 'OGG' },
+    // MP3 with ID3
+    { bytes: [0x49, 0x44, 0x33], desc: 'MP3 ID3' },
+    // MP3 frame sync (MPEG-1 Layer 3, various variants)
+    { bytes: [0xFF, 0xFB], desc: 'MP3 sync' },
+    { bytes: [0xFF, 0xF3], desc: 'MP3 sync' },
+    { bytes: [0xFF, 0xF2], desc: 'MP3 sync' },
+    { bytes: [0xFF, 0xFA], desc: 'MP3 sync' },
+    { bytes: [0xFF, 0xF9], desc: 'MP3 sync' },
+    // WAV (RIFF....WAVE)
+    { bytes: [0x52, 0x49, 0x46, 0x46, null, null, null, null, 0x57, 0x41, 0x56, 0x45], desc: 'WAV' },
+    // FLAC
+    { bytes: [0x66, 0x4C, 0x61, 0x43], desc: 'FLAC' },
+    // M4A / AAC / MP4 audio (ftyp box — offset 4-7)
+    { bytes: [null, null, null, null, 0x66, 0x74, 0x79, 0x70], desc: 'M4A/AAC' },
+    // AIFF
+    { bytes: [0x46, 0x4F, 0x52, 0x4D], desc: 'AIFF' },
+];
+
+/** Image magic byte signatures */
+const IMAGE_SIGS: MagicEntry[] = [
+    // JPEG
+    { bytes: [0xFF, 0xD8, 0xFF], desc: 'JPEG' },
+    // PNG
+    { bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A], desc: 'PNG' },
+    // GIF87a / GIF89a
+    { bytes: [0x47, 0x49, 0x46, 0x38], desc: 'GIF' },
+    // WebP (RIFF....WEBP)
+    { bytes: [0x52, 0x49, 0x46, 0x46, null, null, null, null, 0x57, 0x45, 0x42, 0x50], desc: 'WebP' },
+];
+
+/** Project file magic byte signatures — FL Studio .flp, ZIP-based archives */
+const PROJECT_SIGS: MagicEntry[] = [
+    // FL Studio .flp
+    { bytes: [0x46, 0x4C, 0x68, 0x64], desc: 'FLP' },
+    // ZIP (used by .als, .logicx zips, .dawproject, etc.)
+    { bytes: [0x50, 0x4B, 0x03, 0x04], desc: 'ZIP' },
+    // ZIP empty
+    { bytes: [0x50, 0x4B, 0x05, 0x06], desc: 'ZIP' },
+];
 
 export class FileValidator {
-    /**
-     * Validate an audio upload. Reads the first bytes to confirm magic signature.
-     * @throws Error if invalid
-     */
-    static validateAudio(buffer: Buffer, originalname: string): void {
-        const ext = path.extname(originalname).toLowerCase();
-        if (!AUDIO_EXTENSIONS.has(ext)) {
-            throw new Error(`Audio extension "${ext}" is not allowed. Permitted: ${[...AUDIO_EXTENSIONS].join(', ')}`);
+    static validateAudio(buffer: Buffer, filename: string): void {
+        if (buffer.length === 0) throw new Error('Audio file is empty');
+        if (buffer.length > MAX_AUDIO_BYTES) {
+            throw new Error(`Audio file exceeds maximum size of ${MAX_AUDIO_BYTES / 1024 / 1024}MB`);
         }
-        if (buffer.length > SIZE_LIMITS.audio) {
-            throw new Error(`Audio file exceeds ${SIZE_LIMITS.audio / 1024 / 1024}MB limit`);
-        }
-        const sig = matchesMagic(buffer, AUDIO_SIGNATURES);
-        if (!sig) {
-            throw new Error('Audio file has an invalid or unrecognised file signature. The file may be corrupted or mislabelled.');
-        }
+        checkMagic(buffer, AUDIO_SIGS, 'audio');
     }
 
-    /**
-     * Validate an image upload.
-     */
-    static validateImage(buffer: Buffer, originalname: string): void {
-        const ext = path.extname(originalname).toLowerCase();
-        if (!IMAGE_EXTENSIONS.has(ext)) {
-            throw new Error(`Image extension "${ext}" is not allowed. Permitted: ${[...IMAGE_EXTENSIONS].join(', ')}`);
+    static validateImage(buffer: Buffer, filename: string): void {
+        if (buffer.length === 0) throw new Error('Image file is empty');
+        if (buffer.length > MAX_IMAGE_BYTES) {
+            throw new Error(`Image file exceeds maximum size of ${MAX_IMAGE_BYTES / 1024 / 1024}MB`);
         }
-        const limit = SIZE_LIMITS.image;
-        if (buffer.length > limit) {
-            throw new Error(`Image file exceeds ${limit / 1024 / 1024}MB limit`);
-        }
-        const sig = matchesMagic(buffer, IMAGE_SIGNATURES);
-        if (!sig) {
-            throw new Error('Image file has an invalid file signature. Only PNG, JPEG, GIF, WebP, BMP, and AVIF are accepted.');
-        }
+        checkMagic(buffer, IMAGE_SIGS, 'image');
     }
 
-    /**
-     * Validate a project upload (.flp or .zip).
-     */
-    static validateProject(buffer: Buffer, originalname: string): void {
-        const ext = path.extname(originalname).toLowerCase();
-        if (!PROJECT_EXTENSIONS.has(ext)) {
-            throw new Error(`Project file extension "${ext}" is not allowed. Only .flp and .zip are accepted.`);
+    static validateProject(buffer: Buffer, filename: string): void {
+        if (buffer.length === 0) throw new Error('Project file is empty');
+        if (buffer.length > MAX_PROJECT_BYTES) {
+            throw new Error(`Project file exceeds maximum size of ${MAX_PROJECT_BYTES / 1024 / 1024}MB`);
         }
-        if (buffer.length > SIZE_LIMITS.project) {
-            throw new Error(`Project file exceeds ${SIZE_LIMITS.project / 1024 / 1024}MB limit`);
-        }
-        const sig = matchesMagic(buffer, PROJECT_SIGNATURES);
-        if (!sig) {
-            throw new Error('Project file has an invalid file signature. Expected FL Studio (.flp) or ZIP archive.');
-        }
+        checkMagic(buffer, PROJECT_SIGS, 'project');
     }
 }
 
 /**
- * Sanitize a user-supplied filename:
- * - Strip directory components (path traversal)
- * - Remove null bytes and control characters
- * - Collapse whitespace
- * - Limit length
+ * Sanitize a filename to prevent path traversal and OS-dangerous characters.
+ * Strips directory components, null bytes, and shell-special characters.
+ * Limits length to 200 characters.
  */
-export function sanitizeFilename(raw: string): string {
-    let name = path.basename(raw);                         // Strip path components
-    name = name.replace(/[\x00-\x1f\x7f]/g, '');         // Remove control chars + null bytes
-    name = name.replace(/[<>:"|?*\\]/g, '_');             // Remove FS-unsafe characters
-    name = name.replace(/\.{2,}/g, '.');                  // Collapse consecutive dots
-    name = name.trim().replace(/\s+/g, '_');              // Whitespace → underscore
+export function sanitizeFilename(filename: string): string {
+    // Remove directory traversal components
+    let name = filename.replace(/[/\\]/g, '_');
+    // Remove null bytes and control characters
+    name = name.replace(/[\x00-\x1F\x7F]/g, '');
+    // Remove shell-special characters
+    name = name.replace(/[`$|&;()<>'"!*?{}[\]#%^~]/g, '_');
+    // Collapse multiple underscores/dots
+    name = name.replace(/_+/g, '_').replace(/\.{2,}/g, '.');
+    // Trim leading dots (hidden files on Unix)
+    name = name.replace(/^\.+/, '');
+    // Limit length
     if (name.length > 200) {
-        const ext = path.extname(name);
-        name = name.slice(0, 200 - ext.length) + ext;
+        const ext = name.lastIndexOf('.');
+        if (ext > 0) {
+            name = name.substring(0, 196) + name.substring(ext);
+        } else {
+            name = name.substring(0, 200);
+        }
     }
-    return name || 'unnamed';
+    return name || 'file';
 }
