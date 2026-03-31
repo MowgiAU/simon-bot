@@ -184,13 +184,45 @@ async function createConnection(channelId: string, guildId: string): Promise<Voi
 
         connection.on(VoiceConnectionStatus.Disconnected as any, async () => {
             try {
+                // Discord often sends a brief disconnect during region changes / server moves.
+                // Wait up to 10s for it to reconnect automatically.
                 await Promise.race([
-                    entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-                    entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+                    entersState(connection, VoiceConnectionStatus.Signalling, 10_000),
+                    entersState(connection, VoiceConnectionStatus.Connecting, 10_000),
                 ]);
+                // It's reconnecting — wait for Ready
+                await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
+                log(`Reconnected to channel ${channelId} after disconnect`);
             } catch {
-                connection.destroy();
-                activeSessions.delete(channelId);
+                // Automatic reconnect failed — try to rejoin from scratch
+                log(`Disconnect recovery failed for ${channelId}, attempting full rejoin…`);
+                const session = activeSessions.get(channelId);
+                if (!session) return;
+
+                try { connection.destroy(); } catch { /* ok */ }
+
+                // Check if there are still non-bot users in the channel
+                const g = client.guilds.cache.get(guildId);
+                const ch = g?.channels.cache.get(channelId);
+                const humans = ch?.isVoiceBased()
+                    ? [...ch.members.values()].filter(m => !m.user.bot)
+                    : [];
+
+                if (humans.length === 0) {
+                    log(`No users remain in ${channelId} after disconnect — ending session`);
+                    await stopSession(channelId);
+                    return;
+                }
+
+                // Try to rejoin
+                try {
+                    const newConn = await createConnection(channelId, guildId);
+                    session.connection = newConn;
+                    log(`Rejoined ${channelId} after disconnect — ${humans.length} user(s) present`);
+                } catch (rejoinErr) {
+                    logError(`Failed to rejoin ${channelId}`, rejoinErr);
+                    await stopSession(channelId);
+                }
             }
         });
 
