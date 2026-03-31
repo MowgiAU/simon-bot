@@ -98,7 +98,9 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'audio') {
-      if (file.mimetype.startsWith('audio/')) {
+      const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.wma', '.aiff', '.aif', '.opus', '.webm'];
+      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+      if (file.mimetype.startsWith('audio/') || audioExtensions.includes(ext)) {
         cb(null, true);
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
