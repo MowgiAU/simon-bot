@@ -68,6 +68,8 @@ interface UserRecording {
     userName: string;
     startedAt: Date;
     bytesWritten: number;
+    silenceTimer: ReturnType<typeof setInterval> | null;
+    lastDataTime: number;
 }
 
 interface ActiveSession {
@@ -96,6 +98,11 @@ const client = new Client({
 
 const activeSessions = new Map<string, ActiveSession>(); // channelId → session
 const tmpDir = path.join(os.tmpdir(), `fuji-voice-${WORKER_INDEX}`);
+
+// Pre-allocated silence buffer: 100ms of 48kHz stereo s16le = 19,200 bytes of zeros
+const SILENCE_100MS = Buffer.alloc(19200);
+// Bytes per millisecond of 48kHz stereo s16le audio
+const PCM_BYTES_PER_MS = 192;
 
 // ─── Channel Locking ──────────────────────────────────────────────────────────
 
@@ -239,6 +246,7 @@ async function startUserRecording(session: ActiveSession, member: GuildMember): 
         const recording: UserRecording = {
             ffmpeg, filePath: tmpFile, userId, userName,
             startedAt: new Date(), bytesWritten: 0,
+            silenceTimer: null, lastDataTime: Date.now(),
         };
 
         // Handle spawn errors — mark recording as failed so flush loop can restart it
@@ -262,14 +270,51 @@ async function startUserRecording(session: ActiveSession, member: GuildMember): 
             logError(`Opus decoder error for ${userName}`, err);
         });
 
-        // Connect the full pipe chain synchronously
-        opusStream.pipe(decoder).pipe(ffmpeg.stdin!).on('error', (err: Error) => {
+        // Error handler on FFmpeg stdin
+        ffmpeg.stdin!.on('error', (err: Error) => {
             if ((err as NodeJS.ErrnoException).code !== 'EPIPE') {
                 logError(`FFmpeg stdin error for ${userId}`, err);
             }
         });
 
-        decoder.on('data', (chunk: Buffer) => { recording.bytesWritten += chunk.length; });
+        // Pipe opus → decoder only. We manually write to FFmpeg stdin so we can
+        // inject silence when the user isn't speaking. Without this, Discord only
+        // sends audio packets during active speech, and the resulting OGG file
+        // has speech packed back-to-back with no silence gaps, making timeline
+        // playback impossible.
+        opusStream.pipe(decoder);
+
+        decoder.on('data', (chunk: Buffer) => {
+            recording.bytesWritten += chunk.length;
+
+            const now = Date.now();
+            const gapMs = now - recording.lastDataTime;
+
+            // If there was a silence gap > 40ms, pad it with silence PCM
+            if (gapMs > 40 && ffmpeg.stdin && !ffmpeg.stdin.destroyed) {
+                const bytesToPad = Math.min(gapMs * PCM_BYTES_PER_MS, PCM_BYTES_PER_MS * 60000); // cap at 60s
+                let remaining = bytesToPad;
+                while (remaining > 0) {
+                    const bytes = Math.min(remaining, 19200);
+                    try {
+                        ffmpeg.stdin.write(bytes === 19200 ? SILENCE_100MS : Buffer.alloc(bytes));
+                    } catch { break; }
+                    remaining -= bytes;
+                }
+            }
+
+            recording.lastDataTime = now;
+            try { ffmpeg.stdin?.write(chunk); } catch { /* ok */ }
+        });
+
+        // Periodic timer injects silence during extended quiet periods
+        // (when no decoder data events fire at all)
+        recording.silenceTimer = setInterval(() => {
+            if (Date.now() - recording.lastDataTime >= 80 && ffmpeg.stdin && !ffmpeg.stdin.destroyed) {
+                try { ffmpeg.stdin.write(SILENCE_100MS); } catch { /* ok */ }
+                recording.lastDataTime = Date.now();
+            }
+        }, 100);
 
         log(`Started recording ${userName} in session ${session.sessionId}`);
     } catch (err) {
@@ -283,6 +328,26 @@ async function stopUserRecording(session: ActiveSession, userId: string): Promis
     if (!recording) return;
 
     session.recordings.delete(userId);
+
+    // Stop the silence injection timer
+    if (recording.silenceTimer) {
+        clearInterval(recording.silenceTimer);
+        recording.silenceTimer = null;
+    }
+
+    // Pad final silence gap (from last audio data to now)
+    const finalGapMs = Date.now() - recording.lastDataTime;
+    if (finalGapMs > 40 && recording.ffmpeg.stdin && !recording.ffmpeg.stdin.destroyed) {
+        const bytesToPad = Math.min(finalGapMs * PCM_BYTES_PER_MS, PCM_BYTES_PER_MS * 60000);
+        let remaining = bytesToPad;
+        while (remaining > 0) {
+            const bytes = Math.min(remaining, 19200);
+            try {
+                recording.ffmpeg.stdin.write(bytes === 19200 ? SILENCE_100MS : Buffer.alloc(bytes));
+            } catch { break; }
+            remaining -= bytes;
+        }
+    }
 
     try { session.connection.receiver.subscriptions.get(userId)?.destroy(); } catch { /* ok */ }
     try { recording.ffmpeg.stdin?.end(); } catch { /* ok */ }
