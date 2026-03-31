@@ -164,6 +164,26 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
     const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
     const animFrameRef = useRef<number>(0);
     const lastTimeRef = useRef<number>(0);
+    const activeSegIdsRef = useRef<Set<string>>(new Set());
+
+    // Helper: get or create an Audio element for a segment
+    const getAudio = useCallback((seg: VoiceSegmentDetail) => {
+        let audio = audioRefs.current.get(seg.id);
+        if (!audio) {
+            audio = new Audio(seg.r2Url);
+            audio.preload = 'auto';
+            audioRefs.current.set(seg.id, audio);
+        }
+        return audio;
+    }, []);
+
+    // Helper: pause all currently playing segment audio
+    const stopAllAudio = useCallback(() => {
+        audioRefs.current.forEach(audio => {
+            audio.pause();
+        });
+        activeSegIdsRef.current.clear();
+    }, []);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -246,14 +266,75 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
 
     // Reset playback when chunk changes
     useEffect(() => {
+        stopAllAudio();
         setPlaybackTime(0);
         setIsPlaying(false);
-    }, [currentChunk]);
+    }, [currentChunk, stopAllAudio]);
+
+    // Cleanup audio on unmount
+    useEffect(() => {
+        return () => { stopAllAudio(); };
+    }, [stopAllAudio]);
+
+    // ── Audio sync: play/pause/seek segments as playhead moves ─────────
+    useEffect(() => {
+        if (!isPlaying) {
+            stopAllAudio();
+            return;
+        }
+
+        const absTimeMs = sessionStartMs + (chunkStartS + playbackTime) * 1000;
+
+        // Determine which segments the playhead is currently inside
+        const nowActive = new Set<string>();
+        for (const seg of session.segments) {
+            const segStartMs = new Date(seg.startedAt).getTime();
+            const segEndMs = seg.endedAt ? new Date(seg.endedAt).getTime() : segStartMs + seg.durationMs;
+            if (absTimeMs >= segStartMs && absTimeMs < segEndMs) {
+                // Check mute/solo
+                const isMuted = soloUser ? soloUser !== seg.userId : mutedUsers.has(seg.userId);
+                if (!isMuted) {
+                    nowActive.add(seg.id);
+                }
+            }
+        }
+
+        // Stop segments that are no longer active
+        for (const id of activeSegIdsRef.current) {
+            if (!nowActive.has(id)) {
+                const audio = audioRefs.current.get(id);
+                if (audio) audio.pause();
+            }
+        }
+
+        // Start/sync segments that should be playing
+        for (const seg of session.segments) {
+            if (!nowActive.has(seg.id)) continue;
+            const audio = getAudio(seg);
+            const segStartMs = new Date(seg.startedAt).getTime();
+            const offsetS = (absTimeMs - segStartMs) / 1000;
+
+            // If this segment wasn't playing before, seek and play
+            if (!activeSegIdsRef.current.has(seg.id)) {
+                audio.currentTime = Math.max(0, offsetS);
+                audio.play().catch(() => {});
+            } else {
+                // Already playing — only correct drift if > 0.5s off
+                const drift = Math.abs(audio.currentTime - offsetS);
+                if (drift > 0.5) {
+                    audio.currentTime = offsetS;
+                }
+            }
+        }
+
+        activeSegIdsRef.current = nowActive;
+    }, [isPlaying, playbackTime, chunkStartS, sessionStartMs, session.segments, mutedUsers, soloUser, getAudio, stopAllAudio]);
 
     const togglePlay = () => setIsPlaying(p => !p);
-    const seekBackward = () => setPlaybackTime(t => Math.max(0, t - 10));
-    const seekForward = () => setPlaybackTime(t => Math.min(chunkLengthS, t + 10));
+    const seekBackward = () => { stopAllAudio(); setPlaybackTime(t => Math.max(0, t - 10)); };
+    const seekForward = () => { stopAllAudio(); setPlaybackTime(t => Math.min(chunkLengthS, t + 10)); };
     const seekToPosition = (e: React.MouseEvent<HTMLDivElement>) => {
+        stopAllAudio();
         const rect = e.currentTarget.getBoundingClientRect();
         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         setPlaybackTime(pct * chunkLengthS);
@@ -265,9 +346,12 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
             if (next.has(userId)) next.delete(userId); else next.add(userId);
             return next;
         });
+        // Force audio re-evaluation by stopping all — sync effect will restart correct ones
+        stopAllAudio();
     };
     const toggleSolo = (userId: string) => {
         setSoloUser(prev => prev === userId ? null : userId);
+        stopAllAudio();
     };
 
     const isUserActive = useCallback((userId: string) => {
@@ -392,11 +476,9 @@ function SegmentReviewTimeline({ session, onBack, onDeleteSegment }: TimelinePro
     }, [userTracks, sessionStartMs, chunkStartS, chunkEndS, chunkLengthS]);
 
     const playSegmentAudio = (seg: VoiceSegmentDetail) => {
-        let audio = audioRefs.current.get(seg.id);
-        if (!audio) {
-            audio = new Audio(seg.r2Url);
-            audioRefs.current.set(seg.id, audio);
-        }
+        stopAllAudio();
+        setIsPlaying(false);
+        const audio = getAudio(seg);
         audio.currentTime = 0;
         audio.play().catch(() => {});
     };
