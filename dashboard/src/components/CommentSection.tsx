@@ -445,8 +445,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                         {user && (
-                            <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`}
-                                alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
+                            <img src={user.profileAvatar || (user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : '')}
+                                alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} />
                         )}
                         <div style={{ flex: 1 }}>
                             <textarea
@@ -592,7 +592,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                 {/* Reply Input */}
                                 {user && replyingTo === comment.id && (
                                     <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                        <img src={user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : ''}
+                                        <img src={user.profileAvatar || (user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : '')}
                                             alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, marginTop: '4px', backgroundColor: 'rgba(255,255,255,0.1)', objectFit: 'cover' }} />
                                         <div style={{ flex: 1, position: 'relative' }}>
                                             <textarea

@@ -2178,9 +2178,25 @@ app.get('/api/auth/status', async (req, res) => {
         }
     }
 
+    // Fetch MusicianProfile avatar/displayName for the session user
+    let profileAvatar: string | null = null;
+    let profileDisplayName: string | null = null;
+    try {
+        const mp = await db.musicianProfile.findUnique({
+            where: { userId: req.session.user.id },
+            select: { avatar: true, displayName: true, username: true },
+        });
+        if (mp) {
+            profileAvatar = mp.avatar || null;
+            profileDisplayName = mp.displayName || mp.username || null;
+        }
+    } catch { /* non-fatal */ }
+
     res.json({
       authenticated: true,
       user: req.session.user,
+      profileAvatar,
+      profileDisplayName,
       mutualAdminGuilds: req.session.mutualAdminGuilds || [],
       mutualStaffGuilds: req.session.mutualStaffGuilds || [],
       isGuildMember: req.session.isGuildMember ?? false,
@@ -9708,13 +9724,34 @@ app.get('/api/comments', async (req: any, res) => {
         const hasMore = comments.length > limit;
         if (hasMore) comments.pop();
 
-        // Transform likes into counts + user's vote
+        // Collect all unique userIds from comments + replies to batch-fetch profiles
+        const allUserIds = new Set<string>();
+        for (const c of comments) {
+            allUserIds.add((c as any).userId);
+            for (const r of (c as any).replies || []) allUserIds.add(r.userId);
+        }
+        // Fetch profiles for all commenters — profile avatar/displayName take priority
+        const profiles = allUserIds.size > 0
+            ? await db.musicianProfile.findMany({
+                where: { userId: { in: [...allUserIds] } },
+                select: { userId: true, avatar: true, displayName: true, username: true },
+            })
+            : [];
+        const profileMap = new Map(profiles.map(p => [p.userId, p]));
+
+        // Transform likes into counts + user's vote, overlay profile avatar/displayName
         const currentUserId = req.session?.user?.id || null;
         const transformComment = (c: any) => {
             const likeCount = (c.likes || []).filter((l: any) => l.type === 'like').length;
             const dislikeCount = (c.likes || []).filter((l: any) => l.type === 'dislike').length;
             const userVote = currentUserId ? (c.likes || []).find((l: any) => l.userId === currentUserId)?.type || null : null;
             const { likes: _likes, ...rest } = c;
+            // Overlay profile avatar/displayName if the commenter has a musician profile
+            const prof = profileMap.get(c.userId);
+            if (prof) {
+                if (prof.avatar) rest.avatarUrl = prof.avatar;
+                rest.username = prof.displayName || prof.username || rest.username;
+            }
             return {
                 ...rest,
                 likeCount,
@@ -9753,18 +9790,28 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             if (resolvedTrackId && resolvedProfileId) return res.status(400).json({ error: 'Specify only one of trackId or profileId' });
         }
 
-        // Resolve username and avatar
+        // Resolve username and avatar — prefer MusicianProfile over Discord
         let username = req.session.user.username || 'Unknown';
         let avatarUrl: string | null = null;
-        try {
-            const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-            });
-            username = userRes.data.global_name || userRes.data.username || username;
-            if (userRes.data.avatar) {
-                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=128`;
-            }
-        } catch {}
+        const profile = await db.musicianProfile.findUnique({
+            where: { userId },
+            select: { avatar: true, displayName: true, username: true },
+        });
+        if (profile) {
+            username = profile.displayName || profile.username || username;
+            avatarUrl = profile.avatar || null;
+        }
+        if (!avatarUrl) {
+            try {
+                const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                });
+                if (!profile) username = userRes.data.global_name || userRes.data.username || username;
+                if (userRes.data.avatar) {
+                    avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=128`;
+                }
+            } catch {}
+        }
 
         const comment = await db.comment.create({
             data: {
@@ -10110,14 +10157,16 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) =>
             await logAction('GLOBAL', 'track_favourited', userId, trackId, { title: track.title }).catch(() => {});
             // Notify track owner
             if (track.profile.userId !== userId) {
-                const username = req.session.user.username || 'Someone';
+                const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });
+                const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
+                const actorAvatar = actorProfile?.avatar || null;
                 db.musicNotification.create({
                     data: {
                         userId: track.profile.userId, type: 'favourite',
                         title: `${username} liked your track`,
                         message: track.title,
                         link: `/track/${track.profile.username}/${track.slug || track.id}`,
-                        actorId: userId, actorName: username,
+                        actorId: userId, actorName: username, actorAvatar,
                     },
                 }).catch(() => {});
             }
@@ -10217,14 +10266,16 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
             await logAction('GLOBAL', 'track_reposted', userId, trackId, { title: track.title, owner: track.profile?.username }).catch(() => {});
             // Notify track owner
             if (track.profile.userId !== userId) {
-                const username = req.session.user.username || 'Someone';
+                const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });
+                const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
+                const actorAvatar = actorProfile?.avatar || null;
                 db.musicNotification.create({
                     data: {
                         userId: track.profile.userId, type: 'repost',
                         title: `${username} reposted your track`,
                         message: track.title,
                         link: `/track/${track.profile.username}/${track.slug || track.id}`,
-                        actorId: userId, actorName: username,
+                        actorId: userId, actorName: username, actorAvatar,
                     },
                 }).catch(() => {});
             }
@@ -10301,14 +10352,16 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
             await db.artistFollow.create({ data: { followerId, artistId } });
             await logAction('GLOBAL', 'artist_followed', followerId, artistId, { artist: artist.username }).catch(() => {});
             // Notify the artist
-            const username = req.session.user.username || 'Someone';
+            const actorProfile = await db.musicianProfile.findUnique({ where: { userId: followerId }, select: { avatar: true, displayName: true, username: true } });
+            const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
+            const actorAvatar = actorProfile?.avatar || null;
             db.musicNotification.create({
                 data: {
                     userId: artist.userId, type: 'follow',
                     title: `${username} followed you`,
                     message: 'You have a new follower!',
                     link: `/profile/${artist.username}`,
-                    actorId: followerId, actorName: username,
+                    actorId: followerId, actorName: username, actorAvatar,
                 },
             }).catch(() => {});
             res.json({ following: true });

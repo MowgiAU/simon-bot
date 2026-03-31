@@ -474,7 +474,7 @@ const AdminDashboard: React.FC = () => {
                 title="Account Settings"
                 style={{ display: 'flex', width: window.innerWidth > 768 ? "36px" : "28px", height: window.innerWidth > 768 ? "36px" : "28px", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, textDecoration: 'none' }}
               >
-                <img src={user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Account Settings" />
+                <img src={user?.profileAvatar || (user?.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/0.png`)} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Account Settings" />
               </a>
           </div>
         </div>

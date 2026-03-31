@@ -8,6 +8,8 @@ export interface User {
   username: string;
   discriminator?: string;
   avatar: string;
+  profileAvatar?: string | null;
+  profileDisplayName?: string | null;
   _localId?: string;
   _hasPassword?: boolean;
   _email?: string | null;
@@ -95,7 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then(res => res.json())
       .then(data => {
         if (data.authenticated) {
-          setUser(data.user);
+          const userData = { ...data.user };
+          // Overlay profile avatar/displayName from the API response
+          if (data.profileAvatar) userData.profileAvatar = data.profileAvatar;
+          if (data.profileDisplayName) userData.profileDisplayName = data.profileDisplayName;
+          setUser(userData);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
           setMutualStaffGuilds(data.mutualStaffGuilds || []);
           setIsGuildMember(data.isGuildMember ?? false);
