@@ -18,6 +18,7 @@ interface MusicianProfile {
     username: string;
     displayName: string | null;
     avatar: string | null;
+    bannerUrl: string | null;
     bio: string | null;
     spotifyUrl: string | null;
     soundcloudUrl: string | null;
@@ -289,11 +290,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         }}>
             {/* ── HERO BANNER ── */}
             <div style={{ position: 'relative', minHeight: isMobile ? '320px' : '380px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
-                {/* Background — uses featured art or avatar as blurred backdrop */}
-                {(trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl) && (
+                {/* Background — user banner, or featured art/avatar as blurred backdrop */}
+                {profile.bannerUrl ? (
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${profile.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', pointerEvents: 'none' }} />
+                ) : (trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl) ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(60px) saturate(1.8)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
-                )}
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)', pointerEvents: 'none' }} />
+                ) : null}
+                <div style={{ position: 'absolute', inset: 0, background: profile.bannerUrl ? 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.7) 50%, rgba(14,18,26,0.3) 100%)' : 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)', pointerEvents: 'none' }} />
 
                 {/* Hero Content */}
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>

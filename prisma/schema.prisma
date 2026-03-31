@@ -735,6 +735,7 @@ model MusicianProfile {
   username        String
   displayName     String?
   avatar          String?
+  bannerUrl       String?  // User-uploaded hero banner image for profile page
   bio             String?  @db.Text
   location        String?
   contactEmail    String?

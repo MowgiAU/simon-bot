@@ -7429,6 +7429,87 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
     }
 });
 
+// User: Upload profile banner image
+app.post('/api/musician/profile/:userId/banner', generalUploadLimiter, upload.single('banner'), async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Ownership check — only profile owner or admin
+        if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const file = req.file;
+        if (!file) {
+            return res.status(400).json({ error: 'Banner image file is required' });
+        }
+
+        // Magic byte validation
+        try {
+            FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
+
+        await scanFileForViruses(file.path, 'banner');
+
+        // Convert to WebP
+        const finalPath = await MediaConverter.optimizeImage(file.path);
+
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        // Delete old banner from storage
+        await deleteFromStorage(profile.bannerUrl);
+
+        const r2Key = `profiles/${profile.id}/banner/${path.basename(finalPath)}`;
+        const bannerUrl = await uploadToR2OrLocal(finalPath, r2Key, 'image/webp', `/uploads/avatars/${path.basename(finalPath)}`);
+
+        const updated = await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { bannerUrl }
+        });
+
+        await logAction('GLOBAL', 'banner_uploaded', userId, profile.id, { url: bannerUrl });
+
+        res.json({ bannerUrl: updated.bannerUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Remove profile banner image
+app.delete('/api/musician/profile/:userId/banner', async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        await deleteFromStorage(profile.bannerUrl);
+
+        await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { bannerUrl: null }
+        });
+
+        await logAction('GLOBAL', 'banner_removed', userId, profile.id, {});
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin: Search Profiles
 app.get('/api/admin/musician/profiles/search', async (req: any, res) => {
     try {
@@ -7561,6 +7642,52 @@ app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.sing
     }
 });
 
+// Admin: Update banner for any user's musician profile
+app.post('/api/admin/musician/profile/:userId/banner', requireAdmin, upload.single('banner'), async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.session.user.id;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'Banner image file is required' });
+        }
+
+        try {
+            FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
+        } catch (validationErr: any) {
+            try { fs.unlinkSync(file.path); } catch {}
+            return res.status(400).json({ error: validationErr.message });
+        }
+
+        await scanFileForViruses(file.path, 'banner');
+        const finalPath = await MediaConverter.optimizeImage(file.path);
+
+        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        await deleteFromStorage(profile.bannerUrl);
+        const r2Key = `profiles/${profile.id}/banner/${path.basename(finalPath)}`;
+        const bannerUrl = await uploadToR2OrLocal(finalPath, r2Key, 'image/webp', `/uploads/avatars/${path.basename(finalPath)}`);
+
+        const updated = await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { bannerUrl }
+        });
+
+        await logAction('GLOBAL', 'banner_admin_uploaded', adminId, profile.id, {
+            url: bannerUrl,
+            targetUserId: userId
+        });
+
+        res.json({ bannerUrl: updated.bannerUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin: Wipe Profile
 app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, res) => {
     try {
@@ -7577,6 +7704,8 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
         // 1. Delete all associated files from R2 or local storage
         if (profile.avatar) await deleteFromStorage(profile.avatar).catch((err: any) =>
             logger.error(`Failed to delete avatar during profile wipe: ${profile.avatar}`, err));
+        if (profile.bannerUrl) await deleteFromStorage(profile.bannerUrl).catch((err: any) =>
+            logger.error(`Failed to delete banner during profile wipe: ${profile.bannerUrl}`, err));
         for (const track of profile.tracks) {
             await deleteFromStorage(track.url).catch((err: any) =>
                 logger.error(`Failed to delete track audio during profile wipe: ${track.url}`, err));

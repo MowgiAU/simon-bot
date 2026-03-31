@@ -5,7 +5,7 @@ import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube, 
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
-    Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle
+    Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -21,6 +21,7 @@ interface MusicianProfile {
     username?: string;
     displayName?: string | null;
     avatar?: string | null;
+    bannerUrl?: string | null;
     bio: string | null;
     spotifyUrl: string | null;
     soundcloudUrl: string | null;
@@ -113,6 +114,7 @@ export const ProfileEditPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [uploadingBanner, setUploadingBanner] = useState(false);
     const [nameError, setNameError] = useState<string | null>(null);
     const [validatingName, setValidatingName] = useState(false);
 
@@ -303,6 +305,42 @@ export const ProfileEditPage: React.FC = () => {
         } finally {
             setUploadingAvatar(false);
             setAvatarFile(null);
+        }
+    };
+
+    const handleBannerUpload = async (file: File) => {
+        if (!user || !profile) return;
+        setUploadingBanner(true);
+        const formData = new FormData();
+        formData.append('banner', file);
+        try {
+            const endpoint = isAdminMode
+                ? `/api/admin/musician/profile/${effectiveUserId}/banner`
+                : `/api/musician/profile/${user.id}/banner`;
+            const res = await axios.post(endpoint, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                withCredentials: true
+            });
+            setProfile({ ...profile, bannerUrl: res.data.bannerUrl });
+            setMessage({ type: 'success', text: 'Banner image updated!' });
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to upload banner' });
+        } finally {
+            setUploadingBanner(false);
+        }
+    };
+
+    const handleBannerRemove = async () => {
+        if (!user || !profile) return;
+        setUploadingBanner(true);
+        try {
+            await axios.delete(`/api/musician/profile/${isAdminMode ? effectiveUserId : user.id}/banner`, { withCredentials: true });
+            setProfile({ ...profile, bannerUrl: null });
+            setMessage({ type: 'success', text: 'Banner image removed.' });
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to remove banner' });
+        } finally {
+            setUploadingBanner(false);
         }
     };
 
@@ -622,6 +660,67 @@ export const ProfileEditPage: React.FC = () => {
 
                 {/* ═══ RIGHT COLUMN: Edit Sections ═══ */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                    {/* ── Profile Banner ── */}
+                    <div style={card}>
+                        <div style={sectionHeader(colors.accent)}><Image size={15} color={colors.accent} /> Profile Banner</div>
+                        <p style={{ fontSize: '12px', color: colors.textTertiary, margin: '0 0 12px', lineHeight: 1.5 }}>
+                            Upload a hero image for the top of your profile page. Recommended: 1500×500px or wider.
+                        </p>
+
+                        {profile?.bannerUrl ? (
+                            <div style={{ position: 'relative', borderRadius: borderRadius.md, overflow: 'hidden', marginBottom: '8px' }}>
+                                <img
+                                    src={profile.bannerUrl.startsWith('http') ? profile.bannerUrl : profile.bannerUrl}
+                                    alt="Profile banner"
+                                    style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }}
+                                />
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', bottom: '8px', right: '8px', display: 'flex', gap: '6px' }}>
+                                    <label style={{
+                                        display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
+                                        backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                                        border: '1px solid rgba(255,255,255,0.15)', borderRadius: borderRadius.sm,
+                                        color: 'white', fontSize: '11px', fontWeight: 600,
+                                        cursor: uploadingBanner ? 'not-allowed' : 'pointer',
+                                    }}>
+                                        <Camera size={12} /> Change
+                                        <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleBannerUpload(e.target.files[0])} style={{ display: 'none' }} disabled={uploadingBanner} />
+                                    </label>
+                                    <button onClick={handleBannerRemove} disabled={uploadingBanner} style={{
+                                        display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
+                                        backgroundColor: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(8px)',
+                                        border: '1px solid rgba(239,68,68,0.4)', borderRadius: borderRadius.sm,
+                                        color: '#fca5a5', fontSize: '11px', fontWeight: 600,
+                                        cursor: uploadingBanner ? 'not-allowed' : 'pointer',
+                                    }}>
+                                        <Trash2 size={12} /> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <label style={{
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                gap: '8px', padding: '28px 16px',
+                                border: '2px dashed rgba(255,255,255,0.1)', borderRadius: borderRadius.md,
+                                cursor: uploadingBanner ? 'not-allowed' : 'pointer',
+                                transition: 'border-color 0.2s, background 0.2s',
+                                backgroundColor: 'rgba(255,255,255,0.02)',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = `${colors.accent}60`; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+                            >
+                                <Image size={28} color={colors.textTertiary} />
+                                <span style={{ fontSize: '13px', color: colors.textSecondary, fontWeight: 500 }}>Click to upload a banner image</span>
+                                <span style={{ fontSize: '11px', color: colors.textTertiary }}>JPG, PNG, or WebP</span>
+                                <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && handleBannerUpload(e.target.files[0])} style={{ display: 'none' }} disabled={uploadingBanner} />
+                            </label>
+                        )}
+
+                        {uploadingBanner && (
+                            <div style={{ fontSize: '12px', color: colors.accent, marginTop: '8px', textAlign: 'center' }}>Uploading banner...</div>
+                        )}
+                    </div>
 
                     {/* ── Identity ── */}
                     <div style={card}>
