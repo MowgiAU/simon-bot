@@ -122,7 +122,7 @@ export class ProfileService {
                     include: { genre: true }
                 },
                 tracks: {
-                    where: { isPublic: true },
+                    where: { isPublic: true, deletedAt: null },
                     orderBy: { createdAt: 'desc' },
                     // Explicitly select only what the profile page needs.
                     // Critically EXCLUDES: arrangement (can be MBs of FL Studio JSON),
@@ -162,6 +162,7 @@ export class ProfileService {
                         waveformPeaks: true, // needed for the featured player waveform
                         isPublic: true, status: true,
                         profileId: true, createdAt: true,
+                        deletedAt: true, // needed to filter soft-deleted tracks post-query
                     }
                 },
                 featuredPlaylist: {
@@ -169,6 +170,7 @@ export class ProfileService {
                         id: true, name: true, slug: true, description: true,
                         coverUrl: true, releaseType: true, trackCount: true,
                         tracks: {
+                            where: { track: { deletedAt: null } },
                             orderBy: { position: 'asc' },
                             take: 10,
                             select: {
@@ -187,8 +189,8 @@ export class ProfileService {
             }
         });
 
-        // If the featured track has been privated, clear it from the response and DB
-        if (profile && profile.featuredTrack && !profile.featuredTrack.isPublic) {
+        // If the featured track has been privated or soft-deleted, clear it from the response and DB
+        if (profile && profile.featuredTrack && (!profile.featuredTrack.isPublic || (profile.featuredTrack as any).deletedAt)) {
             await this.prisma.musicianProfile.update({
                 where: { id: profile.id },
                 data: { featuredTrackId: null }

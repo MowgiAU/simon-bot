@@ -5983,6 +5983,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         res.json({ success: true });
     } catch (e: any) {
+        logger.error(`[Track] Delete failed for trackId=${req.params.trackId}`, e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -6177,7 +6178,8 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const userId = req.session.user.id;
 
         const { trackId } = req.params;
-        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        // Bypass soft-delete middleware so admin can edit soft-deleted tracks
+        const track = await db.track.findFirst({ where: { id: trackId, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] }, include: { profile: true } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
 
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -6293,7 +6295,8 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
     try {
         const adminId = req.session.user.id;
         const { trackId } = req.params;
-        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        // Bypass soft-delete middleware so admin can find+delete soft-deleted tracks too
+        const track = await db.track.findFirst({ where: { id: trackId, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] }, include: { profile: true } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
 
         await deleteFromStorage(track.url);
@@ -6318,15 +6321,20 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
 app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
     try {
         const search = req.query.search as string || '';
+        // Bypass soft-delete middleware so admins see all tracks including deleted
+        const deletedAtBypass = { OR: [{ deletedAt: null }, { deletedAt: { not: null } }] } as any;
         const tracks = await db.track.findMany({
             where: search ? {
-                OR: [
-                    { title: { contains: search, mode: 'insensitive' } },
-                    { artist: { contains: search, mode: 'insensitive' } },
-                    { profile: { username: { contains: search, mode: 'insensitive' } } },
-                    { profile: { displayName: { contains: search, mode: 'insensitive' } } },
-                ]
-            } : {},
+                AND: [
+                    deletedAtBypass,
+                    { OR: [
+                        { title: { contains: search, mode: 'insensitive' } },
+                        { artist: { contains: search, mode: 'insensitive' } },
+                        { profile: { username: { contains: search, mode: 'insensitive' } } },
+                        { profile: { displayName: { contains: search, mode: 'insensitive' } } },
+                    ] },
+                ],
+            } : deletedAtBypass,
             select: {
                 id: true,
                 title: true,
@@ -6334,6 +6342,7 @@ app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
                 coverUrl: true,
                 playCount: true,
                 status: true,
+                deletedAt: true,
                 profile: {
                     select: { id: true, username: true, displayName: true }
                 }
@@ -6606,7 +6615,7 @@ app.get('/api/musician/profiles', async (req, res) => {
           include: {
               genres: { include: { genre: true } },
               tracks: { 
-                  where: { isPublic: true, status: 'active' },
+                  where: { isPublic: true, status: 'active', deletedAt: null },
                   take: 1,
                   orderBy: { playCount: 'desc' },
                   // Explicit select avoids loading large JSON columns (arrangement, waveformPeaks)
@@ -6619,7 +6628,7 @@ app.get('/api/musician/profiles', async (req, res) => {
                   }
               },
               _count: {
-                  select: { tracks: true }
+                  select: { tracks: { where: { deletedAt: null } } }
               }
           },
           orderBy,
@@ -6689,7 +6698,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
 
         // Fetch reposts in parallel-after-profile (userId is now known)
         const reposts = await db.trackRepost.findMany({
-            where: { userId: profileData.userId },
+            where: { userId: profileData.userId, track: { deletedAt: null } },
             orderBy: { createdAt: 'desc' },
             take: 50,
             include: {
@@ -6941,13 +6950,13 @@ app.get('/api/discovery/settings', async (req, res) => {
         } else if (settings.featuredType === 'artist' && settings.featuredArtistId) {
             queries.push(db.musicianProfile.findUnique({
                 where: { userId: settings.featuredArtistId },
-                include: { tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 5, include: { genres: { include: { genre: true } } } }, genres: { include: { genre: true } } },
+                include: { tracks: { where: { isPublic: true, deletedAt: null }, orderBy: { playCount: 'desc' }, take: 5, include: { genres: { include: { genre: true } } } }, genres: { include: { genre: true } } },
             }).then(featuredArtist => { result.featuredArtist = featuredArtist; }));
         } else if (settings.featuredType === 'playlist' && settings.featuredPlaylistId) {
             queries.push(db.playlist.findUnique({
                 where: { id: settings.featuredPlaylistId },
                 include: {
-                    tracks: { orderBy: { position: 'asc' }, take: 10, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
+                    tracks: { where: { track: { deletedAt: null } }, orderBy: { position: 'asc' }, take: 10, include: { track: { include: { profile: { select: { username: true, displayName: true, avatar: true, userId: true } } } } } },
                     profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
                     _count: { select: { tracks: true } },
                 },
@@ -6970,7 +6979,7 @@ app.get('/api/discovery/settings', async (req, res) => {
             queries.push(db.musicianProfile.findUnique({
                 where: { userId: settings.featuredProducerId },
                 include: {
-                    tracks: { where: { isPublic: true }, orderBy: { playCount: 'desc' }, take: 1 },
+                    tracks: { where: { isPublic: true, deletedAt: null }, orderBy: { playCount: 'desc' }, take: 1 },
                     genres: { include: { genre: true } },
                 },
             }).then(featuredProducer => {
@@ -7877,7 +7886,11 @@ app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any
     try {
         const { id } = req.params;
         const tracks = await db.track.findMany({
-            where: { profileId: id },
+            where: {
+                profileId: id,
+                // Bypass soft-delete middleware: show all tracks including deleted
+                OR: [{ deletedAt: null }, { deletedAt: { not: null } }],
+            },
             select: {
                 id: true,
                 title: true,
@@ -7886,6 +7899,7 @@ app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any
                 statusReason: true,
                 playCount: true,
                 isPublic: true,
+                deletedAt: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' }
@@ -10119,7 +10133,7 @@ app.get('/api/my-favourites', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const favourites = await db.trackFavourite.findMany({
-            where: { userId },
+            where: { userId, track: { deletedAt: null } },
             orderBy: { createdAt: 'desc' },
             include: {
                 track: {
@@ -10380,7 +10394,7 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
         const reposts = await db.trackRepost.findMany({
             where: {
                 userId: { in: followedUserIds },
-                track: { isPublic: true },
+                track: { isPublic: true, deletedAt: null },
             },
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -10455,7 +10469,7 @@ app.get('/api/playlists/popular', async (_req: any, res) => {
             orderBy: { totalPlays: 'desc' },
             take: 12,
             include: {
-                tracks: { orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
+                tracks: { where: { track: { deletedAt: null } }, orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
                 profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
             },
         });
@@ -10474,7 +10488,7 @@ app.get('/api/my-playlists', requireAuth, async (req: any, res) => {
             where: { userId },
             orderBy: { updatedAt: 'desc' },
             include: {
-                tracks: { orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
+                tracks: { where: { track: { deletedAt: null } }, orderBy: { position: 'asc' }, take: 4, include: { track: { select: { id: true, coverUrl: true, title: true } } } },
             },
         });
         res.json(playlists);
@@ -10523,6 +10537,7 @@ app.get('/api/playlists/:playlistId', async (req: any, res) => {
             where: { id: req.params.playlistId },
             include: {
                 tracks: {
+                    where: { track: { deletedAt: null } },
                     orderBy: { position: 'asc' },
                     include: {
                         track: {
@@ -10764,7 +10779,7 @@ app.get('/api/activity/public', async (_req: any, res) => {
                 select: { id: true, userId: true, username: true, avatarUrl: true, trackTitle: true, coverUrl: true, battleId: true, createdAt: true },
             }),
             db.trackFavourite.findMany({
-                where: { createdAt: { gte: since } },
+                where: { createdAt: { gte: since }, track: { deletedAt: null } },
                 orderBy: { createdAt: 'desc' },
                 take: 10,
                 include: { track: { select: { id: true, title: true, coverUrl: true, profile: { select: { username: true, displayName: true } } } } },
@@ -10969,7 +10984,7 @@ app.get('/api/radio/queue/:guildId', async (req, res) => {
     if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
 
     const queue = await db.radioQueue.findMany({
-      where: { guildId, playedAt: null },
+      where: { guildId, playedAt: null, track: { deletedAt: null } },
       orderBy: { position: 'asc' },
       include: { track: { include: { profile: true } } },
       take: 50,
