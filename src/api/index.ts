@@ -2178,9 +2178,10 @@ app.get('/api/auth/status', async (req, res) => {
         }
     }
 
-    // Fetch MusicianProfile avatar/displayName for the session user
+    // Fetch MusicianProfile avatar/displayName/username for the session user
     let profileAvatar: string | null = null;
     let profileDisplayName: string | null = null;
+    let profileUsername: string | null = null;
     try {
         const mp = await db.musicianProfile.findUnique({
             where: { userId: req.session.user.id },
@@ -2189,6 +2190,7 @@ app.get('/api/auth/status', async (req, res) => {
         if (mp) {
             profileAvatar = mp.avatar || null;
             profileDisplayName = mp.displayName || mp.username || null;
+            profileUsername = mp.username || null;
         }
     } catch { /* non-fatal */ }
 
@@ -2197,6 +2199,7 @@ app.get('/api/auth/status', async (req, res) => {
       user: req.session.user,
       profileAvatar,
       profileDisplayName,
+      profileUsername,
       mutualAdminGuilds: req.session.mutualAdminGuilds || [],
       mutualStaffGuilds: req.session.mutualStaffGuilds || [],
       isGuildMember: req.session.isGuildMember ?? false,

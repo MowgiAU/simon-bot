@@ -162,7 +162,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         <Link to="/account" title="Account Settings" style={{ backgroundColor: pathname === '/account' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px', borderRadius: '7px', display: 'flex', textDecoration: 'none' }}>
                             <Settings size={15} />
                         </Link>
-                        <Link to={`/profile/${user.username}`} style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
+                        <Link to={`/profile/${user.profileUsername || user.username}`} style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
                             <User size={14} /> ME
                         </Link>
                         </>
@@ -189,7 +189,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             {accountMenuOpen && (
                                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000, boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '2px' }}
                                     onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
-                                    {[user.username].map(uname => (
+                                    {[user.profileUsername || user.username].map(uname => (
                                         <React.Fragment key="menu">
                                             <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ExternalLink size={13} /> View Profile</Link>
                                             <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Edit3 size={13} /> Edit Profile</Link>
@@ -296,7 +296,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
                         { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
-                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.username}` : null, action: !user ? login : undefined },
+                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.profileUsername || user.username}` : null, action: !user ? login : undefined },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
                         const itemStyle: React.CSSProperties = {

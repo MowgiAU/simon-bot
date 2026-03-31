@@ -10,6 +10,7 @@ export interface User {
   avatar: string;
   profileAvatar?: string | null;
   profileDisplayName?: string | null;
+  profileUsername?: string | null;
   _localId?: string;
   _hasPassword?: boolean;
   _email?: string | null;
@@ -101,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Overlay profile avatar/displayName from the API response
           if (data.profileAvatar) userData.profileAvatar = data.profileAvatar;
           if (data.profileDisplayName) userData.profileDisplayName = data.profileDisplayName;
+          if (data.profileUsername) userData.profileUsername = data.profileUsername;
           setUser(userData);
           setMutualAdminGuilds(data.mutualAdminGuilds || []);
           setMutualStaffGuilds(data.mutualStaffGuilds || []);
