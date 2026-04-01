@@ -5768,8 +5768,8 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             try {
                 const bgUpdates: Record<string, any> = {};
 
-                // Convert audio to 320kbps MP3
-                const finalAudioPath = await MediaConverter.convertAudio(_bgRawAudioPath);
+                // Convert audio to OGG Opus
+                const finalAudioPath = await MediaConverter.convertToOgg(_bgRawAudioPath);
                 bgUpdates.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
 
                 // Optimise artwork to WebP
@@ -5792,7 +5792,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
 
                 r2Jobs.push((async () => {
                     const key = `tracks/${_bgTrackId}/audio/${path.basename(finalAudioPath)}`;
-                    const cdn = await uploadToR2OrLocal(finalAudioPath, key, 'audio/mpeg', bgUpdates.url as string);
+                    const cdn = await uploadToR2OrLocal(finalAudioPath, key, 'audio/ogg', bgUpdates.url as string);
                     if (cdn !== bgUpdates.url) r2Updates.url = cdn;
                 })());
 
@@ -6029,13 +6029,13 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
             } catch (err) {
                 logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
             }
-            // Convert to 320kbps MP3
-            const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
+            // Convert to OGG Opus
+            const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
             // Delete old audio from R2 or local
             await deleteFromStorage(track.url);
             // Upload new audio to R2 or store locally
             const r2AudioKey = `tracks/${trackId}/audio/${path.basename(finalAudioPath)}`;
-            updateData.url = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/mpeg', `/uploads/tracks/${path.basename(finalAudioPath)}`);
+            updateData.url = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/ogg', `/uploads/tracks/${path.basename(finalAudioPath)}`);
         }
 
         // Artwork replacement
@@ -8658,8 +8658,8 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
                 logger.warn(`Failed to parse battle audio metadata: ${err}`);
             }
 
-            // Convert audio to 320kbps MP3 and optimize cover
-            const finalAudioPath = await MediaConverter.convertAudio(audioFile.path);
+            // Convert audio to OGG Opus and optimize cover
+            const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
             const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
 
             // Set local URLs as fallback
@@ -8697,7 +8697,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             const audioLocalPath = path.join(PROJECT_ROOT, 'public', audioUrl);
             r2Uploads.push((async () => {
                 const r2AudioKey = `battles/${entry.id}/audio/${path.basename(audioUrl)}`;
-                const cdnAudioUrl = await uploadToR2OrLocal(audioLocalPath, r2AudioKey, 'audio/mpeg', audioUrl);
+                const cdnAudioUrl = await uploadToR2OrLocal(audioLocalPath, r2AudioKey, 'audio/ogg', audioUrl);
                 if (cdnAudioUrl !== audioUrl) r2UrlUpdates.audioUrl = cdnAudioUrl;
             })());
 
