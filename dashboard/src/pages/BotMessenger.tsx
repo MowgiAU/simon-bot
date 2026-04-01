@@ -21,6 +21,7 @@ import {
     Eye,
     Upload,
     Loader,
+    Hash,
 } from 'lucide-react';
 
 const API = '';
@@ -407,6 +408,75 @@ const StickerPicker: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// Channel Mention Insert Button
+// ---------------------------------------------------------------------------
+const MentionInsertButton: React.FC<{
+    guildId: string;
+    onInsert: (mention: string) => void;
+}> = ({ guildId, onInsert }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    return (
+        <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                title="Insert channel mention"
+                style={{
+                    background: open ? colors.primary + '22' : 'transparent',
+                    border: `1px solid ${open ? colors.primary : colors.border}`,
+                    borderRadius: borderRadius.sm,
+                    padding: '4px 6px',
+                    cursor: 'pointer',
+                    color: open ? colors.primary : colors.textTertiary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    transition: 'all .15s',
+                }}
+            >
+                <Hash size={13} /> #mention
+            </button>
+            {open && (
+                <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    zIndex: 100,
+                    marginTop: '4px',
+                    minWidth: '240px',
+                }}>
+                    <ChannelSelect
+                        guildId={guildId}
+                        value=""
+                        onChange={(v) => {
+                            if (v) {
+                                onInsert(`<#${v}>`);
+                                setOpen(false);
+                            }
+                        }}
+                        channelTypes={[0, 2, 5, 13, 15]}
+                        placeholder="Pick channel to mention..."
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Embed Builder Component
 // ---------------------------------------------------------------------------
 const EmbedBuilder: React.FC<{
@@ -444,7 +514,10 @@ const EmbedBuilder: React.FC<{
                 </div>
             </div>
             <div>
-                <label style={labelStyle}>Description</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label style={labelStyle}>Description</label>
+                    <MentionInsertButton guildId={guildId} onInsert={(m) => update({ description: embed.description + m })} />
+                </div>
                 <textarea style={textareaStyle} value={embed.description} onChange={e => update({ description: e.target.value })} placeholder="Embed description (supports markdown)" rows={4} />
             </div>
             <div>
@@ -487,7 +560,10 @@ const EmbedBuilder: React.FC<{
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm, marginBottom: spacing.sm }}>
                         <input style={inputStyle} value={field.name} onChange={e => updateField(i, { name: e.target.value })} placeholder="Field name" />
-                        <input style={inputStyle} value={field.value} onChange={e => updateField(i, { value: e.target.value })} placeholder="Field value" />
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <input style={{ ...inputStyle, flex: 1 }} value={field.value} onChange={e => updateField(i, { value: e.target.value })} placeholder="Field value" />
+                            <MentionInsertButton guildId={guildId} onInsert={(m) => updateField(i, { value: field.value + m })} />
+                        </div>
                     </div>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: colors.textSecondary, fontSize: '13px', cursor: 'pointer' }}>
                         <input type="checkbox" checked={field.inline} onChange={e => updateField(i, { inline: e.target.checked })} /> Inline
@@ -804,7 +880,10 @@ export function BotMessengerPage() {
 
                         {/* Message input */}
                         <div>
-                            <label style={labelStyle}>Message</label>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={labelStyle}>Message</label>
+                                <MentionInsertButton guildId={guildId} onInsert={(m) => setMessage(prev => prev + m)} />
+                            </div>
                             <textarea
                                 style={{ ...textareaStyle, minHeight: '120px' }}
                                 value={message}
@@ -865,7 +944,10 @@ export function BotMessengerPage() {
                         </div>
 
                         <div style={{ marginBottom: spacing.md }}>
-                            <label style={labelStyle}>Message Content (above embed)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={labelStyle}>Message Content (above embed)</label>
+                                <MentionInsertButton guildId={guildId} onInsert={(m) => setEmbedContent(prev => prev + m)} />
+                            </div>
                             <textarea style={{ ...textareaStyle, minHeight: '60px' }} value={embedContent} onChange={e => setEmbedContent(e.target.value)} placeholder="Optional text above the embed" />
                         </div>
 
