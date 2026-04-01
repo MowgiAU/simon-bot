@@ -30,6 +30,7 @@ import {
   Users,
   TrendingUp,
   Radio,
+  Send,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -251,6 +252,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={20} /></span>
                 <span className="nav-label">Studio Guide</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('bot-messenger') && (
+            <button
+                className={`nav-item ${activeSection === 'bot-messenger' ? 'active' : ''}`}
+                onClick={() => onNavigate('bot-messenger')}
+                title={collapsed ? "Bot Messenger" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Send} size={20} /></span>
+                <span className="nav-label">Bot Messenger</span>
             </button>
           )}
 

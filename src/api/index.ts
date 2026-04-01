@@ -770,6 +770,7 @@ app.use('/api/', (req, res, next) => {
         path.startsWith('/feedback/') ||
         path.startsWith('/channel-rules/') ||
         path.startsWith('/leveling/') ||
+        path.startsWith('/bot-messenger/') ||
         path.startsWith('/studio-guide/')) {
         return next();
     }
@@ -3760,7 +3761,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger'] 
             });
         }
 
@@ -4753,6 +4754,94 @@ app.post('/api/email/settings', requireAdmin, async (req, res) => {
     
     await emailService.updateSettings(updates);
     res.json({ success: true });
+});
+
+// --- Bot Messenger Endpoints ---
+
+// Fetch recent messages from a channel
+app.get('/api/bot-messenger/:guildId/messages/:channelId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, channelId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const before = req.query.before as string | undefined;
+
+    try {
+        const params: any = { limit };
+        if (before) params.before = before;
+        const qs = new URLSearchParams(params as any).toString();
+        const response = await discordReq('get', `/channels/${channelId}/messages?${qs}`);
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to fetch channel messages', err);
+        res.status(err.response?.status || 500).json({ error: 'Failed to fetch messages' });
+    }
+});
+
+// Send a message to a channel (text or embed)
+app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { channelId, content, embeds, replyTo, stickerId } = req.body;
+    if (!channelId) return res.status(400).json({ error: 'channelId is required' });
+    if (!content && (!embeds || embeds.length === 0) && !stickerId) {
+        return res.status(400).json({ error: 'Message must have content, embeds, or a sticker' });
+    }
+
+    try {
+        const payload: any = {};
+        if (content) payload.content = content;
+        if (embeds && embeds.length > 0) payload.embeds = embeds;
+        if (stickerId) payload.sticker_ids = [stickerId];
+        if (replyTo) {
+            payload.message_reference = { message_id: replyTo, fail_if_not_exists: false };
+        }
+        const response = await discordReq('post', `/channels/${channelId}/messages`, payload);
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to send message via messenger', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send message' });
+    }
+});
+
+// React to a message
+app.post('/api/bot-messenger/:guildId/react', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { channelId, messageId, emoji } = req.body;
+    if (!channelId || !messageId || !emoji) {
+        return res.status(400).json({ error: 'channelId, messageId, and emoji are required' });
+    }
+
+    try {
+        // emoji can be unicode or custom format name:id
+        const encoded = encodeURIComponent(emoji);
+        await discordReq('put', `/channels/${channelId}/messages/${messageId}/reactions/${encoded}/@me`);
+        res.json({ success: true });
+    } catch (err: any) {
+        logger.error('Failed to add reaction', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to react' });
+    }
+});
+
+// Fetch guild stickers
+app.get('/api/bot-messenger/:guildId/stickers', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const response = await discordReq('get', `/guilds/${guildId}/stickers`);
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to fetch guild stickers', err);
+        res.status(err.response?.status || 500).json({ error: 'Failed to fetch stickers' });
+    }
 });
 
 // --- Ticket System Endpoints ---

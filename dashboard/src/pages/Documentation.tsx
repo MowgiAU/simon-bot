@@ -16,6 +16,7 @@ import {
   FileText,
   Mail,
   MonitorPlay,
+  Send,
   Radio,
   TrendingUp,
   ScrollText,
@@ -203,6 +204,15 @@ const docSections: DocSection[] = [
     content: 'Admin-only dashboard panel for managing user accounts across the platform. View all registered accounts with search and filtering, check account details (Discord link status, email verification, login method, role), and perform administrative actions. Centralises user management for the website and dashboard access system.',
     requirements: ['Admin access required']
   },
+  {
+    id: 'bot-messenger',
+    title: 'Bot Messenger',
+    icon: <Send size={20} />,
+    color: colors.primary,
+    content: 'Dashboard tool and slash commands for sending messages as the bot. Includes a live channel message feed with reply functionality, emoji and sticker pickers (standard and server custom), and a full embed builder with live preview — similar to Discohook. Supports title, description, color, fields, author, footer, thumbnail, image, and timestamp. Also includes /send and /react slash commands for quick bot messaging from Discord.',
+    commands: ['/send <message> [channel] [reply_to]', '/react <message_id> <emoji> [channel]'],
+    requirements: ['Manage Server permission']
+  },
 ];
 
 export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?: (section: any) => void }> = ({ initialSection, onNavigate }) => {
@@ -238,6 +248,7 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
       'logger': 'logs',
       'musician-profiles': 'musician-profiles-admin',
       'studio-guide': 'studio-guide',
+      'bot-messenger': 'bot-messenger',
       'account-management': 'account-management',
     };
 
