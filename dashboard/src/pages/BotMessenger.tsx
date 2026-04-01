@@ -19,6 +19,8 @@ import {
     Palette,
     Sticker,
     Eye,
+    Upload,
+    Loader,
 } from 'lucide-react';
 
 const API = '';
@@ -410,8 +412,10 @@ const StickerPicker: React.FC<{
 const EmbedBuilder: React.FC<{
     embed: EmbedData;
     onChange: (e: EmbedData) => void;
-}> = ({ embed, onChange }) => {
+    guildId: string;
+}> = ({ embed, onChange, guildId }) => {
     const update = (patch: Partial<EmbedData>) => onChange({ ...embed, ...patch });
+    const [uploading, setUploading] = useState(false);
 
     const addField = () => update({ fields: [...embed.fields, { name: '', value: '', inline: false }] });
     const removeField = (i: number) => update({ fields: embed.fields.filter((_, idx) => idx !== i) });
@@ -499,12 +503,66 @@ const EmbedBuilder: React.FC<{
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md }}>
                 <div>
                     <label style={labelStyle}>Thumbnail URL</label>
-                    <input style={inputStyle} value={embed.thumbnailUrl} onChange={e => update({ thumbnailUrl: e.target.value })} placeholder="https://..." />
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <input style={{ ...inputStyle, flex: 1 }} value={embed.thumbnailUrl} onChange={e => update({ thumbnailUrl: e.target.value })} placeholder="https://..." />
+                    </div>
                 </div>
                 <div>
                     <label style={labelStyle}>Image URL</label>
-                    <input style={inputStyle} value={embed.imageUrl} onChange={e => update({ imageUrl: e.target.value })} placeholder="https://..." />
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <input style={{ ...inputStyle, flex: 1 }} value={embed.imageUrl} onChange={e => update({ imageUrl: e.target.value })} placeholder="https://..." />
+                    </div>
                 </div>
+            </div>
+            <div style={{ marginTop: spacing.sm }}>
+                <label style={{ ...labelStyle, marginBottom: spacing.sm, display: 'block' }}>Upload Image to CDN</label>
+                <p style={{ color: colors.textTertiary, fontSize: '12px', margin: `0 0 ${spacing.sm} 0` }}>
+                    Upload an image to auto-fill both Image URL and Thumbnail URL (auto-resized).
+                </p>
+                <label style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 16px', background: uploading ? colors.surface : colors.primary + '22',
+                    color: uploading ? colors.textTertiary : colors.primary, border: `1px solid ${uploading ? colors.border : colors.primary + '44'}`,
+                    borderRadius: borderRadius.md, cursor: uploading ? 'not-allowed' : 'pointer',
+                    fontSize: '13px', fontWeight: 600, transition: 'all .15s',
+                }}>
+                    {uploading ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={14} />}
+                    {uploading ? 'Uploading...' : 'Choose Image'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploading} onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploading(true);
+                        try {
+                            const form = new FormData();
+                            form.append('embedImage', file);
+                            const res = await axios.post(`${API}/api/bot-messenger/${guildId}/upload-image`, form);
+                            update({ imageUrl: res.data.imageUrl, thumbnailUrl: res.data.thumbnailUrl });
+                        } catch (err: any) {
+                            alert(err.response?.data?.error || 'Upload failed');
+                        } finally {
+                            setUploading(false);
+                            e.target.value = '';
+                        }
+                    }} />
+                </label>
+                {(embed.imageUrl || embed.thumbnailUrl) && (
+                    <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.md, flexWrap: 'wrap' }}>
+                        {embed.imageUrl && (
+                            <div style={{ position: 'relative' }}>
+                                <img src={embed.imageUrl} alt="Image preview" style={{ height: 80, borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }} />
+                                <span style={{ position: 'absolute', top: -6, right: -6, background: colors.error, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => update({ imageUrl: '' })}><X size={10} color="#fff" /></span>
+                                <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: '2px', textAlign: 'center' }}>Image</div>
+                            </div>
+                        )}
+                        {embed.thumbnailUrl && (
+                            <div style={{ position: 'relative' }}>
+                                <img src={embed.thumbnailUrl} alt="Thumb preview" style={{ height: 80, borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }} />
+                                <span style={{ position: 'absolute', top: -6, right: -6, background: colors.error, borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => update({ thumbnailUrl: '' })}><X size={10} color="#fff" /></span>
+                                <div style={{ fontSize: '10px', color: colors.textTertiary, marginTop: '2px', textAlign: 'center' }}>Thumbnail</div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Footer */}
@@ -816,7 +874,7 @@ export function BotMessengerPage() {
                             <input style={inputStyle} value={embedReplyTo} onChange={e => setEmbedReplyTo(e.target.value)} placeholder="Message ID (optional)" />
                         </div>
 
-                        <EmbedBuilder embed={embed} onChange={setEmbed} />
+                        <EmbedBuilder embed={embed} onChange={setEmbed} guildId={guildId} />
 
                         <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.lg, alignItems: 'center' }}>
                             <button onClick={handleSendEmbed} disabled={embedSending || !embedChannelId}

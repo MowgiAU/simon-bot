@@ -232,6 +232,11 @@ input[type="range"]:focus-visible {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .user-profile {
   display: flex;
   align-items: center;

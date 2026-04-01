@@ -77,6 +77,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/sponsors');
     } else if (file.fieldname === 'battleBanner' || file.fieldname === 'battleCardImage') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/battle-banners');
+    } else if (file.fieldname === 'embedImage') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/embed-images');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -105,7 +107,7 @@ const upload = multer({
       } else {
         cb(new Error('Only audio files are allowed for the track!'));
       }
-    } else if (file.fieldname === 'artwork' || file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner') {
+    } else if (file.fieldname === 'artwork' || file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner' || file.fieldname === 'embedImage') {
       if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
@@ -4841,6 +4843,59 @@ app.get('/api/bot-messenger/:guildId/stickers', async (req, res) => {
     } catch (err: any) {
         logger.error('Failed to fetch guild stickers', err);
         res.status(err.response?.status || 500).json({ error: 'Failed to fetch stickers' });
+    }
+});
+
+// Upload an image for embed use — returns full-size CDN URL + auto-generated thumbnail
+app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage'), async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No image uploaded' });
+
+    try {
+        await scanFileForViruses(file.path, 'embedImage');
+
+        const sharp = (await import('sharp')).default;
+        const ext = path.extname(file.originalname).toLowerCase();
+        const baseName = path.basename(file.filename, path.extname(file.filename));
+
+        // Generate thumbnail BEFORE uploading full-size (uploadToR2OrLocal deletes local file)
+        const thumbBuffer = await sharp(file.path)
+            .resize(200, null, { withoutEnlargement: true })
+            .toBuffer();
+
+        // Full-size image — upload to R2
+        const imageKey = `embed-images/${baseName}${ext}`;
+        const imageUrl = await uploadToR2OrLocal(
+            file.path,
+            imageKey,
+            file.mimetype,
+            `/uploads/embed-images/${file.filename}`
+        );
+
+        // Upload thumbnail
+        const thumbKey = `embed-images/${baseName}_thumb${ext}`;
+        let thumbnailUrl: string;
+        if (R2Storage.isConfigured()) {
+            thumbnailUrl = await R2Storage.uploadBuffer(thumbKey, thumbBuffer, file.mimetype);
+        } else {
+            const thumbDir = path.join(PROJECT_ROOT, 'public/uploads/embed-images');
+            if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
+            const thumbPath = path.join(thumbDir, `${baseName}_thumb${ext}`);
+            fs.writeFileSync(thumbPath, thumbBuffer);
+            thumbnailUrl = `/uploads/embed-images/${baseName}_thumb${ext}`;
+        }
+
+        res.json({ imageUrl, thumbnailUrl });
+    } catch (err: any) {
+        if (err.message?.startsWith('Uploaded file was rejected')) {
+            return res.status(400).json({ error: err.message });
+        }
+        logger.error('Embed image upload failed', err);
+        res.status(500).json({ error: 'Upload failed' });
     }
 });
 
