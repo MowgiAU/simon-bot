@@ -110,6 +110,7 @@ model Guild {
   // Studio Guide
   studioGuideSettings  StudioGuideSettings?
   studioGuideKnowledge StudioGuideKnowledge[]
+  studioGuideOptOuts   StudioGuideOptOut[]
 
   @@map("guilds")
 }
@@ -1676,12 +1677,15 @@ model StudioGuideSettings {
   cooldownSeconds   Int      @default(30) // Per-user cooldown between AI answers
   systemPrompt      String?              // Custom system prompt override
   model             String   @default("gpt-4o-mini")
+  suppressionRoles  String[] @default([]) // Roles that suppress the bot when active
+  suppressionMinutes Int     @default(10) // Minutes of inactivity before bot resumes after helper activity
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   conversations     StudioGuideConversation[]
+  optOuts           StudioGuideOptOut[]
 
   @@map("studio_guide_settings")
 }
@@ -1722,4 +1726,20 @@ model StudioGuideKnowledge {
 
   @@index([guildId, enabled])
   @@map("studio_guide_knowledge")
+}
+
+model StudioGuideOptOut {
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  permanent  Boolean  @default(false)
+  expiresAt  DateTime?            // null = permanent opt-out
+
+  createdAt  DateTime @default(now())
+
+  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade, map: "studio_guide_opt_outs_guild_fkey")
+  settings   StudioGuideSettings? @relation(fields: [guildId], references: [guildId], map: "studio_guide_opt_outs_settings_fkey")
+
+  @@unique([guildId, userId])
+  @@map("studio_guide_opt_outs")
 }

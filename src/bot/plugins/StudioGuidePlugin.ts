@@ -54,9 +54,9 @@ interface GuildPause {
     resumeAt: number; // timestamp when pause expires
 }
 
-interface UserOptOut {
+interface HelperActivity {
     userId: string;
-    expiresAt: number; // timestamp when opt-out expires
+    timestamp: number;
 }
 
 // ─── Plugin ──────────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ export class StudioGuidePlugin implements IPlugin {
     // In-memory state
     private cooldowns = new Map<string, number>(); // userId → last answer timestamp
     private guildPauses = new Map<string, GuildPause>(); // guildId → pause info
-    private userOptOuts = new Map<string, UserOptOut>(); // `guildId:userId` → opt-out info
+    private helperActivity = new Map<string, HelperActivity[]>(); // guildId → recent helper messages
     private activeConversations = new Map<string, string>(); // `guildId:channelId:userId` → conversationId
     private processedMessageIds = new Set<string>();
 
@@ -118,7 +118,7 @@ export class StudioGuidePlugin implements IPlugin {
         this.vectorStore = null;
         this.cooldowns.clear();
         this.guildPauses.clear();
-        this.userOptOuts.clear();
+        this.helperActivity.clear();
         this.activeConversations.clear();
     }
 
@@ -170,10 +170,14 @@ export class StudioGuidePlugin implements IPlugin {
                         .setDescription('Resume the AI assistant immediately'))
                 .addSubcommand(sub =>
                     sub.setName('optout')
-                        .setDescription('Ask the bot not to answer your questions for a while')
+                        .setDescription('Ask the bot not to answer your questions')
+                        .addBooleanOption(opt =>
+                            opt.setName('permanent')
+                                .setDescription('Permanently opt out (default: temporary)')
+                                .setRequired(false))
                         .addIntegerOption(opt =>
                             opt.setName('minutes')
-                                .setDescription('Minutes to opt out (default: 60)')
+                                .setDescription('Minutes to opt out (ignored if permanent, default: 60)')
                                 .setMinValue(1)
                                 .setMaxValue(480)
                                 .setRequired(false)))
@@ -277,29 +281,50 @@ export class StudioGuidePlugin implements IPlugin {
 
     // ── /guide optout ──
     private async cmdOptOut(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
+        const permanent = interaction.options.getBoolean('permanent') ?? false;
         const minutes = interaction.options.getInteger('minutes') ?? 60;
-        const key = `${guildId}:${interaction.user.id}`;
 
-        this.userOptOuts.set(key, {
-            userId: interaction.user.id,
-            expiresAt: Date.now() + (minutes * 60_000),
-        });
+        try {
+            await this.db.studioGuideOptOut.upsert({
+                where: { guildId_userId: { guildId, userId: interaction.user.id } },
+                update: {
+                    permanent,
+                    expiresAt: permanent ? null : new Date(Date.now() + (minutes * 60_000)),
+                },
+                create: {
+                    guildId,
+                    userId: interaction.user.id,
+                    permanent,
+                    expiresAt: permanent ? null : new Date(Date.now() + (minutes * 60_000)),
+                },
+            });
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to save opt-out:', err);
+        }
 
         await this.context.logAction({
             guildId,
             actionType: 'STUDIO_GUIDE_USER_OPTOUT',
             executorId: interaction.user.id,
-            details: { minutes },
+            details: { minutes: permanent ? 'permanent' : minutes, permanent },
         });
 
-        await interaction.reply({ content: `🙈 Got it! I won't answer your questions for **${minutes} minutes**. Use \`/guide optin\` to re-enable anytime.`, ephemeral: true });
+        const msg = permanent
+            ? `🙈 Got it! I'll **permanently** stop answering your questions. Use \`/guide optin\` to re-enable anytime.`
+            : `🙈 Got it! I won't answer your questions for **${minutes} minutes**. Use \`/guide optin\` to re-enable anytime.`;
+        await interaction.reply({ content: msg, ephemeral: true });
         return true;
     }
 
     // ── /guide optin ──
     private async cmdOptIn(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
-        const key = `${guildId}:${interaction.user.id}`;
-        this.userOptOuts.delete(key);
+        try {
+            await this.db.studioGuideOptOut.deleteMany({
+                where: { guildId, userId: interaction.user.id },
+            });
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to delete opt-out:', err);
+        }
 
         await interaction.reply({ content: '👋 Welcome back! I\'ll answer your questions again.', ephemeral: true });
         return true;
@@ -393,11 +418,45 @@ export class StudioGuidePlugin implements IPlugin {
         if (pause && pause.resumeAt > Date.now()) return;
         if (pause && pause.resumeAt <= Date.now()) this.guildPauses.delete(guildId);
 
-        // User opt-out check
-        const optOutKey = `${guildId}:${message.author.id}`;
-        const optOut = this.userOptOuts.get(optOutKey);
-        if (optOut && optOut.expiresAt > Date.now()) return;
-        if (optOut && optOut.expiresAt <= Date.now()) this.userOptOuts.delete(optOutKey);
+        // Track helper activity (suppression roles) — do this BEFORE opt-out or any skip,
+        // so helper messages are always tracked even if the helper is opted out.
+        const member = message.member;
+        if (member && settings.suppressionRoles.length > 0) {
+            const isHelper = settings.suppressionRoles.some((r: string) => member.roles.cache.has(r));
+            if (isHelper) {
+                const activities = this.helperActivity.get(guildId) || [];
+                activities.push({ userId: message.author.id, timestamp: Date.now() });
+                // Prune old entries
+                const cutoff = Date.now() - ((settings.suppressionMinutes ?? 10) * 60_000);
+                this.helperActivity.set(guildId, activities.filter(a => a.timestamp > cutoff));
+                return; // Helpers don't need the bot to respond to them
+            }
+        }
+
+        // Check active helper suppression — if a helper posted recently, stay silent
+        if (settings.suppressionRoles.length > 0) {
+            const activities = this.helperActivity.get(guildId) || [];
+            const cutoff = Date.now() - ((settings.suppressionMinutes ?? 10) * 60_000);
+            const recentHelper = activities.some(a => a.timestamp > cutoff);
+            if (recentHelper) return;
+        }
+
+        // User opt-out check (DB-backed)
+        try {
+            const optOut = await this.db.studioGuideOptOut.findUnique({
+                where: { guildId_userId: { guildId, userId: message.author.id } },
+            });
+            if (optOut) {
+                if (optOut.permanent) return;
+                if (optOut.expiresAt && new Date(optOut.expiresAt).getTime() > Date.now()) return;
+                // Expired — clean up
+                if (optOut.expiresAt && new Date(optOut.expiresAt).getTime() <= Date.now()) {
+                    await this.db.studioGuideOptOut.delete({ where: { id: optOut.id } });
+                }
+            }
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to check opt-out:', err);
+        }
 
         // User cooldown check
         const lastAnswer = this.cooldowns.get(message.author.id) ?? 0;
@@ -414,8 +473,19 @@ export class StudioGuidePlugin implements IPlugin {
         // Build message content with attachments
         const { textContent, imageUrls, hasAudio, hasVideo } = this.extractMessageContent(message);
 
+        // Skip audio/video-only messages — we can't process media
+        if ((hasAudio || hasVideo) && textContent.replace(/\[(?:Audio|Video) attachment:.*?\]/g, '').trim().length < 10) return;
+
         // Skip very short messages that are unlikely to be questions
         if (textContent.length < 5 && imageUrls.length === 0) return;
+
+        // Check if message is a reply to another user (not the bot) — probably a conversation, skip
+        if (message.reference?.messageId) {
+            try {
+                const referenced = await message.channel.messages.fetch(message.reference.messageId);
+                if (referenced && !referenced.author.bot) return; // Replying to a human — leave it alone
+            } catch { /* couldn't fetch referenced message, proceed */ }
+        }
 
         // Classify whether this message needs a response
         const shouldRespond = await this.classifyMessage(textContent, imageUrls.length > 0, hasAudio, hasVideo);
@@ -519,31 +589,52 @@ export class StudioGuidePlugin implements IPlugin {
     private async classifyMessage(text: string, hasImages: boolean, hasAudio: boolean, hasVideo: boolean): Promise<boolean> {
         if (!this.openai) return false;
 
-        // Quick heuristic checks
-        const questionIndicators = ['?', 'how do', 'how to', 'what is', 'what\'s', 'why does', 'why is',
-            'can i', 'can you', 'should i', 'help', 'stuck', 'issue', 'problem', 'doesn\'t work',
-            'not working', 'broken', 'error', 'anyone know', 'how would', 'what would', 'is there',
-            'could someone', 'any tips', 'advice', 'recommend', 'suggestion', 'feedback',
-            'what do you think', 'thoughts on', 'opinions on', 'sounds like'];
+        const lowerText = text.toLowerCase().trim();
 
-        const lowerText = text.toLowerCase();
-        const hasQuestionIndicator = questionIndicators.some(q => lowerText.includes(q));
-        const hasAttachment = hasImages || hasAudio || hasVideo;
+        // ── Reject obvious non-questions ──
+        const rejectPatterns = [
+            /^(thanks|thank you|ty|thx|cheers|np|no problem|ok(ay)?|lol|lmao|haha|yep|nah|bet|true|facts|dope|nice|cool|fire|w |rip|gg|gn|gm|bruh|fr|omg|smh|damn|wow)[.!?\s]*$/i,
+            /^(i (agree|disagree|think so|know|see|got it)|makes sense|exactly|same|mood|real|this\^?)[.!?\s]*$/i,
+        ];
+        if (rejectPatterns.some(r => r.test(lowerText))) return false;
 
-        // High confidence: clear question mark or question phrase
-        if (hasQuestionIndicator) return true;
+        // ── Reject answers/statements that help others (not questions) ──
+        const answerPatterns = [
+            /^(you (should|need to|can|could|might|have to)|try |use |go to |open |click |press |just |make sure)/i,
+            /^(it('s| is) (because|probably|likely|just|a ))/i,
+            /^(that('s| is) (because|probably|normal|just|how))/i,
+        ];
+        if (answerPatterns.some(r => r.test(lowerText)) && !lowerText.includes('?')) return false;
 
-        // Image/audio with any text likely wants feedback
-        if (hasAttachment && text.length > 3) return true;
+        // ── High-confidence question indicators ──
+        const strongQuestionPatterns = [
+            /\?/,                                          // Has a question mark
+            /^(how|what|why|where|when|which|who|whose)\b/i, // Starts with question word
+            /\b(how do|how to|what is|what's|why does|why is|why can't|why won't)\b/i,
+            /\b(can i|can you|should i|could someone|does anyone|anyone know)\b/i,
+            /\b(help me|i need help|i'm stuck|stuck on)\b/i,
+            /\b(doesn't work|not working|broken|error|bug|crash|issue with)\b/i,
+            /\b(any tips|any advice|recommend|suggestion)\b/i,
+        ];
 
-        // For ambiguous cases, ask the AI to classify
-        if (text.length < 15) return false;
+        const hasStrongQuestion = strongQuestionPatterns.some(r => r.test(lowerText));
 
+        // Image with meaningful text likely wants feedback
+        if (hasImages && text.length > 10) return true;
+
+        // Short non-question — skip
+        if (text.length < 15 && !hasStrongQuestion) return false;
+
+        // If we have a strong question pattern, use AI to check topic relevance
+        // If we don't, use AI to check if it's a question AND on-topic
         try {
+            const prompt = hasStrongQuestion
+                ? `You classify Discord messages in a music production help channel. Reply ONLY "YES" or "NO".\n\nReply "YES" ONLY if the message is about one of these topics:\n- FL Studio (DAW), its features, plugins, workflow\n- Audio production, mixing, mastering, sound design\n- Music production techniques\n- Music theory (chords, scales, harmony, rhythm)\n- VST plugins, synthesizers, samplers, effects\n- Audio hardware (interfaces, monitors, headphones, MIDI controllers)\n\nReply "NO" if the message is about:\n- General chat, memes, off-topic conversation\n- Non-music topics (gaming, coding, food, sports, politics, etc.)\n- Song/beat/track promotion or sharing without a question\n\nMessage: "${text.substring(0, 300)}"`
+                : `You classify Discord messages in a music production help channel. Reply ONLY "YES" or "NO".\n\nReply "YES" ONLY if the message is:\n1. Asking a question or requesting help, AND\n2. About one of these topics: FL Studio, audio production, mixing, mastering, sound design, music production, music theory, VST plugins, audio hardware\n\nReply "NO" for general chat, statements, off-topic questions, thank-you messages, or already-answered conversations.\n\nMessage: "${text.substring(0, 300)}"`;
+
             const completion = await this.openai.chat.completions.create({
                 messages: [
-                    { role: 'system', content: 'You classify Discord messages in a music production help channel. Reply ONLY with "YES" if the message is asking a question about music production, FL Studio, audio engineering, mixing, mastering, sound design, or music theory and would benefit from an AI response. Reply "NO" for general chat, statements, thank-you messages, or already-answered questions.' },
-                    { role: 'user', content: `Message: "${text}"` },
+                    { role: 'system', content: prompt },
                 ],
                 model: 'gpt-4o-mini',
                 temperature: 0,
@@ -553,7 +644,8 @@ export class StudioGuidePlugin implements IPlugin {
             const result = completion.choices[0].message.content?.trim().toUpperCase();
             return result === 'YES';
         } catch {
-            return false;
+            // Fallback: only respond if strong question pattern matched
+            return hasStrongQuestion;
         }
     }
 

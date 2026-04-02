@@ -16,6 +16,8 @@ interface StudioGuideSettings {
     cooldownSeconds: number;
     systemPrompt: string | null;
     model: string;
+    suppressionRoles: string[];
+    suppressionMinutes: number;
 }
 
 interface Conversation {
@@ -66,6 +68,8 @@ export const StudioGuidePage: React.FC = () => {
         cooldownSeconds: 30,
         systemPrompt: null,
         model: 'gpt-4o-mini',
+        suppressionRoles: [],
+        suppressionMinutes: 10,
     });
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -103,6 +107,8 @@ export const StudioGuidePage: React.FC = () => {
                     cooldownSeconds: data.cooldownSeconds,
                     systemPrompt: data.systemPrompt,
                     model: data.model,
+                    suppressionRoles: data.suppressionRoles || [],
+                    suppressionMinutes: data.suppressionMinutes ?? 10,
                 });
             }
             if (convoRes.ok) setConversations(await convoRes.json());
@@ -322,6 +328,43 @@ export const StudioGuidePage: React.FC = () => {
                             placeholder="Select roles"
                             multiple
                         />
+                    </div>
+
+                    {/* Helper Suppression Roles */}
+                    <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg }}>
+                        <h3 style={{ margin: '0 0 4px', color: colors.textPrimary }}>Active Helper Suppression Roles</h3>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>
+                            When a user with one of these roles posts in the help channel, the AI will stay silent for the configured time window. This prevents the bot from interrupting when staff or helpers are actively assisting.
+                        </p>
+                        <RoleSelect
+                            guildId={guildId}
+                            value={settings.suppressionRoles}
+                            onChange={(val) => setSettings(s => ({ ...s, suppressionRoles: val as string[] }))}
+                            placeholder="Select helper/staff roles"
+                            multiple
+                        />
+                    </div>
+
+                    {/* Suppression Window */}
+                    <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.lg }}>
+                        <h3 style={{ margin: '0 0 4px', color: colors.textPrimary }}>Helper Suppression Window</h3>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>
+                            How long (in minutes) the bot stays silent after a helper role is active in the channel
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                            <input
+                                type="range"
+                                min={1}
+                                max={60}
+                                step={1}
+                                value={settings.suppressionMinutes}
+                                onChange={e => setSettings(s => ({ ...s, suppressionMinutes: Number(e.target.value) }))}
+                                style={{ flex: 1 }}
+                            />
+                            <span style={{ color: colors.textPrimary, minWidth: '60px', textAlign: 'right' }}>
+                                {settings.suppressionMinutes} min
+                            </span>
+                        </div>
                     </div>
 
                     {/* Cooldown */}

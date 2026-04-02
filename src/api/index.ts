@@ -11311,7 +11311,7 @@ app.post('/api/studio-guide/settings/:guildId', async (req, res) => {
     const { guildId } = req.params;
     if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
 
-    const allowedFields = ['enabled', 'channelId', 'pauseRoles', 'cooldownSeconds', 'systemPrompt', 'model'];
+    const allowedFields = ['enabled', 'channelId', 'pauseRoles', 'cooldownSeconds', 'systemPrompt', 'model', 'suppressionRoles', 'suppressionMinutes'];
     const data: Record<string, any> = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) {
@@ -11321,6 +11321,7 @@ app.post('/api/studio-guide/settings/:guildId', async (req, res) => {
 
     // Validate types
     if (data.cooldownSeconds !== undefined) data.cooldownSeconds = Math.max(0, Math.min(300, Number(data.cooldownSeconds) || 30));
+    if (data.suppressionMinutes !== undefined) data.suppressionMinutes = Math.max(1, Math.min(60, Number(data.suppressionMinutes) || 10));
     if (data.model !== undefined && !['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1-nano'].includes(data.model)) {
       return res.status(400).json({ error: 'Invalid model' });
     }
