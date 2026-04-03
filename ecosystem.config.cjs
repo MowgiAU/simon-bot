@@ -26,6 +26,7 @@ module.exports = {
       script: 'src/bot/start.ts',
       env: {
         NODE_ENV: 'production',
+        FFMPEG_PATH: '/usr/bin/ffmpeg',
       },
     },
 
