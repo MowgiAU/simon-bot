@@ -340,28 +340,31 @@ export class SimonBot {
        }
 
        const plugins = this.pluginManager.getEnabled();
-
-       // Batch-fetch all plugin enabled states for this guild in ONE query
-       // so we don't fire N concurrent DB queries before any plugin can deferReply()
        const guildId = interaction.guildId!;
-       const pluginRows = await this.db.pluginSettings.findMany({
+
+       // Build enabled map from cache only (no await — never block before deferReply)
+       const pluginEnabledMap = new Map<string, boolean>(
+           plugins.map(p => {
+               const key = `${guildId}:${p.id}`;
+               return [p.id, this.pluginCache.has(key) ? this.pluginCache.get(key)! : true];
+           })
+       );
+
+       // Refresh cache in background for next interaction (non-blocking)
+       this.db.pluginSettings.findMany({
            where: { guildId },
            select: { pluginId: true, enabled: true },
-       }).catch(() => [] as { pluginId: string; enabled: boolean }[]);
-       const pluginEnabledMap = new Map<string, boolean>(pluginRows.map(r => [r.pluginId, r.enabled]));
-       // Also warm the per-key cache so isPluginEnabled() hits don't re-query
-       for (const r of pluginRows) {
-           const key = `${guildId}:${r.pluginId}`;
-           if (!this.pluginCache.has(key)) {
+       }).then(rows => {
+           for (const r of rows) {
+               const key = `${guildId}:${r.pluginId}`;
                this.pluginCache.set(key, r.enabled);
                setTimeout(() => this.pluginCache.delete(key), 30_000);
            }
-       }
+       }).catch(() => {});
 
-       // Handle plugins in parallel
+       // Handle plugins in parallel — no DB await above, so deferReply fires immediately
        await Promise.all(plugins.map(async (plugin) => {
          if (plugin.events.includes('interactionCreate')) {
-           // Use pre-fetched map (default true if no row exists)
            const isEnabled = pluginEnabledMap.get(plugin.id) ?? true;
            // debug log
            if (interaction.isChatInputCommand() && interaction.commandName === 'setup-welcome' && plugin.id === 'welcome-gate') {
