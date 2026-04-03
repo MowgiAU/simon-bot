@@ -185,9 +185,13 @@ export class FujiRadioPlugin implements IPlugin {
             }
         } catch (error) {
             this.logger.error(`[FujiRadio] Command error: ${error}`);
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: 'An error occurred.', flags: MessageFlags.Ephemeral }).catch(() => {});
-            }
+            try {
+                if (interaction.deferred) {
+                    await interaction.editReply({ content: '❌ An error occurred.' });
+                } else if (!interaction.replied) {
+                    await interaction.reply({ content: '❌ An error occurred.', flags: MessageFlags.Ephemeral });
+                }
+            } catch { /* ignore follow-up failure */ }
             return true;
         }
     }

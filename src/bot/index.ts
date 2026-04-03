@@ -340,15 +340,32 @@ export class SimonBot {
        }
 
        const plugins = this.pluginManager.getEnabled();
-       
-       // Handle plugins in parallel to prevent timeouts
+
+       // Batch-fetch all plugin enabled states for this guild in ONE query
+       // so we don't fire N concurrent DB queries before any plugin can deferReply()
+       const guildId = interaction.guildId!;
+       const pluginRows = await this.db.pluginSettings.findMany({
+           where: { guildId },
+           select: { pluginId: true, enabled: true },
+       }).catch(() => [] as { pluginId: string; enabled: boolean }[]);
+       const pluginEnabledMap = new Map<string, boolean>(pluginRows.map(r => [r.pluginId, r.enabled]));
+       // Also warm the per-key cache so isPluginEnabled() hits don't re-query
+       for (const r of pluginRows) {
+           const key = `${guildId}:${r.pluginId}`;
+           if (!this.pluginCache.has(key)) {
+               this.pluginCache.set(key, r.enabled);
+               setTimeout(() => this.pluginCache.delete(key), 30_000);
+           }
+       }
+
+       // Handle plugins in parallel
        await Promise.all(plugins.map(async (plugin) => {
          if (plugin.events.includes('interactionCreate')) {
-           // Check if enabled for this guild
-           const isEnabled = await this.isPluginEnabled(interaction.guildId!, plugin.id);
+           // Use pre-fetched map (default true if no row exists)
+           const isEnabled = pluginEnabledMap.get(plugin.id) ?? true;
            // debug log
            if (interaction.isChatInputCommand() && interaction.commandName === 'setup-welcome' && plugin.id === 'welcome-gate') {
-               this.logger.info(`WelcomeGate check: enabled=${isEnabled}, guild=${interaction.guildId}`);
+               this.logger.info(`WelcomeGate check: enabled=${isEnabled}, guild=${guildId}`);
            }
 
            if (!isEnabled) return;
