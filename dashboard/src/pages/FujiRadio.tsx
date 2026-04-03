@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { Radio, Play, Square, SkipForward, Volume2, Settings, History, Search, Plus, Trash2, Check, X, Megaphone, Music, Users, Clock, Disc3 } from 'lucide-react';
@@ -92,6 +92,9 @@ export const FujiRadioPage: React.FC = () => {
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [defaultVolumeLocal, setDefaultVolumeLocal] = useState<number | null>(null);
+  const [duckVolumeLocal, setDuckVolumeLocal] = useState<number | null>(null);
+  const saveQueueRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const headers = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -117,7 +120,7 @@ export const FujiRadioPage: React.FC = () => {
   }, [guildId, headers]);
 
   // ── Save settings ──
-  const saveSettings = async (update: Partial<RadioSettings>) => {
+  const saveSettings = useCallback(async (update: Partial<RadioSettings>) => {
     if (!guildId || !settings) return;
     setSaving(true);
     try {
@@ -127,10 +130,20 @@ export const FujiRadioPage: React.FC = () => {
         body: JSON.stringify(update),
       });
       const data = await res.json();
-      setSettings(data);
+      if (!res.ok) {
+        console.error('Failed to save radio settings:', data);
+      } else {
+        setSettings(data);
+      }
     } catch (e) { console.error(e); }
     setSaving(false);
-  };
+  }, [guildId, settings, headers]);
+
+  // ── Debounced save for text inputs ──
+  const saveSettingsDebounced = useCallback((update: Partial<RadioSettings>) => {
+    if (saveQueueRef.current) clearTimeout(saveQueueRef.current);
+    saveQueueRef.current = setTimeout(() => saveSettings(update), 600);
+  }, [saveSettings]);
 
   // ── Search tracks ──
   const searchTracks = async () => {
@@ -488,8 +501,8 @@ export const FujiRadioPage: React.FC = () => {
                   Genre Filter (slug)
                 </label>
                 <input
-                  value={settings.autoGenreFilter || ''}
-                  onChange={e => saveSettings({ autoGenreFilter: e.target.value || null })}
+                  defaultValue={settings.autoGenreFilter || ''}
+                  onBlur={e => saveSettingsDebounced({ autoGenreFilter: e.target.value || null })}
                   placeholder="e.g. hip-hop"
                   style={{
                     width: '100%', padding: '8px 12px',
@@ -505,13 +518,18 @@ export const FujiRadioPage: React.FC = () => {
             {/* Default Volume */}
             <div>
               <label style={{ display: 'block', color: colors.textSecondary, fontSize: 13, marginBottom: 6 }}>
-                Default Volume ({Math.round(settings.defaultVolume * 100)}%)
+                Default Volume ({Math.round((defaultVolumeLocal ?? settings.defaultVolume) * 100)}%)
               </label>
               <input
                 type="range"
                 min={0} max={100} step={5}
-                value={Math.round(settings.defaultVolume * 100)}
-                onChange={e => saveSettings({ defaultVolume: parseInt(e.target.value) / 100 })}
+                value={Math.round((defaultVolumeLocal ?? settings.defaultVolume) * 100)}
+                onChange={e => setDefaultVolumeLocal(parseInt(e.target.value) / 100)}
+                onPointerUp={e => {
+                  const val = parseInt((e.target as HTMLInputElement).value) / 100;
+                  setDefaultVolumeLocal(null);
+                  saveSettings({ defaultVolume: val });
+                }}
                 style={{ width: '100%' }}
               />
             </div>
@@ -519,13 +537,18 @@ export const FujiRadioPage: React.FC = () => {
             {/* Duck Volume */}
             <div>
               <label style={{ display: 'block', color: colors.textSecondary, fontSize: 13, marginBottom: 6 }}>
-                Host Duck Volume ({Math.round(settings.duckVolume * 100)}%)
+                Host Duck Volume ({Math.round((duckVolumeLocal ?? settings.duckVolume) * 100)}%)
               </label>
               <input
                 type="range"
                 min={0} max={50} step={5}
-                value={Math.round(settings.duckVolume * 100)}
-                onChange={e => saveSettings({ duckVolume: parseInt(e.target.value) / 100 })}
+                value={Math.round((duckVolumeLocal ?? settings.duckVolume) * 100)}
+                onChange={e => setDuckVolumeLocal(parseInt(e.target.value) / 100)}
+                onPointerUp={e => {
+                  const val = parseInt((e.target as HTMLInputElement).value) / 100;
+                  setDuckVolumeLocal(null);
+                  saveSettings({ duckVolume: val });
+                }}
                 style={{ width: '100%' }}
               />
             </div>
