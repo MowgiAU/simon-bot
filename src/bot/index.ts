@@ -74,7 +74,7 @@ export class SimonBot {
     });
 
     // Increase max listeners to prevent warnings from many plugins
-    process.setMaxListeners(20);
+    process.setMaxListeners(50);
 
     // Initialize database
     this.db = new PrismaClient();

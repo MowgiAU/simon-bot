@@ -1,7 +1,7 @@
 import {
     Message, TextChannel, EmbedBuilder,
     ChatInputCommandInteraction, SlashCommandBuilder,
-    PermissionsBitField, type PermissionResolvable,
+    PermissionsBitField, MessageFlags, type PermissionResolvable,
     Collection,
 } from 'discord.js';
 import { z } from 'zod';
@@ -229,7 +229,7 @@ export class StudioGuidePlugin implements IPlugin {
             member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
 
         if (!hasPauseRole) {
-            await interaction.reply({ content: '⚠️ You don\'t have permission to pause the Studio Guide.', ephemeral: true });
+            await interaction.reply({ content: '⚠️ You don\'t have permission to pause the Studio Guide.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -263,7 +263,7 @@ export class StudioGuidePlugin implements IPlugin {
             member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
 
         if (!hasPauseRole) {
-            await interaction.reply({ content: '⚠️ You don\'t have permission to resume the Studio Guide.', ephemeral: true });
+            await interaction.reply({ content: '⚠️ You don\'t have permission to resume the Studio Guide.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -312,7 +312,7 @@ export class StudioGuidePlugin implements IPlugin {
         const msg = permanent
             ? `🙈 Got it! I'll **permanently** stop answering your questions. Use \`/guide optin\` to re-enable anytime.`
             : `🙈 Got it! I won't answer your questions for **${minutes} minutes**. Use \`/guide optin\` to re-enable anytime.`;
-        await interaction.reply({ content: msg, ephemeral: true });
+        await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -326,14 +326,14 @@ export class StudioGuidePlugin implements IPlugin {
             this.logger.error('[StudioGuide] Failed to delete opt-out:', err);
         }
 
-        await interaction.reply({ content: '👋 Welcome back! I\'ll answer your questions again.', ephemeral: true });
+        await interaction.reply({ content: '👋 Welcome back! I\'ll answer your questions again.', flags: MessageFlags.Ephemeral });
         return true;
     }
 
     // ── /guide ask ──
     private async cmdAsk(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         if (!this.openai) {
-            await interaction.reply({ content: '⚠️ AI is not configured. Contact an administrator.', ephemeral: true });
+            await interaction.reply({ content: '⚠️ AI is not configured. Contact an administrator.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -389,7 +389,7 @@ export class StudioGuidePlugin implements IPlugin {
                 { name: 'Knowledge Base', value: this.vectorStore ? '✅ Loaded' : '❌ Not loaded', inline: true },
             );
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         return true;
     }
 

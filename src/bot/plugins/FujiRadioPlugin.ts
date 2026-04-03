@@ -10,6 +10,7 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
+    MessageFlags,
     type PermissionResolvable,
 } from 'discord.js';
 import {
@@ -185,7 +186,7 @@ export class FujiRadioPlugin implements IPlugin {
         } catch (error) {
             this.logger.error(`[FujiRadio] Command error: ${error}`);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: 'An error occurred.', ephemeral: true }).catch(() => {});
+                await interaction.reply({ content: 'An error occurred.', flags: MessageFlags.Ephemeral }).catch(() => {});
             }
             return true;
         }
@@ -359,7 +360,7 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdSkip(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         const state = this.radioStates.get(guildId);
         if (!state?.player || !state.nowPlaying) {
-            await interaction.reply({ content: '⚠️ Nothing is playing.', ephemeral: true });
+            await interaction.reply({ content: '⚠️ Nothing is playing.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -430,7 +431,7 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdNowPlaying(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         const state = this.radioStates.get(guildId);
         if (!state?.nowPlaying) {
-            await interaction.reply({ content: '📻 Nothing is playing right now.', ephemeral: true });
+            await interaction.reply({ content: '📻 Nothing is playing right now.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -516,7 +517,7 @@ export class FujiRadioPlugin implements IPlugin {
     // ─── /like ───────────────────────────────────────────────────────────
 
     private async handleLikeCommand(interaction: ChatInputCommandInteraction): Promise<boolean> {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const state = this.radioStates.get(guildId);
 
