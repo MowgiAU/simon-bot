@@ -328,6 +328,10 @@ export class FujiRadioPlugin implements IPlugin {
             return true;
         }
 
+        const settings = await this.getSettings(guildId);
+        if (settings.voiceChannelId) {
+            void this.setVoiceChannelStatus(settings.voiceChannelId, '');
+        }
         this.cleanupGuild(guildId);
         await interaction.editReply('🔇 Fuji FM has been stopped.');
         return true;
@@ -671,6 +675,11 @@ export class FujiRadioPlugin implements IPlugin {
             state.songsSinceAd++;
 
             state.player.play(resource);
+
+            // Update voice channel status with now-playing info
+            if (settings.voiceChannelId) {
+                void this.setVoiceChannelStatus(settings.voiceChannelId, `🎵 ${next.title} — ${next.artist}`);
+            }
 
             // Update the persistent now-playing embed
             await this.updateNowPlayingEmbed(guildId, state, settings);
@@ -1095,6 +1104,14 @@ export class FujiRadioPlugin implements IPlugin {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
+
+    private async setVoiceChannelStatus(channelId: string, status: string): Promise<void> {
+        try {
+            await this.client.rest.put(`/channels/${channelId}/voice-status`, { body: { status } });
+        } catch (err) {
+            this.logger.warn(`[FujiRadio] Could not set voice channel status: ${err}`);
+        }
+    }
 
     private createHighQualityStream(url: string, volume: number): { stream: PassThrough; kill: () => void } {
         const passthrough = new PassThrough();
