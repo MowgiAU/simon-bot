@@ -108,6 +108,7 @@ export class FLPParser {
         const channelTypes = new Map<number, number>();  // IID → type (5 = automation)
         const channelAutomationPoints = new Map<number, AutomationPoint[]>();
         const channelInternalNames = new Map<number, string>();  // IID → internal name (e.g. "Fruity Wrapper")
+        const vstPluginNames = new Map<number, string>();        // IID → actual VST product name (from plugin DATA event)
 
         // Project-wide collection for plugin/sample list
         const allPluginNames = new Set<string>();
@@ -219,6 +220,16 @@ export class FLPParser {
                 const internalName = FLPParser.readStringBuf(buf);
                 if (internalName) {
                     channelInternalNames.set(currentChannelIID, internalName);
+                }
+            }
+
+            // ── VST plugin data (213 = DATA+5): contains actual VST product name and vendor ──
+            // Structure: type(u32) + series of {id(u32) + length(u64) + data}
+            // Sub-event ID 54 = Name (factory plugin name e.g. "Serum 2", "Vital")
+            if (code === 213 && buf && currentChannelIID > 0) {
+                const vstName = FLPParser.extractVSTName(buf);
+                if (vstName) {
+                    vstPluginNames.set(currentChannelIID, vstName);
                 }
             }
 
@@ -458,13 +469,17 @@ export class FLPParser {
             const channelType = channelTypes.get(iid);
             if (channelType === 5) continue; // skip automation channels
 
-            const displayName = channelNames.get(iid);
             if (internalName === 'Fruity Wrapper') {
-                // VST plugin — use the display name (the VST's name)
-                if (displayName) allPluginNames.add(displayName);
+                // VST plugin — use the actual plugin name from the DATA event (e.g. "Serum 2").
+                // Fall back to the channel display name only if the DATA event wasn't parsed.
+                const vstName = vstPluginNames.get(iid);
+                const displayName = channelNames.get(iid);
+                const name = vstName || displayName;
+                if (name) allPluginNames.add(name);
             } else {
-                // Native FL plugin (e.g. "BooBass", "3x Osc", "FLEX")
-                allPluginNames.add(displayName || internalName);
+                // Native FL plugin (e.g. "BooBass", "3x Osc", "FLEX") — always use the
+                // internal plugin type name, not the user-renamed channel display name.
+                allPluginNames.add(internalName);
             }
         }
 
@@ -550,6 +565,38 @@ export class FLPParser {
             return buf.toString('utf16le').replace(/\0+$/, '');
         }
         return buf.toString('ascii').replace(/\0+$/, '');
+    }
+
+    /**
+     * Extract the factory VST plugin name from a PluginID.Data blob (event 213 = DATA+5).
+     *
+     * Format:  type:u32  +  GreedyRange{ id:u32, data: Prefixed(Int64ul, bytes) }
+     * Sub-event IDs (from pyflp/_VSTPluginEventID):
+     *   54 = Name        → factory product name  (e.g. "Serum 2", "Vital")
+     *   55 = PluginPath  → absolute path to the VST DLL/VST3 bundle
+     *   56 = Vendor      → vendor/developer name
+     */
+    private static extractVSTName(buf: Buffer): string | null {
+        try {
+            if (buf.length < 4) return null;
+            let pos = 4; // skip 4-byte 'type' field
+            while (pos + 12 <= buf.length) {
+                const subId = buf.readUInt32LE(pos);
+                pos += 4;
+                // Int64ul length prefix — read low 32 bits; high 32 bits are always 0
+                const length = buf.readUInt32LE(pos);
+                pos += 8; // advance past full 8-byte u64
+                if (length > buf.length - pos) break;
+                if (subId === 54) { // _VSTPluginEventID.Name
+                    const name = buf.subarray(pos, pos + length).toString('utf8').replace(/\0+$/, '').trim();
+                    if (name) return name;
+                }
+                pos += length;
+            }
+        } catch {
+            // ignore malformed blobs
+        }
+        return null;
     }
 
     /** Extract just the filename from a full path */
