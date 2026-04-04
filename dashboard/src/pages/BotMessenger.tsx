@@ -192,7 +192,7 @@ const ReactPicker: React.FC<{
         <div ref={ref} style={{
             position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
             background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '340px', marginBottom: '6px', overflow: 'hidden',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '420px', marginBottom: '6px', overflow: 'hidden',
         }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
                 {(['standard', 'custom'] as const).map(t => (
@@ -203,7 +203,7 @@ const ReactPicker: React.FC<{
                 ))}
             </div>
             {tab === 'standard' ? (
-                <EmojiPicker onEmojiClick={(e: EmojiClickData) => onSelect(e.emoji)} width="100%" height={280}
+                <EmojiPicker onEmojiClick={(e: EmojiClickData) => onSelect(e.emoji)} width="100%" height={420}
                     skinTonesDisabled searchDisabled={false}
                     style={{ '--epr-bg-color': colors.surface, '--epr-category-label-bg-color': colors.surface, '--epr-hover-bg-color': colors.surfaceLight, '--epr-search-input-bg-color': colors.background } as any}
                 />
@@ -211,7 +211,7 @@ const ReactPicker: React.FC<{
                 <div style={{ padding: spacing.sm }}>
                     <input placeholder="Search server emoji..." value={search} onChange={e => setSearch(e.target.value)}
                         style={{ ...inputStyle, marginBottom: spacing.sm, fontSize: '12px' }} />
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '4px', maxHeight: '220px', overflowY: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '4px', maxHeight: '360px', overflowY: 'auto' }}>
                         {loadingEmoji && <span style={{ gridColumn: '1/-1', textAlign: 'center', color: colors.textTertiary, padding: spacing.md }}>Loading...</span>}
                         {filtered.map(em => (
                             <button key={em.id} onClick={() => onSelect(`<${em.animated ? 'a' : ''}:${em.name}:${em.id}>`)} title={em.name}
