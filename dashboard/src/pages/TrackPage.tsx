@@ -1185,13 +1185,31 @@ export const TrackPage: React.FC = () => {
                                             style={{ flex: 1, padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
                                         >
                                             <option value="" disabled style={{ backgroundColor: '#1A1E2E', color: 'white' }}>Add genre...</option>
-                                            {allGenres
-                                                .filter(g => !selectedTrackGenres.includes(g.id))
-                                                .filter(g => g.name.toLowerCase().includes(genreSearchTerm.toLowerCase()))
-                                                .map(g => (
-                                                    <option key={g.id} value={g.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{g.name}</option>
-                                                ))
-                                            }
+                                            {(() => {
+                                                const matchesSearch = (g: any) => !genreSearchTerm || g.name.toLowerCase().includes(genreSearchTerm.toLowerCase());
+                                                const childGenres = allGenres.filter((g: any) => g.parentId);
+                                                const parentGenres = allGenres.filter((g: any) => !g.parentId);
+                                                const parentsWithChildren = parentGenres.filter((p: any) => childGenres.some((c: any) => c.parentId === p.id));
+                                                const standaloneGenres = parentGenres.filter((p: any) => !childGenres.some((c: any) => c.parentId === p.id));
+                                                return (
+                                                    <>
+                                                        {standaloneGenres.filter((g: any) => !selectedTrackGenres.includes(g.id) && matchesSearch(g)).map((g: any) => (
+                                                            <option key={g.id} value={g.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{g.name}</option>
+                                                        ))}
+                                                        {parentsWithChildren.map((parent: any) => {
+                                                            const children = childGenres.filter((c: any) => c.parentId === parent.id && !selectedTrackGenres.includes(c.id) && matchesSearch(c));
+                                                            if (children.length === 0) return null;
+                                                            return (
+                                                                <optgroup key={parent.id} label={parent.name} style={{ backgroundColor: '#1A1E2E' }}>
+                                                                    {children.map((c: any) => (
+                                                                        <option key={c.id} value={c.id} style={{ backgroundColor: '#1A1E2E', color: 'white' }}>{c.name}</option>
+                                                                    ))}
+                                                                </optgroup>
+                                                            );
+                                                        })}
+                                                    </>
+                                                );
+                                            })()}
                                         </select>
                                     </div>
                                 </div>
