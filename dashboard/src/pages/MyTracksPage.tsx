@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
-    BarChart3, AlertCircle, Check, Save
+    BarChart3, AlertCircle, Check, Save, AlignLeft
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -93,6 +93,10 @@ export const MyTracksPage: React.FC = () => {
     const [genreSearchTerm, setGenreSearchTerm] = useState('');
     const [addGenreSearchTerm, setAddGenreSearchTerm] = useState('');
 
+    // Lyrics state
+    const [newTrackLyrics, setNewTrackLyrics] = useState('');
+    const [editingTrackLyrics, setEditingTrackLyrics] = useState('');
+
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
 
@@ -175,11 +179,15 @@ export const MyTracksPage: React.FC = () => {
                     }
                 },
             });
+            // Save lyrics separately if provided
+            if (newTrackLyrics.trim()) {
+                await axios.put(`/api/musician/tracks/${res.data.id}/lyrics`, { lyrics: newTrackLyrics.trim(), lyricsSync: null }, { withCredentials: true }).catch(() => {});
+            }
             setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null);
-            setSelectedTrackGenres([]); setTosAgreed(false);
+            setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics('');
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track.' });
@@ -230,10 +238,12 @@ export const MyTracksPage: React.FC = () => {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true
             });
+            // Save lyrics separately
+            await axios.put(`/api/musician/tracks/${editingTrack.id}/lyrics`, { lyrics: editingTrackLyrics.trim() || null, lyricsSync: null }, { withCredentials: true }).catch(() => {});
             setTracks(tracks.map(t => t.id === editingTrack.id ? res.data : t));
             setEditingTrack(null);
             setAudioFile(null); setArtworkFile(null); setProjectFile(null);
-            setSelectedTrackGenres([]);
+            setSelectedTrackGenres([]); setEditingTrackLyrics('');
             setMessage({ type: 'success', text: 'Track updated successfully!' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to update track' });
@@ -458,6 +468,23 @@ export const MyTracksPage: React.FC = () => {
                         style={{ ...inputBase, minHeight: '60px', resize: 'vertical' }} />
                 </div>
 
+                {/* ── Lyrics ── */}
+                <div style={{ marginBottom: '20px' }}>
+                    <span style={{ ...label, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <AlignLeft size={12} style={{ display: 'inline' }} /> Lyrics
+                        <span style={{ marginLeft: '4px', fontSize: '11px', fontWeight: 400, color: colors.textTertiary, textTransform: 'none', letterSpacing: 0 }}>(optional — publicly visible on the track page)</span>
+                    </span>
+                    <textarea
+                        placeholder={'Verse 1\nYour lyrics here...\n\nChorus\nSing along...'}
+                        value={isEdit ? editingTrackLyrics : newTrackLyrics}
+                        onChange={e => isEdit ? setEditingTrackLyrics(e.target.value) : setNewTrackLyrics(e.target.value)}
+                        style={{ ...inputBase, minHeight: '120px', resize: 'vertical', lineHeight: 1.7 }}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                        You can also sync each line to a timestamp from the track page after uploading.
+                    </p>
+                </div>
+
                 {/* ── Download permissions ── */}
                 <div style={{
                     display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px',
@@ -630,7 +657,7 @@ export const MyTracksPage: React.FC = () => {
                                 <ExternalLink size={15} />
                             </a>
                         )}
-                        <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); }}
+                        <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); setEditingTrackLyrics(track.lyrics || ''); }}
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: colors.primary, cursor: 'pointer' }}
                             title="Edit track">
                             <Edit3 size={15} />
