@@ -65,6 +65,14 @@ const fileZoneActive: React.CSSProperties = {
     backgroundColor: 'rgba(16,185,129,0.04)',
 };
 
+const fileZoneDragging: React.CSSProperties = {
+    ...fileZone,
+    borderColor: colors.primary,
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
+};
+
 export const MyTracksPage: React.FC = () => {
     const { user, loading: authLoading, isGuildMember } = useAuth();
     const navigate = useNavigate();
@@ -96,6 +104,9 @@ export const MyTracksPage: React.FC = () => {
     // Lyrics state
     const [newTrackLyrics, setNewTrackLyrics] = useState('');
     const [editingTrackLyrics, setEditingTrackLyrics] = useState('');
+
+    // Drag-and-drop state
+    const [dragOver, setDragOver] = useState<'audio' | 'art' | 'project' | null>(null);
 
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
@@ -354,62 +365,78 @@ export const MyTracksPage: React.FC = () => {
                 </div>
 
                 {/* ── File upload zones ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                    {/* Audio */}
-                    <label style={audioFile ? fileZoneActive : fileZone}>
+                {/* Audio spans full width; artwork + project side-by-side below */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                    {/* Audio — full width */}
+                    <label
+                        style={{ ...(dragOver === 'audio' ? fileZoneDragging : audioFile ? fileZoneActive : fileZone), gridColumn: isMobile ? undefined : '1 / -1' }}
+                        onDragOver={e => { e.preventDefault(); setDragOver('audio'); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setAudioFile(f); }}
+                    >
                         <div style={{
                             width: '40px', height: '40px', borderRadius: borderRadius.md,
                             backgroundColor: audioFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
-                            <FileAudio size={20} color={audioFile ? colors.primary : colors.textTertiary} />
+                            <FileAudio size={20} color={audioFile || dragOver === 'audio' ? colors.primary : colors.textTertiary} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
                                 {isEdit ? 'Replace Audio' : 'Audio File *'}
                             </div>
-                            <div style={{ fontSize: '11px', color: audioFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : (isEdit ? 'Keep existing' : 'MP3, WAV, FLAC, OGG')}
+                            <div style={{ fontSize: '11px', color: audioFile ? colors.primary : dragOver === 'audio' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace' : 'Drop audio here or click — MP3, WAV, FLAC, OGG')}
                             </div>
                         </div>
                         <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
 
                     {/* Artwork */}
-                    <label style={artworkFile ? fileZoneActive : fileZone}>
+                    <label
+                        style={dragOver === 'art' ? fileZoneDragging : artworkFile ? fileZoneActive : fileZone}
+                        onDragOver={e => { e.preventDefault(); setDragOver('art'); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setArtworkFile(f); }}
+                    >
                         <div style={{
                             width: '40px', height: '40px', borderRadius: borderRadius.md,
                             backgroundColor: artworkFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
-                            <ImageIcon size={20} color={artworkFile ? colors.primary : colors.textTertiary} />
+                            <ImageIcon size={20} color={artworkFile || dragOver === 'art' ? colors.primary : colors.textTertiary} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
                                 {isEdit ? 'Replace Art' : 'Artwork'}
                             </div>
-                            <div style={{ fontSize: '11px', color: artworkFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {artworkFile ? artworkFile.name : (isEdit ? 'Keep existing' : 'JPG, PNG, WEBP')}
+                            <div style={{ fontSize: '11px', color: artworkFile ? colors.primary : dragOver === 'art' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {artworkFile ? artworkFile.name : dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, WEBP')}
                             </div>
                         </div>
                         <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
 
                     {/* Project file */}
-                    <label style={projectFile ? fileZoneActive : fileZone}>
+                    <label
+                        style={dragOver === 'project' ? fileZoneDragging : projectFile ? fileZoneActive : fileZone}
+                        onDragOver={e => { e.preventDefault(); setDragOver('project'); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setProjectFile(f); }}
+                    >
                         <div style={{
                             width: '40px', height: '40px', borderRadius: borderRadius.md,
                             backgroundColor: projectFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
-                            <Music size={20} color={projectFile ? colors.primary : colors.textTertiary} />
+                            <Music size={20} color={projectFile || dragOver === 'project' ? colors.primary : colors.textTertiary} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
                                 {isEdit ? 'Replace Project' : 'FL Studio Project'}
                             </div>
-                            <div style={{ fontSize: '11px', color: projectFile ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {projectFile ? projectFile.name : (isEdit ? 'Keep existing' : '.flp or .zip bundle')}
+                            <div style={{ fontSize: '11px', color: projectFile ? colors.primary : dragOver === 'project' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {projectFile ? projectFile.name : dragOver === 'project' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop .flp or .zip here or click')}
                             </div>
                         </div>
                         <input type="file" accept=".flp,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
