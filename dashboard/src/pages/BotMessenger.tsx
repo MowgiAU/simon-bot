@@ -192,7 +192,7 @@ const ReactPicker: React.FC<{
         <div ref={ref} style={{
             position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
             background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '420px', marginBottom: '6px', overflow: 'hidden',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '420px', marginBottom: '6px',
         }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
                 {(['standard', 'custom'] as const).map(t => (
@@ -241,7 +241,7 @@ const MessageFeed: React.FC<{
     const [messages, setMessages] = useState<DiscordMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [reactingTo, setReactingTo] = useState<string | null>(null); // message id with picker open
-    const [reactStatus, setReactStatus] = useState<{ id: string; ok: boolean } | null>(null);
+    const [reactStatus, setReactStatus] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
     const feedRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -375,8 +375,9 @@ const MessageFeed: React.FC<{
                                                 emoji,
                                             }, { withCredentials: true });
                                             setReactStatus({ id: msg.id, ok: true });
-                                        } catch {
-                                            setReactStatus({ id: msg.id, ok: false });
+                                        } catch (err: any) {
+                                            const errMsg = err.response?.data?.error || 'Failed';
+                                            setReactStatus({ id: msg.id, ok: false, msg: errMsg });
                                         } finally {
                                             setTimeout(() => setReactStatus(null), 2500);
                                         }
@@ -390,7 +391,7 @@ const MessageFeed: React.FC<{
                                     color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '4px',
                                     whiteSpace: 'nowrap', pointerEvents: 'none',
                                 }}>
-                                    {reactStatus.ok ? 'Reacted!' : 'Failed'}
+                                    {reactStatus.ok ? 'Reacted!' : (reactStatus.msg || 'Failed')}
                                 </div>
                             )}
                         </div>
