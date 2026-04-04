@@ -22,6 +22,7 @@ import {
     Upload,
     Loader,
     Hash,
+    SmilePlus,
 } from 'lucide-react';
 
 const API = '';
@@ -156,6 +157,80 @@ const labelStyle: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// React Picker — compact emoji picker anchored to a message
+// ---------------------------------------------------------------------------
+const ReactPicker: React.FC<{
+    guildId: string;
+    onSelect: (emoji: string) => void;
+    onClose: () => void;
+}> = ({ guildId, onSelect, onClose }) => {
+    const [tab, setTab] = useState<'standard' | 'custom'>('standard');
+    const [customEmojis, setCustomEmojis] = useState<DiscordEmoji[]>([]);
+    const [loadingEmoji, setLoadingEmoji] = useState(false);
+    const [search, setSearch] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handle = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+        document.addEventListener('mousedown', handle);
+        return () => document.removeEventListener('mousedown', handle);
+    }, [onClose]);
+
+    useEffect(() => {
+        if (tab === 'custom' && customEmojis.length === 0) {
+            setLoadingEmoji(true);
+            axios.get(`${API}/api/guilds/${guildId}/emojis`, { withCredentials: true })
+                .then(r => setCustomEmojis(r.data))
+                .catch(() => {})
+                .finally(() => setLoadingEmoji(false));
+        }
+    }, [tab, guildId]);
+
+    const filtered = customEmojis.filter(e => !search || e.name.toLowerCase().includes(search.toLowerCase()));
+
+    return (
+        <div ref={ref} style={{
+            position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
+            background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '340px', marginBottom: '6px', overflow: 'hidden',
+        }}>
+            <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
+                {(['standard', 'custom'] as const).map(t => (
+                    <button key={t} onClick={() => setTab(t)} style={{
+                        flex: 1, padding: '8px', background: tab === t ? colors.surfaceLight : 'transparent',
+                        color: tab === t ? colors.textPrimary : colors.textTertiary, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 500,
+                    }}>{t === 'standard' ? 'Standard' : 'Server Emoji'}</button>
+                ))}
+            </div>
+            {tab === 'standard' ? (
+                <EmojiPicker onEmojiClick={(e: EmojiClickData) => onSelect(e.emoji)} width="100%" height={280}
+                    skinTonesDisabled searchDisabled={false}
+                    style={{ '--epr-bg-color': colors.surface, '--epr-category-label-bg-color': colors.surface, '--epr-hover-bg-color': colors.surfaceLight, '--epr-search-input-bg-color': colors.background } as any}
+                />
+            ) : (
+                <div style={{ padding: spacing.sm }}>
+                    <input placeholder="Search server emoji..." value={search} onChange={e => setSearch(e.target.value)}
+                        style={{ ...inputStyle, marginBottom: spacing.sm, fontSize: '12px' }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '4px', maxHeight: '220px', overflowY: 'auto' }}>
+                        {loadingEmoji && <span style={{ gridColumn: '1/-1', textAlign: 'center', color: colors.textTertiary, padding: spacing.md }}>Loading...</span>}
+                        {filtered.map(em => (
+                            <button key={em.id} onClick={() => onSelect(`<${em.animated ? 'a' : ''}:${em.name}:${em.id}>`)} title={em.name}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceLight)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                            >
+                                <img src={`https://cdn.discordapp.com/emojis/${em.id}.${em.animated ? 'gif' : 'png'}?size=32`}
+                                    alt={em.name} style={{ width: 26, height: 26 }} />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Message Feed Component
 // ---------------------------------------------------------------------------
 const MessageFeed: React.FC<{
@@ -165,6 +240,8 @@ const MessageFeed: React.FC<{
 }> = ({ guildId, channelId, onReply }) => {
     const [messages, setMessages] = useState<DiscordMessage[]>([]);
     const [loading, setLoading] = useState(false);
+    const [reactingTo, setReactingTo] = useState<string | null>(null); // message id with picker open
+    const [reactStatus, setReactStatus] = useState<{ id: string; ok: boolean } | null>(null);
     const feedRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -266,15 +343,57 @@ const MessageFeed: React.FC<{
                                 </div>
                             )}
                         </div>
-                        <button
-                            onClick={() => onReply(msg)}
-                            title="Reply"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: '4px', alignSelf: 'flex-start', flexShrink: 0 }}
-                            onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
-                            onMouseLeave={e => (e.currentTarget.style.color = colors.textTertiary)}
-                        >
-                            <Reply size={16} />
-                        </button>
+                        <div style={{ display: 'flex', gap: '2px', alignSelf: 'flex-start', flexShrink: 0, position: 'relative' }}>
+                            <button
+                                onClick={() => onReply(msg)}
+                                title="Reply"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: '4px' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+                                onMouseLeave={e => (e.currentTarget.style.color = colors.textTertiary)}
+                            >
+                                <Reply size={15} />
+                            </button>
+                            <button
+                                onClick={() => setReactingTo(reactingTo === msg.id ? null : msg.id)}
+                                title="Add reaction"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: reactingTo === msg.id ? colors.primary : colors.textTertiary, padding: '4px' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+                                onMouseLeave={e => (e.currentTarget.style.color = reactingTo === msg.id ? colors.primary : colors.textTertiary)}
+                            >
+                                <SmilePlus size={15} />
+                            </button>
+                            {reactingTo === msg.id && (
+                                <ReactPicker
+                                    guildId={guildId}
+                                    onClose={() => setReactingTo(null)}
+                                    onSelect={async (emoji) => {
+                                        setReactingTo(null);
+                                        try {
+                                            await axios.post(`${API}/api/bot-messenger/${guildId}/react`, {
+                                                channelId,
+                                                messageId: msg.id,
+                                                emoji,
+                                            }, { withCredentials: true });
+                                            setReactStatus({ id: msg.id, ok: true });
+                                        } catch {
+                                            setReactStatus({ id: msg.id, ok: false });
+                                        } finally {
+                                            setTimeout(() => setReactStatus(null), 2500);
+                                        }
+                                    }}
+                                />
+                            )}
+                            {reactStatus?.id === msg.id && (
+                                <div style={{
+                                    position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px',
+                                    background: reactStatus.ok ? 'rgba(16,185,129,0.9)' : 'rgba(239,68,68,0.9)',
+                                    color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '4px',
+                                    whiteSpace: 'nowrap', pointerEvents: 'none',
+                                }}>
+                                    {reactStatus.ok ? 'Reacted!' : 'Failed'}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
