@@ -354,15 +354,14 @@ const MessageFeed: React.FC<{
                                 <div style={{ marginTop: '4px', padding: '6px 10px', borderLeft: `3px solid ${msg.embeds[0].color ? `#${msg.embeds[0].color.toString(16).padStart(6, '0')}` : colors.primary}`, background: 'rgba(0,0,0,0.15)', borderRadius: '4px', fontSize: '13px', color: colors.textSecondary }}>
                                     {msg.embeds[0].title && <div style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.embeds[0].title}</div>}
                                     {msg.embeds[0].description && <div style={{ marginTop: '2px' }}>{msg.embeds[0].description}</div>}
-                                    {msg.embeds[0].image?.url && (
+                                    {msg.embeds[0].video?.url ? (
+                                        <video src={msg.embeds[0].video.url} autoPlay loop muted playsInline
+                                            style={{ marginTop: '6px', maxWidth: '280px', borderRadius: '4px', display: 'block' }} />
+                                    ) : msg.embeds[0].image?.url ? (
                                         <img src={msg.embeds[0].image.url} alt="" style={{ marginTop: '6px', maxWidth: '280px', maxHeight: '200px', borderRadius: '4px', display: 'block' }} />
-                                    )}
-                                    {!msg.embeds[0].image?.url && msg.embeds[0].thumbnail?.url && (
+                                    ) : msg.embeds[0].thumbnail?.url ? (
                                         <img src={msg.embeds[0].thumbnail.url} alt="" style={{ marginTop: '6px', maxWidth: '160px', maxHeight: '160px', borderRadius: '4px', display: 'block' }} />
-                                    )}
-                                    {msg.embeds[0].video?.url && (
-                                        <video src={msg.embeds[0].video.url} controls style={{ marginTop: '6px', maxWidth: '280px', borderRadius: '4px', display: 'block' }} />
-                                    )}
+                                    ) : null}
                                 </div>
                             )}
                             {msg.attachments && msg.attachments.length > 0 && (
