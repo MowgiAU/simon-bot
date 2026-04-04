@@ -300,7 +300,14 @@ export const MyTracksPage: React.FC = () => {
         <option key={`${note} Minor`} value={`${note} Minor`} style={{ backgroundColor: colors.surface }}>{note} Minor</option>
     ]);
 
-    const renderGenreTagPicker = (selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>, searchVal: string, setSearchVal: React.Dispatch<React.SetStateAction<string>>) => (
+    const renderGenreTagPicker = (selected: string[], setSelected: React.Dispatch<React.SetStateAction<string[]>>, searchVal: string, setSearchVal: React.Dispatch<React.SetStateAction<string>>) => {
+        const childGenres = allGenres.filter(g => g.parentId);
+        const parentGenres = allGenres.filter(g => !g.parentId);
+        const parentsWithChildren = parentGenres.filter(p => childGenres.some(c => c.parentId === p.id));
+        const standaloneGenres = parentGenres.filter(p => !childGenres.some(c => c.parentId === p.id));
+        const matchesSearch = (g: Genre) => !searchVal || g.name.toLowerCase().includes(searchVal.toLowerCase());
+
+        return (
         <div>
             <span style={label}><Tag size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> Genre Tags</span>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', minHeight: '28px' }}>
@@ -327,13 +334,27 @@ export const MyTracksPage: React.FC = () => {
                 <select value="" onChange={e => { if (e.target.value && !selected.includes(e.target.value)) { setSelected(prev => [...prev, e.target.value]); setSearchVal(''); } }}
                     style={{ ...inputBase, flex: 1, cursor: 'pointer' }}>
                     <option value="" style={{ backgroundColor: colors.surface }}>Add genre...</option>
-                    {allGenres.filter(g => !selected.includes(g.id)).filter(g => g.name.toLowerCase().includes(searchVal.toLowerCase())).map(g => (
+                    {/* Standalone genres (no subcategories) */}
+                    {standaloneGenres.filter(g => !selected.includes(g.id) && matchesSearch(g)).map(g => (
                         <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
                     ))}
+                    {/* Parent genres with children grouped in optgroups */}
+                    {parentsWithChildren.map(parent => {
+                        const children = childGenres.filter(c => c.parentId === parent.id && !selected.includes(c.id) && matchesSearch(c));
+                        if (children.length === 0) return null;
+                        return (
+                            <optgroup key={parent.id} label={parent.name} style={{ backgroundColor: colors.surface }}>
+                                {children.map(c => (
+                                    <option key={c.id} value={c.id} style={{ backgroundColor: colors.surface }}>{c.name}</option>
+                                ))}
+                            </optgroup>
+                        );
+                    })}
                 </select>
             </div>
         </div>
-    );
+        );
+    };
 
     /* ─── Upload / Edit form (shared layout) ─── */
     const renderTrackForm = (isEdit: boolean) => {
