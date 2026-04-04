@@ -1,0 +1,309 @@
+[
+  {
+    "key": "channel_10",
+    "label": "Acoustic guitar",
+    "nodes": [
+      {
+        "id": "1000",
+        "name": "Control Surface (Surface)",
+        "x": 44.79999923706055,
+        "y": 37.599998474121094,
+        "type": "instrument"
+      },
+      {
+        "id": "1003",
+        "name": "3x Osc",
+        "x": 153.60000610351562,
+        "y": 292,
+        "type": "instrument"
+      },
+      {
+        "id": "1050",
+        "name": "3x Osc",
+        "x": 151.1999969482422,
+        "y": 228,
+        "type": "instrument"
+      },
+      {
+        "id": "1073",
+        "name": "Fruity Flanger",
+        "x": 543.2000122070312,
+        "y": 164,
+        "type": "effect"
+      },
+      {
+        "id": "1081",
+        "name": "Fruity Free Filter",
+        "x": 588.7999877929688,
+        "y": 17.600000381469727,
+        "type": "effect"
+      },
+      {
+        "id": "1088",
+        "name": "Fruity Reeverb",
+        "x": 671.2000122070312,
+        "y": 170.39999389648438,
+        "type": "effect"
+      },
+      {
+        "id": "1192",
+        "name": "Fruity Flanger",
+        "x": 449.6000061035156,
+        "y": 93.5999984741211,
+        "type": "effect"
+      },
+      {
+        "id": "1199",
+        "name": "Fruity Flanger",
+        "x": 402.3999938964844,
+        "y": 172,
+        "type": "effect"
+      },
+      {
+        "id": "1213",
+        "name": "Fruity Free Filter",
+        "x": 327.20001220703125,
+        "y": 20.799999237060547,
+        "type": "effect"
+      },
+      {
+        "id": "1227",
+        "name": "Fruity 7 Band Equalizer",
+        "x": 635.2000122070312,
+        "y": 96.80000305175781,
+        "type": "effect"
+      },
+      {
+        "id": "1248",
+        "name": "Fruity Delay",
+        "x": 749.5999755859375,
+        "y": 278.3999938964844,
+        "type": "effect"
+      },
+      {
+        "id": "1303",
+        "name": "3x Osc",
+        "x": 150.39999389648438,
+        "y": 168.8000030517578,
+        "type": "instrument"
+      },
+      {
+        "id": "1311",
+        "name": "3x Osc",
+        "x": 156.8000030517578,
+        "y": 113.5999984741211,
+        "type": "instrument"
+      },
+      {
+        "id": "1319",
+        "name": "3x Osc",
+        "x": 153.60000610351562,
+        "y": 48.79999923706055,
+        "type": "instrument"
+      },
+      {
+        "id": "1999",
+        "name": "Fruity Limiter",
+        "x": 794.4000244140625,
+        "y": 168.8000030517578,
+        "type": "effect"
+      },
+      {
+        "id": "2139",
+        "name": "Fruity Center",
+        "x": 893.5999755859375,
+        "y": 236,
+        "type": "effect"
+      },
+      {
+        "id": "1001",
+        "name": "Notes",
+        "x": 0,
+        "y": 100,
+        "type": "input"
+      },
+      {
+        "id": "1119",
+        "name": "Audio output",
+        "x": 800,
+        "y": 100,
+        "type": "output"
+      }
+    ],
+    "connections": [
+      {
+        "from": "1001",
+        "to": "1319",
+        "type": "audio"
+      },
+      {
+        "from": "1001",
+        "to": "1050",
+        "type": "audio"
+      },
+      {
+        "from": "1001",
+        "to": "1303",
+        "type": "audio"
+      },
+      {
+        "from": "1001",
+        "to": "1311",
+        "type": "audio"
+      },
+      {
+        "from": "1001",
+        "to": "1003",
+        "type": "audio"
+      },
+      {
+        "from": "2139",
+        "to": "1119",
+        "type": "audio"
+      },
+      {
+        "from": "1003",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1050",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1192",
+        "to": "1073",
+        "type": "audio"
+      },
+      {
+        "from": "1073",
+        "to": "1081",
+        "type": "audio"
+      },
+      {
+        "from": "1081",
+        "to": "1227",
+        "type": "audio"
+      },
+      {
+        "from": "1227",
+        "to": "1088",
+        "type": "audio"
+      },
+      {
+        "from": "1088",
+        "to": "1248",
+        "type": "audio"
+      },
+      {
+        "from": "1199",
+        "to": "1192",
+        "type": "audio"
+      },
+      {
+        "from": "1319",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1303",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1311",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1213",
+        "to": "1199",
+        "type": "audio"
+      },
+      {
+        "from": "1303",
+        "to": "1213",
+        "type": "audio"
+      },
+      {
+        "from": "1248",
+        "to": "1999",
+        "type": "audio"
+      },
+      {
+        "from": "1999",
+        "to": "2139",
+        "type": "audio"
+      }
+    ]
+  },
+  {
+    "key": "mixer_0",
+    "label": "Mixer 0",
+    "nodes": [
+      {
+        "id": "1003",
+        "name": "Fruity Stereo Shaper (Mid Side Splitter)",
+        "x": 171.1999969482422,
+        "y": 56.79999923706055,
+        "type": "effect"
+      },
+      {
+        "id": "1010",
+        "name": "Fruity Limiter (SIDE)",
+        "x": 300.79998779296875,
+        "y": 26.399999618530273,
+        "type": "effect"
+      },
+      {
+        "id": "1017",
+        "name": "Fruity Limiter (MID)",
+        "x": 300,
+        "y": 88.80000305175781,
+        "type": "effect"
+      },
+      {
+        "id": "1000",
+        "name": "Audio input",
+        "x": 0,
+        "y": 100,
+        "type": "input"
+      },
+      {
+        "id": "1001",
+        "name": "Audio output",
+        "x": 800,
+        "y": 100,
+        "type": "output"
+      }
+    ],
+    "connections": [
+      {
+        "from": "1000",
+        "to": "1003",
+        "type": "audio"
+      },
+      {
+        "from": "1010",
+        "to": "1001",
+        "type": "audio"
+      },
+      {
+        "from": "1017",
+        "to": "1001",
+        "type": "audio"
+      },
+      {
+        "from": "1003",
+        "to": "1010",
+        "type": "audio"
+      },
+      {
+        "from": "1003",
+        "to": "1017",
+        "type": "audio"
+      }
+    ]
+  }
+]

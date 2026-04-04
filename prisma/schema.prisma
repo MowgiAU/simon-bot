@@ -818,6 +818,10 @@ model Track {
   // Waveform data (generated on upload from main audio file)
   waveformPeaks   Json?    // number[] ~200 normalised RMS values, 0.0–1.0
 
+  // Lyrics (plain text) and time-synced lyrics cues
+  lyrics          String?  @db.Text
+  lyricsSync      Json?    // Array<{ time: number; text: string }> seconds-based cue list
+
   samples         TrackSample[]
   
   profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)

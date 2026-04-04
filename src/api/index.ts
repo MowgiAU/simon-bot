@@ -5867,6 +5867,50 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
     }
 });
 
+// Save track lyrics (plain text + optional time-synced cues)
+app.put('/api/musician/tracks/:trackId/lyrics', async (req: any, res) => {
+    try {
+        const userId = req.session?.user?.id;
+        if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+        const { trackId } = req.params;
+        const { lyrics, lyricsSync } = req.body;
+
+        // Ownership check (admins can also edit)
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        const isAdmin = !!(req.session?.mutualAdminGuilds as any)?.length;
+        if (track.profile.userId !== userId && !isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        // Validate lyricsSync shape: must be array of { time: number, text: string } or null
+        if (lyricsSync !== undefined && lyricsSync !== null) {
+            if (!Array.isArray(lyricsSync)) {
+                return res.status(400).json({ error: 'lyricsSync must be an array' });
+            }
+            for (const cue of lyricsSync) {
+                if (typeof cue.time !== 'number' || typeof cue.text !== 'string') {
+                    return res.status(400).json({ error: 'Each lyricsSync cue must have { time: number, text: string }' });
+                }
+            }
+        }
+
+        const updateData: Record<string, any> = {};
+        if (lyrics !== undefined) updateData.lyrics = lyrics || null;
+        if (lyricsSync !== undefined) updateData.lyricsSync = lyricsSync || null;
+
+        const updated = await db.track.update({
+            where: { id: trackId },
+            data: updateData as any,
+        }) as any;
+
+        res.json({ lyrics: updated.lyrics, lyricsSync: updated.lyricsSync });
+    } catch (e: any) {
+        logger.error(`[Track] Lyrics update failed for ${req.params.trackId}`, e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Update track info
 app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
     try {

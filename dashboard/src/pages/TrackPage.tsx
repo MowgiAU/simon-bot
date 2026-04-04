@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo, useRef } from 'react';
+﻿import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -11,7 +11,7 @@ import {
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
-    Activity, Package, ChevronDown, ChevronUp, Trash2
+    Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -46,6 +46,8 @@ interface Track {
     projectZipUrl: string | null;
     allowAudioDownload: boolean;
     allowProjectDownload: boolean;
+    lyrics: string | null;
+    lyricsSync: Array<{ time: number; text: string }> | null;
     samples?: TrackSample[];
     profile: {
         id: string;
@@ -103,7 +105,7 @@ export const TrackPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [zoom, setZoom] = useState(1);
-    const { player, setTrack, togglePlay } = usePlayer();
+    const { player, setTrack, togglePlay, seek } = usePlayer();
 
     // Edit state
     const [editing, setEditing] = useState(false);
@@ -135,6 +137,17 @@ export const TrackPage: React.FC = () => {
     const [expandedSamples, setExpandedSamples] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    // Lyrics state
+    const [lyricsEditOpen, setLyricsEditOpen] = useState(false);
+    const [lyricsTab, setLyricsTab] = useState<'write' | 'sync'>('write');
+    const [lyricsText, setLyricsText] = useState('');
+    const [lyricsSync, setLyricsSync] = useState<Array<{ time: number; text: string }>>([]);
+    const [lyricsSaving, setLyricsSaving] = useState(false);
+    const [activeLyricIdx, setActiveLyricIdx] = useState(-1);
+    const lyricsContainerRef = useRef<HTMLDivElement>(null);
+    const activeLineRef = useRef<HTMLDivElement>(null);
+    const lyricsRafRef = useRef<number>(0);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -290,6 +303,92 @@ export const TrackPage: React.FC = () => {
             setEditMsg({ type: 'error', text: e.response?.data?.error || 'Failed to update track' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    // ── Synced lyrics: RAF loop to find the active line ──────────────────────
+    useEffect(() => {
+        if (!track?.lyricsSync || !Array.isArray(track.lyricsSync) || track.lyricsSync.length === 0) return;
+        const cues = track.lyricsSync as Array<{ time: number; text: string }>;
+        const tick = () => {
+            const ct = player.currentTrack?.id === track.id ? player.currentTime : -1;
+            if (ct >= 0) {
+                let idx = -1;
+                for (let i = 0; i < cues.length; i++) {
+                    if (cues[i].time <= ct) idx = i; else break;
+                }
+                setActiveLyricIdx(idx);
+            }
+            lyricsRafRef.current = requestAnimationFrame(tick);
+        };
+        lyricsRafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(lyricsRafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [track?.lyricsSync, player.currentTrack?.id, track?.id]);
+
+    // Auto-scroll active lyric line into view
+    useEffect(() => {
+        if (activeLineRef.current && lyricsContainerRef.current) {
+            activeLineRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [activeLyricIdx]);
+
+    const openLyricsEdit = () => {
+        if (!track) return;
+        const rawLines = track.lyricsSync?.length
+            ? track.lyricsSync.map((c: { time: number; text: string }) => c.text).join('\n')
+            : (track.lyrics || '');
+        setLyricsText(rawLines);
+        setLyricsSync(track.lyricsSync ? [...track.lyricsSync] : []);
+        setLyricsTab('write');
+        setLyricsEditOpen(true);
+    };
+
+    const handleLyricsTabSwitch = (tab: 'write' | 'sync') => {
+        if (tab === 'sync') {
+            const lines = lyricsText.split('\n');
+            setLyricsSync(prev => lines.map((text, i) => ({
+                time: prev[i]?.time ?? 0,
+                text,
+            })));
+        }
+        setLyricsTab(tab);
+    };
+
+    const tapSyncTime = (idx: number) => {
+        const ct = player.currentTrack?.id === track?.id ? player.currentTime : 0;
+        setLyricsSync(prev => prev.map((l, i) => i === idx ? { ...l, time: ct } : l));
+    };
+
+    const formatSyncTime = (t: number) => {
+        const m = Math.floor(t / 60);
+        const s = (t % 60).toFixed(1).padStart(4, '0');
+        return `${m}:${s}`;
+    };
+
+    const parseSyncTime = (val: string): number => {
+        const match = val.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+        if (!match) return 0;
+        return parseInt(match[1]) * 60 + parseFloat(match[2]);
+    };
+
+    const handleSaveLyrics = async () => {
+        if (!track) return;
+        setLyricsSaving(true);
+        try {
+            const hasSync = lyricsSync.length > 0 && lyricsSync.some(c => c.time > 0);
+            const payload = {
+                lyrics: lyricsText.trim() || null,
+                lyricsSync: hasSync ? lyricsSync : null,
+            };
+            const res = await axios.put(`/api/musician/tracks/${track.id}/lyrics`, payload, { withCredentials: true });
+            setTrackData(d => d ? { ...d, lyrics: res.data.lyrics, lyricsSync: res.data.lyricsSync } : d);
+            setLyricsEditOpen(false);
+            showToast('Lyrics saved!', 'success');
+        } catch (e: any) {
+            showToast(e.response?.data?.error || 'Failed to save lyrics', 'error');
+        } finally {
+            setLyricsSaving(false);
         }
     };
 
@@ -636,6 +735,262 @@ export const TrackPage: React.FC = () => {
 
                 {/* Comments */}
                 <CommentSection trackId={track.id} ownerId={track.profile.userId} />
+
+                {/* ═══ LYRICS SECTION ═══ */}
+                {(track.lyrics || (track.lyricsSync && track.lyricsSync.length > 0) || canEdit) && (
+                    <div style={{
+                        marginBottom: '24px', borderRadius: '16px', overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: 'rgba(255,255,255,0.02)',
+                    }}>
+                        <div style={{
+                            padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <AlignLeft size={18} color={colors.primary} />
+                                <span style={{ fontWeight: 700, fontSize: '1rem' }}>Lyrics</span>
+                                {track.lyricsSync && track.lyricsSync.length > 0 && (
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: 600, padding: '3px 8px',
+                                        borderRadius: '20px', background: `${colors.primary}22`,
+                                        border: `1px solid ${colors.primary}44`, color: colors.primary,
+                                    }}>Synced</span>
+                                )}
+                            </div>
+                            {canEdit && (
+                                <button
+                                    onClick={openLyricsEdit}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        padding: '7px 14px', borderRadius: '8px', cursor: 'pointer',
+                                        border: `1px solid ${colors.primary}44`, background: `${colors.primary}11`,
+                                        color: colors.primary, fontSize: '13px', fontWeight: 600,
+                                    }}
+                                >
+                                    <Edit3 size={13} /> {track.lyrics || track.lyricsSync ? 'Edit' : 'Add Lyrics'}
+                                </button>
+                            )}
+                        </div>
+
+                        <div style={{ padding: '20px 24px' }}>
+                            {!track.lyrics && (!track.lyricsSync || track.lyricsSync.length === 0) && (
+                                <p style={{ margin: 0, color: colors.textTertiary, fontSize: '0.9rem', fontStyle: 'italic' }}>
+                                    No lyrics added yet.
+                                </p>
+                            )}
+
+                            {/* Synced lyrics view */}
+                            {track.lyricsSync && track.lyricsSync.length > 0 ? (
+                                <div
+                                    ref={lyricsContainerRef}
+                                    style={{ maxHeight: '360px', overflowY: 'auto', paddingRight: '8px' }}
+                                >
+                                    {(track.lyricsSync as Array<{ time: number; text: string }>).map((cue, i) => (
+                                        <div
+                                            key={i}
+                                            ref={i === activeLyricIdx ? activeLineRef : undefined}
+                                            onClick={() => {
+                                                if (player.currentTrack?.id === track.id) seek(cue.time);
+                                                else setTrack(track, [track]);
+                                            }}
+                                            style={{
+                                                padding: '7px 0', cursor: 'pointer',
+                                                fontSize: activeLyricIdx === i ? '1.1rem' : '0.95rem',
+                                                fontWeight: activeLyricIdx === i ? 700 : 400,
+                                                color: activeLyricIdx === i ? colors.primary : colors.textSecondary,
+                                                transition: 'all 0.25s ease',
+                                                lineHeight: 1.5,
+                                                userSelect: 'none' as const,
+                                            }}
+                                        >
+                                            {cue.text || <span style={{ opacity: 0.3 }}>♪</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : track.lyrics ? (
+                                <pre style={{
+                                    margin: 0, color: colors.textSecondary, fontFamily: 'inherit',
+                                    whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: '0.93rem',
+                                }}>
+                                    {track.lyrics}
+                                </pre>
+                            ) : null}
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ LYRICS EDITOR MODAL ═══ */}
+                {lyricsEditOpen && (
+                    <div style={{
+                        position: 'fixed', inset: 0, zIndex: 10000,
+                        backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+                    }}>
+                        <div style={{
+                            backgroundColor: colors.surface, borderRadius: borderRadius.lg,
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            width: '100%', maxWidth: '680px', maxHeight: '90vh',
+                            display: 'flex', flexDirection: 'column',
+                        }}>
+                            {/* Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <AlignLeft size={20} color={colors.primary} />
+                                    <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Edit Lyrics</h2>
+                                </div>
+                                <button onClick={() => setLyricsEditOpen(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}>
+                                    <X size={22} />
+                                </button>
+                            </div>
+
+                            {/* Tabs */}
+                            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                {(['write', 'sync'] as const).map(t => (
+                                    <button
+                                        key={t}
+                                        onClick={() => handleLyricsTabSwitch(t)}
+                                        style={{
+                                            flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
+                                            background: lyricsTab === t ? `${colors.primary}18` : 'transparent',
+                                            color: lyricsTab === t ? colors.primary : colors.textSecondary,
+                                            fontWeight: lyricsTab === t ? 700 : 400, fontSize: '0.9rem',
+                                            borderBottom: lyricsTab === t ? `2px solid ${colors.primary}` : '2px solid transparent',
+                                        }}
+                                    >
+                                        {t === 'write' ? '✏ Write' : '⏱ Sync'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+                                {lyricsTab === 'write' && (
+                                    <div>
+                                        <p style={{ margin: '0 0 12px', fontSize: '13px', color: colors.textSecondary }}>
+                                            Paste or type your lyrics. Each line will become a sync-able cue. Switch to the Sync tab to timestamp each line.
+                                        </p>
+                                        <textarea
+                                            value={lyricsText}
+                                            onChange={e => setLyricsText(e.target.value)}
+                                            placeholder={'Verse 1\nYour lyrics here...\n\nChorus\nSing along...'}
+                                            rows={18}
+                                            style={{
+                                                width: '100%', boxSizing: 'border-box' as const,
+                                                backgroundColor: 'rgba(255,255,255,0.04)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: borderRadius.md, padding: '14px',
+                                                color: colors.textPrimary, fontSize: '14px', lineHeight: 1.7,
+                                                resize: 'vertical' as const, fontFamily: 'inherit', outline: 'none',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
+                                {lyricsTab === 'sync' && (
+                                    <div>
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            marginBottom: '12px', padding: '10px 14px',
+                                            backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md,
+                                            border: '1px solid rgba(255,255,255,0.07)',
+                                        }}>
+                                            <span style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                                Play the track and click <strong style={{ color: colors.textPrimary }}>Tap</strong> on each line at the right moment.
+                                            </span>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: colors.primary, minWidth: 60, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' }}>
+                                                {formatSyncTime(player.currentTrack?.id === track?.id ? player.currentTime : 0)}
+                                            </span>
+                                        </div>
+
+                                        {lyricsSync.length === 0 && (
+                                            <p style={{ color: colors.textTertiary, fontStyle: 'italic', fontSize: '13px' }}>
+                                                No lines yet — go back to Write and add your lyrics first.
+                                            </p>
+                                        )}
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {lyricsSync.map((cue, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={formatSyncTime(cue.time)}
+                                                        onChange={e => {
+                                                            const t = parseSyncTime(e.target.value);
+                                                            if (!isNaN(t)) setLyricsSync(prev => prev.map((l, j) => j === i ? { ...l, time: t } : l));
+                                                        }}
+                                                        style={{
+                                                            width: '72px', flexShrink: 0, textAlign: 'center' as const,
+                                                            padding: '6px 8px', backgroundColor: 'rgba(255,255,255,0.05)',
+                                                            border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm,
+                                                            color: colors.primary, fontSize: '12px', fontFamily: 'monospace', outline: 'none',
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        flex: 1, fontSize: '14px', color: cue.text ? colors.textPrimary : colors.textTertiary,
+                                                        fontStyle: cue.text ? 'normal' : 'italic',
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
+                                                    }}>
+                                                        {cue.text || '(empty line)'}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => tapSyncTime(i)}
+                                                        style={{
+                                                            flexShrink: 0, padding: '5px 12px', borderRadius: borderRadius.sm,
+                                                            border: `1px solid ${colors.primary}55`, background: `${colors.primary}18`,
+                                                            color: colors.primary, fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        Tap
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setLyricsEditOpen(false)}
+                                    style={{ padding: '9px 20px', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: colors.textSecondary, cursor: 'pointer', fontSize: '14px' }}
+                                >
+                                    Cancel
+                                </button>
+                                {(track.lyrics || (track.lyricsSync && track.lyricsSync.length > 0)) && (
+                                    <button
+                                        onClick={async () => {
+                                            setLyricsSaving(true);
+                                            try {
+                                                await axios.put(`/api/musician/tracks/${track.id}/lyrics`, { lyrics: null, lyricsSync: null }, { withCredentials: true });
+                                                setTrackData(d => d ? { ...d, lyrics: null, lyricsSync: null } : d);
+                                                setLyricsEditOpen(false);
+                                                showToast('Lyrics removed', 'success');
+                                            } catch { showToast('Failed to remove lyrics', 'error'); }
+                                            finally { setLyricsSaving(false); }
+                                        }}
+                                        style={{ padding: '9px 20px', borderRadius: borderRadius.md, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.1)', color: '#EF4444', cursor: 'pointer', fontSize: '14px' }}
+                                    >
+                                        Remove Lyrics
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleSaveLyrics}
+                                    disabled={lyricsSaving}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '7px',
+                                        padding: '9px 20px', borderRadius: borderRadius.md, border: 'none',
+                                        background: colors.primary, color: 'white', cursor: lyricsSaving ? 'not-allowed' : 'pointer',
+                                        fontSize: '14px', fontWeight: 700, opacity: lyricsSaving ? 0.7 : 1,
+                                    }}
+                                >
+                                    <CheckCircle size={15} /> {lyricsSaving ? 'Saving…' : 'Save Lyrics'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Edit Message Banner */}
                 {editMsg && !editing && (
