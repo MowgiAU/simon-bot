@@ -42,6 +42,29 @@ interface DiscordMessage {
     reactions?: { emoji: { id: string | null; name: string; animated?: boolean }; count: number; me?: boolean }[];
 }
 
+/** Renders message content with inline custom emoji images and clickable links. */
+function renderContent(content: string): React.ReactNode[] {
+    // Split on custom emoji tokens <:name:id> or <a:name:id>
+    const parts = content.split(/(<a?:[^:>]+:\d+>)/);
+    return parts.map((part, i) => {
+        const m = part.match(/^<(a?):([^:>]+):([0-9]+)>$/);
+        if (m) {
+            const animated = m[1] === 'a';
+            const name = m[2];
+            const id = m[3];
+            return (
+                <img key={i}
+                    src={`https://cdn.discordapp.com/emojis/${id}.${animated ? 'gif' : 'webp'}?size=32&quality=lossless`}
+                    alt={`:${name}:`}
+                    title={`:${name}:`}
+                    style={{ width: 22, height: 22, verticalAlign: 'middle', margin: '0 1px' }}
+                />
+            );
+        }
+        return <span key={i}>{part}</span>;
+    });
+}
+
 interface DiscordEmoji {
     id: string;
     name: string;
@@ -326,16 +349,39 @@ const MessageFeed: React.FC<{
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
-                            {msg.content && <div style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '2px', wordBreak: 'break-word' }}>{msg.content}</div>}
+                            {msg.content && <div style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '2px', wordBreak: 'break-word', lineHeight: 1.5 }}>{renderContent(msg.content)}</div>}
                             {msg.embeds && msg.embeds.length > 0 && (
                                 <div style={{ marginTop: '4px', padding: '6px 10px', borderLeft: `3px solid ${msg.embeds[0].color ? `#${msg.embeds[0].color.toString(16).padStart(6, '0')}` : colors.primary}`, background: 'rgba(0,0,0,0.15)', borderRadius: '4px', fontSize: '13px', color: colors.textSecondary }}>
                                     {msg.embeds[0].title && <div style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.embeds[0].title}</div>}
                                     {msg.embeds[0].description && <div style={{ marginTop: '2px' }}>{msg.embeds[0].description}</div>}
+                                    {msg.embeds[0].image?.url && (
+                                        <img src={msg.embeds[0].image.url} alt="" style={{ marginTop: '6px', maxWidth: '280px', maxHeight: '200px', borderRadius: '4px', display: 'block' }} />
+                                    )}
+                                    {!msg.embeds[0].image?.url && msg.embeds[0].thumbnail?.url && (
+                                        <img src={msg.embeds[0].thumbnail.url} alt="" style={{ marginTop: '6px', maxWidth: '160px', maxHeight: '160px', borderRadius: '4px', display: 'block' }} />
+                                    )}
+                                    {msg.embeds[0].video?.url && (
+                                        <video src={msg.embeds[0].video.url} controls style={{ marginTop: '6px', maxWidth: '280px', borderRadius: '4px', display: 'block' }} />
+                                    )}
                                 </div>
                             )}
                             {msg.attachments && msg.attachments.length > 0 && (
-                                <div style={{ marginTop: '4px', fontSize: '12px', color: colors.accent }}>
-                                    {msg.attachments.map((a: any) => <div key={a.id}>📎 {a.filename}</div>)}
+                                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {msg.attachments.map((a: any) => {
+                                        const isImage = a.content_type?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(a.filename ?? '');
+                                        const isVideo = a.content_type?.startsWith('video/') || /\.(mp4|mov|webm)$/i.test(a.filename ?? '');
+                                        if (isImage) return (
+                                            <a key={a.id} href={a.url || a.proxy_url} target="_blank" rel="noreferrer">
+                                                <img src={a.proxy_url || a.url} alt={a.filename}
+                                                    style={{ maxWidth: '280px', maxHeight: '200px', borderRadius: '6px', display: 'block', border: `1px solid ${colors.border}` }} />
+                                            </a>
+                                        );
+                                        if (isVideo) return (
+                                            <video key={a.id} src={a.url} controls
+                                                style={{ maxWidth: '280px', borderRadius: '6px', display: 'block' }} />
+                                        );
+                                        return <div key={a.id} style={{ fontSize: '12px', color: colors.accent }}>📎 {a.filename}</div>;
+                                    })}
                                 </div>
                             )}
                             {msg.sticker_items && msg.sticker_items.length > 0 && (
