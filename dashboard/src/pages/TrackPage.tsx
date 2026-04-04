@@ -421,11 +421,11 @@ export const TrackPage: React.FC = () => {
             <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
                 {/* ═══ HERO SECTION ═══ */}
                 <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
-                    {/* Blurred background */}
-                    {track.coverUrl && (
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.3)', transform: 'scale(1.2)' }} />
-                    )}
-                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(14,18,26,0.92) 0%, rgba(14,18,26,0.75) 100%)` }} />
+                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(14,18,26,0.92) 0%, rgba(14,18,26,0.75) 100%)` }}>
+                        {track.coverUrl && (
+                            <img src={track.coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.15 }} />
+                        )}
+                    </div>
                     
                     <div style={{ position: 'relative', padding: isMobile ? '20px' : '40px' }}>
                         {/* Back link */}
