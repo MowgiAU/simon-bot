@@ -10646,7 +10646,7 @@ app.post('/api/playlists', requireAuth, async (req: any, res) => {
 
         let slug = generatePlaylistSlug(name.trim());
         let suffix = 2;
-        while (await db.playlist.findUnique({ where: { userId_slug: { userId, slug } } })) {
+        while (await db.playlist.findFirst({ where: { userId, slug } })) {
             slug = `${generatePlaylistSlug(name.trim())}-${suffix++}`;
         }
 
