@@ -469,7 +469,13 @@ export const TrackPage: React.FC = () => {
                             </div>
 
                             {/* Track info */}
-                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
+                            <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden', borderRadius: '16px', padding: isMobile ? '20px' : '28px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {/* Blurred album art fill */}
+                                {track.coverUrl && (
+                                    <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${track.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(60px) brightness(0.18)', transform: 'scale(1.3)' }} />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(10,14,22,0.62)' }} />
+                                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
                                 <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{track.title}</h1>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                     by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>{track.profile.displayName || track.profile.username}</a>
@@ -561,6 +567,7 @@ export const TrackPage: React.FC = () => {
                                             <Trash2 size={15} /> Delete
                                         </button>
                                     )}
+                                </div>
                                 </div>
                             </div>
                         </div>
