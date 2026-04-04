@@ -1601,6 +1601,12 @@ model RadioSettings {
   defaultVolume       Float    @default(0.5)     // 0.0 - 1.0
   duckVolume          Float    @default(0.15)    // Volume during host speech
 
+  // Command role permissions (empty = default behavior)
+  startRoleIds        String[] @default([])      // Roles that can /radio start
+  stopRoleIds         String[] @default([])      // Roles that can /radio stop
+  skipRoleIds         String[] @default([])      // Roles that can /radio skip
+  hostRoleIds         String[] @default([])      // Roles that can /radio host
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

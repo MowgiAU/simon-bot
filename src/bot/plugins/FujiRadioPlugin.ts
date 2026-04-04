@@ -229,6 +229,12 @@ export class FujiRadioPlugin implements IPlugin {
         await interaction.deferReply();
 
         const settings = await this.getSettings(guildId);
+
+        if (!this.memberHasRadioPermission(interaction, (settings as any).startRoleIds ?? [])) {
+            await interaction.editReply({ content: '⚠️ You don\'t have permission to start the radio.', flags: MessageFlags.Ephemeral });
+            return true;
+        }
+
         if (!settings.voiceChannelId) {
             await interaction.editReply('⚠️ No radio voice channel configured. Set one in the dashboard.');
             return true;
@@ -340,14 +346,14 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdStop(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         await interaction.deferReply();
 
-        if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
-            await interaction.editReply('⚠️ You need Manage Server permission to stop the radio.');
+        const stopSettings = await this.getSettings(guildId);
+        if (!this.memberHasRadioPermission(interaction, (stopSettings as any).stopRoleIds ?? [], true)) {
+            await interaction.editReply({ content: '⚠️ You don\'t have permission to stop the radio.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
-        const settings = await this.getSettings(guildId);
-        if (settings.voiceChannelId) {
-            void this.setVoiceChannelStatus(settings.voiceChannelId, '');
+        if (stopSettings.voiceChannelId) {
+            void this.setVoiceChannelStatus(stopSettings.voiceChannelId, '');
         }
         this.cleanupGuild(guildId);
         await interaction.editReply('🔇 Fuji FM has been stopped.');
@@ -358,8 +364,9 @@ export class FujiRadioPlugin implements IPlugin {
     private async cmdHost(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
         await interaction.deferReply();
 
-        if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
-            await interaction.editReply('⚠️ You need Manage Server permission to host.');
+        const hostSettings = await this.getSettings(guildId);
+        if (!this.memberHasRadioPermission(interaction, (hostSettings as any).hostRoleIds ?? [], true)) {
+            await interaction.editReply({ content: '⚠️ You don\'t have permission to host the radio.', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -383,6 +390,12 @@ export class FujiRadioPlugin implements IPlugin {
 
     // ── /radio skip ──
     private async cmdSkip(interaction: ChatInputCommandInteraction, guildId: string): Promise<boolean> {
+        const skipSettings = await this.getSettings(guildId);
+        if (!this.memberHasRadioPermission(interaction, (skipSettings as any).skipRoleIds ?? [])) {
+            await interaction.reply({ content: '⚠️ You don\'t have permission to skip tracks.', flags: MessageFlags.Ephemeral });
+            return true;
+        }
+
         const state = this.radioStates.get(guildId);
         if (!state?.player || !state.nowPlaying) {
             await interaction.reply({ content: '⚠️ Nothing is playing.', flags: MessageFlags.Ephemeral });
@@ -1134,6 +1147,24 @@ export class FujiRadioPlugin implements IPlugin {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
+
+    /** Returns true if the member has permission to run a restricted command.
+     *  If roleIds is empty, falls back to requireManageGuild check.
+     *  If roleIds is set, the member needs one matching role (admins always pass). */
+    private memberHasRadioPermission(
+        interaction: ChatInputCommandInteraction,
+        roleIds: string[],
+        requireManageGuildFallback = false,
+    ): boolean {
+        const member = interaction.member;
+        const hasManage = !!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild);
+        if (hasManage) return true; // Admins always allowed
+        if (roleIds.length === 0) return !requireManageGuildFallback; // No restriction configured
+        const memberRoles = Array.isArray(member?.roles)
+            ? (member.roles as string[])
+            : [...((member?.roles as any)?.cache?.keys() ?? [])];
+        return roleIds.some(id => memberRoles.includes(id));
+    }
 
     private watchdogTick(): void {
         for (const [guildId, state] of this.radioStates) {

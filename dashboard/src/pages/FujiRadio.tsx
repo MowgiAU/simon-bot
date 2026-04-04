@@ -25,6 +25,16 @@ interface RadioSettings {
   minTipAmount: number;
   defaultVolume: number;
   duckVolume: number;
+  startRoleIds: string[];
+  stopRoleIds: string[];
+  skipRoleIds: string[];
+  hostRoleIds: string[];
+}
+
+interface GuildRole {
+  id: string;
+  name: string;
+  color: number;
 }
 
 interface QueueEntry {
@@ -94,6 +104,7 @@ export const FujiRadioPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [defaultVolumeLocal, setDefaultVolumeLocal] = useState<number | null>(null);
   const [duckVolumeLocal, setDuckVolumeLocal] = useState<number | null>(null);
+  const [guildRoles, setGuildRoles] = useState<GuildRole[]>([]);
   const saveQueueRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const headers = useCallback(() => ({
@@ -111,11 +122,13 @@ export const FujiRadioPage: React.FC = () => {
       fetch(`${API}/api/radio/queue/${guildId}`, { headers: headers() }).then(r => r.json()),
       fetch(`${API}/api/radio/history/${guildId}`, { headers: headers() }).then(r => r.json()),
       fetch(`${API}/api/radio/ads/${guildId}`, { headers: headers() }).then(r => r.json()),
-    ]).then(([s, q, h, a]) => {
+      fetch(`${API}/api/guilds/${guildId}/roles`, { headers: headers() }).then(r => r.json()),
+    ]).then(([s, q, h, a, roles]) => {
       setSettings(s);
       setQueue(Array.isArray(q) ? q : []);
       setHistory(Array.isArray(h) ? h : []);
       setAds(Array.isArray(a) ? a : []);
+      if (Array.isArray(roles)) setGuildRoles(roles.filter((r: GuildRole) => r.name !== '@everyone').sort((a: GuildRole, b: GuildRole) => b.color - a.color));
     }).catch(console.error).finally(() => setLoading(false));
   }, [guildId, headers]);
 
@@ -649,6 +662,75 @@ export const FujiRadioPage: React.FC = () => {
           )}
 
           {saving && <p style={{ color: colors.primary, fontSize: 12, marginTop: 12 }}>Saving...</p>}
+
+          <hr style={{ border: 'none', borderTop: `1px solid ${colors.border}`, margin: '24px 0' }} />
+
+          <h4 style={{ margin: '0 0 8px', color: colors.textPrimary }}>Command Permissions</h4>
+          <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: 13 }}>
+            Restrict commands to specific roles. Members with Manage Server always have access. Leave empty to allow everyone (or default Manage Server for admin commands).
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.lg }}>
+            {([
+              { key: 'startRoleIds' as const, label: '/radio start', description: 'Who can start the radio' },
+              { key: 'stopRoleIds' as const, label: '/radio stop', description: 'Who can stop the radio (default: Manage Server)' },
+              { key: 'skipRoleIds' as const, label: '/radio skip', description: 'Who can skip tracks' },
+              { key: 'hostRoleIds' as const, label: '/radio host', description: 'Who can go live host (default: Manage Server)' },
+            ]).map(cmd => (
+              <div key={cmd.key}>
+                <label style={{ display: 'block', color: colors.textSecondary, fontSize: 13, marginBottom: 4 }}>
+                  <strong style={{ color: colors.textPrimary }}>{cmd.label}</strong>
+                </label>
+                <p style={{ margin: '0 0 8px', color: colors.textTertiary, fontSize: 11 }}>{cmd.description}</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {(settings[cmd.key] ?? []).map((roleId: string) => {
+                    const role = guildRoles.find(r => r.id === roleId);
+                    const roleColor = role?.color ? `#${role.color.toString(16).padStart(6, '0')}` : colors.primary;
+                    return (
+                      <span key={roleId} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '3px 8px', borderRadius: 12,
+                        background: `${roleColor}22`, border: `1px solid ${roleColor}66`,
+                        color: roleColor, fontSize: 12, fontWeight: 500,
+                      }}>
+                        {role?.name ?? roleId}
+                        <button
+                          onClick={() => saveSettings({ [cmd.key]: (settings[cmd.key] ?? []).filter((id: string) => id !== roleId) } as any)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: roleColor, padding: 0, lineHeight: 1, fontSize: 14 }}
+                        >×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <select
+                  value=""
+                  onChange={e => {
+                    const roleId = e.target.value;
+                    if (!roleId) return;
+                    const current = settings[cmd.key] ?? [];
+                    if (current.includes(roleId)) return;
+                    saveSettings({ [cmd.key]: [...current, roleId] } as any);
+                  }}
+                  style={{
+                    width: '100%', padding: '7px 10px',
+                    background: colors.surfaceLight,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: borderRadius.sm,
+                    color: settings[cmd.key]?.length ? colors.textPrimary : colors.textTertiary,
+                    fontSize: 13,
+                  }}
+                >
+                  <option value="">+ Add role…</option>
+                  {guildRoles
+                    .filter(r => !(settings[cmd.key] ?? []).includes(r.id))
+                    .map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))
+                  }
+                </select>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

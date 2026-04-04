@@ -11045,6 +11045,7 @@ app.post('/api/radio/settings/:guildId', async (req, res) => {
       'autoGenreFilter', 'ttsAnnounce', 'adsEnabled', 'adFrequency',
       'adTtsDefault', 'listenerXpEnabled', 'listenerXpPerMinute',
       'tipEnabled', 'minTipAmount', 'defaultVolume', 'duckVolume',
+      'startRoleIds', 'stopRoleIds', 'skipRoleIds', 'hostRoleIds',
     ];
 
     const data: Record<string, any> = {};
