@@ -11,7 +11,8 @@ import {
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
-    Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle
+    Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
+    SkipBack, SkipForward
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -889,16 +890,51 @@ export const TrackPage: React.FC = () => {
 
                                 {lyricsTab === 'sync' && (
                                     <div>
+                                        {/* Playback controls bar */}
                                         <div style={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            display: 'flex', alignItems: 'center', gap: '10px',
                                             marginBottom: '12px', padding: '10px 14px',
                                             backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md,
                                             border: '1px solid rgba(255,255,255,0.07)',
                                         }}>
-                                            <span style={{ fontSize: '13px', color: colors.textSecondary }}>
-                                                Play the track and click <strong style={{ color: colors.textPrimary }}>Tap</strong> on each line at the right moment.
+                                            {/* Skip back 5s */}
+                                            <button
+                                                onClick={() => seek(Math.max(0, (player.currentTrack?.id === track?.id ? player.currentTime : 0) - 5))}
+                                                title="Skip back 5s"
+                                                style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: borderRadius.sm }}
+                                            >
+                                                <SkipBack size={18} />
+                                            </button>
+                                            {/* Play / Pause */}
+                                            <button
+                                                onClick={() => player.currentTrack?.id === track?.id ? togglePlay() : setTrack(track!, [track!])}
+                                                style={{
+                                                    width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                                                    background: colors.primary, border: 'none', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    boxShadow: `0 2px 10px ${colors.primary}55`,
+                                                }}
+                                            >
+                                                {player.currentTrack?.id === track?.id && player.isPlaying
+                                                    ? <Pause size={16} fill="white" color="white" />
+                                                    : <Play size={16} fill="white" color="white" style={{ marginLeft: '2px' }} />
+                                                }
+                                            </button>
+                                            {/* Skip forward 5s */}
+                                            <button
+                                                onClick={() => seek((player.currentTrack?.id === track?.id ? player.currentTime : 0) + 5)}
+                                                title="Skip forward 5s"
+                                                style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: borderRadius.sm }}
+                                            >
+                                                <SkipForward size={18} />
+                                            </button>
+                                            {/* Divider */}
+                                            <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.08)', margin: '0 2px' }} />
+                                            <span style={{ fontSize: '12px', color: colors.textSecondary, flex: 1 }}>
+                                                Click <strong style={{ color: colors.textPrimary }}>Tap</strong> on a line to stamp the current time.
                                             </span>
-                                            <span style={{ fontSize: '14px', fontWeight: 700, color: colors.primary, minWidth: 60, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' }}>
+                                            {/* Current time */}
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: colors.primary, minWidth: 56, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums', fontFamily: 'monospace' }}>
                                                 {formatSyncTime(player.currentTrack?.id === track?.id ? player.currentTime : 0)}
                                             </span>
                                         </div>
