@@ -96,6 +96,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     // XP tick interval
     private xpInterval: ReturnType<typeof setInterval> | null = null;
+    private watchdogInterval: ReturnType<typeof setInterval> | null = null;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
@@ -106,11 +107,15 @@ export class FujiRadioPlugin implements IPlugin {
         // Start listener XP ticker (every 60s)
         this.xpInterval = setInterval(() => this.tickListenerXp(), 60_000);
 
+        // Watchdog: every 60s check if any radio is stuck and kick it back
+        this.watchdogInterval = setInterval(() => this.watchdogTick(), 60_000);
+
         this.logger.info('[FujiRadio] Plugin initialized');
     }
 
     async shutdown(): Promise<void> {
         if (this.xpInterval) clearInterval(this.xpInterval);
+        if (this.watchdogInterval) clearInterval(this.watchdogInterval);
 
         // Disconnect all radio sessions
         for (const [guildId, state] of this.radioStates) {
@@ -299,6 +304,18 @@ export class FujiRadioPlugin implements IPlugin {
                 this.playNextTrack(guildId).catch(err =>
                     this.logger.error(`[FujiRadio] Auto-play error: ${err}`)
                 );
+            });
+
+            // Recover from AutoPaused (lost subscribers briefly)
+            player.on(AudioPlayerStatus.AutoPaused as any, () => {
+                this.logger.warn(`[FujiRadio] Player auto-paused in ${guildId}, unpausing...`);
+                player.unpause();
+            });
+
+            // Recover from player errors
+            player.on('error' as any, (err: Error) => {
+                this.logger.error(`[FujiRadio] Player error in ${guildId}: ${err.message}`);
+                setTimeout(() => this.playNextTrack(guildId).catch(() => {}), 2000);
             });
 
             // Auto-populate queue and start playing
@@ -654,7 +671,8 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         if (!next) {
-            this.logger.info(`[FujiRadio] No tracks available for ${guildId}, waiting...`);
+            this.logger.info(`[FujiRadio] No tracks available for ${guildId}, retrying in 30s...`);
+            setTimeout(() => this.playNextTrack(guildId).catch(() => {}), 30_000);
             return;
         }
 
@@ -1093,6 +1111,18 @@ export class FujiRadioPlugin implements IPlugin {
             );
         });
 
+        // Recover from AutoPaused (lost subscribers briefly)
+        player.on(AudioPlayerStatus.AutoPaused as any, () => {
+            this.logger.warn(`[FujiRadio] Player auto-paused in ${guildId}, unpausing...`);
+            player.unpause();
+        });
+
+        // Recover from player errors
+        player.on('error' as any, (err: Error) => {
+            this.logger.error(`[FujiRadio] Player error in ${guildId}: ${err.message}`);
+            setTimeout(() => this.playNextTrack(guildId).catch(() => {}), 2000);
+        });
+
         await this.populateAutoQueue(guildId, settings);
         await this.playNextTrack(guildId);
 
@@ -1104,6 +1134,31 @@ export class FujiRadioPlugin implements IPlugin {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
+
+    private watchdogTick(): void {
+        for (const [guildId, state] of this.radioStates) {
+            if (!state.player || !state.connection || state.paused) continue;
+
+            const playerState = state.player.state.status;
+
+            // If connection is destroyed or in a terminal state, clean up
+            if (
+                state.connection.state.status === VoiceConnectionStatus.Destroyed ||
+                state.connection.state.status === VoiceConnectionStatus.Disconnected
+            ) {
+                this.logger.warn(`[FujiRadio] Watchdog: dead connection in ${guildId}, restarting...`);
+                this.radioStates.delete(guildId);
+                setTimeout(() => this.startAuto(guildId).catch(() => {}), 3_000);
+                continue;
+            }
+
+            // If player is Idle but we should be playing, kick it
+            if (playerState === AudioPlayerStatus.Idle) {
+                this.logger.warn(`[FujiRadio] Watchdog: idle player in ${guildId}, resuming...`);
+                this.playNextTrack(guildId).catch(() => {});
+            }
+        }
+    }
 
     private async setVoiceChannelStatus(channelId: string, status: string): Promise<void> {
         try {
