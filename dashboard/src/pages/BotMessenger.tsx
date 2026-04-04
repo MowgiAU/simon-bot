@@ -216,7 +216,7 @@ const ReactPicker: React.FC<{
         <div ref={ref} style={{
             position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
             background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '420px', marginBottom: '6px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '420px', maxWidth: 'calc(100vw - 32px)', marginBottom: '6px',
         }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
                 {(['standard', 'custom'] as const).map(t => (
@@ -300,7 +300,7 @@ const MessageFeed: React.FC<{
     if (!channelId) return <div style={{ color: colors.textTertiary, padding: spacing.lg, textAlign: 'center' }}>Select a channel to view messages</div>;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '460px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '360px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
                 <span style={{ color: colors.textSecondary, fontSize: '12px' }}>{messages.length} messages</span>
                 <button onClick={() => fetchMessages()} style={{ ...btnSecondary, padding: '4px 10px', fontSize: '12px' }}>
@@ -502,7 +502,7 @@ const EmojiPickerPopup: React.FC<{
         <div ref={ref} style={{
             position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
             background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '360px', marginBottom: '8px', overflow: 'hidden',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '360px', maxWidth: 'calc(100vw - 32px)', marginBottom: '8px', overflow: 'hidden',
         }}>
             <div style={{ display: 'flex', borderBottom: `1px solid ${colors.border}` }}>
                 {(['standard', 'custom'] as const).map(t => (
@@ -687,7 +687,7 @@ const EmbedBuilder: React.FC<{
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {/* Body */}
             {sectionTitle('Body')}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md, flexWrap: 'wrap' } as any}>
                 <div>
                     <label style={labelStyle}>Title</label>
                     <input style={inputStyle} value={embed.title} onChange={e => update({ title: e.target.value })} placeholder="Embed title" />
@@ -919,6 +919,13 @@ export function BotMessengerPage() {
     const { selectedGuild } = useAuth();
     const guildId = selectedGuild?.id || '';
     const [tab, setTab] = useState<'send' | 'embed'>('send');
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handle = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handle);
+        return () => window.removeEventListener('resize', handle);
+    }, []);
 
     // Send tab state
     const [channelId, setChannelId] = useState('');
@@ -1018,13 +1025,14 @@ export function BotMessengerPage() {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: 'fit-content' }}>
+            <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
                 {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2]] as const).map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setTab(key as any)} style={{
-                        padding: '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
+                        flex: isMobile ? 1 : undefined,
+                        padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
                         background: tab === key ? colors.primary : 'transparent',
                         color: tab === key ? '#fff' : colors.textSecondary,
-                        fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
+                        fontWeight: 600, fontSize: isMobile ? '13px' : '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s',
                     }}>
                         <Icon size={16} /> {label}
                     </button>
@@ -1033,7 +1041,7 @@ export function BotMessengerPage() {
 
             {/* ============== SEND MESSAGE TAB ============== */}
             {tab === 'send' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: spacing.lg }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: spacing.lg }}>
                     {/* Left: Composer */}
                     <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
                         <div>
@@ -1106,7 +1114,7 @@ export function BotMessengerPage() {
                     </div>
 
                     {/* Right: Live Feed */}
-                    <div style={cardStyle}>
+                    <div style={{ ...cardStyle, minHeight: isMobile ? '360px' : undefined }}>
                         <MessageFeed guildId={guildId} channelId={channelId} onReply={msg => setReplyTo(msg)} />
                     </div>
                 </div>
@@ -1114,7 +1122,7 @@ export function BotMessengerPage() {
 
             {/* ============== EMBED BUILDER TAB ============== */}
             {tab === 'embed' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.lg }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: spacing.lg }}>
                     {/* Left: Builder */}
                     <div style={{ ...cardStyle, maxHeight: '80vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
@@ -1160,7 +1168,7 @@ export function BotMessengerPage() {
                     </div>
 
                     {/* Right: Preview */}
-                    <div style={{ ...cardStyle, position: 'sticky', top: '20px', alignSelf: 'flex-start' }}>
+                    <div style={{ ...cardStyle, position: isMobile ? 'static' : 'sticky', top: '20px', alignSelf: 'flex-start' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
                             <Eye size={20} color={colors.accent} />
                             <span style={{ fontWeight: 600, fontSize: '16px', color: colors.textPrimary }}>Preview</span>
