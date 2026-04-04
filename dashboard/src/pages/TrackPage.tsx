@@ -148,7 +148,6 @@ export const TrackPage: React.FC = () => {
     const [activeLyricIdx, setActiveLyricIdx] = useState(-1);
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
     const activeLineRef = useRef<HTMLDivElement>(null);
-    const lyricsRafRef = useRef<number>(0);
 
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
@@ -307,25 +306,20 @@ export const TrackPage: React.FC = () => {
         }
     };
 
-    // ── Synced lyrics: RAF loop to find the active line ──────────────────────
+    // ── Synced lyrics: recalculate active line on every player time tick ──────
     useEffect(() => {
-        if (!track?.lyricsSync || !Array.isArray(track.lyricsSync) || track.lyricsSync.length === 0) return;
-        const cues = track.lyricsSync as Array<{ time: number; text: string }>;
-        const tick = () => {
-            const ct = player.currentTrack?.id === track.id ? player.currentTime : -1;
-            if (ct >= 0) {
-                let idx = -1;
-                for (let i = 0; i < cues.length; i++) {
-                    if (cues[i].time <= ct) idx = i; else break;
-                }
-                setActiveLyricIdx(idx);
-            }
-            lyricsRafRef.current = requestAnimationFrame(tick);
-        };
-        lyricsRafRef.current = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(lyricsRafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [track?.lyricsSync, player.currentTrack?.id, track?.id]);
+        const cues = track?.lyricsSync as Array<{ time: number; text: string }> | null;
+        if (!cues || cues.length === 0 || player.currentTrack?.id !== track?.id) {
+            setActiveLyricIdx(-1);
+            return;
+        }
+        const ct = player.currentTime;
+        let idx = -1;
+        for (let i = 0; i < cues.length; i++) {
+            if (cues[i].time <= ct) idx = i; else break;
+        }
+        setActiveLyricIdx(idx);
+    }, [player.currentTime, player.currentTrack?.id, track?.lyricsSync, track?.id]);
 
     // Auto-scroll active lyric line into view
     useEffect(() => {
