@@ -680,13 +680,13 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><GenresPage /></Suspense>;
   }
 
-  // /genres/:parentSlug → Sub-genres page
+  // /genres/:slug → Filtered tracks page (same as /category/:slug)
   if (currentPath.startsWith('/genres/')) {
-    const parentSlug = currentPath.split('/genres/')[1];
-    return <Suspense fallback={<PageSpinner />}><GenresPage parentSlug={parentSlug} /></Suspense>;
+    const slug = currentPath.split('/genres/')[1];
+    return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;
   }
   
-  // /category/:slug → Filtered tracks page
+  // /category/:slug → Filtered tracks page (legacy, keep working)
   if (currentPath.startsWith('/category/')) {
     const slug = currentPath.split('/category/')[1];
     return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;

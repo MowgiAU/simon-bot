@@ -144,12 +144,7 @@ export const GenresPage: React.FC<{ parentSlug?: string }> = ({ parentSlug }) =>
                             <button 
                                 key={genre.id}
                                 onClick={() => {
-                                    const hasChildren = genres.some(g => g.parentId === genre.id);
-                                    if (hasChildren && !selectedParent) {
-                                        navigate(`/genres/${genre.slug}`);
-                                    } else {
-                                        navigate(`/category/${genre.slug}`);
-                                    }
+                                    navigate(`/genres/${genre.slug}`);
                                 }}
                                 style={{ 
                                     backgroundColor: '#1E2333', 
