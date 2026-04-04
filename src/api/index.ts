@@ -11038,7 +11038,11 @@ app.get('/api/radio/settings/:guildId', async (req, res) => {
 app.post('/api/radio/settings/:guildId', async (req, res) => {
   try {
     const { guildId } = req.params;
-    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+    logger.info(`[API] POST /api/radio/settings/${guildId} body=${JSON.stringify(req.body)}`);
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) {
+      logger.warn(`[API] POST /api/radio/settings/${guildId} → 403 Forbidden`);
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     const allowedFields = [
       'voiceChannelId', 'textChannelId', 'autoEnabled', 'autoSource',
