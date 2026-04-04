@@ -4821,8 +4821,12 @@ app.post('/api/bot-messenger/:guildId/react', async (req, res) => {
     }
 
     try {
-        // emoji can be unicode or custom format name:id
-        const encoded = encodeURIComponent(emoji);
+        // Normalise emoji for Discord's reaction endpoint:
+        // - Custom emoji arrives as "<:name:id>" or "<a:name:id>" → strip to "name:id"
+        // - Unicode emoji arrives as raw character (e.g. "😂") → use as-is
+        const customMatch = emoji.match(/^<a?:([^:]+):(\d+)>$/);
+        const normalised = customMatch ? `${customMatch[1]}:${customMatch[2]}` : emoji;
+        const encoded = encodeURIComponent(normalised);
         await discordReq('put', `/channels/${channelId}/messages/${messageId}/reactions/${encoded}/@me`);
         res.json({ success: true });
     } catch (err: any) {

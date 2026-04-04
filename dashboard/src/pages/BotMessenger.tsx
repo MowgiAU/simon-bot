@@ -39,6 +39,7 @@ interface DiscordMessage {
     attachments?: any[];
     referenced_message?: DiscordMessage | null;
     sticker_items?: { id: string; name: string; format_type: number }[];
+    reactions?: { emoji: { id: string | null; name: string; animated?: boolean }; count: number; me?: boolean }[];
 }
 
 interface DiscordEmoji {
@@ -340,6 +341,24 @@ const MessageFeed: React.FC<{
                             {msg.sticker_items && msg.sticker_items.length > 0 && (
                                 <div style={{ marginTop: '4px', fontSize: '12px', color: colors.highlight }}>
                                     🏷️ Sticker: {msg.sticker_items[0].name}
+                                </div>
+                            )}
+                            {msg.reactions && msg.reactions.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                                    {msg.reactions.map((r, i) => (
+                                        <div key={i} style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                            background: r.me ? `${colors.primary}22` : colors.surfaceLight,
+                                            border: `1px solid ${r.me ? colors.primary + '55' : colors.border}`,
+                                            borderRadius: '12px', padding: '2px 8px', fontSize: '12px', color: colors.textSecondary,
+                                        }}>
+                                            {r.emoji.id
+                                                ? <img src={`https://cdn.discordapp.com/emojis/${r.emoji.id}.${r.emoji.animated ? 'gif' : 'png'}?size=16`} alt={r.emoji.name} style={{ width: 16, height: 16 }} />
+                                                : <span>{r.emoji.name}</span>
+                                            }
+                                            <span style={{ color: r.me ? colors.primary : colors.textSecondary, fontWeight: 500 }}>{r.count}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
