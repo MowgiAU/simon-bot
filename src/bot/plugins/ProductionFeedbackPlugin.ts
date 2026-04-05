@@ -353,40 +353,47 @@ export class ProductionFeedbackPlugin implements IPlugin {
         let reviewMessage: Message | null = null;
         
         const attachment = message.attachments.first();
-        
-        // 1. Re-host to Review Channel
+
+        // 1. Fetch the original track from the starter message
+        let originalAttachment: Attachment | null = null;
+        try {
+            if (message.channel.isThread()) {
+                const starter = await message.channel.fetchStarterMessage().catch(() => null);
+                if (starter) {
+                    originalAttachment = starter.attachments.find(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/')) ?? null;
+                    if (originalAttachment) referenceUrl = originalAttachment.url;
+                }
+            }
+        } catch (e) {}
+
+        // 2. Re-host to Review Channel (include both original track + new feedback file)
         if (reviewChannelId && attachment) {
              const reviewChannel = message.guild.channels.cache.get(reviewChannelId) as TextChannel;
              if (reviewChannel) {
                  try {
+                     const files: any[] = [];
+                     if (originalAttachment) files.push({ attachment: originalAttachment.url, name: `ORIGINAL_${originalAttachment.name}` });
+                     files.push({ attachment: attachment.url, name: `FEEDBACK_${attachment.name}` });
+
                      reviewMessage = await reviewChannel.send({
                          content: `**Pending Audio Review**\nUser: <@${message.author.id}>\nThread: <#${message.channel.id}>\nOriginal Content: "${message.content}"`,
-                         files: [attachment] 
+                         files
                      });
-                     storedUrl = reviewMessage.attachments.first()?.url || '';
+                     // storedUrl = the feedback file (last attachment)
+                     const attachments = [...reviewMessage.attachments.values()];
+                     storedUrl = attachments[attachments.length - 1]?.url || '';
                  } catch (e) {
                      this.logger.error('Failed to re-host audio file', e);
                  }
              }
         }
 
-        // 2. Delete Original
+        // 3. Delete Original
         try {
             if (message.deletable) await message.delete();
         } catch (e) {
             this.logger.error('Failed to delete message', e);
         }
-
-        // 3. Comparison Audio
-        try {
-            if (message.channel.isThread()) {
-                 const starter = await message.channel.fetchStarterMessage().catch(() => null);
-                 if (starter) {
-                     const startAudio = starter.attachments.find(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'));
-                     if (startAudio) referenceUrl = startAudio.url;
-                 }
-            }
-        } catch (e) {}
 
         // 4. Create DB Entry
         const post = await this.context.db.feedbackPost.create({
