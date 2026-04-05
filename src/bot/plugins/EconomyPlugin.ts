@@ -506,7 +506,6 @@ export class EconomyPlugin implements IPlugin {
 
         // Auto-Nickname check
         if (amount !== 0) {
-            this.logger.info(`Auto-nickname: triggering for ${userId} with balance ${account.balance}`);
             this.checkAutoNickname(guildId, userId, account.balance);
         }
 
@@ -564,14 +563,14 @@ export class EconomyPlugin implements IPlugin {
     private async checkAutoNickname(guildId: string, userId: string, balance: number) {
         try {
             const settings = await this.getSettings(guildId);
-            if (!settings.autoNickname) { this.logger.warn(`Auto-nickname: disabled in settings for ${guildId}`); return; }
+            if (!settings.autoNickname) return;
 
             // Respect opt-out preference
             const account = await this.db.economyAccount.findUnique({
                 where: { guildId_userId: { guildId, userId } },
                 select: { nickOptOut: true },
             });
-            if (account?.nickOptOut) { this.logger.warn(`Auto-nickname: user ${userId} has opted out`); return; }
+            if (account?.nickOptOut) return;
 
             const guild = await this.client.guilds.fetch(guildId);
             const me = guild.members.me ?? await guild.members.fetchMe();
@@ -592,8 +591,8 @@ export class EconomyPlugin implements IPlugin {
             const baseName = currentName.replace(suffixRegex, '');
             const newNick = `${baseName} (${settings.currencyEmoji}${balance.toLocaleString()})`;
 
-            if (newNick.length > 32) { this.logger.warn(`Auto-nickname: nick too long (${newNick.length}) for ${member.user.username}`); return; }
-            if (member.nickname === newNick) { this.logger.info(`Auto-nickname: no change needed for ${member.user.username}`); return; }
+            if (newNick.length > 32) return;
+            if (member.nickname === newNick) return;
 
             await member.setNickname(newNick);
             this.logger.info(`Auto-nickname: ${member.user.username} → "${newNick}"`);
