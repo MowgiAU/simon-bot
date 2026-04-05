@@ -387,7 +387,6 @@ export class SimonBot {
 
     this.client.on('messageCreate', async message => {
       if (message.author.bot) return;
-      this.logger.info(`[messageCreate] from ${message.author.username} in ${message.guildId || 'DM'}, plugins dispatching...`);
 
       const plugins = this.pluginManager.getEnabled();
       for (const plugin of plugins) {

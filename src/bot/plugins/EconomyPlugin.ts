@@ -123,14 +123,8 @@ export class EconomyPlugin implements IPlugin {
         const now = Date.now();
         const lastEarn = this.messageCooldowns.get(message.author.id) || 0;
 
-        if (now - lastEarn < cooldown) {
-            this.logger.info(`[Economy] ${message.author.username}: skipped (cooldown ${Math.ceil((cooldown - (now - lastEarn)) / 1000)}s left)`);
-            return;
-        }
-        if (message.content.length < settings.minMessageLength) {
-            this.logger.info(`[Economy] ${message.author.username}: skipped (msg too short: ${message.content.length} < ${settings.minMessageLength})`);
-            return;
-        }
+        if (now - lastEarn < cooldown) return;
+        if (message.content.length < settings.minMessageLength) return;
 
         // Activity Scaling: +2% per 5 levels if enabled in leveling settings
         let reward = settings.messageReward;
