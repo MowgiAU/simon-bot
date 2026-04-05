@@ -7,24 +7,91 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  isChunkError: boolean;
+}
+
+const CHUNK_RELOAD_KEY = 'chunkErrorReloaded';
+
+function isChunkLoadError(error: Error): boolean {
+  const msg = error.message || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Loading chunk') ||
+    msg.includes('Importing a module script failed') ||
+    error.name === 'ChunkLoadError'
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null
+    error: null,
+    isChunkError: false,
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    const chunkError = isChunkLoadError(error);
+
+    // Auto-reload once for chunk errors to pick up the new build
+    if (chunkError) {
+      const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY);
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        // Return a loading state — the reload will happen before render
+        return { hasError: false, error: null, isChunkError: true };
+      }
+    }
+
+    return { hasError: true, error, isChunkError: chunkError };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
   }
 
+  public componentDidMount() {
+    // Clear the reload flag on successful mount so future deploys can reload again
+    sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+  }
+
   public render() {
     if (this.state.hasError) {
+      if (this.state.isChunkError) {
+        return (
+          <div style={{
+            padding: '40px',
+            backgroundColor: '#1a1a2e',
+            color: '#fff',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'sans-serif',
+          }}>
+            <h1 style={{ marginBottom: '16px', color: '#22c55e' }}>Update Available</h1>
+            <p style={{ color: '#ccc', marginBottom: '24px', textAlign: 'center', maxWidth: '500px' }}>
+              The dashboard was updated while you had it open. Please reload to get the latest version.
+            </p>
+            <button
+              onClick={() => { sessionStorage.removeItem(CHUNK_RELOAD_KEY); window.location.reload(); }}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#22c55e',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              Reload to Update
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div style={{ 
           padding: '40px', 
@@ -75,3 +142,4 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
