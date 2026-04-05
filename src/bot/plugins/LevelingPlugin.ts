@@ -1,5 +1,6 @@
 import {
     Client,
+    Guild,
     ChatInputCommandInteraction,
     GuildMember,
     SlashCommandBuilder,
@@ -158,8 +159,9 @@ export class LevelingPlugin implements IPlugin {
 
         const sync = new SlashCommandBuilder()
             .setName('leveling-sync')
-            .setDescription('Re-scan and fix your level roles (admin: sync a user)')
-            .addUserOption(o => o.setName('user').setDescription('User to sync (admin only)'));
+            .setDescription('Re-scan and fix level roles for a user or the entire server')
+            .addUserOption(o => o.setName('user').setDescription('Specific user to sync (admin only). Omit to sync yourself.'))
+            .addBooleanOption(o => o.setName('all').setDescription('Sync ALL members in the server (admin only, may take a while)').setRequired(false));
 
         const xpboost = new SlashCommandBuilder()
             .setName('xpboost')
@@ -705,37 +707,15 @@ export class LevelingPlugin implements IPlugin {
         }
     }
 
-    private async handleSync(interaction: ChatInputCommandInteraction): Promise<void> {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-        const targetUser = interaction.options.getUser('user') || interaction.user;
-
-        // Only admins can sync other users
-        if (targetUser.id !== interaction.user.id) {
-            const guildMember = interaction.member as GuildMember;
-            if (!guildMember.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                return void interaction.editReply('You need Manage Server permission to sync other users.');
-            }
-        }
-
-        const guildId = interaction.guildId!;
-        const guild = interaction.guild!;
-
-        const member = await this.db.member.findUnique({
-            where: { guildId_userId: { guildId, userId: targetUser.id } },
-        });
-        if (!member) return void interaction.editReply(`${targetUser.username} has no leveling data.`);
-
-        const settings = await this.getSettings(guildId);
-        if (!settings) return void interaction.editReply('Leveling is not configured for this server.');
-
-        const allRewards = await this.db.levelRoleReward.findMany({
-            where: { settingsId: settings.id },
-            orderBy: { level: 'asc' },
-        });
-
-        const guildMember = await guild.members.fetch(targetUser.id).catch(() => null);
-        if (!guildMember) return void interaction.editReply('Could not find member in this server.');
+    private async syncMemberRoles(
+        guildId: string,
+        guild: Guild,
+        userId: string,
+        level: number,
+        allRewards: { level: number; roleId: string }[],
+    ): Promise<{ added: number; removed: number; earnedRoles: string[] }> {
+        const guildMember = await guild.members.fetch(userId).catch(() => null);
+        if (!guildMember) return { added: 0, removed: 0, earnedRoles: [] };
 
         let added = 0;
         let removed = 0;
@@ -745,15 +725,13 @@ export class LevelingPlugin implements IPlugin {
             const role = guild.roles.cache.get(reward.roleId);
             if (!role) continue;
 
-            if (member.level >= reward.level) {
-                // Should have this role
+            if (level >= reward.level) {
                 if (!guildMember.roles.cache.has(reward.roleId)) {
                     await guildMember.roles.add(role, 'Leveling sync').catch(() => {});
                     added++;
                 }
                 newEarnedRoles.push(reward.roleId);
             } else {
-                // Should NOT have this role
                 if (guildMember.roles.cache.has(reward.roleId)) {
                     await guildMember.roles.remove(role, 'Leveling sync').catch(() => {});
                     removed++;
@@ -761,14 +739,98 @@ export class LevelingPlugin implements IPlugin {
             }
         }
 
-        // Update earnedRoles array
         await this.db.member.update({
-            where: { guildId_userId: { guildId, userId: targetUser.id } },
+            where: { guildId_userId: { guildId, userId } },
             data: { earnedRoles: newEarnedRoles },
         });
 
+        return { added, removed, earnedRoles: newEarnedRoles };
+    }
+
+    private async handleSync(interaction: ChatInputCommandInteraction): Promise<void> {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const syncAll = interaction.options.getBoolean('all') ?? false;
+        const targetUser = interaction.options.getUser('user') || (!syncAll ? interaction.user : null);
+        const invokerMember = interaction.member as GuildMember;
+        const isAdmin = invokerMember.permissions.has(PermissionFlagsBits.ManageGuild);
+
+        // Permission checks
+        if (syncAll || (targetUser && targetUser.id !== interaction.user.id)) {
+            if (!isAdmin) {
+                return void interaction.editReply('You need **Manage Server** permission to sync other users or the full server.');
+            }
+        }
+
+        const guildId = interaction.guildId!;
+        const guild = interaction.guild!;
+
+        const settings = await this.getSettings(guildId);
+        if (!settings) return void interaction.editReply('Leveling is not configured for this server.');
+
+        const allRewards = await this.db.levelRoleReward.findMany({
+            where: { settingsId: settings.id },
+            orderBy: { level: 'asc' },
+        });
+
+        // ── Bulk sync all members ──────────────────────────────────────────────
+        if (syncAll) {
+            const allMembers = await this.db.member.findMany({
+                where: { guildId },
+                select: { userId: true, level: true },
+            });
+
+            if (allMembers.length === 0) {
+                return void interaction.editReply('No members with leveling data found.');
+            }
+
+            await interaction.editReply(`⏳ Syncing **${allMembers.length}** members... this may take a while.`);
+
+            let totalAdded = 0;
+            let totalRemoved = 0;
+            let processed = 0;
+            let failed = 0;
+
+            // Fetch all guild members into cache once to reduce API calls
+            await guild.members.fetch().catch(() => null);
+
+            for (const m of allMembers) {
+                try {
+                    const result = await this.syncMemberRoles(guildId, guild, m.userId, m.level, allRewards);
+                    totalAdded += result.added;
+                    totalRemoved += result.removed;
+                    processed++;
+                } catch {
+                    failed++;
+                }
+                // Throttle to avoid Discord rate limits (~1 member per 100ms)
+                await new Promise(r => setTimeout(r, 100));
+
+                // Post progress update every 50 members
+                if (processed % 50 === 0) {
+                    await interaction.editReply(
+                        `⏳ Progress: ${processed}/${allMembers.length} members synced...`
+                    ).catch(() => {});
+                }
+            }
+
+            return void interaction.editReply(
+                `✅ Bulk sync complete!\n` +
+                `• **${processed}** members processed (${failed} skipped/not in server)\n` +
+                `• **+${totalAdded}** roles added, **-${totalRemoved}** roles removed`
+            );
+        }
+
+        // ── Single user sync ───────────────────────────────────────────────────
+        const member = await this.db.member.findUnique({
+            where: { guildId_userId: { guildId, userId: targetUser!.id } },
+        });
+        if (!member) return void interaction.editReply(`${targetUser!.username} has no leveling data.`);
+
+        const { added, removed } = await this.syncMemberRoles(guildId, guild, targetUser!.id, member.level, allRewards);
+
         await interaction.editReply(
-            `✅ Synced **${targetUser.username}** (Level ${member.level}): +${added} roles added, -${removed} roles removed.`
+            `✅ Synced **${targetUser!.username}** (Level ${member.level}): +${added} roles added, -${removed} roles removed.`
         );
     }
 
