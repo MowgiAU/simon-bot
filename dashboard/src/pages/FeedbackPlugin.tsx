@@ -239,6 +239,18 @@ export const FeedbackPluginPage: React.FC = () => {
                 <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
                     <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Configuration</h3>
                     <div style={{ display: 'grid', gap: '20px', maxWidth: '600px' }}>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: colors.surface, borderRadius: borderRadius.md }}>
+                            <div>
+                                <div style={{ fontWeight: 600 }}>Enable Feedback System</div>
+                                <div style={{ fontSize: '13px', color: colors.textSecondary }}>Enforce audio requirements, deduct coins, and reward quality feedback</div>
+                            </div>
+                            <input type="checkbox"
+                                checked={settings.enabled}
+                                onChange={e => setSettings({ ...settings, enabled: e.target.checked })}
+                                style={{ width: 18, height: 18, cursor: 'pointer' }}
+                            />
+                        </div>
                         
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px' }}>Forum Channel</label>

@@ -156,15 +156,18 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 });
             }
             
-            // Send ephemeral confirmation in thread
+            // Send confirmation in thread + DM the user
             try {
-                // We cannot send ephemeral messages to a thread easily without an interaction.
-                // We'll send a normal message and delete it, or just leave it.
-                const confirmMsg = await thread.send(`✅ **Feedback Thread Opened**\nConsumed ${settings.currencyEmoji || '🪙'} ${cost}.`);
-                // setTimeout(() => confirmMsg.delete().catch(() => {}), 5000); 
+                const emoji = settings.currencyEmoji || '🪙';
+                const confirmMsg = await thread.send(`✅ **Feedback Thread Opened** — ${emoji} ${cost} deducted.`);
+                setTimeout(() => confirmMsg.delete().catch(() => {}), 8000);
             } catch (e) {
-                this.logger.error('Failed to send confirmation message', e);
+                this.logger.error('Failed to send thread confirmation', e);
             }
+            try {
+                const starterUser = starterMsg.author;
+                await starterUser.send(`✅ Your feedback thread **${thread.name}** was opened. ${settings.currencyEmoji || '🪙'} ${cost} coins were deducted from your balance.`);
+            } catch {} // DMs may be closed
 
         } catch (error: any) {
             if (error.message === 'Insufficient funds') {
