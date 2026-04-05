@@ -580,7 +580,10 @@ export class EconomyPlugin implements IPlugin {
             }
 
             const member = await guild.members.fetch(userId);
-            if (!member.manageable) return;
+            if (!member.manageable) {
+                this.logger.warn(`Auto-nickname: cannot manage ${member.user.username} (role hierarchy)`);
+                return;
+            }
 
             const currentName = member.nickname || member.user.displayName;
             const suffixRegex = /\s\([^\)]+\)$/; // Matches " (...)" at end
