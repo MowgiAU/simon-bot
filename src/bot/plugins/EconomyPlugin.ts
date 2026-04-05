@@ -573,29 +573,28 @@ export class EconomyPlugin implements IPlugin {
             if (account?.nickOptOut) return;
 
             const guild = await this.client.guilds.fetch(guildId);
+            const me = guild.members.me ?? await guild.members.fetchMe();
+            if (!me.permissions.has(PermissionsBitField.Flags.ManageNicknames)) {
+                this.logger.warn('Auto-nickname: bot lacks ManageNicknames permission');
+                return;
+            }
+
             const member = await guild.members.fetch(userId);
-            
-            // Logic: "Name (🪙 500)"
-            // Respect existing nickname logic. 
-            // If nickname already has suffix from us, replace it. 
-            // If nickname is default username, append.
-            
-            const currentName = member.nickname || member.user.username;
+            if (!member.manageable) return;
+
+            const currentName = member.nickname || member.user.displayName;
             const suffixRegex = /\s\([^\)]+\)$/; // Matches " (...)" at end
-            
-            let baseName = currentName.replace(suffixRegex, '');
-            const newNick = `${baseName} (${settings.currencyEmoji}${balance})`;
+
+            const baseName = currentName.replace(suffixRegex, '');
+            const newNick = `${baseName} (${settings.currencyEmoji}${balance.toLocaleString()})`;
 
             if (newNick.length > 32) return; // Discord limit
-            if (member.nickname === newNick) return; // No change
+            if (member.nickname === newNick) return; // No change needed
 
-            // Bot needs permisison
-            if (!guild.members.me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) return;
-            if (member.manageable) {
-                await member.setNickname(newNick);
-            }
-        } catch (e) {
-            // Ignore errors (permissions etc)
+            await member.setNickname(newNick);
+            this.logger.info(`Auto-nickname: ${member.user.username} → "${newNick}"`);
+        } catch (e: any) {
+            this.logger.error(`Auto-nickname failed for user ${userId}: ${e.message}`);
         }
     }
 }

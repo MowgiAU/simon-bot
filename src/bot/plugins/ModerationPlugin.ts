@@ -247,15 +247,16 @@ export class ModerationPlugin implements IPlugin {
         const MAX_TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000; // Discord max: 28 days
         if (ms > MAX_TIMEOUT_MS) return interaction.reply({ content: 'Duration cannot exceed 28 days.', flags: MessageFlags.Ephemeral });
 
+        await interaction.deferReply();
+
         try {
             await this.sendDM(interaction.guildId!, target, 'timeout', reason, durationStr);
-
             await target.timeout(ms, reason);
             await this.logAction(interaction.guildId!, 'timeout', interaction.user.id, target.id, { reason, duration: durationStr });
-            await interaction.reply({ content: `⏳ **${target.user.tag}** timed out for ${durationStr}. Reason: ${reason}` });
+            await interaction.editReply({ content: `⏳ **${target.user.tag}** timed out for ${durationStr}. Reason: ${reason}` });
         } catch (e) {
             this.logger.error('Timeout failed', e);
-            await interaction.reply({ content: 'Timeout failed.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply({ content: 'Timeout failed.' });
         }
     }
 
