@@ -59,10 +59,10 @@ async function main() {
             }
 
             try {
-                await db.member.upsert({
+                await db.economyAccount.upsert({
                     where: { guildId_userId: { guildId: gId, userId } },
-                    update: { balance },
-                    create: { guildId: gId, userId, balance },
+                    update: { balance, totalEarned: balance },
+                    create: { guildId: gId, userId, balance, totalEarned: balance },
                 });
 
                 migrated++;
