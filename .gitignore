@@ -19,3 +19,5 @@ data/*.pdf
 data/email_db.json
 data/email_settings.json
 data/docstore.json
+data/levelingData.json
+data/reputationData.json
