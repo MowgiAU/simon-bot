@@ -98,6 +98,10 @@ export class EconomyPlugin implements IPlugin {
             return;
         }
 
+        if (interaction.isButton() && interaction.customId.startsWith('wealth_')) {
+            return this.handleWealthButton(interaction);
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         const { commandName } = interaction;
@@ -221,37 +225,76 @@ export class EconomyPlugin implements IPlugin {
     }
 
      /**
-     * Command: /wealth (Leaderboard)
+     * Command: /wealth (Leaderboard) — paginated
      */
      private async handleWealth(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
-        
+        await interaction.deferReply();
+        const page = (interaction.options.getInteger('page') || 1) - 1;
+        await this.sendWealthPage(interaction, page);
+    }
+
+    private async sendWealthPage(interaction: any, page: number) {
+        const guildId = interaction.guildId!;
+        const perPage = 10;
+
         try {
-            await interaction.deferReply();
+            const settings = await this.getSettings(guildId);
+            const total = await this.db.economyAccount.count({ where: { guildId } });
+            const maxPage = Math.max(0, Math.ceil(total / perPage) - 1);
+            page = Math.min(Math.max(0, page), maxPage);
 
             const accounts = await this.db.economyAccount.findMany({
-                where: { guildId: interaction.guildId },
+                where: { guildId },
                 orderBy: { balance: 'desc' },
-                take: 10
+                skip: page * perPage,
+                take: perPage,
             });
 
-            const settings = await this.getSettings(interaction.guildId);
-            
-            const description = await Promise.all(accounts.map(async (acc: any, index: number) => {
-                const user = await this.client.users.fetch(acc.userId).catch(() => ({ username: 'Unknown' }));
-                return `**${index + 1}.** ${user.username} — ${settings.currencyEmoji} ${acc.balance}`;
-            }));
+            const lines: string[] = [];
+            for (let i = 0; i < accounts.length; i++) {
+                const acc = accounts[i];
+                const rank = page * perPage + i + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                lines.push(`${medal} <@${acc.userId}> — ${settings.currencyEmoji} ${acc.balance.toLocaleString()}`);
+            }
 
             const embed = new EmbedBuilder()
-                .setTitle(`Wealth Leaderboard`)
-                .setDescription(description.join('\n') || 'No rich people here yet.')
-                .setColor('#FFD700');
+                .setColor(0xFFD700)
+                .setTitle('💰 Wealth Leaderboard')
+                .setDescription(lines.join('\n') || 'No rich people here yet.')
+                .setFooter({ text: `Page ${page + 1}/${maxPage + 1} • ${total} accounts tracked` });
 
-            await interaction.editReply({ embeds: [embed] });
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`wealth_${page - 1}`)
+                    .setLabel('◀ Prev')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(page === 0),
+                new ButtonBuilder()
+                    .setCustomId(`wealth_${page + 1}`)
+                    .setLabel('Next ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(page >= maxPage),
+            );
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [row] });
+            } else {
+                await interaction.update({ embeds: [embed], components: [row] });
+            }
         } catch (e) {
             this.logger.error('Wealth command failed', e);
-            await interaction.editReply({ content: 'Failed to retrieve leaderboard.' });
+            const msg = { content: 'Failed to retrieve leaderboard.' };
+            if (interaction.replied || interaction.deferred) await interaction.editReply(msg);
+            else await interaction.reply(msg);
         }
+    }
+
+    private async handleWealthButton(interaction: any) {
+        const page = parseInt(interaction.customId.split('_')[1]);
+        if (isNaN(page)) return;
+        await this.sendWealthPage(interaction, page);
     }
 
     /**

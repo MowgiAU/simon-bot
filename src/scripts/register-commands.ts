@@ -32,7 +32,7 @@ const commands = [
 
     // 3. Economy
     new SlashCommandBuilder().setName('wallet').setDescription('Check balance').addUserOption(opt => opt.setName('user').setDescription('User')).toJSON(),
-    new SlashCommandBuilder().setName('wealth').setDescription('View richest users').toJSON(),
+    new SlashCommandBuilder().setName('wealth').setDescription('View richest users').addIntegerOption(opt => opt.setName('page').setDescription('Page number')).toJSON(),
     new SlashCommandBuilder().setName('market').setDescription('View shop').toJSON(),
     new SlashCommandBuilder().setName('buy').setDescription('Buy item').addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('Item name')).toJSON(),
     new SlashCommandBuilder().setName('nick-optout').setDescription('Toggle auto-nickname balance display on/off').toJSON(),
