@@ -27,7 +27,7 @@ const commands = [
     // 2. Moderation
     new SlashCommandBuilder().setName('kick').setDescription('Kick a user').setDefaultMemberPermissions(0x2).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
     new SlashCommandBuilder().setName('ban').setDescription('Ban a user').setDefaultMemberPermissions(0x4).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('duration').setDescription('Duration')).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
-    new SlashCommandBuilder().setName('timeout').setDescription('Timeout a user').setDefaultMemberPermissions(0x10000000000).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addIntegerOption(opt => opt.setName('duration').setDescription('Minutes').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
+    new SlashCommandBuilder().setName('timeout').setDescription('Timeout a user').setDefaultMemberPermissions(0x10000000000).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('duration').setDescription('Duration (e.g. 10m, 1h, 1d)').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason')).toJSON(),
     new SlashCommandBuilder().setName('purge').setDescription('Delete messages').setDefaultMemberPermissions(0x2000).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true)).toJSON(),
 
     // 3. Economy
