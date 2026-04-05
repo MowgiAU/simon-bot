@@ -23,6 +23,7 @@ import {
     Loader,
     Hash,
     SmilePlus,
+    LayoutList,
 } from 'lucide-react';
 
 const API = '';
@@ -918,7 +919,7 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 export function BotMessengerPage() {
     const { selectedGuild } = useAuth();
     const guildId = selectedGuild?.id || '';
-    const [tab, setTab] = useState<'send' | 'embed'>('send');
+    const [tab, setTab] = useState<'send' | 'embed' | 'forum'>('send');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -945,7 +946,34 @@ export function BotMessengerPage() {
     const [embedSending, setEmbedSending] = useState(false);
     const [embedStatus, setEmbedStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+    // Forum tab state
+    const [forumTab, setForumTab] = useState<'new-post' | 'reply'>('new-post');
+    const [forumChannelId, setForumChannelId] = useState('');
+    const [forumThreads, setForumThreads] = useState<any[]>([]);
+    const [forumThreadsLoading, setForumThreadsLoading] = useState(false);
+    const [forumTitle, setForumTitle] = useState('');
+    const [forumContent, setForumContent] = useState('');
+    const [forumSending, setForumSending] = useState(false);
+    const [forumStatus, setForumStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [selectedThreadId, setSelectedThreadId] = useState('');
+    const [replyContent, setReplyContent] = useState('');
+    const [replySending, setReplySending] = useState(false);
+    const [replyStatus, setReplyStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
     const clearStatus = () => { setStatus(null); setEmbedStatus(null); };
+
+    // Fetch active threads when forum channel changes
+    const fetchForumThreads = useCallback(async (cId: string) => {
+        if (!cId) { setForumThreads([]); return; }
+        setForumThreadsLoading(true);
+        try {
+            const res = await axios.get(`${API}/api/bot-messenger/${guildId}/forum-threads/${cId}`, { withCredentials: true });
+            setForumThreads(res.data);
+        } catch { setForumThreads([]); }
+        finally { setForumThreadsLoading(false); }
+    }, [guildId]);
+
+    useEffect(() => { fetchForumThreads(forumChannelId); }, [forumChannelId, fetchForumThreads]);
 
     const handleSendMessage = async () => {
         if (!channelId) return;
@@ -969,6 +997,43 @@ export function BotMessengerPage() {
         } finally {
             setSending(false);
         }
+    };
+
+    const handleForumPost = async () => {
+        if (!forumChannelId || !forumTitle.trim() || !forumContent.trim()) return;
+        setForumSending(true);
+        setForumStatus(null);
+        try {
+            const res = await axios.post(`${API}/api/bot-messenger/${guildId}/forum-post`, {
+                forumChannelId,
+                title: forumTitle,
+                content: forumContent,
+            }, { withCredentials: true });
+            setForumTitle('');
+            setForumContent('');
+            setForumStatus({ type: 'success', text: `Post "${res.data.name}" created!` });
+            setTimeout(() => setForumStatus(null), 4000);
+            fetchForumThreads(forumChannelId);
+        } catch (err: any) {
+            setForumStatus({ type: 'error', text: err.response?.data?.error || 'Failed to create post' });
+        } finally { setForumSending(false); }
+    };
+
+    const handleForumReply = async () => {
+        if (!selectedThreadId || !replyContent.trim()) return;
+        setReplySending(true);
+        setReplyStatus(null);
+        try {
+            await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
+                channelId: selectedThreadId,
+                content: replyContent,
+            }, { withCredentials: true });
+            setReplyContent('');
+            setReplyStatus({ type: 'success', text: 'Reply sent!' });
+            setTimeout(() => setReplyStatus(null), 3000);
+        } catch (err: any) {
+            setReplyStatus({ type: 'error', text: err.response?.data?.error || 'Failed to send reply' });
+        } finally { setReplySending(false); }
     };
 
     const handleSendEmbed = async () => {
@@ -1026,7 +1091,7 @@ export function BotMessengerPage() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
-                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2]] as const).map(([key, label, Icon]) => (
+                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList]] as const).map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setTab(key as any)} style={{
                         flex: isMobile ? 1 : undefined,
                         padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
@@ -1181,6 +1246,136 @@ export function BotMessengerPage() {
 
                         <EmbedPreview embed={embed} />
                     </div>
+                </div>
+            )}
+
+            {/* ============== FORUM TAB ============== */}
+            {tab === 'forum' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    {/* Sub-mode toggle */}
+                    <div style={{ display: 'flex', gap: '4px', background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
+                        {([['new-post', 'New Post'], ['reply', 'Reply to Thread']] as const).map(([mode, label]) => (
+                            <button key={mode} onClick={() => setForumTab(mode)} style={{
+                                flex: isMobile ? 1 : undefined,
+                                padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
+                                background: forumTab === mode ? colors.accent : 'transparent',
+                                color: forumTab === mode ? '#fff' : colors.textSecondary,
+                                fontWeight: 600, fontSize: isMobile ? '13px' : '14px', transition: 'all 0.15s',
+                            }}>{label}</button>
+                        ))}
+                    </div>
+
+                    {/* ---- New Post ---- */}
+                    {forumTab === 'new-post' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: spacing.lg }}>
+                            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                                <div>
+                                    <label style={labelStyle}>Forum Channel</label>
+                                    <ChannelSelect guildId={guildId} value={forumChannelId} onChange={v => { setForumChannelId(v as string); setSelectedThreadId(''); }} channelTypes={[15]} placeholder="Select forum channel..." />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Post Title <span style={{ color: colors.error }}>*</span></label>
+                                    <input style={inputStyle} value={forumTitle} onChange={e => setForumTitle(e.target.value)} placeholder="Thread title..." />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Content</label>
+                                    <textarea style={{ ...textareaStyle, minHeight: '140px' }} value={forumContent} onChange={e => setForumContent(e.target.value)} placeholder="Post content (markdown supported)..." />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <button onClick={handleForumPost}
+                                        disabled={forumSending || !forumChannelId || !forumTitle.trim() || !forumContent.trim()}
+                                        style={{ ...btnPrimary, opacity: forumSending || !forumChannelId || !forumTitle.trim() || !forumContent.trim() ? 0.5 : 1 }}>
+                                        <Send size={16} /> {forumSending ? 'Posting...' : 'Create Post'}
+                                    </button>
+                                </div>
+                                {forumStatus && (
+                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: forumStatus.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: forumStatus.type === 'success' ? colors.success : colors.error }}>
+                                        {forumStatus.text}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right: Active threads in forum */}
+                            <div style={{ ...cardStyle }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+                                    <span style={{ fontWeight: 600, color: colors.textPrimary, fontSize: '15px' }}>Active Threads</span>
+                                    {forumChannelId && (
+                                        <button onClick={() => fetchForumThreads(forumChannelId)} style={{ ...btnSecondary, padding: '4px 10px', fontSize: '12px' }}>
+                                            <RefreshCw size={12} /> Refresh
+                                        </button>
+                                    )}
+                                </div>
+                                {!forumChannelId && <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>Select a forum channel to see threads</div>}
+                                {forumChannelId && forumThreadsLoading && <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>Loading...</div>}
+                                {forumChannelId && !forumThreadsLoading && forumThreads.length === 0 && <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>No active threads</div>}
+                                {forumChannelId && !forumThreadsLoading && forumThreads.map(t => (
+                                    <div key={t.id} style={{ padding: '10px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, marginBottom: '6px', background: colors.background }}>
+                                        <div style={{ fontWeight: 500, color: colors.textPrimary, fontSize: '14px' }}>{t.name}</div>
+                                        <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '2px' }}>{t.message_count ?? 0} messages</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ---- Reply to Thread ---- */}
+                    {forumTab === 'reply' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: spacing.lg }}>
+                            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                                <div>
+                                    <label style={labelStyle}>Forum Channel</label>
+                                    <ChannelSelect guildId={guildId} value={forumChannelId} onChange={v => { setForumChannelId(v as string); setSelectedThreadId(''); }} channelTypes={[15]} placeholder="Select forum channel..." />
+                                </div>
+                                {forumChannelId && (
+                                    <div>
+                                        <label style={labelStyle}>Thread</label>
+                                        {forumThreadsLoading ? (
+                                            <div style={{ color: colors.textTertiary, fontSize: '13px' }}>Loading threads...</div>
+                                        ) : forumThreads.length === 0 ? (
+                                            <div style={{ color: colors.textTertiary, fontSize: '13px' }}>No active threads found</div>
+                                        ) : (
+                                            <select value={selectedThreadId} onChange={e => setSelectedThreadId(e.target.value)} style={{ ...inputStyle }}>
+                                                <option value="">Select a thread...</option>
+                                                {forumThreads.map(t => (
+                                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                )}
+                                <div>
+                                    <label style={labelStyle}>Reply</label>
+                                    <textarea
+                                        style={{ ...textareaStyle, minHeight: '140px' }}
+                                        value={replyContent}
+                                        onChange={e => setReplyContent(e.target.value)}
+                                        placeholder={selectedThreadId ? 'Your reply...' : 'Select a thread first...'}
+                                        disabled={!selectedThreadId}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <button onClick={handleForumReply}
+                                        disabled={replySending || !selectedThreadId || !replyContent.trim()}
+                                        style={{ ...btnPrimary, opacity: replySending || !selectedThreadId || !replyContent.trim() ? 0.5 : 1 }}>
+                                        <Reply size={16} /> {replySending ? 'Sending...' : 'Send Reply'}
+                                    </button>
+                                </div>
+                                {replyStatus && (
+                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: replyStatus.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: replyStatus.type === 'success' ? colors.success : colors.error }}>
+                                        {replyStatus.text}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right: Thread message feed */}
+                            <div style={{ ...cardStyle, minHeight: isMobile ? '360px' : undefined }}>
+                                {selectedThreadId
+                                    ? <MessageFeed guildId={guildId} channelId={selectedThreadId} onReply={() => {}} />
+                                    : <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>Select a thread to view its messages</div>
+                                }
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

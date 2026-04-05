@@ -4903,6 +4903,45 @@ app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage')
     }
 });
 
+// Create a new post (thread) in a forum channel
+app.post('/api/bot-messenger/:guildId/forum-post', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { forumChannelId, title, content, embeds } = req.body;
+    if (!forumChannelId) return res.status(400).json({ error: 'forumChannelId is required' });
+    if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+    if (!content && (!embeds || embeds.length === 0)) return res.status(400).json({ error: 'Post must have content or embeds' });
+
+    try {
+        const message: any = {};
+        if (content) message.content = content;
+        if (embeds && embeds.length > 0) message.embeds = embeds;
+        const response = await discordReq('post', `/channels/${forumChannelId}/threads`, { name: title.trim(), message });
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to create forum post', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to create post' });
+    }
+});
+
+// List active threads in a forum channel
+app.get('/api/bot-messenger/:guildId/forum-threads/:channelId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, channelId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const response = await discordReq('get', `/guilds/${guildId}/threads/active`);
+        const threads = (response.data.threads || []).filter((t: any) => t.parent_id === channelId);
+        res.json(threads);
+    } catch (err: any) {
+        logger.error('Failed to fetch forum threads', err);
+        res.status(err.response?.status || 500).json({ error: 'Failed to fetch threads' });
+    }
+});
+
 // --- Ticket System Endpoints ---
 
 // Get Ticket Settings
