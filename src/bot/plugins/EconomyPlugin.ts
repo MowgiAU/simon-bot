@@ -545,6 +545,14 @@ export class EconomyPlugin implements IPlugin {
             })
         ]);
 
+        // Update nicknames for both parties (fire-and-forget)
+        const [fromAcc, toAcc] = await Promise.all([
+            this.db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: fromId } } }),
+            this.db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: toId } } }),
+        ]);
+        if (fromAcc) this.checkAutoNickname(guildId, fromId, fromAcc.balance);
+        if (toAcc) this.checkAutoNickname(guildId, toId, toAcc.balance);
+
         return true;
     }
 
@@ -558,6 +566,15 @@ export class EconomyPlugin implements IPlugin {
             }
         });
         return count + 1;
+    }
+
+    public async refreshNickname(guildId: string, userId: string) {
+        const account = await this.db.economyAccount.findUnique({
+            where: { guildId_userId: { guildId, userId } }
+        });
+        if (account) {
+            await this.checkAutoNickname(guildId, userId, account.balance);
+        }
     }
 
     private async checkAutoNickname(guildId: string, userId: string, balance: number) {

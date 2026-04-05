@@ -130,6 +130,7 @@ export class SimonBot {
             config: new Map(),
             db: this.db,
             client: this.client,
+            plugins: this.pluginManager,
             api: {
               baseUrl: process.env.API_URL || 'http://localhost:3001',
               token: process.env.DISCORD_TOKEN || '',

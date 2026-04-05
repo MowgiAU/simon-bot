@@ -120,6 +120,7 @@ export interface IPluginContext {
   config: Map<string, any>;
   db: any; // Prisma client
   client: Client;
+  plugins: IPluginRegistry;
   api: {
     baseUrl: string;
     token: string;

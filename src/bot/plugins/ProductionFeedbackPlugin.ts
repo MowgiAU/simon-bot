@@ -141,7 +141,11 @@ export class ProductionFeedbackPlugin implements IPlugin {
             });
 
             this.logger.info(`Successfully deducted ${cost} coins from ${userId}`);
-            
+
+            // Refresh nickname to reflect new balance
+            const economyPlugin = this.context.plugins.get('economy') as any;
+            if (economyPlugin?.refreshNickname) economyPlugin.refreshNickname(guildId, userId).catch(() => {});
+
             // Log to Audit Log
             if (this.context) {
                 await this.context.logAction({
@@ -332,6 +336,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 details: { amount }
             });
         }
+
+        // Refresh nickname to reflect new balance
+        const economyPlugin = this.context.plugins.get('economy') as any;
+        if (economyPlugin?.refreshNickname) economyPlugin.refreshNickname(guildId, userId).catch(() => {});
     }
 
     private async handleAudioIntercept(message: Message) {
