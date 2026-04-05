@@ -123,6 +123,9 @@ const commands = [
 
     // Register for each guild
     for (const guild of guilds) {
+        // skip sentinel/fallback guild used for public pages
+        if (guild.id === 'default-guild') continue;
+
         // simple snowflake validation (must be numeric)
         if (!/^\d+$/.test(guild.id)) {
             logger.warn(`Skipping invalid guild ID: ${guild.name} (${guild.id})`);
