@@ -29,18 +29,6 @@ function totalXpForLevel(level: number): number {
     for (let i = 1; i <= level; i++) total += xpForLevel(i);
     return total;
 }
-
-function levelFromTotalXp(totalXp: number): number {
-    let level = 0;
-    let accumulated = 0;
-    while (true) {
-        const required = xpForLevel(level + 1);
-        if (accumulated + required > totalXp) break;
-        accumulated += required;
-        level++;
-    }
-    return level;
-}
 // ────────────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -73,9 +61,14 @@ async function main() {
             }
 
             try {
-                const totalXp: number = stats.xp ?? 0;
-                const level = levelFromTotalXp(totalXp);
-                const xpProgress = totalXp - totalXpForLevel(level);
+                // Use the old bot's stored LEVEL as source of truth.
+                // The old bot used a different XP curve (level = floor(sqrt(xp/100)))
+                // so we cannot reliably convert raw XP. Instead we place the user at
+                // the start of their earned level using the new formula, preserving
+                // their level number and role eligibility exactly.
+                const level: number = stats.level ?? 0;
+                const totalXp = totalXpForLevel(level); // XP floor for this level in new formula
+                const xpProgress = 0; // Fresh start within the level
 
                 await db.member.upsert({
                     where: { guildId_userId: { guildId: gId, userId } },
