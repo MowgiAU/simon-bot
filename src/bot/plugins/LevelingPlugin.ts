@@ -412,6 +412,26 @@ export class LevelingPlugin implements IPlugin {
                     data: { totalXp: { increment: bonusXp } },
                 });
             }
+
+            // Streak coin bonus: 1 coin per 5-day tier (max 5 coins)
+            const coinBonus = Math.min(Math.floor(newStreak / 5), 5);
+            if (coinBonus > 0) {
+                try {
+                    await this.db.economyAccount.upsert({
+                        where: { guildId_userId: { guildId, userId } },
+                        update: {
+                            balance: { increment: coinBonus },
+                            totalEarned: { increment: coinBonus },
+                        },
+                        create: {
+                            guildId,
+                            userId,
+                            balance: coinBonus,
+                            totalEarned: coinBonus,
+                        },
+                    });
+                } catch { /* economy tables may not exist */ }
+            }
         }
     }
 
@@ -713,13 +733,20 @@ export class LevelingPlugin implements IPlugin {
         userId: string,
         level: number,
         allRewards: { level: number; roleId: string }[],
-    ): Promise<{ added: number; removed: number; earnedRoles: string[] }> {
-        const guildMember = await guild.members.fetch(userId).catch(() => null);
-        if (!guildMember) return { added: 0, removed: 0, earnedRoles: [] };
+        cachedOnly = false,
+    ): Promise<{ added: number; removed: number; earnedRoles: string[]; skipped: boolean }> {
+        const guildMember = cachedOnly
+            ? guild.members.cache.get(userId) ?? null
+            : await guild.members.fetch(userId).catch(() => null);
+        if (!guildMember) return { added: 0, removed: 0, earnedRoles: [], skipped: true };
 
         let added = 0;
         let removed = 0;
         const newEarnedRoles: string[] = [];
+
+        // Compute which roles to add/remove and batch them
+        const rolesToAdd: string[] = [];
+        const rolesToRemove: string[] = [];
 
         for (const reward of allRewards) {
             const role = guild.roles.cache.get(reward.roleId);
@@ -727,16 +754,24 @@ export class LevelingPlugin implements IPlugin {
 
             if (level >= reward.level) {
                 if (!guildMember.roles.cache.has(reward.roleId)) {
-                    await guildMember.roles.add(role, 'Leveling sync').catch(() => {});
-                    added++;
+                    rolesToAdd.push(reward.roleId);
                 }
                 newEarnedRoles.push(reward.roleId);
             } else {
                 if (guildMember.roles.cache.has(reward.roleId)) {
-                    await guildMember.roles.remove(role, 'Leveling sync').catch(() => {});
-                    removed++;
+                    rolesToRemove.push(reward.roleId);
                 }
             }
+        }
+
+        // Single API call for adding roles, single for removing
+        if (rolesToAdd.length > 0) {
+            await guildMember.roles.add(rolesToAdd, 'Leveling sync').catch(() => {});
+            added = rolesToAdd.length;
+        }
+        if (rolesToRemove.length > 0) {
+            await guildMember.roles.remove(rolesToRemove, 'Leveling sync').catch(() => {});
+            removed = rolesToRemove.length;
         }
 
         await this.db.member.update({
@@ -744,7 +779,7 @@ export class LevelingPlugin implements IPlugin {
             data: { earnedRoles: newEarnedRoles },
         });
 
-        return { added, removed, earnedRoles: newEarnedRoles };
+        return { added, removed, earnedRoles: newEarnedRoles, skipped: false };
     }
 
     private async handleSync(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -790,24 +825,32 @@ export class LevelingPlugin implements IPlugin {
             let totalRemoved = 0;
             let processed = 0;
             let failed = 0;
+            let skippedNotInServer = 0;
 
-            // Fetch all guild members into cache once to reduce API calls
+            // Fetch all guild members into cache once to avoid per-member API calls
             await guild.members.fetch().catch(() => null);
+            const cachedCount = guild.members.cache.size;
 
             for (const m of allMembers) {
                 try {
-                    const result = await this.syncMemberRoles(guildId, guild, m.userId, m.level, allRewards);
-                    totalAdded += result.added;
-                    totalRemoved += result.removed;
+                    const result = await this.syncMemberRoles(guildId, guild, m.userId, m.level, allRewards, true);
+                    if (result.skipped) {
+                        skippedNotInServer++;
+                    } else {
+                        totalAdded += result.added;
+                        totalRemoved += result.removed;
+                    }
                     processed++;
                 } catch {
                     failed++;
                 }
-                // Throttle to avoid Discord rate limits (~1 member per 100ms)
-                await new Promise(r => setTimeout(r, 100));
+                // Light throttle (only needed for role API calls, cached members are fast)
+                if (processed % 10 === 0) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
 
-                // Post progress update every 50 members
-                if (processed % 50 === 0) {
+                // Post progress update every 500 members
+                if (processed % 500 === 0) {
                     await interaction.editReply(
                         `⏳ Progress: ${processed}/${allMembers.length} members synced...`
                     ).catch(() => {});
@@ -816,7 +859,7 @@ export class LevelingPlugin implements IPlugin {
 
             return void interaction.editReply(
                 `✅ Bulk sync complete!\n` +
-                `• **${processed}** members processed (${failed} skipped/not in server)\n` +
+                `• **${processed}** members processed (${skippedNotInServer} not in server, ${failed} errors)\n` +
                 `• **+${totalAdded}** roles added, **-${totalRemoved}** roles removed`
             );
         }

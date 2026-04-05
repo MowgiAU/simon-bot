@@ -977,24 +977,42 @@ export class FujiRadioPlugin implements IPlugin {
             if (!state.connection || state.listeners.size === 0) continue;
 
             const settings = await this.getSettings(guildId);
-            if (!settings.listenerXpEnabled) continue;
 
             for (const userId of state.listeners) {
                 try {
-                    // Award leveling XP
-                    await this.db.member.upsert({
-                        where: { guildId_userId: { guildId, userId } },
-                        update: {
-                            totalXp: { increment: settings.listenerXpPerMinute },
-                            xp: { increment: settings.listenerXpPerMinute },
-                        },
-                        create: {
-                            guildId,
-                            userId,
-                            totalXp: settings.listenerXpPerMinute,
-                            xp: settings.listenerXpPerMinute,
-                        },
-                    });
+                    // Award leveling XP if enabled
+                    if (settings.listenerXpEnabled) {
+                        await this.db.member.upsert({
+                            where: { guildId_userId: { guildId, userId } },
+                            update: {
+                                totalXp: { increment: settings.listenerXpPerMinute },
+                                xp: { increment: settings.listenerXpPerMinute },
+                            },
+                            create: {
+                                guildId,
+                                userId,
+                                totalXp: settings.listenerXpPerMinute,
+                                xp: settings.listenerXpPerMinute,
+                            },
+                        });
+                    }
+
+                    // Award economy coins if enabled
+                    if (settings.listenerCoinEnabled && settings.listenerCoinsPerMinute > 0) {
+                        await this.db.economyAccount.upsert({
+                            where: { guildId_userId: { guildId, userId } },
+                            update: {
+                                balance: { increment: settings.listenerCoinsPerMinute },
+                                totalEarned: { increment: settings.listenerCoinsPerMinute },
+                            },
+                            create: {
+                                guildId,
+                                userId,
+                                balance: settings.listenerCoinsPerMinute,
+                                totalEarned: settings.listenerCoinsPerMinute,
+                            },
+                        });
+                    }
                 } catch { /* ignore individual failures */ }
             }
         }

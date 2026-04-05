@@ -21,6 +21,8 @@ interface RadioSettings {
   adTtsDefault: string | null;
   listenerXpEnabled: boolean;
   listenerXpPerMinute: number;
+  listenerCoinEnabled: boolean;
+  listenerCoinsPerMinute: number;
   tipEnabled: boolean;
   minTipAmount: number;
   defaultVolume: number;
@@ -575,6 +577,7 @@ export const FujiRadioPage: React.FC = () => {
             {/* Toggles */}
             {([
               { key: 'listenerXpEnabled', label: 'Listener XP (earn XP while listening)' },
+              { key: 'listenerCoinEnabled', label: 'Listener Coins (earn coins while listening)' },
               { key: 'tipEnabled', label: 'Tipping (let listeners tip artists)' },
               { key: 'adsEnabled', label: 'Ads (inject sponsored messages between songs)' },
               { key: 'ttsAnnounce', label: 'TTS Announcements (announce track titles)' },
@@ -629,6 +632,27 @@ export const FujiRadioPage: React.FC = () => {
                 min={1} max={50}
                 value={settings.listenerXpPerMinute}
                 onChange={e => saveSettings({ listenerXpPerMinute: parseInt(e.target.value) || 1 })}
+                style={{
+                  width: 120, padding: '8px 12px',
+                  background: colors.surfaceLight,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: borderRadius.sm,
+                  color: colors.textPrimary, fontSize: 13,
+                }}
+              />
+            </div>
+          )}
+
+          {settings.listenerCoinEnabled && (
+            <div style={{ marginTop: 16 }}>
+              <label style={{ display: 'block', color: colors.textSecondary, fontSize: 13, marginBottom: 6 }}>
+                Coins per minute for listeners
+              </label>
+              <input
+                type="number"
+                min={1} max={50}
+                value={settings.listenerCoinsPerMinute}
+                onChange={e => saveSettings({ listenerCoinsPerMinute: parseInt(e.target.value) || 1 })}
                 style={{
                   width: 120, padding: '8px 12px',
                   background: colors.surfaceLight,

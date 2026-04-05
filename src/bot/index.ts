@@ -721,6 +721,11 @@ export class SimonBot {
     commands.push(marketCommand.toJSON());
     commands.push(buyCommand.toJSON());
 
+    const nickOptoutCommand = new SlashCommandBuilder()
+        .setName('nick-optout')
+        .setDescription('Toggle auto-nickname balance display on/off');
+    commands.push(nickOptoutCommand.toJSON());
+
     // 4. Welcome Gate
     const setupWelcomeCommand = new SlashCommandBuilder()
         .setName('setup-welcome')

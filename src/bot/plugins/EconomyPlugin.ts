@@ -41,7 +41,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout'];
 
     private client: any;
     private db: any;
@@ -105,6 +105,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'wealth') await this.handleWealth(interaction);
         else if (commandName === 'market') await this.handleMarket(interaction);
         else if (commandName === 'buy') await this.handleBuy(interaction);
+        else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
     }
 
     /**
@@ -364,6 +365,51 @@ export class EconomyPlugin implements IPlugin {
     }
 
 
+    /**
+     * Command: /nick-optout - Toggle auto-nickname opt-out
+     */
+    private async handleNickOptout(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+
+        try {
+            const account = await this.getAccount(interaction.guildId, interaction.user.id);
+            const newValue = !account.nickOptOut;
+
+            await this.db.economyAccount.update({
+                where: { guildId_userId: { guildId: interaction.guildId, userId: interaction.user.id } },
+                data: { nickOptOut: newValue },
+            });
+
+            if (newValue) {
+                // Opted out — restore original nickname by removing balance suffix
+                try {
+                    const guild = await this.client.guilds.fetch(interaction.guildId);
+                    const member = await guild.members.fetch(interaction.user.id);
+                    const currentName = member.nickname || member.user.username;
+                    const suffixRegex = /\s\([^\)]+\)$/;
+                    if (suffixRegex.test(currentName) && member.manageable) {
+                        const baseName = currentName.replace(suffixRegex, '');
+                        await member.setNickname(baseName === member.user.username ? null : baseName);
+                    }
+                } catch { /* permission errors are fine */ }
+
+                await interaction.reply({
+                    content: '✅ You have **opted out** of automatic nickname updates. Your nickname will no longer show your balance.',
+                    flags: MessageFlags.Ephemeral,
+                });
+            } else {
+                await interaction.reply({
+                    content: '✅ You have **opted back in** to automatic nickname updates. Your balance will appear in your nickname.',
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+        } catch (e) {
+            this.logger.error('Nick-optout command failed', e);
+            await interaction.reply({ content: 'Something went wrong. Please try again.', flags: MessageFlags.Ephemeral });
+        }
+    }
+
+
     // --- Helpers ---
 
     private async getSettings(guildId: string) {
@@ -475,6 +521,13 @@ export class EconomyPlugin implements IPlugin {
         try {
             const settings = await this.getSettings(guildId);
             if (!settings.autoNickname) return;
+
+            // Respect opt-out preference
+            const account = await this.db.economyAccount.findUnique({
+                where: { guildId_userId: { guildId, userId } },
+                select: { nickOptOut: true },
+            });
+            if (account?.nickOptOut) return;
 
             const guild = await this.client.guilds.fetch(guildId);
             const member = await guild.members.fetch(userId);

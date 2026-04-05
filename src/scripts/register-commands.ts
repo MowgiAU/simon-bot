@@ -35,6 +35,7 @@ const commands = [
     new SlashCommandBuilder().setName('wealth').setDescription('View richest users').toJSON(),
     new SlashCommandBuilder().setName('market').setDescription('View shop').toJSON(),
     new SlashCommandBuilder().setName('buy').setDescription('Buy item').addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('Item name')).toJSON(),
+    new SlashCommandBuilder().setName('nick-optout').setDescription('Toggle auto-nickname balance display on/off').toJSON(),
 
     // 4. Welcome Gate
     new SlashCommandBuilder()

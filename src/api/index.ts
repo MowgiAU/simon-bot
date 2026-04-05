@@ -8559,6 +8559,26 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             return updatedEntry;
         });
 
+        // Economy: voter reward
+        try {
+            const battleSettings = await db.beatBattleSettings.findUnique({ where: { guildId: entry.battle.guildId } });
+            if (battleSettings?.voterReward && battleSettings.voterReward > 0) {
+                await db.economyAccount.upsert({
+                    where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
+                    update: {
+                        balance: { increment: battleSettings.voterReward },
+                        totalEarned: { increment: battleSettings.voterReward },
+                    },
+                    create: {
+                        guildId: entry.battle.guildId,
+                        userId,
+                        balance: battleSettings.voterReward,
+                        totalEarned: battleSettings.voterReward,
+                    },
+                });
+            }
+        } catch { /* non-critical */ }
+
         res.json({ voteCount: updated.voteCount, voted: true });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
@@ -8632,6 +8652,33 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             where: { battleId_userId: { battleId, userId } },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
+
+        // Economy: charge entry fee if enabled
+        if (guildSettings?.entryFeeEnabled && guildSettings.entryFee > 0) {
+            const account = await db.economyAccount.findUnique({
+                where: { guildId_userId: { guildId: battle.guildId, userId } },
+            });
+            const balance = account?.balance ?? 0;
+            if (balance < guildSettings.entryFee) {
+                const economySettings = await db.economySettings.findUnique({ where: { guildId: battle.guildId } });
+                const emoji = economySettings?.currencyEmoji || '🪙';
+                return res.status(400).json({ error: `You need ${emoji}${guildSettings.entryFee} to enter this battle (you have ${emoji}${balance})` });
+            }
+            // Deduct entry fee
+            await db.economyAccount.update({
+                where: { guildId_userId: { guildId: battle.guildId, userId } },
+                data: { balance: { decrement: guildSettings.entryFee } },
+            });
+            await db.economyTransaction.create({
+                data: {
+                    guildId: battle.guildId,
+                    amount: guildSettings.entryFee,
+                    type: 'BATTLE_ENTRY',
+                    reason: `Entry fee for "${battle.title}"`,
+                    fromUserId: userId,
+                },
+            });
+        }
 
         // Get username from Discord API
         let username = 'Unknown';
@@ -9543,12 +9590,28 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId, sponsorSectionTitle, requireMusicianProfile } = req.body;
+        const { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId, sponsorSectionTitle, requireMusicianProfile,
+                entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+
+        const updateData: any = {
+            announcementChannelId, chatChannelId, discordInviteUrl,
+            featuredBattleId: featuredBattleId || null,
+            sponsorSectionTitle: sponsorSectionTitle || null,
+            requireMusicianProfile: requireMusicianProfile ?? false,
+        };
+        // Only set economy fields if provided
+        if (entryFeeEnabled !== undefined) updateData.entryFeeEnabled = entryFeeEnabled;
+        if (entryFee !== undefined) updateData.entryFee = parseInt(entryFee) || 0;
+        if (prizePoolEnabled !== undefined) updateData.prizePoolEnabled = prizePoolEnabled;
+        if (prizeFirst !== undefined) updateData.prizeFirst = parseInt(prizeFirst) || 0;
+        if (prizeSecond !== undefined) updateData.prizeSecond = parseInt(prizeSecond) || 0;
+        if (prizeThird !== undefined) updateData.prizeThird = parseInt(prizeThird) || 0;
+        if (voterReward !== undefined) updateData.voterReward = parseInt(voterReward) || 0;
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
-            update: { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null, requireMusicianProfile: requireMusicianProfile ?? false },
-            create: { guildId, announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId: featuredBattleId || null, sponsorSectionTitle: sponsorSectionTitle || null, requireMusicianProfile: requireMusicianProfile ?? false },
+            update: updateData,
+            create: { guildId, ...updateData },
         });
         res.json(settings);
     } catch (e: any) {
@@ -11096,6 +11159,7 @@ app.post('/api/radio/settings/:guildId', async (req, res) => {
       'voiceChannelId', 'textChannelId', 'autoEnabled', 'autoSource',
       'autoGenreFilter', 'ttsAnnounce', 'adsEnabled', 'adFrequency',
       'adTtsDefault', 'listenerXpEnabled', 'listenerXpPerMinute',
+      'listenerCoinEnabled', 'listenerCoinsPerMinute',
       'tipEnabled', 'minTipAmount', 'defaultVolume', 'duckVolume',
       'startRoleIds', 'stopRoleIds', 'skipRoleIds', 'hostRoleIds',
     ];

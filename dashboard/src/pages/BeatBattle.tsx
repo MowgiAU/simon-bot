@@ -143,6 +143,7 @@ export const BeatBattlePage: React.FC = () => {
     // Settings state
     const [settings, setSettings] = useState({
         announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
+        entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'battle' | 'sponsor'; id: string } | null>(null);
@@ -176,6 +177,13 @@ export const BeatBattlePage: React.FC = () => {
                     featuredBattleId: data.featuredBattleId || '',
                     sponsorSectionTitle: data.sponsorSectionTitle || '',
                     requireMusicianProfile: data.requireMusicianProfile ?? false,
+                    entryFeeEnabled: data.entryFeeEnabled ?? false,
+                    entryFee: data.entryFee ?? 0,
+                    prizePoolEnabled: data.prizePoolEnabled ?? false,
+                    prizeFirst: data.prizeFirst ?? 0,
+                    prizeSecond: data.prizeSecond ?? 0,
+                    prizeThird: data.prizeThird ?? 0,
+                    voterReward: data.voterReward ?? 0,
                 });
             }
         } catch {}
@@ -1226,6 +1234,63 @@ export const BeatBattlePage: React.FC = () => {
                                             placeholder="Official Partners"
                                         />
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Economy Integration */}
+                            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px', marginTop: '4px' }}>
+                                <h4 style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px' }}>Economy Integration</h4>
+                                <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>Link coins to beat battles. Charge entry fees, award prizes, and reward voters.</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    {/* Entry Fee */}
+                                    <div>
+                                        <button
+                                            onClick={() => setSettings({ ...settings, entryFeeEnabled: !settings.entryFeeEnabled })}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.entryFeeEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600, width: '100%' }}
+                                        >
+                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
+                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: settings.entryFeeEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                            </div>
+                                            Entry Fee
+                                        </button>
+                                        {settings.entryFeeEnabled && (
+                                            <input type="number" min={0} style={{ ...inputStyle, marginTop: '8px', width: '120px' }} value={settings.entryFee} onChange={e => setSettings({ ...settings, entryFee: parseInt(e.target.value) || 0 })} placeholder="Fee amount" />
+                                        )}
+                                    </div>
+                                    {/* Voter Reward */}
+                                    <div>
+                                        <label style={labelStyle}>Voter Reward (coins per vote)</label>
+                                        <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Coins awarded for each vote cast</p>
+                                        <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.voterReward} onChange={e => setSettings({ ...settings, voterReward: parseInt(e.target.value) || 0 })} placeholder="0 = disabled" />
+                                    </div>
+                                    {/* Prize Pool */}
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <button
+                                            onClick={() => setSettings({ ...settings, prizePoolEnabled: !settings.prizePoolEnabled })}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.prizePoolEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                        >
+                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
+                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: settings.prizePoolEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                            </div>
+                                            Prize Pool (auto-award on completion)
+                                        </button>
+                                    </div>
+                                    {settings.prizePoolEnabled && (
+                                        <>
+                                            <div>
+                                                <label style={labelStyle}>1st Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeFirst} onChange={e => setSettings({ ...settings, prizeFirst: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>2nd Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeSecond} onChange={e => setSettings({ ...settings, prizeSecond: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>3rd Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeThird} onChange={e => setSettings({ ...settings, prizeThird: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

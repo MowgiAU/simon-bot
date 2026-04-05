@@ -424,6 +424,7 @@ model EconomyAccount {
   userId         String
   balance        Int      @default(0)
   totalEarned    Int      @default(0) // Lifetime earnings
+  nickOptOut     Boolean  @default(false) // Opt out of auto-nickname balance display
   lastDaily      DateTime?
   lastWeekly     DateTime?
   
@@ -1243,6 +1244,16 @@ model BeatBattleSettings {
   featuredBattleId      String?
   sponsorSectionTitle   String?
   requireMusicianProfile Boolean @default(false)
+
+  // Economy integration
+  entryFeeEnabled       Boolean  @default(false)
+  entryFee              Int      @default(0)    // Coins charged to enter a battle
+  prizePoolEnabled      Boolean  @default(false)
+  prizeFirst            Int      @default(0)    // Coin prize for 1st place
+  prizeSecond           Int      @default(0)    // Coin prize for 2nd place
+  prizeThird            Int      @default(0)    // Coin prize for 3rd place
+  voterReward           Int      @default(0)    // Coins for each vote cast
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -1596,6 +1607,10 @@ model RadioSettings {
   // Listener XP
   listenerXpEnabled   Boolean  @default(false)
   listenerXpPerMinute Int      @default(1)
+
+  // Listener economy (passive coin earning)
+  listenerCoinEnabled   Boolean  @default(false)
+  listenerCoinsPerMinute Int     @default(1)
 
   // Economy tip integration
   tipEnabled          Boolean  @default(true)

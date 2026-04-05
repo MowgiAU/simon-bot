@@ -202,7 +202,7 @@ export class BeatBattlePlugin implements IPlugin {
             // Voting -> Completed (voting period ended)
             const toComplete = await this.db.beatBattle.findMany({
                 where: { status: 'voting', votingEnd: { lte: now } },
-                include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
+                include: { entries: { orderBy: { voteCount: 'desc' }, take: 3 } },
             });
             for (const battle of toComplete) {
                 const winner = battle.entries?.[0];
@@ -211,10 +211,56 @@ export class BeatBattlePlugin implements IPlugin {
                     data: { status: 'completed', winnerEntryId: winner?.id || null },
                 });
                 await this.postWinnerAnnouncement(battle, winner);
+                await this.awardPrizes(battle.guildId, battle.entries, battle.title);
                 this.logger.info(`Beat Battle: Completed "${battle.title}"`);
             }
         } catch (err) {
             this.logger.error('Beat Battle lifecycle check failed', err);
+        }
+    }
+
+    // ----- Economy Prize Distribution -----
+
+    private async awardPrizes(guildId: string, topEntries: { userId: string; trackTitle: string }[], battleTitle: string): Promise<void> {
+        try {
+            const settings = await this.getGuildSettings(guildId) as any;
+            if (!settings?.prizePoolEnabled) return;
+
+            const prizes = [settings.prizeFirst, settings.prizeSecond, settings.prizeThird];
+            const labels = ['1st place', '2nd place', '3rd place'];
+
+            for (let i = 0; i < Math.min(topEntries.length, 3); i++) {
+                const amount = prizes[i];
+                if (!amount || amount <= 0) continue;
+
+                const entry = topEntries[i];
+                await this.db.economyAccount.upsert({
+                    where: { guildId_userId: { guildId, userId: entry.userId } },
+                    update: {
+                        balance: { increment: amount },
+                        totalEarned: { increment: amount },
+                    },
+                    create: {
+                        guildId,
+                        userId: entry.userId,
+                        balance: amount,
+                        totalEarned: amount,
+                    },
+                });
+
+                await this.db.economyTransaction.create({
+                    data: {
+                        guildId,
+                        amount,
+                        type: 'BATTLE_PRIZE',
+                        reason: `${labels[i]} prize for "${battleTitle}"`,
+                        toUserId: entry.userId,
+                    },
+                });
+                this.logger.info(`Beat Battle: Awarded ${amount} coins to ${entry.userId} (${labels[i]}) for "${battleTitle}"`);
+            }
+        } catch (err) {
+            this.logger.error('Beat Battle: Failed to award prizes', err);
         }
     }
 
