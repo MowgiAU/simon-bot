@@ -124,40 +124,67 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
     const RIGHT_OFFSET = 24;
     const CHAT_WIDTH = 360;
     const CHAT_GAP = 12;
-    const rightPos = RIGHT_OFFSET + index * (CHAT_WIDTH + CHAT_GAP);
+    const HEAD_SIZE = 48;
+    const HEAD_GAP = 8;
+
+    // Minimized heads stack tightly; expanded windows use full width spacing
+    const rightPos = minimized
+        ? RIGHT_OFFSET + index * (HEAD_SIZE + HEAD_GAP)
+        : RIGHT_OFFSET + index * (CHAT_WIDTH + CHAT_GAP);
 
     if (!user) return null;
 
-    // Minimized: just a small pill
+    // Minimized: Facebook-style circular chat head
     if (minimized) {
         return (
             <div onClick={() => restoreChat(convId)} style={{
                 position: 'fixed', bottom: '24px', right: `${rightPos}px`,
-                width: `${CHAT_WIDTH}px`, height: '44px',
-                background: 'linear-gradient(135deg, #1E2536, #1A1E2E)', borderRadius: '12px',
-                border: `1px solid ${C.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                display: 'flex', alignItems: 'center', padding: '0 12px', gap: '10px',
-                cursor: 'pointer', zIndex: 9998, transition: 'box-shadow 0.15s',
+                width: `${HEAD_SIZE}px`, height: `${HEAD_SIZE}px`,
+                borderRadius: '50%', cursor: 'pointer', zIndex: 9998,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                transition: 'transform 0.15s, box-shadow 0.15s',
+                border: `2px solid ${conv && conv.unread > 0 ? C.primary : C.border}`,
+                overflow: 'visible',
             }}
-                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,0.5)'}
-                onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.6)'; const cl = e.currentTarget.querySelector('.chat-head-close') as HTMLElement; if (cl) cl.style.opacity = '1'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)'; const cl = e.currentTarget.querySelector('.chat-head-close') as HTMLElement; if (cl) cl.style.opacity = '0'; }}
             >
                 {conv?.isGroup ? (
-                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Users size={12} color="white" />
+                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Users size={20} color="white" />
                     </div>
                 ) : conv?.participants[0] ? (
-                    <img src={avatarUrl(conv.participants[0])} style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0 }} alt="" />
-                ) : null}
-                <span style={{ flex: 1, fontSize: '12px', fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
+                    <img src={avatarUrl(conv.participants[0])} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} alt={displayName} />
+                ) : (
+                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#1E2536', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.textSec, fontSize: '16px', fontWeight: 700 }}>
+                        {displayName.charAt(0).toUpperCase()}
+                    </div>
+                )}
+                {/* Unread badge */}
                 {conv && conv.unread > 0 && (
-                    <div style={{ background: C.primary, color: 'white', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, flexShrink: 0 }}>
+                    <div style={{
+                        position: 'absolute', top: -4, right: -4,
+                        background: '#E53E3E', color: 'white', borderRadius: '50%',
+                        width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '10px', fontWeight: 700, border: '2px solid #161925',
+                    }}>
                         {conv.unread > 9 ? '9+' : conv.unread}
                     </div>
                 )}
-                <button onClick={e => { e.stopPropagation(); closeChat(convId); }} style={{ background: 'none', border: 'none', color: C.textTer, cursor: 'pointer', padding: 2, display: 'flex', flexShrink: 0 }}>
-                    <X size={14} />
-                </button>
+                {/* Close X on hover — rendered via CSS-in-JS */}
+                <div
+                    className="chat-head-close"
+                    onClick={e => { e.stopPropagation(); closeChat(convId); }}
+                    style={{
+                        position: 'absolute', top: -6, left: -6,
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: '#2D3348', border: `1px solid ${C.border}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        opacity: 0, transition: 'opacity 0.15s', cursor: 'pointer',
+                    }}
+                >
+                    <X size={10} color={C.textSec} />
+                </div>
             </div>
         );
     }
