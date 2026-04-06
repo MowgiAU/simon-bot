@@ -157,6 +157,7 @@ export const TrackPage: React.FC = () => {
     const [repostCount, setRepostCount] = useState(0);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
     const [expandedSamples, setExpandedSamples] = useState(false);
+    const [pluginsSamplesOpen, setPluginsSamplesOpen] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -674,63 +675,9 @@ export const TrackPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Plugins & Samples */}
-                        {track.arrangement.projectInfo && (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
-                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr'), gap: '20px' }}>
-                                    {/* Plugins */}
-                                    {track.arrangement.projectInfo.plugins.length > 0 && (
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                                <Zap size={15} color={colors.primary} />
-                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                    Plugins ({track.arrangement.projectInfo.plugins.length})
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                {track.arrangement.projectInfo.plugins.map((plugin, i) => (
-                                                    <span key={i} style={{
-                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
-                                                        backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)',
-                                                        color: '#F0A060',
-                                                    }}>{plugin}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {/* Samples */}
-                                    {track.arrangement.projectInfo.samples.length > 0 && (
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                                <FileAudio size={15} color="#A78BFA" />
-                                                <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                    Samples ({track.arrangement.projectInfo.samples.length})
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                {(expandedSamples ? track.arrangement.projectInfo.samples : track.arrangement.projectInfo.samples.slice(0, 12)).map((sample, i) => (
-                                                    <span key={i} style={{
-                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
-                                                        backgroundColor: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
-                                                        color: '#C4A8FF', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                    }}>{sample}</span>
-                                                ))}
-                                            </div>
-                                            {track.arrangement.projectInfo.samples.length > 12 && (
-                                                <button onClick={() => setExpandedSamples(!expandedSamples)}
-                                                    style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
-                                                    {expandedSamples ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show all {track.arrangement.projectInfo.samples.length} samples</>}
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Arrangement timeline */}
                         {track.arrangement.tracks.some(t => t.clips.length > 0) && (
-                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <MemoizedArrangement
                                     track={track}
                                     player={player}
@@ -738,6 +685,85 @@ export const TrackPage: React.FC = () => {
                                     zoom={zoom}
                                     setZoom={setZoom}
                                 />
+                            </div>
+                        )}
+
+                        {/* Plugins & Samples (collapsible) */}
+                        {track.arrangement.projectInfo && (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
+                            <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                <button
+                                    onClick={() => setPluginsSamplesOpen(!pluginsSamplesOpen)}
+                                    style={{
+                                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: isMobile ? '14px 20px' : '14px 28px',
+                                        background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary,
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Zap size={15} color={colors.primary} />
+                                        <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                            Plugins & Samples
+                                            {track.arrangement.projectInfo.plugins.length > 0 && ` (${track.arrangement.projectInfo.plugins.length} plugins`}
+                                            {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 && ', '}
+                                            {track.arrangement.projectInfo.plugins.length === 0 && track.arrangement.projectInfo.samples.length > 0 && ' ('}
+                                            {track.arrangement.projectInfo.samples.length > 0 && `${track.arrangement.projectInfo.samples.length} samples)`}
+                                            {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length === 0 && ')'}
+                                        </span>
+                                    </div>
+                                    {pluginsSamplesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+                                {pluginsSamplesOpen && (
+                                    <div style={{ padding: isMobile ? '0 20px 16px' : '0 28px 20px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr'), gap: '20px' }}>
+                                            {/* Plugins */}
+                                            {track.arrangement.projectInfo.plugins.length > 0 && (
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                        <Zap size={15} color={colors.primary} />
+                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                            Plugins ({track.arrangement.projectInfo.plugins.length})
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                        {track.arrangement.projectInfo.plugins.map((plugin, i) => (
+                                                            <span key={i} style={{
+                                                                padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                                backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)',
+                                                                color: '#F0A060',
+                                                            }}>{plugin}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Samples */}
+                                            {track.arrangement.projectInfo.samples.length > 0 && (
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                                        <FileAudio size={15} color="#A78BFA" />
+                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                                            Samples ({track.arrangement.projectInfo.samples.length})
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                        {(expandedSamples ? track.arrangement.projectInfo.samples : track.arrangement.projectInfo.samples.slice(0, 12)).map((sample, i) => (
+                                                            <span key={i} style={{
+                                                                padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
+                                                                backgroundColor: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.15)',
+                                                                color: '#C4A8FF', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                            }}>{sample}</span>
+                                                        ))}
+                                                    </div>
+                                                    {track.arrangement.projectInfo.samples.length > 12 && (
+                                                        <button onClick={() => setExpandedSamples(!expandedSamples)}
+                                                            style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                            {expandedSamples ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show all {track.arrangement.projectInfo.samples.length} samples</>}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
