@@ -35,6 +35,16 @@ const commands = [
     // 2b. Booster Colour Roles
     new SlashCommandBuilder().setName('booster').setDescription('Pick your booster name colour').addStringOption(opt => opt.setName('role').setDescription('Colour to apply').setRequired(true).setAutocomplete(true)).toJSON(),
 
+    // 2c. Bot Messenger
+    new SlashCommandBuilder().setName('send').setDescription('Send a message as the bot').setDefaultMemberPermissions(0x20)
+        .addStringOption(opt => opt.setName('message').setDescription('Message content').setRequired(true))
+        .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send to').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addStringOption(opt => opt.setName('reply_to').setDescription('Message ID to reply to')).toJSON(),
+    new SlashCommandBuilder().setName('react').setDescription('Add a reaction to a message').setDefaultMemberPermissions(0x20)
+        .addStringOption(opt => opt.setName('message_id').setDescription('Message ID to react to').setRequired(true))
+        .addStringOption(opt => opt.setName('emoji').setDescription('Unicode emoji or <:name:id>').setRequired(true))
+        .addChannelOption(opt => opt.setName('channel').setDescription('Channel containing the message').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)).toJSON(),
+
     // 3. Economy
     new SlashCommandBuilder().setName('wallet').setDescription('Check balance').addUserOption(opt => opt.setName('user').setDescription('User')).toJSON(),
     new SlashCommandBuilder().setName('wealth').setDescription('View richest users').addIntegerOption(opt => opt.setName('page').setDescription('Page number')).toJSON(),
@@ -46,11 +56,56 @@ const commands = [
     new SlashCommandBuilder()
         .setName('setup-welcome')
         .setDescription('Create the verification panel')
-        .setDefaultMemberPermissions(0x10) // Manage Channels
+        .setDefaultMemberPermissions(0x10)
         .addChannelOption(opt => opt.setName('channel').setDescription('Channel to send panel to (default: current)'))
         .addStringOption(opt => opt.setName('title').setDescription('Embed Title'))
         .addStringOption(opt => opt.setName('description').setDescription('Embed Description'))
         .toJSON(),
+
+    // 5. Leveling
+    new SlashCommandBuilder().setName('rank').setDescription('View your rank card').addUserOption(opt => opt.setName('user').setDescription('User to check')).toJSON(),
+    new SlashCommandBuilder().setName('leaderboard').setDescription('View the server leaderboard')
+        .addStringOption(opt => opt.setName('type').setDescription('Leaderboard type').addChoices({ name: 'XP', value: 'xp' }, { name: 'Voice', value: 'voice' }, { name: 'Messages', value: 'messages' }, { name: 'Power Score', value: 'power' }))
+        .addIntegerOption(opt => opt.setName('page').setDescription('Page number').setMinValue(1)).toJSON(),
+    new SlashCommandBuilder().setName('xp').setDescription('Manage member XP').setDefaultMemberPermissions(0x20)
+        .addSubcommand(sub => sub.setName('give').setDescription('Give XP to a user').addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub => sub.setName('remove').setDescription('Remove XP from a user').addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1)))
+        .addSubcommand(sub => sub.setName('set').setDescription('Set a user\'s level').addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addIntegerOption(opt => opt.setName('level').setDescription('Level').setRequired(true).setMinValue(0))).toJSON(),
+    new SlashCommandBuilder().setName('leveling-sync').setDescription('Sync role rewards for a member').setDefaultMemberPermissions(0x20)
+        .addUserOption(opt => opt.setName('user').setDescription('User to sync'))
+        .addBooleanOption(opt => opt.setName('all').setDescription('Sync ALL members')).toJSON(),
+    new SlashCommandBuilder().setName('xpboost').setDescription('Purchase a temporary XP multiplier boost').toJSON(),
+
+    // 6. Guide
+    new SlashCommandBuilder().setName('guide').setDescription('Studio Guide AI assistant')
+        .addSubcommand(sub => sub.setName('ask').setDescription('Ask the Studio Guide a question').addStringOption(opt => opt.setName('question').setDescription('Your question').setRequired(true)))
+        .addSubcommand(sub => sub.setName('optout').setDescription('Opt out of automatic responses').addBooleanOption(opt => opt.setName('permanent').setDescription('Permanently opt out')).addIntegerOption(opt => opt.setName('minutes').setDescription('Opt out for this many minutes').setMinValue(1).setMaxValue(480)))
+        .addSubcommand(sub => sub.setName('optin').setDescription('Re-enable automatic responses'))
+        .addSubcommand(sub => sub.setName('pause').setDescription('Pause responses temporarily').addIntegerOption(opt => opt.setName('minutes').setDescription('Minutes to pause').setMinValue(1).setMaxValue(480)))
+        .addSubcommand(sub => sub.setName('resume').setDescription('Resume automatic responses'))
+        .addSubcommand(sub => sub.setName('status').setDescription('Check your current Studio Guide status')).toJSON(),
+
+    // 7. Beat Battle
+    new SlashCommandBuilder().setName('battle').setDescription('Beat Battle commands')
+        .addSubcommand(sub => sub.setName('info').setDescription('View current battle info'))
+        .addSubcommand(sub => sub.setName('leaderboard').setDescription('View battle leaderboard')).toJSON(),
+
+    // 8. Musician Profile
+    new SlashCommandBuilder().setName('profile').setDescription('View or edit your musician profile')
+        .addSubcommand(sub => sub.setName('view').setDescription('View a profile').addUserOption(opt => opt.setName('user').setDescription('User to view')))
+        .addSubcommand(sub => sub.setName('edit').setDescription('Edit your profile')).toJSON(),
+
+    // 9. Radio
+    new SlashCommandBuilder().setName('radio').setDescription('Fuji Radio controls')
+        .addSubcommand(sub => sub.setName('start').setDescription('Start the radio'))
+        .addSubcommand(sub => sub.setName('stop').setDescription('Stop the radio'))
+        .addSubcommand(sub => sub.setName('skip').setDescription('Skip the current track'))
+        .addSubcommand(sub => sub.setName('np').setDescription('See what\'s now playing'))
+        .addSubcommand(sub => sub.setName('queue').setDescription('Queue a track').addStringOption(opt => opt.setName('track').setDescription('Track title to search for').setRequired(true)))
+        .addSubcommand(sub => sub.setName('host').setDescription('Take over as live host')).toJSON(),
+    new SlashCommandBuilder().setName('tip').setDescription('Tip the current DJ').addIntegerOption(opt => opt.setName('amount').setDescription('Amount to tip').setRequired(true).setMinValue(1)).toJSON(),
+    new SlashCommandBuilder().setName('like').setDescription('Like the current track').toJSON(),
+    new SlashCommandBuilder().setName('nowplaying').setDescription('See what\'s now playing on the radio').toJSON(),
 
     // 5. Tickets
     new SlashCommandBuilder()
