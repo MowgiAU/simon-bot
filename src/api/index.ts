@@ -12521,8 +12521,9 @@ app.get('/api/admin/messages/stats', requireAdmin, async (_req: any, res) => {
 // ── Server Boost Settings ────────────────────────────────────────────────────
 
 app.get('/api/server-boost/:guildId', async (req: any, res) => {
-    if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
     try {
         const settings = await db.serverBoostSettings.findUnique({ where: { guildId } });
         res.json(settings || { guildId, enabled: true, announcementChannelId: null, messageText: null, embedJson: null, reactionEmoji: null, rewardRoleId: null });
@@ -12533,8 +12534,9 @@ app.get('/api/server-boost/:guildId', async (req: any, res) => {
 });
 
 app.put('/api/server-boost/:guildId', async (req: any, res) => {
-    if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
     const { enabled, announcementChannelId, messageText, embedJson, reactionEmoji, rewardRoleId } = req.body;
     try {
         const settings = await db.serverBoostSettings.upsert({
