@@ -271,7 +271,7 @@ export class FujiRadioPlugin implements IPlugin {
         const settings = await this.getSettings(guildId);
 
         if (!this.memberHasRadioPermission(interaction, (settings as any).startRoleIds ?? [])) {
-            await interaction.editReply({ content: '⚠️ You don\'t have permission to start the radio.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply('⚠️ You don\'t have permission to start the radio.');
             return true;
         }
 
@@ -304,15 +304,7 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         try {
-            const connection = joinVoiceChannel({
-                channelId: channel.id,
-                guildId,
-                adapterCreator: this.getVoiceAdapterCreator(guildId, channel as VoiceChannel),
-                selfDeaf: false,
-                selfMute: false,
-            });
-
-            await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+            const connection = await this.joinVoiceWithFallback(channel.id, guildId, channel as VoiceChannel);
 
             const player = createAudioPlayer();
             connection.subscribe(player);
@@ -399,7 +391,7 @@ export class FujiRadioPlugin implements IPlugin {
 
         const stopSettings = await this.getSettings(guildId);
         if (!this.memberHasRadioPermission(interaction, (stopSettings as any).stopRoleIds ?? [], true)) {
-            await interaction.editReply({ content: '⚠️ You don\'t have permission to stop the radio.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply('⚠️ You don\'t have permission to stop the radio.');
             return true;
         }
 
@@ -417,7 +409,7 @@ export class FujiRadioPlugin implements IPlugin {
 
         const hostSettings = await this.getSettings(guildId);
         if (!this.memberHasRadioPermission(interaction, (hostSettings as any).hostRoleIds ?? [], true)) {
-            await interaction.editReply({ content: '⚠️ You don\'t have permission to host the radio.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply('⚠️ You don\'t have permission to host the radio.');
             return true;
         }
 
@@ -1162,15 +1154,7 @@ export class FujiRadioPlugin implements IPlugin {
         const existing = this.radioStates.get(guildId);
         if (existing?.connection) return true; // already running
 
-        const connection = joinVoiceChannel({
-            channelId: channel.id,
-            guildId,
-            adapterCreator: this.getVoiceAdapterCreator(guildId, channel as VoiceChannel),
-            selfDeaf: false,
-            selfMute: false,
-        });
-
-        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+        const connection = await this.joinVoiceWithFallback(channel.id, guildId, channel as VoiceChannel);
 
         const player = createAudioPlayer();
         connection.subscribe(player);
@@ -1279,12 +1263,47 @@ export class FujiRadioPlugin implements IPlugin {
 
     /** Get the voice adapter creator — prefers the dedicated radio bot, falls back to main bot */
     private getVoiceAdapterCreator(guildId: string, channel: VoiceChannel): any {
-        if (this.radioClient) {
-            const guild = this.radioClient.guilds.cache.get(guildId);
-            if (guild) return guild.voiceAdapterCreator;
-        }
-        // Fallback to main bot
+        // Always use main bot — the radio bot may lack VC permissions
         return channel.guild.voiceAdapterCreator;
+    }
+
+    /** Try to join a voice channel, first with radio bot adapter, then fallback to main bot */
+    private async joinVoiceWithFallback(channelId: string, guildId: string, channel: VoiceChannel): Promise<VoiceConnection> {
+        // Try radio bot first if available
+        if (this.radioClient) {
+            const radioGuild = this.radioClient.guilds.cache.get(guildId);
+            if (radioGuild) {
+                try {
+                    this.logger.info(`[FujiRadio] Trying radio bot voice adapter for ${guildId}...`);
+                    const conn = joinVoiceChannel({
+                        channelId,
+                        guildId,
+                        adapterCreator: radioGuild.voiceAdapterCreator,
+                        selfDeaf: false,
+                        selfMute: false,
+                    });
+                    await entersState(conn, VoiceConnectionStatus.Ready, 10_000);
+                    this.logger.info(`[FujiRadio] Connected via radio bot in ${guildId}`);
+                    return conn;
+                } catch (err) {
+                    this.logger.warn(`[FujiRadio] Radio bot voice failed (${err}), falling back to main bot...`);
+                    try { joinVoiceChannel({ channelId, guildId, adapterCreator: radioGuild.voiceAdapterCreator, selfDeaf: false, selfMute: false }).destroy(); } catch { /* cleanup */ }
+                }
+            }
+        }
+
+        // Fallback: use main bot
+        this.logger.info(`[FujiRadio] Using main bot voice adapter for ${guildId}`);
+        const conn = joinVoiceChannel({
+            channelId,
+            guildId,
+            adapterCreator: channel.guild.voiceAdapterCreator,
+            selfDeaf: false,
+            selfMute: false,
+        });
+        await entersState(conn, VoiceConnectionStatus.Ready, 15_000);
+        this.logger.info(`[FujiRadio] Connected via main bot in ${guildId}`);
+        return conn;
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
