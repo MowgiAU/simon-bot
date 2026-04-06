@@ -4971,11 +4971,9 @@ app.post('/api/auto-messages/:guildId', async (req: any, res) => {
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    // Ensure guild row exists
-    await db.guild.upsert({ where: { id: guildId }, create: { id: guildId }, update: {} });
-
     const { name } = req.body;
     try {
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
         const schedule = await db.autoMessageSchedule.create({
             data: { guildId, name: (name || 'New Schedule').slice(0, 100) },
             include: { messages: true },
