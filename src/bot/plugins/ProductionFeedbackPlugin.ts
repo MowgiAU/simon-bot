@@ -233,6 +233,9 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
         if (isOpener) return; // Handled by onThreadCreate
 
+        // OP self-feedback block: thread owners can't earn rewards on their own posts
+        if (channel.ownerId === message.author.id) return;
+
         // --- Audio Interception Logic ---
         const hasAudio = message.attachments.some(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'));
         if (hasAudio) {
@@ -247,6 +250,15 @@ export class ProductionFeedbackPlugin implements IPlugin {
             // No reward, but still allowed to post text
             return;
         }
+
+        // Quick content pre-filter: skip obvious non-feedback before calling AI
+        const stripped = message.content
+            .replace(/https?:\/\/\S+/g, '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/[^\w\s]/gu, ' ')
+            .trim();
+        const wordCount = stripped.split(/\s+/).filter(Boolean).length;
+        if (wordCount < 3) return; // Too short to be meaningful feedback
 
         if (this.ai) {
             const result = await this.ai.analyzeFeedback(message.content);
@@ -272,11 +284,9 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 await this.rewardUser(message.author.id, message.guildId, settings.currencyReward);
                 // React to indicate success
                 await message.react('✅'); 
-                // Maybe a DM? Or ephemeral reply? React is less spammy.
-            } else if (result.state === 'UNSURE') {
-                // Should we notify staff?
-                await message.react('❓'); // Indicates under review
             }
+            // UNSURE: queued silently for staff review — no reaction
+            // DENIED: no action
         }
     }
 

@@ -22,26 +22,39 @@ export class FeedbackAIService {
             return {
                 type: 'COMMENT',
                 score: 0,
-                state: 'DENIED', // Or IGNORE, but DENIED works for "no reward"
+                state: 'DENIED',
                 reason: 'Message too short'
             };
         }
 
+        // 2. Quick pre-checks before calling AI
+        const stripped = text
+            .replace(/https?:\/\/\S+/g, '')      // remove URLs
+            .replace(/<[^>]+>/g, '')               // remove Discord mentions/channels
+            .replace(/[^\w\s]/gu, ' ')             // punctuation → spaces (keep unicode words)
+            .trim();
+        const wordCount = stripped.split(/\s+/).filter(Boolean).length;
+        if (wordCount < 3) {
+            return { type: 'COMMENT', score: 0, state: 'DENIED', reason: 'Not enough content' };
+        }
+
         try {
-            // 2. Prompt Engineering
-            const systemPrompt = `You are a strict music production mentor.
-            Analyze the user's message in a feedback thread.
-            
-            1. Classify as FEEDBACK (technical critique, advice, specific comments on the track) or COMMENT (casual chat, jokes, generic praise like "fire bro").
-            2. If FEEDBACK, score it 0-10 based on helpfulness and depth.
-            3. Assign status:
-               - APPROVED: Good quality feedback (Score 5+).
-               - DENIED: Low quality, generic, or just a comment.
-               - UNSURE: Borderline, abusive, or hard to determine.
+            // 3. Prompt Engineering
+            const systemPrompt = `You are a moderator for a music production feedback community.
+Analyze a reply posted inside a feedback thread to decide if it deserves a coin reward.
 
-            Respond ONLY with a JSON object.`;
+First, classify the message:
+- FEEDBACK: Contains specific, technical, or actionable commentary about music production (mixing, arrangement, sound design, composition, performance, mastering, etc.).
+- COMMENT: Casual chat, hype reactions, question without substance, off-topic content, generic praise.
 
-            const userPrompt = `Message: "${text}"`;
+Then assign a state:
+- APPROVED: Genuine FEEDBACK with specificity or helpfulness. Score ≥ 5. Reward the user.
+- DENIED: Generic reactions ("fire 🔥", "W", "love this", "banger"), one-liners, vague encouragement, pure emojis, spam, unrelated chat, questions that don't critique the track. Do NOT reward.
+- UNSURE: Reserve ONLY for messages that look like genuine detailed feedback but contain something problematic (harassment, suspected manipulation, or unclear language that could go either way). This should be rare. When in doubt between DENIED and UNSURE, always choose DENIED.
+
+Respond ONLY with valid JSON: {"type":"FEEDBACK"|"COMMENT","score":0-10,"state":"APPROVED"|"DENIED"|"UNSURE","reason":"brief explanation"}`;
+
+            const userPrompt = `Message: "${text.slice(0, 800)}"`;
 
             const completion = await this.openai.chat.completions.create({
                 messages: [
@@ -58,21 +71,20 @@ export class FeedbackAIService {
 
             const result = JSON.parse(content);
             
-            // Validate schema roughly
             return {
                 type: result.type || 'COMMENT',
                 score: result.score || 0,
-                state: result.state || 'UNSURE',
+                state: result.state || 'DENIED',
                 reason: result.reason || 'AI Analysis'
             };
 
         } catch (error) {
             console.error('AI Analysis Error:', error);
-            // Fallback Safety
+            // Fallback: queue for human review on AI error
             return {
                 type: 'FEEDBACK',
                 score: 0,
-                state: 'UNSURE', // Default to human review on error
+                state: 'UNSURE',
                 reason: 'AI Error'
             };
         }
