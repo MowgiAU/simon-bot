@@ -3,6 +3,7 @@ import axios from 'axios';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import { showToast } from '../components/Toast';
 import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
@@ -257,7 +258,7 @@ export const FeedbackPluginPage: React.FC = () => {
                             <ChannelSelect
                                 guildId={selectedGuild?.id || ''}
                                 value={settings.forumChannelId || ''}
-                                onChange={(val: string) => setSettings({ ...settings, forumChannelId: val })}
+                                onChange={(val: string | string[]) => setSettings({ ...settings, forumChannelId: val as string })}
                                 channelTypes={[15]} // Filter for Forum Channels
                             />
                         </div>
@@ -267,7 +268,7 @@ export const FeedbackPluginPage: React.FC = () => {
                             <ChannelSelect
                                 guildId={selectedGuild?.id || ''}
                                 value={settings.reviewChannelId || ''}
-                                onChange={(val: string) => setSettings({ ...settings, reviewChannelId: val })}
+                                onChange={(val: string | string[]) => setSettings({ ...settings, reviewChannelId: val as string })}
                                 channelTypes={[0]} // Text Channels
                             />
                             <small style={{ color: colors.textSecondary }}>Used to store audio files temporarily for review.</small>
@@ -292,6 +293,18 @@ export const FeedbackPluginPage: React.FC = () => {
                                     style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Approver Roles</label>
+                            <small style={{ display: 'block', color: colors.textSecondary, marginBottom: '10px' }}>Members with these roles can approve or deny feedback posts via Discord buttons. Admins can always approve.</small>
+                            <RoleSelect
+                                guildId={selectedGuild?.id || ''}
+                                value={settings.approverRoleIds || []}
+                                onChange={(val) => setSettings({ ...settings, approverRoleIds: val })}
+                                multiple
+                                placeholder="Select approver roles…"
+                            />
                         </div>
 
                         <button 

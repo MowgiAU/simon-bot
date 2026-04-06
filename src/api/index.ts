@@ -4076,7 +4076,7 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
 
-        const { enabled, forumChannelId, reviewChannelId, modLogChannelId, currencyReward, threadCost, aiModel } = req.body;
+        const { enabled, forumChannelId, reviewChannelId, modLogChannelId, currencyReward, threadCost, aiModel, approverRoleIds } = req.body;
         const allowedData: any = {};
         if (enabled !== undefined) allowedData.enabled = enabled;
         if (forumChannelId !== undefined) allowedData.forumChannelId = forumChannelId;
@@ -4085,6 +4085,7 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         if (currencyReward !== undefined) allowedData.currencyReward = currencyReward;
         if (threadCost !== undefined) allowedData.threadCost = threadCost;
         if (aiModel !== undefined) allowedData.aiModel = aiModel;
+        if (approverRoleIds !== undefined) allowedData.approverRoleIds = approverRoleIds;
 
         const updated = await db.feedbackSettings.update({
             where: { guildId },

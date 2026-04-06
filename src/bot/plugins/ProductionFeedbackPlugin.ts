@@ -441,12 +441,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
         if (!customId.startsWith('feedback_')) return;
 
         // Check Permissions
-        const pluginSettings = await this.context.db.pluginSettings.findUnique({ 
-            where: { guildId_pluginId: { guildId: interaction.guildId, pluginId: 'production-feedback' } }
-        });
+        const feedbackSettings = await this.getSettings(interaction.guildId);
         
         const member = interaction.member as any; 
-        const allowedRoles = pluginSettings?.allowedRoles || [];
+        const allowedRoles = feedbackSettings?.approverRoleIds || [];
         const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ManageGuild);
         const hasRole = allowedRoles.some((r: string) => member.roles.cache.has(r));
 

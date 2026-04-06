@@ -611,6 +611,7 @@ model FeedbackSettings {
   threadCost      Int      @default(5)
   
   aiModel         String   @default("gpt-4o-mini")
+  approverRoleIds String[] @default([])
   
   guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
