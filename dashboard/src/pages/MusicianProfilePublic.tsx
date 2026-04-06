@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
+import { useChat } from '../components/ChatProvider';
 import axios from 'axios';
 import { 
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
@@ -143,15 +144,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         } catch { /* not logged in */ }
     };
 
+    const { startConversation: chatStart } = useChat();
+
     const startMessage = async () => {
         if (!profile || !user || startingChat) return;
         setStartingChat(true);
         try {
-            const { data } = await axios.post('/api/messages/conversations', {
-                participantIds: [profile.userId],
-                isGroup: false,
-            }, { withCredentials: true });
-            navigate(`/messages?conv=${data.id}`);
+            await chatStart([profile.userId], false);
         } catch {
             // User may not be logged in or API error
         } finally {

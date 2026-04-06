@@ -5,6 +5,8 @@ import { ResourceProvider } from "./components/ResourceProvider";
 import { PlayerProvider } from "./components/PlayerProvider";
 import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
+import { ChatProvider, useChat } from "./components/ChatProvider";
+import { ChatHead } from "./components/ChatHead";
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight, ShieldAlert } from "lucide-react";
@@ -787,14 +789,39 @@ const AppInternal: React.FC = () => {
  * useAuth() and usePlayer() are available in EVERY route without crashing.
  * ResourceProvider is only loaded for /dashboard (it fetches guild data).
  */
+/** Renders floating chat head windows from ChatProvider state */
+const ChatHeadContainer: React.FC = () => {
+  const { openChats } = useChat();
+  return (
+    <>
+      {openChats.map((chat, i) => (
+        <ChatHead key={chat.convId} convId={chat.convId} index={i} minimized={chat.minimized} />
+      ))}
+    </>
+  );
+};
+
+/** Wrapper that reads userId from AuthProvider and passes to ChatProvider */
+const ChatWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  return (
+    <ChatProvider userId={user?.id}>
+      {children}
+      <ChatHeadContainer />
+    </ChatProvider>
+  );
+};
+
 export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <PlayerProvider>
-          <AppInternal />
-          <GlobalPlayer />
-          <ToastContainer />
+          <ChatWrapper>
+            <AppInternal />
+            <GlobalPlayer />
+            <ToastContainer />
+          </ChatWrapper>
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>
