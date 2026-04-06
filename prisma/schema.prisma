@@ -115,6 +115,7 @@ model Guild {
   studioGuideOptOuts   StudioGuideOptOut[]
   autoMessageSchedules AutoMessageSchedule[]
   autoResponderRules   AutoResponderRule[]
+  serverBoostSettings  ServerBoostSettings?
 
   @@map("guilds")
 }
@@ -1893,6 +1894,23 @@ model AutoMessageEntry {
 // ──────────────────────────────────────────────
 // Auto Responder Plugin (YAGPDB-style regex commands)
 // ──────────────────────────────────────────────
+
+model ServerBoostSettings {
+  id                      String   @id @default(cuid())
+  guildId                 String   @unique
+  enabled                 Boolean  @default(true)
+  announcementChannelId   String?  // channel to post boost announcement in
+  messageText             String?  @db.Text  // optional plain text (supports {mention} {user} {boostCount})
+  embedJson               String?  @db.Text  // optional JSON-serialized embed
+  reactionEmoji           String?  // emoji to react to the system boost message with
+  rewardRoleId            String?  // role to assign when member boosts
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  guild                   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("server_boost_settings")
+}
 
 model AutoResponderRule {
   id              String   @id @default(cuid())

@@ -3764,7 +3764,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost'] 
             });
         }
 
@@ -12515,6 +12515,52 @@ app.get('/api/admin/messages/stats', requireAdmin, async (_req: any, res) => {
     } catch (e) {
         logger.error('Admin messaging stats', e);
         res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// ── Server Boost Settings ────────────────────────────────────────────────────
+
+app.get('/api/server-boost/:guildId', async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    try {
+        const settings = await db.serverBoostSettings.findUnique({ where: { guildId } });
+        res.json(settings || { guildId, enabled: true, announcementChannelId: null, messageText: null, embedJson: null, reactionEmoji: null, rewardRoleId: null });
+    } catch (e) {
+        logger.error('GET server-boost settings', e);
+        res.status(500).json({ error: 'Failed to load settings' });
+    }
+});
+
+app.put('/api/server-boost/:guildId', async (req: any, res) => {
+    if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    const { enabled, announcementChannelId, messageText, embedJson, reactionEmoji, rewardRoleId } = req.body;
+    try {
+        const settings = await db.serverBoostSettings.upsert({
+            where: { guildId },
+            create: {
+                guildId,
+                enabled: enabled !== undefined ? !!enabled : true,
+                announcementChannelId: announcementChannelId || null,
+                messageText: messageText || null,
+                embedJson: embedJson !== undefined ? (embedJson ? JSON.stringify(embedJson) : null) : null,
+                reactionEmoji: reactionEmoji || null,
+                rewardRoleId: rewardRoleId || null,
+            },
+            update: {
+                ...(enabled !== undefined && { enabled: !!enabled }),
+                ...(announcementChannelId !== undefined && { announcementChannelId: announcementChannelId || null }),
+                ...(messageText !== undefined && { messageText: messageText || null }),
+                ...(embedJson !== undefined && { embedJson: embedJson ? JSON.stringify(embedJson) : null }),
+                ...(reactionEmoji !== undefined && { reactionEmoji: reactionEmoji || null }),
+                ...(rewardRoleId !== undefined && { rewardRoleId: rewardRoleId || null }),
+            },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('PUT server-boost settings', e);
+        res.status(500).json({ error: 'Failed to save settings' });
     }
 });
 

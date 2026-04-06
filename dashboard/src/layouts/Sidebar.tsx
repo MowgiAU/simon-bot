@@ -34,6 +34,7 @@ import {
   Sparkles,
   Clock,
   Zap,
+  Gift,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -299,6 +300,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
                 <span className="nav-label">Auto Responder</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('server-boost') && (
+            <button
+                className={`nav-item ${activeSection === 'server-boost' ? 'active' : ''}`}
+                onClick={() => onNavigate('server-boost')}
+                title={collapsed ? "Server Boost" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Gift} size={20} /></span>
+                <span className="nav-label">Server Boost</span>
             </button>
           )}
 

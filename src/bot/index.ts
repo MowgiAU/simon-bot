@@ -36,6 +36,7 @@ import { BoosterColorPlugin } from './plugins/BoosterColorPlugin';
 import { PrivateMessagesPlugin } from './plugins/PrivateMessagesPlugin';
 import { AutoMessagesPlugin } from './plugins/AutoMessagesPlugin';
 import { AutoResponderPlugin } from './plugins/AutoResponderPlugin';
+import { ServerBoostPlugin } from './plugins/ServerBoostPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -129,6 +130,7 @@ export class SimonBot {
       this.pluginManager.register(new PrivateMessagesPlugin());
       this.pluginManager.register(new AutoMessagesPlugin());
       this.pluginManager.register(new AutoResponderPlugin());
+      this.pluginManager.register(new ServerBoostPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
