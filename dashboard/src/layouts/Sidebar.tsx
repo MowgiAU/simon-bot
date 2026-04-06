@@ -33,6 +33,7 @@ import {
   Send,
   Sparkles,
   Clock,
+  Zap,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -287,6 +288,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Clock} size={20} /></span>
                 <span className="nav-label">Auto Messages</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('auto-responder') && (
+            <button
+                className={`nav-item ${activeSection === 'auto-responder' ? 'active' : ''}`}
+                onClick={() => onNavigate('auto-responder')}
+                title={collapsed ? "Auto Responder" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
+                <span className="nav-label">Auto Responder</span>
             </button>
           )}
 

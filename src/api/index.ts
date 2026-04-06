@@ -3764,7 +3764,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder'] 
             });
         }
 
@@ -5042,6 +5042,103 @@ app.delete('/api/auto-messages/:guildId/:scheduleId', async (req: any, res) => {
         const existing = await db.autoMessageSchedule.findFirst({ where: { id: scheduleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Schedule not found' });
         await db.autoMessageSchedule.delete({ where: { id: scheduleId } });
+        res.json({ ok: true });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// --- Auto Responder Endpoints ---
+
+// GET: list all rules for a guild
+app.get('/api/auto-responder/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const rules = await db.autoResponderRule.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'asc' },
+        });
+        res.json(rules);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// POST: create a new rule
+app.post('/api/auto-responder/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const rule = await db.autoResponderRule.create({
+            data: {
+                guildId,
+                name: (req.body.name || 'New Rule').slice(0, 100),
+                trigger: '',
+                response: '',
+            },
+        });
+        res.json(rule);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// PUT: update a rule
+app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, ruleId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Rule not found' });
+
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds } = req.body;
+
+        // Validate trigger type
+        const validTypes = ['regex', 'exact', 'startsWith', 'contains'];
+        const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
+
+        // Validate regex if regex type
+        if (type === 'regex' && trigger) {
+            try { new RegExp(trigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
+        }
+
+        const updated = await db.autoResponderRule.update({
+            where: { id: ruleId },
+            data: {
+                name: name !== undefined ? String(name).slice(0, 100) : undefined,
+                trigger: trigger !== undefined ? String(trigger).slice(0, 500) : undefined,
+                triggerType: type,
+                response: response !== undefined ? String(response).slice(0, 2000) : undefined,
+                enabled: enabled !== undefined ? !!enabled : undefined,
+                allowedChannels: allowedChannels !== undefined ? (allowedChannels ? JSON.stringify(allowedChannels) : null) : undefined,
+                ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
+                cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
+            },
+        });
+        res.json(updated);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// DELETE: remove a rule
+app.delete('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, ruleId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Rule not found' });
+        await db.autoResponderRule.delete({ where: { id: ruleId } });
         res.json({ ok: true });
     } catch (err: any) {
         res.status(500).json({ error: 'Internal server error', detail: err?.message });

@@ -114,6 +114,7 @@ model Guild {
   studioGuideKnowledge StudioGuideKnowledge[]
   studioGuideOptOuts   StudioGuideOptOut[]
   autoMessageSchedules AutoMessageSchedule[]
+  autoResponderRules   AutoResponderRule[]
 
   @@map("guilds")
 }
@@ -1887,4 +1888,31 @@ model AutoMessageEntry {
 
   @@index([scheduleId])
   @@map("auto_message_entries")
+}
+
+// ──────────────────────────────────────────────
+// Auto Responder Plugin (YAGPDB-style regex commands)
+// ──────────────────────────────────────────────
+
+model AutoResponderRule {
+  id              String   @id @default(cuid())
+  guildId         String
+  name            String   @default("New Rule")
+  trigger         String              // regex pattern or exact-match string
+  triggerType     String   @default("regex")  // 'regex' | 'exact' | 'startsWith' | 'contains'
+  response        String   @db.Text    // response text (supports placeholders)
+  enabled         Boolean  @default(true)
+  allowedChannels String?  @db.Text    // JSON array of channel IDs (null = all channels)
+  ignoredChannels String?  @db.Text    // JSON array of ignored channel IDs
+  cooldownSeconds Int      @default(0)
+  lastTriggeredAt DateTime?
+  matchCount      Int      @default(0) // lifetime trigger count
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+  @@map("auto_responder_rules")
 }

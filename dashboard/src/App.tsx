@@ -70,6 +70,7 @@ const StudioGuidePage        = lazy(() => import("./pages/StudioGuide").then(m =
 const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m => ({ default: m.BotMessengerPage })));
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
+const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -114,6 +115,7 @@ type Section =
   | "bot-messenger"
   | "private-messages"
   | "auto-messages"
+  | "auto-responder"
   | "booster-color";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
@@ -307,6 +309,7 @@ const AdminDashboard: React.FC = () => {
     'bot-messenger': 'bot-messenger',
     'private-messages': 'private-messages',
     'auto-messages': 'auto-messages',
+    'auto-responder': 'auto-responder',
     'booster-color': 'booster-color',
     'account-management': 'account-management',
     'genres-list': 'musician-profiles',
@@ -405,6 +408,8 @@ const AdminDashboard: React.FC = () => {
           return <PrivateMessagesPage />;
         case "auto-messages":
           return <AutoMessagesPage />;
+        case "auto-responder":
+          return <AutoResponderPage />;
         case "booster-color":
           return <BoosterColorPage />;
         case "account-management":
