@@ -4087,9 +4087,10 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         if (aiModel !== undefined) allowedData.aiModel = aiModel;
         if (approverRoleIds !== undefined) allowedData.approverRoleIds = approverRoleIds;
 
-        const updated = await db.feedbackSettings.update({
+        const updated = await db.feedbackSettings.upsert({
             where: { guildId },
-            data: allowedData
+            create: { guildId, ...allowedData },
+            update: allowedData
         });
         res.json(updated);
     } catch (e) {
