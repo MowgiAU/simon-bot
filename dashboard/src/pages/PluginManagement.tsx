@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import axios from 'axios';
-import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp, UserCheck } from 'lucide-react';
+import { Settings, Shield, Power, Users, Lock, ChevronDown, ChevronUp, UserCheck, Search, X } from 'lucide-react';
 
 interface PluginMetadata {
     id: string;
@@ -32,7 +32,21 @@ export const PluginManagementPage: React.FC = () => {
 
     // Expanded state for role configuration per plugin
     const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
+    const [accessDropdownOpen, setAccessDropdownOpen] = useState(false);
+    const [betaDropdownOpen, setBetaDropdownOpen] = useState(false);
+    const [accessSearch, setAccessSearch] = useState('');
+    const [betaSearch, setBetaSearch] = useState('');
     const isMobile = useMobile();
+
+    // Close dropdowns on outside click
+    useEffect(() => {
+        const handleClick = () => { setAccessDropdownOpen(false); setBetaDropdownOpen(false); };
+        if (accessDropdownOpen || betaDropdownOpen) {
+            // Delay to avoid closing immediately on the same click
+            const id = setTimeout(() => document.addEventListener('click', handleClick), 0);
+            return () => { clearTimeout(id); document.removeEventListener('click', handleClick); };
+        }
+    }, [accessDropdownOpen, betaDropdownOpen]);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -186,29 +200,56 @@ export const PluginManagementPage: React.FC = () => {
                     (Admins always have access).
                 </p>
                 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {filteredRoles.map(role => {
-                         const isSelected = accessRoles.includes(role.id);
-                         return (
-                            <div 
-                                key={role.id}
-                                onClick={() => toggleAccessRole(role.id)}
-                                style={{ 
-                                    padding: '6px 12px', 
-                                    borderRadius: '20px', 
-                                    cursor: 'pointer',
-                                    backgroundColor: isSelected ? `${colors.primary}33` : colors.background,
-                                    border: `1px solid ${isSelected ? colors.primary : 'transparent'}`,
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    fontSize: '13px',
-                                    userSelect: 'none'
-                                }}
-                            >
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
-                                {role.name}
+                {/* Selected role chips */}
+                {accessRoles.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                        {accessRoles.map(roleId => {
+                            const role = filteredRoles.find(r => r.id === roleId);
+                            if (!role) return null;
+                            return (
+                                <div key={role.id} style={{ padding: '4px 10px', borderRadius: '16px', backgroundColor: `${colors.primary}33`, border: `1px solid ${colors.primary}`, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', userSelect: 'none' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
+                                    {role.name}
+                                    <button onClick={() => toggleAccessRole(role.id)} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: 0, display: 'flex', marginLeft: '2px' }}><X size={12} /></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Dropdown selector */}
+                <div style={{ position: 'relative' }}>
+                    <div onClick={() => { setAccessDropdownOpen(!accessDropdownOpen); setBetaDropdownOpen(false); }}
+                        style={{ padding: '8px 12px', background: colors.background, border: `1px solid ${accessDropdownOpen ? colors.primary : colors.border || '#3E4556'}`, borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: colors.textSecondary, transition: 'border-color 0.15s' }}>
+                        <span>Select roles...</span>
+                        <ChevronDown size={14} style={{ transform: accessDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                    </div>
+                    {accessDropdownOpen && (
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: colors.background, border: `1px solid ${colors.border || '#3E4556'}`, borderRadius: borderRadius.md, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', zIndex: 50, maxHeight: '240px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px', borderBottom: `1px solid ${colors.border || '#3E4556'}` }}>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={12} color={colors.textTertiary} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
+                                    <input value={accessSearch} onChange={e => setAccessSearch(e.target.value)} placeholder="Search roles..." autoFocus
+                                        style={{ width: '100%', padding: '6px 6px 6px 28px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.border || '#3E4556'}`, borderRadius: '6px', color: colors.textPrimary, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                                </div>
                             </div>
-                         );
-                    })}
+                            <div style={{ overflowY: 'auto', maxHeight: '192px' }}>
+                                {filteredRoles.filter(r => r.name.toLowerCase().includes(accessSearch.toLowerCase())).map(role => {
+                                    const isSelected = accessRoles.includes(role.id);
+                                    return (
+                                        <div key={role.id} onClick={() => toggleAccessRole(role.id)}
+                                            style={{ padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', userSelect: 'none', transition: 'background 0.1s', backgroundColor: isSelected ? `${colors.primary}15` : 'transparent' }}
+                                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+                                            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5', flexShrink: 0 }} />
+                                            <span style={{ flex: 1 }}>{role.name}</span>
+                                            {isSelected && <div style={{ width: 16, height: 16, borderRadius: '4px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>✓</span></div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -222,29 +263,56 @@ export const PluginManagementPage: React.FC = () => {
                     This only applies during invite-only / beta mode.
                 </p>
                 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {filteredRoles.map(role => {
-                         const isSelected = betaRoleIds.includes(role.id);
-                         return (
-                            <div 
-                                key={role.id}
-                                onClick={() => toggleBetaRole(role.id)}
-                                style={{ 
-                                    padding: '6px 12px', 
-                                    borderRadius: '20px', 
-                                    cursor: 'pointer',
-                                    backgroundColor: isSelected ? `${colors.primary}33` : colors.background,
-                                    border: `1px solid ${isSelected ? colors.primary : 'transparent'}`,
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    fontSize: '13px',
-                                    userSelect: 'none'
-                                }}
-                            >
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
-                                {role.name}
+                {/* Selected role chips */}
+                {betaRoleIds.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                        {betaRoleIds.map(roleId => {
+                            const role = filteredRoles.find(r => r.id === roleId);
+                            if (!role) return null;
+                            return (
+                                <div key={role.id} style={{ padding: '4px 10px', borderRadius: '16px', backgroundColor: `${colors.primary}33`, border: `1px solid ${colors.primary}`, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', userSelect: 'none' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5' }} />
+                                    {role.name}
+                                    <button onClick={() => toggleBetaRole(role.id)} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: 0, display: 'flex', marginLeft: '2px' }}><X size={12} /></button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Dropdown selector */}
+                <div style={{ position: 'relative' }}>
+                    <div onClick={() => { setBetaDropdownOpen(!betaDropdownOpen); setAccessDropdownOpen(false); }}
+                        style={{ padding: '8px 12px', background: colors.background, border: `1px solid ${betaDropdownOpen ? colors.primary : colors.border || '#3E4556'}`, borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: colors.textSecondary, transition: 'border-color 0.15s' }}>
+                        <span>Select roles...</span>
+                        <ChevronDown size={14} style={{ transform: betaDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                    </div>
+                    {betaDropdownOpen && (
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: colors.background, border: `1px solid ${colors.border || '#3E4556'}`, borderRadius: borderRadius.md, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', zIndex: 50, maxHeight: '240px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px', borderBottom: `1px solid ${colors.border || '#3E4556'}` }}>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={12} color={colors.textTertiary} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
+                                    <input value={betaSearch} onChange={e => setBetaSearch(e.target.value)} placeholder="Search roles..." autoFocus
+                                        style={{ width: '100%', padding: '6px 6px 6px 28px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.border || '#3E4556'}`, borderRadius: '6px', color: colors.textPrimary, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                                </div>
                             </div>
-                         );
-                    })}
+                            <div style={{ overflowY: 'auto', maxHeight: '192px' }}>
+                                {filteredRoles.filter(r => r.name.toLowerCase().includes(betaSearch.toLowerCase())).map(role => {
+                                    const isSelected = betaRoleIds.includes(role.id);
+                                    return (
+                                        <div key={role.id} onClick={() => toggleBetaRole(role.id)}
+                                            style={{ padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', userSelect: 'none', transition: 'background 0.1s', backgroundColor: isSelected ? `${colors.primary}15` : 'transparent' }}
+                                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+                                            onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5', flexShrink: 0 }} />
+                                            <span style={{ flex: 1 }}>{role.name}</span>
+                                            {isSelected && <div style={{ width: 16, height: 16, borderRadius: '4px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ color: 'white', fontSize: '10px', fontWeight: 700 }}>✓</span></div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {betaRoleIds.length === 0 && (
                     <p style={{ color: colors.textTertiary, fontSize: '13px', fontStyle: 'italic', marginTop: '12px', marginBottom: 0 }}>No roles selected — only manually invited users and admins can access the site.</p>

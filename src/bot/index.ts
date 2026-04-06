@@ -33,6 +33,7 @@ import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
 import { StudioGuidePlugin } from './plugins/StudioGuidePlugin';
 import { BotMessengerPlugin } from './plugins/BotMessengerPlugin';
 import { BoosterColorPlugin } from './plugins/BoosterColorPlugin';
+import { PrivateMessagesPlugin } from './plugins/PrivateMessagesPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -123,6 +124,7 @@ export class SimonBot {
       this.pluginManager.register(new StudioGuidePlugin());
       this.pluginManager.register(new BotMessengerPlugin());
       this.pluginManager.register(new BoosterColorPlugin());
+      this.pluginManager.register(new PrivateMessagesPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
