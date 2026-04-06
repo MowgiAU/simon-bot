@@ -174,7 +174,7 @@ export class ModerationPlugin implements IPlugin {
             
             await interaction.reply({ 
                 content: `👢 **${target.user.tag}** was kicked. Reason: ${reason}`,
-                ephemeral: false 
+                flags: MessageFlags.Ephemeral 
             });
 
         } catch (error) {
@@ -228,7 +228,7 @@ export class ModerationPlugin implements IPlugin {
              const msg = durationStr 
                 ? `🔨 **${user.tag}** was banned for ${durationStr}. Reason: ${reason}`
                 : `🔨 **${user.tag}** was banned permanently. Reason: ${reason}`;
-             await interaction.reply({ content: msg });
+             await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
          } catch (e) {
              this.logger.error('Ban failed', e);
              await interaction.reply({ content: 'Ban failed.', flags: MessageFlags.Ephemeral });
@@ -249,7 +249,7 @@ export class ModerationPlugin implements IPlugin {
         const MAX_TIMEOUT_MS = 28 * 24 * 60 * 60 * 1000; // Discord max: 28 days
         if (ms > MAX_TIMEOUT_MS) return interaction.reply({ content: 'Duration cannot exceed 28 days.', flags: MessageFlags.Ephemeral });
 
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             await this.sendDM(interaction.guildId!, target, 'timeout', reason, durationStr);
@@ -314,6 +314,7 @@ export class ModerationPlugin implements IPlugin {
 
             await interaction.reply({
                 content: `⚠️ **${user.tag}** has been warned. Reason: ${reason}\nTotal warnings: **${totalWarnings}**`,
+                flags: MessageFlags.Ephemeral,
             });
         } catch (e) {
             this.logger.error('Warn failed', e);
