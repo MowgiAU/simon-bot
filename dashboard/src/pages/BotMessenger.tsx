@@ -301,8 +301,8 @@ const MessageFeed: React.FC<{
     if (!channelId) return <div style={{ color: colors.textTertiary, padding: spacing.lg, textAlign: 'center' }}>Select a channel to view messages</div>;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '360px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm, flexShrink: 0 }}>
                 <span style={{ color: colors.textSecondary, fontSize: '12px' }}>{messages.length} messages</span>
                 <button onClick={() => fetchMessages()} style={{ ...btnSecondary, padding: '4px 10px', fontSize: '12px' }}>
                     <RefreshCw size={12} /> Refresh
@@ -312,6 +312,7 @@ const MessageFeed: React.FC<{
                 ref={feedRef}
                 style={{
                     flex: 1,
+                    minHeight: 0,
                     overflowY: 'auto',
                     background: colors.background,
                     borderRadius: borderRadius.md,
@@ -1106,14 +1107,20 @@ export function BotMessengerPage() {
 
             {/* ============== SEND MESSAGE TAB ============== */}
             {tab === 'send' && (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: spacing.lg }}>
-                    {/* Left: Composer */}
-                    <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-                        <div>
-                            <label style={labelStyle}>Channel</label>
-                            <ChannelSelect guildId={guildId} value={channelId} onChange={v => { setChannelId(v as string); setReplyTo(null); }} channelTypes={[0, 5]} placeholder="Select channel..." />
-                        </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                    {/* Channel select – top */}
+                    <div style={{ ...cardStyle, padding: spacing.md }}>
+                        <label style={labelStyle}>Channel</label>
+                        <ChannelSelect guildId={guildId} value={channelId} onChange={v => { setChannelId(v as string); setReplyTo(null); }} channelTypes={[0, 5]} placeholder="Select channel..." />
+                    </div>
 
+                    {/* Chat feed – capped height */}
+                    <div style={{ ...cardStyle, height: isMobile ? '320px' : '420px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <MessageFeed guildId={guildId} channelId={channelId} onReply={msg => setReplyTo(msg)} />
+                    </div>
+
+                    {/* Composer – below chat */}
+                    <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
                         {/* Reply indicator */}
                         {replyTo && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: colors.background, borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }}>
@@ -1142,7 +1149,7 @@ export function BotMessengerPage() {
                                 <MentionInsertButton guildId={guildId} onInsert={(m) => setMessage(prev => prev + m)} />
                             </div>
                             <textarea
-                                style={{ ...textareaStyle, minHeight: '120px' }}
+                                style={{ ...textareaStyle, minHeight: '80px' }}
                                 value={message}
                                 onChange={e => setMessage(e.target.value)}
                                 placeholder="Type your message..."
@@ -1176,11 +1183,6 @@ export function BotMessengerPage() {
                         )}
 
                         <div style={{ fontSize: '11px', color: colors.textTertiary }}>Ctrl+Enter to send</div>
-                    </div>
-
-                    {/* Right: Live Feed */}
-                    <div style={{ ...cardStyle, minHeight: isMobile ? '360px' : undefined }}>
-                        <MessageFeed guildId={guildId} channelId={channelId} onReply={msg => setReplyTo(msg)} />
                     </div>
                 </div>
             )}
