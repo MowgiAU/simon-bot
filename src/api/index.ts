@@ -774,7 +774,13 @@ app.use('/api/', (req, res, next) => {
         path.startsWith('/channel-rules/') ||
         path.startsWith('/leveling/') ||
         path.startsWith('/bot-messenger/') ||
-        path.startsWith('/studio-guide/')) {
+        path.startsWith('/studio-guide/') ||
+        // Public-facing discovery pages (no auth required)
+        path.startsWith('/discovery/') ||
+        path.startsWith('/musician/') ||
+        path.startsWith('/charts/') ||
+        path.startsWith('/playlists/popular') ||
+        path.startsWith('/beat-battle/battles')) {
         return next();
     }
     // Admins and staff always pass
