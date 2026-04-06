@@ -3764,7 +3764,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages'] 
             });
         }
 
@@ -4942,6 +4942,73 @@ app.get('/api/bot-messenger/:guildId/forum-threads/:channelId', async (req, res)
     } catch (err: any) {
         logger.error('Failed to fetch forum threads', err);
         res.status(err.response?.status || 500).json({ error: 'Failed to fetch threads' });
+    }
+});
+
+// ─── Auto Messages Endpoints ───────────────────────────────────────────────
+
+// GET: load config + messages
+app.get('/api/auto-messages/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const config = await db.autoMessageConfig.findUnique({
+            where: { guildId },
+            include: { messages: { orderBy: { position: 'asc' } } },
+        });
+        if (!config) {
+            return res.json({ guildId, channelId: null, intervalMinutes: 60, enabled: false, messages: [] });
+        }
+        res.json(config);
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST: save config + messages (full replace)
+app.post('/api/auto-messages/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { channelId, intervalMinutes, enabled, messages } = req.body;
+
+    // Validate interval
+    const interval = Math.max(1, Math.min(10080, parseInt(intervalMinutes) || 60)); // 1 min – 1 week
+    const msgs: { content: string; position: number }[] = (Array.isArray(messages) ? messages : [])
+        .filter((m: any) => typeof m.content === 'string' && m.content.trim().length > 0)
+        .slice(0, 50) // max 50 messages
+        .map((m: any, i: number) => ({ content: m.content.trim().slice(0, 2000), position: i }));
+
+    try {
+        const config = await db.autoMessageConfig.upsert({
+            where: { guildId },
+            create: { guildId, channelId: channelId || null, intervalMinutes: interval, enabled: !!enabled },
+            update: { channelId: channelId || null, intervalMinutes: interval, enabled: !!enabled },
+        });
+
+        // Replace all messages
+        await db.autoMessageEntry.deleteMany({ where: { configId: config.id } });
+        if (msgs.length > 0) {
+            await db.autoMessageEntry.createMany({
+                data: msgs.map(m => ({ configId: config.id, content: m.content, position: m.position })),
+            });
+        }
+
+        // Reset index if out of bounds
+        if (config.currentIndex >= msgs.length && msgs.length > 0) {
+            await db.autoMessageConfig.update({ where: { id: config.id }, data: { currentIndex: 0 } });
+        }
+
+        const updated = await db.autoMessageConfig.findUnique({
+            where: { guildId },
+            include: { messages: { orderBy: { position: 'asc' } } },
+        });
+        res.json(updated);
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

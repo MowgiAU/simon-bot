@@ -113,6 +113,7 @@ model Guild {
   studioGuideSettings  StudioGuideSettings?
   studioGuideKnowledge StudioGuideKnowledge[]
   studioGuideOptOuts   StudioGuideOptOut[]
+  autoMessageConfig    AutoMessageConfig?
 
   @@map("guilds")
 }
@@ -1847,4 +1848,41 @@ model StudioGuideOptOut {
 
   @@unique([guildId, userId])
   @@map("studio_guide_opt_outs")
+}
+
+// ──────────────────────────────────────────────
+// Auto Messages Plugin
+// ──────────────────────────────────────────────
+
+model AutoMessageConfig {
+  id              String   @id @default(cuid())
+  guildId         String   @unique
+  channelId       String?
+  intervalMinutes Int      @default(60)
+  enabled         Boolean  @default(false)
+  currentIndex    Int      @default(0)
+  lastSentAt      DateTime?
+
+  messages        AutoMessageEntry[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("auto_message_configs")
+}
+
+model AutoMessageEntry {
+  id        String   @id @default(cuid())
+  configId  String
+  content   String   @db.Text
+  position  Int      @default(0)
+
+  config    AutoMessageConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([configId])
+  @@map("auto_message_entries")
 }

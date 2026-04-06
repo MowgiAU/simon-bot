@@ -32,6 +32,7 @@ import {
   Radio,
   Send,
   Sparkles,
+  Clock,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -275,6 +276,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
                 <span className="nav-label">Private Messages</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('auto-messages') && (
+            <button
+                className={`nav-item ${activeSection === 'auto-messages' ? 'active' : ''}`}
+                onClick={() => onNavigate('auto-messages')}
+                title={collapsed ? "Auto Messages" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Clock} size={20} /></span>
+                <span className="nav-label">Auto Messages</span>
             </button>
           )}
 
