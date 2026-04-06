@@ -73,6 +73,9 @@ const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m 
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
+const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
+const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
+const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
@@ -118,7 +121,10 @@ type Section =
   | "auto-messages"
   | "auto-responder"
   | "server-boost"
-  | "booster-color";
+  | "booster-color"
+  | "boost"
+  | "automation"
+  | "progression";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -315,6 +321,10 @@ const AdminDashboard: React.FC = () => {
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
     'account-management': 'account-management',
+    // Grouped pages — no single plugin requirement (handled in sidebar visibility)
+    'boost': '',
+    'automation': '',
+    'progression': '',
     'genres-list': 'musician-profiles',
   };
 
@@ -417,6 +427,12 @@ const AdminDashboard: React.FC = () => {
           return <ServerBoostPage />;
         case "booster-color":
           return <BoosterColorPage />;
+        case "boost":
+          return <BoostPage />;
+        case "automation":
+          return <AutomationPage />;
+        case "progression":
+          return <ProgressionPage />;
         case "account-management":
           return <AccountManagementPage />;
         case "genres-list":

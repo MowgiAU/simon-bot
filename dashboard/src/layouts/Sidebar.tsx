@@ -171,48 +171,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {permissions.accessiblePlugins.includes('leveling') && (
+          {['leveling', 'economy'].some(p => permissions.accessiblePlugins.includes(p)) && (
             <button
-                className={`nav-item ${activeSection === 'leveling' ? 'active' : ''}`}
-                onClick={() => onNavigate('leveling')}
-                title={collapsed ? "Leveling" : ""}
+                className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`}
+                onClick={() => onNavigate('progression')}
+                title={collapsed ? "Progression" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={TrendingUp} size={20} /></span>
-                <span className="nav-label">Leveling</span>
+                <span className="nav-label">Progression</span>
             </button>
           )}
 
-          {(permissions.accessiblePlugins.includes('channel-rules') || permissions.accessiblePlugins.includes('moderation')) && (
+          {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules'].some(p => permissions.accessiblePlugins.includes(p)) && (
             <button
-                className={`nav-item ${activeSection === 'channel-rules' ? 'active' : ''}`}
-                onClick={() => onNavigate('channel-rules')}
-                title={collapsed ? "Channel Rules" : ""}
+                className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`}
+                onClick={() => onNavigate('automation')}
+                title={collapsed ? "Automation" : ""}
             >
-                <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
-                <span className="nav-label">Channel Rules</span>
+                <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
+                <span className="nav-label">Automation</span>
             </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('welcome-gate') && (
-            <button
-              className={`nav-item ${activeSection === 'welcome-gate' ? 'active' : ''}`}
-              onClick={() => onNavigate('welcome-gate')}
-              title={collapsed ? "Welcome Gate" : ""}
-            >
-              <span className="nav-icon"><AnimatedWrapper icon={Shield} size={20} /></span>
-              <span className="nav-label">Welcome Gate</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('economy') && (
-          <button
-            className={`nav-item ${activeSection === 'economy' ? 'active' : ''}`}
-            onClick={() => onNavigate('economy')}
-            title={collapsed ? "Economy" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={Coins} size={20} /></span>
-            <span className="nav-label">Economy</span>
-          </button>
           )}
 
           {permissions.accessiblePlugins.includes('email-client') && (
@@ -281,47 +259,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {permissions.accessiblePlugins.includes('auto-messages') && (
+          {['server-boost', 'booster-color'].some(p => permissions.accessiblePlugins.includes(p)) && (
             <button
-                className={`nav-item ${activeSection === 'auto-messages' ? 'active' : ''}`}
-                onClick={() => onNavigate('auto-messages')}
-                title={collapsed ? "Auto Messages" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Clock} size={20} /></span>
-                <span className="nav-label">Auto Messages</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('auto-responder') && (
-            <button
-                className={`nav-item ${activeSection === 'auto-responder' ? 'active' : ''}`}
-                onClick={() => onNavigate('auto-responder')}
-                title={collapsed ? "Auto Responder" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
-                <span className="nav-label">Auto Responder</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('server-boost') && (
-            <button
-                className={`nav-item ${activeSection === 'server-boost' ? 'active' : ''}`}
-                onClick={() => onNavigate('server-boost')}
-                title={collapsed ? "Server Boost" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Gift} size={20} /></span>
-                <span className="nav-label">Server Boost</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('booster-color') && (
-            <button
-                className={`nav-item ${activeSection === 'booster-color' ? 'active' : ''}`}
-                onClick={() => onNavigate('booster-color')}
-                title={collapsed ? "Booster Colors" : ""}
+                className={`nav-item ${activeSection === 'boost' ? 'active' : ''}`}
+                onClick={() => onNavigate('boost')}
+                title={collapsed ? "Boost" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Sparkles} size={20} /></span>
-                <span className="nav-label">Booster Colors</span>
+                <span className="nav-label">Boost</span>
             </button>
           )}
 
