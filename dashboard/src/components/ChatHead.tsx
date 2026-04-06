@@ -218,20 +218,20 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                     const showAvatar = !isMine && (i === 0 || messages[i - 1].senderId !== msg.senderId);
                     const showName = conv?.isGroup && !isMine && showAvatar;
                     return (
-                        <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: showAvatar ? 4 : 0 }}>
+                        <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: showAvatar ? 4 : 0, width: '100%' }}>
                             {showName && sender && (
                                 <div style={{ fontSize: '9px', color: C.accent, fontWeight: 600, marginBottom: 1, marginLeft: 24 }}>{sender.displayName || sender.username}</div>
                             )}
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, maxWidth: '100%' }}>
                                 {!isMine && showAvatar && sender && (
                                     <img src={avatarUrl(sender)} style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0 }} alt="" />
                                 )}
                                 {!isMine && !showAvatar && <div style={{ width: 20, flexShrink: 0 }} />}
-                                <div style={{ position: 'relative', maxWidth: '85%' }}
+                                <div style={{ position: 'relative', maxWidth: '75%', minWidth: 0 }}
                                     onMouseEnter={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '1'; }}
                                     onMouseLeave={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '0'; }}>
                                     <div style={{
-                                        padding: '5px 9px', borderRadius: '10px', fontSize: '12px', lineHeight: '1.4', wordBreak: 'break-word',
+                                        padding: '6px 10px', borderRadius: '10px', fontSize: '13px', lineHeight: '1.4', overflowWrap: 'break-word', wordBreak: 'normal',
                                         background: msg.deleted ? 'transparent' : isMine ? C.bubbleMine : C.bubble,
                                         color: msg.deleted ? C.textTer : '#FFFFFF',
                                         fontStyle: msg.deleted ? 'italic' : 'normal',
