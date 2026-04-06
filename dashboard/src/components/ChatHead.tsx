@@ -227,11 +227,11 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                                     <img src={avatarUrl(sender)} style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0 }} alt="" />
                                 )}
                                 {!isMine && !showAvatar && <div style={{ width: 20, flexShrink: 0 }} />}
-                                <div style={{ position: 'relative', maxWidth: '75%', minWidth: 0 }}
+                                <div style={{ position: 'relative', minWidth: 0, flex: '1 1 auto' }}
                                     onMouseEnter={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '1'; }}
                                     onMouseLeave={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '0'; }}>
                                     <div style={{
-                                        padding: '6px 10px', borderRadius: '10px', fontSize: '13px', lineHeight: '1.4', overflowWrap: 'break-word', wordBreak: 'normal',
+                                        display: 'inline-block', padding: '6px 10px', borderRadius: '10px', fontSize: '13px', lineHeight: '1.4', overflowWrap: 'break-word', wordBreak: 'normal', maxWidth: '100%',
                                         background: msg.deleted ? 'transparent' : isMine ? C.bubbleMine : C.bubble,
                                         color: msg.deleted ? C.textTer : '#FFFFFF',
                                         fontStyle: msg.deleted ? 'italic' : 'normal',
