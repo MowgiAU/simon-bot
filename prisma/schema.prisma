@@ -75,7 +75,8 @@ model Guild {
   channelRules        ChannelRule[]
   pendingReviews      PendingReview[]
 
-  moderationSettings ModerationSettings?
+  moderationSettings  ModerationSettings?
+  moderationWarnings  ModerationWarning[]
   welcomeGateSettings WelcomeGateSettings?
 
   economyAccounts    EconomyAccount[]
@@ -164,6 +165,19 @@ model ModerationPermission {
   
   @@unique([settingsId, roleId])
   @@map("moderation_permissions")
+}
+
+model ModerationWarning {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  reason    String
+  issuedBy  String
+  createdAt DateTime @default(now())
+
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("moderation_warnings")
 }
 
 // ---------------------------------------------------------

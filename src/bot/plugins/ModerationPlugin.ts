@@ -27,7 +27,7 @@ export class ModerationPlugin implements IPlugin {
         PermissionFlagsBits.ManageMessages
     ];
 
-    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'purge', 'modlog'];
+    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'modlog'];
     readonly events = ['interactionCreate'];
     readonly dashboardSections = ['moderation'];
     readonly defaultEnabled = true;
@@ -119,6 +119,8 @@ export class ModerationPlugin implements IPlugin {
             case 'ban': await this.handleBan(interaction); break;
             case 'timeout': await this.handleTimeout(interaction); break;
             case 'purge': await this.handlePurge(interaction); break;
+            case 'warn': await this.handleWarn(interaction); break;
+            case 'warnings': await this.handleWarnings(interaction); break;
         }
     }
 
@@ -281,6 +283,78 @@ export class ModerationPlugin implements IPlugin {
     }
 
     // --- Helpers ---
+
+    private async handleWarn(interaction: ChatInputCommandInteraction) {
+        const target = interaction.options.getMember('user') as GuildMember;
+        const user = interaction.options.getUser('user');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
+
+        if (!user) return interaction.reply({ content: 'User not found.', flags: MessageFlags.Ephemeral });
+
+        const guildId = interaction.guildId!;
+
+        try {
+            await this.db.moderationWarning.create({
+                data: { guildId, userId: user.id, reason, issuedBy: interaction.user.id },
+            });
+
+            const totalWarnings = await this.db.moderationWarning.count({ where: { guildId, userId: user.id } });
+
+            // DM the user
+            if (target) {
+                const settings = await this.db.moderationSettings.findUnique({ where: { guildId } });
+                if (settings?.dmUponAction) {
+                    await user.send({
+                        content: `⚠️ You have received a warning in **${interaction.guild!.name}**.\nReason: ${reason}\nYou now have **${totalWarnings}** warning${totalWarnings !== 1 ? 's' : ''}.`,
+                    }).catch(() => {});
+                }
+            }
+
+            await this.logAction(guildId, 'warn', interaction.user.id, user.id, { reason, totalWarnings });
+
+            await interaction.reply({
+                content: `⚠️ **${user.tag}** has been warned. Reason: ${reason}\nTotal warnings: **${totalWarnings}**`,
+            });
+        } catch (e) {
+            this.logger.error('Warn failed', e);
+            await interaction.reply({ content: 'Failed to issue warning.', flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    private async handleWarnings(interaction: ChatInputCommandInteraction) {
+        const user = interaction.options.getUser('user');
+        if (!user) return interaction.reply({ content: 'User not found.', flags: MessageFlags.Ephemeral });
+
+        const guildId = interaction.guildId!;
+
+        try {
+            const warnings = await this.db.moderationWarning.findMany({
+                where: { guildId, userId: user.id },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+            });
+
+            if (warnings.length === 0) {
+                return interaction.reply({ content: `✅ **${user.tag}** has no warnings.`, flags: MessageFlags.Ephemeral });
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`⚠️ Warnings for ${user.tag}`)
+                .setColor(Colors.Yellow)
+                .setDescription(
+                    warnings.map((w, i) =>
+                        `**#${i + 1}** — ${w.reason}\n> Issued by <@${w.issuedBy}> • <t:${Math.floor(w.createdAt.getTime() / 1000)}:R>`
+                    ).join('\n\n')
+                )
+                .setFooter({ text: `Total: ${warnings.length} warning${warnings.length !== 1 ? 's' : ''}` })
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            this.logger.error('Warnings lookup failed', e);
+            await interaction.reply({ content: 'Failed to retrieve warnings.', flags: MessageFlags.Ephemeral });
+        }
+    }
 
     private async logAction(guildId: string, action: string, executorId: string, targetId: string, details: any) {
         // 1. DB Log
