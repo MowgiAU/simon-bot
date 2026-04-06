@@ -22,6 +22,7 @@ export const BoosterColorPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [newColorRoleId, setNewColorRoleId] = useState('');
+    const [roleSearch, setRoleSearch] = useState('');
 
     const headers = useCallback(() => ({
         'Content-Type': 'application/json',
@@ -37,7 +38,7 @@ export const BoosterColorPage: React.FC = () => {
         ]).then(([s, roles]) => {
             setSettings(s || { boosterRoleId: null, colorRoleIds: [] });
             if (Array.isArray(roles)) {
-                setGuildRoles(roles.filter((r: GuildRole) => r.name !== '@everyone').sort((a: GuildRole, b: GuildRole) => b.color - a.color));
+                setGuildRoles(roles.filter((r: GuildRole) => r.name !== '@everyone'));
             }
         }).catch(console.error).finally(() => setLoading(false));
     }, [guildId]);
@@ -160,7 +161,19 @@ export const BoosterColorPage: React.FC = () => {
                 )}
 
                 {/* Add role */}
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input
+                        type="text"
+                        placeholder="Search roles..."
+                        value={roleSearch}
+                        onChange={e => setRoleSearch(e.target.value)}
+                        style={{
+                            background: colors.surfaceLight, border: `1px solid ${colors.border}`,
+                            borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary,
+                            fontSize: '14px', outline: 'none',
+                        }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
                     <select
                         value={newColorRoleId}
                         onChange={e => setNewColorRoleId(e.target.value)}
@@ -172,6 +185,7 @@ export const BoosterColorPage: React.FC = () => {
                         <option value="">— Select a role to add —</option>
                         {guildRoles
                             .filter(r => !settings.colorRoleIds.includes(r.id))
+                            .filter(r => r.name.toLowerCase().includes(roleSearch.toLowerCase()))
                             .map(r => (
                                 <option key={r.id} value={r.id}>{r.name}</option>
                             ))}
