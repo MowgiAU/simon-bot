@@ -7,6 +7,7 @@ import {
     Routes,
     SlashCommandBuilder,
     MessageFlags,
+    Partials,
 } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
@@ -75,6 +76,11 @@ export class SimonBot {
         GatewayIntentBits.GuildBans,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessageReactions,
+      ],
+      partials: [
+        Partials.Message,
+        Partials.Reaction,
+        Partials.User,
       ],
     });
 

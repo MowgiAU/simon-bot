@@ -7,6 +7,11 @@ import {
     ChannelType,
     MessageFlags,
     ColorResolvable,
+    MessageReaction,
+    PartialMessageReaction,
+    User,
+    PartialUser,
+    GuildMember,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -15,8 +20,8 @@ import { Logger } from '../utils/logger';
 export class BotMessengerPlugin implements IPlugin {
     id = 'bot-messenger';
     name = 'Bot Messenger';
-    description = 'Send messages, embeds, and reactions as the bot via slash commands or the dashboard.';
-    version = '1.0.0';
+    description = 'Send messages, embeds, and reactions as the bot via slash commands or the dashboard. Includes reaction roles.';
+    version = '1.1.0';
     author = 'Fuji Studio Team';
 
     requiredPermissions: PermissionResolvable[] = [
@@ -25,10 +30,11 @@ export class BotMessengerPlugin implements IPlugin {
         'AddReactions',
         'UseExternalEmojis',
         'ReadMessageHistory',
+        'ManageRoles',
     ];
 
     commands = ['send', 'react'];
-    events = ['interactionCreate'];
+    events = ['interactionCreate', 'messageReactionAdd', 'messageReactionRemove'];
     dashboardSections = ['bot-messenger'];
     defaultEnabled = true;
 
@@ -36,9 +42,11 @@ export class BotMessengerPlugin implements IPlugin {
 
     private context: IPluginContext | null = null;
     private logger = new Logger('BotMessengerPlugin');
+    private db: any;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
+        this.db = context.db;
         this.logger.info('Bot Messenger Plugin initialized');
     }
 
@@ -137,6 +145,62 @@ export class BotMessengerPlugin implements IPlugin {
         } catch (err: any) {
             this.logger.error(`Failed to react: ${err.message}`);
             await interaction.reply({ content: `Failed to react: ${err.message}`, flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    // ─── Reaction Roles ─────────────────────────────────────────────────────────
+
+    private normalizeEmoji(reaction: MessageReaction | PartialMessageReaction): string {
+        const e = reaction.emoji;
+        // Custom emoji → "name:id", unicode → the unicode char
+        return e.id ? `${e.name}:${e.id}` : e.name || '';
+    }
+
+    async onMessageReactionAdd(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> {
+        if (user.bot) return;
+        try {
+            if (reaction.partial) await reaction.fetch();
+            if (!reaction.message.guildId) return;
+
+            const emoji = this.normalizeEmoji(reaction);
+            const mapping = await this.db.reactionRole.findUnique({
+                where: { messageId_emoji: { messageId: reaction.message.id, emoji } },
+            });
+            if (!mapping) return;
+
+            const guild = reaction.message.guild || await this.context?.client.guilds.fetch(reaction.message.guildId);
+            if (!guild) return;
+            const member = await guild.members.fetch(user.id).catch(() => null);
+            if (!member) return;
+
+            await member.roles.add(mapping.roleId, 'Reaction role');
+            this.logger.info(`Reaction role: added role ${mapping.roleId} to ${user.id} in ${guild.id}`);
+        } catch (err: any) {
+            this.logger.error(`Reaction role add error: ${err.message}`);
+        }
+    }
+
+    async onMessageReactionRemove(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> {
+        if (user.bot) return;
+        try {
+            if (reaction.partial) await reaction.fetch();
+            if (!reaction.message.guildId) return;
+
+            const emoji = this.normalizeEmoji(reaction);
+            const mapping = await this.db.reactionRole.findUnique({
+                where: { messageId_emoji: { messageId: reaction.message.id, emoji } },
+            });
+            if (!mapping) return;
+
+            const guild = reaction.message.guild || await this.context?.client.guilds.fetch(reaction.message.guildId);
+            if (!guild) return;
+            const member = await guild.members.fetch(user.id).catch(() => null);
+            if (!member) return;
+
+            await member.roles.remove(mapping.roleId, 'Reaction role removed');
+            this.logger.info(`Reaction role: removed role ${mapping.roleId} from ${user.id} in ${guild.id}`);
+        } catch (err: any) {
+            this.logger.error(`Reaction role remove error: ${err.message}`);
         }
     }
 }

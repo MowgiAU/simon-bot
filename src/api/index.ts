@@ -4945,6 +4945,87 @@ app.get('/api/bot-messenger/:guildId/forum-threads/:channelId', async (req, res)
     }
 });
 
+// ─── Reaction Roles (Bot Messenger) ────────────────────────────────────────
+
+// GET all reaction roles for a guild
+app.get('/api/bot-messenger/:guildId/reaction-roles', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const roles = await db.reactionRole.findMany({ where: { guildId }, orderBy: { createdAt: 'asc' } });
+        res.json(roles);
+    } catch (e) {
+        logger.error('GET reaction-roles', e);
+        res.status(500).json({ error: 'Failed to load reaction roles' });
+    }
+});
+
+// POST create a reaction role + add the bot's reaction to the message
+app.post('/api/bot-messenger/:guildId/reaction-roles', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    const { channelId, messageId, emoji, roleId } = req.body;
+    if (!channelId || !messageId || !emoji || !roleId) return res.status(400).json({ error: 'Missing required fields' });
+    try {
+        // Make the bot react on the target message so users can click it
+        try {
+            const reactEmoji = emoji.includes(':') ? emoji : encodeURIComponent(emoji);
+            await discordReq('put', `/channels/${channelId}/messages/${messageId}/reactions/${reactEmoji}/@me`);
+        } catch (err: any) {
+            logger.warn('Could not add bot reaction (message may not exist)', err?.message);
+        }
+        const rr = await db.reactionRole.create({ data: { guildId, channelId, messageId, emoji, roleId } });
+        res.json(rr);
+    } catch (e: any) {
+        if (e?.code === 'P2002') return res.status(409).json({ error: 'That emoji is already mapped on this message' });
+        logger.error('POST reaction-role', e);
+        res.status(500).json({ error: 'Failed to create reaction role' });
+    }
+});
+
+// DELETE a reaction role
+app.delete('/api/bot-messenger/:guildId/reaction-roles/:id', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, id } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const rr = await db.reactionRole.findFirst({ where: { id, guildId } });
+        if (!rr) return res.status(404).json({ error: 'Not found' });
+        // Try to remove the bot's reaction from the message
+        try {
+            const reactEmoji = rr.emoji.includes(':') ? rr.emoji : encodeURIComponent(rr.emoji);
+            await discordReq('delete', `/channels/${rr.channelId}/messages/${rr.messageId}/reactions/${reactEmoji}/@me`);
+        } catch (err: any) {
+            logger.warn('Could not remove bot reaction', err?.message);
+        }
+        await db.reactionRole.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('DELETE reaction-role', e);
+        res.status(500).json({ error: 'Failed to delete reaction role' });
+    }
+});
+
+// GET guild roles (for the reaction role role picker)
+app.get('/api/bot-messenger/:guildId/roles', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const response = await discordReq('get', `/guilds/${guildId}/roles`);
+        const roles = (response.data || [])
+            .filter((r: any) => r.name !== '@everyone' && !r.managed)
+            .sort((a: any, b: any) => b.position - a.position)
+            .map((r: any) => ({ id: r.id, name: r.name, color: r.color }));
+        res.json(roles);
+    } catch (err: any) {
+        logger.error('Failed to fetch guild roles', err);
+        res.status(500).json({ error: 'Failed to fetch roles' });
+    }
+});
+
 // ─── Auto Messages Endpoints ───────────────────────────────────────────────
 
 // GET: list all schedules for a guild

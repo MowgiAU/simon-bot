@@ -116,6 +116,7 @@ model Guild {
   autoMessageSchedules AutoMessageSchedule[]
   autoResponderRules   AutoResponderRule[]
   serverBoostSettings  ServerBoostSettings?
+  reactionRoles        ReactionRole[]
 
   @@map("guilds")
 }
@@ -1910,6 +1911,24 @@ model ServerBoostSettings {
   guild                   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("server_boost_settings")
+}
+
+// Reaction Roles (Bot Messenger)
+// ──────────────────────────────────────────────
+model ReactionRole {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String
+  messageId String
+  emoji     String   // unicode emoji or custom <name:id>
+  roleId    String   // Discord role ID to assign
+  createdAt DateTime @default(now())
+
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, emoji])
+  @@index([guildId])
+  @@map("reaction_roles")
 }
 
 model AutoResponderRule {

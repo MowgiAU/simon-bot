@@ -24,6 +24,8 @@ import {
     Hash,
     SmilePlus,
     LayoutList,
+    Shield,
+    AlertCircle,
 } from 'lucide-react';
 
 const API = '';
@@ -915,12 +917,169 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 };
 
 // ---------------------------------------------------------------------------
+// Reaction Roles Tab
+// ---------------------------------------------------------------------------
+interface ReactionRoleEntry { id: string; guildId: string; channelId: string; messageId: string; emoji: string; roleId: string; createdAt: string; }
+interface GuildRole { id: string; name: string; color: number; }
+
+function ReactionRolesTab({ guildId }: { guildId: string }) {
+    const [entries, setEntries] = useState<ReactionRoleEntry[]>([]);
+    const [roles, setRoles] = useState<GuildRole[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    // Form state
+    const [channelId, setChannelId] = useState('');
+    const [messageId, setMessageId] = useState('');
+    const [emoji, setEmoji] = useState('');
+    const [roleId, setRoleId] = useState('');
+    const [adding, setAdding] = useState(false);
+
+    useEffect(() => { if (msg) { const t = setTimeout(() => setMsg(null), 4000); return () => clearTimeout(t); } }, [msg]);
+
+    const fetchData = useCallback(async () => {
+        if (!guildId) return;
+        setLoading(true);
+        try {
+            const [rrRes, rolesRes] = await Promise.all([
+                fetch(`/api/bot-messenger/${guildId}/reaction-roles`, { credentials: 'include' }),
+                fetch(`/api/bot-messenger/${guildId}/roles`, { credentials: 'include' }),
+            ]);
+            if (rrRes.ok) setEntries(await rrRes.json());
+            if (rolesRes.ok) setRoles(await rolesRes.json());
+        } catch {}
+        setLoading(false);
+    }, [guildId]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const handleAdd = async () => {
+        if (!channelId || !messageId || !emoji || !roleId) { setMsg({ type: 'error', text: 'All fields are required' }); return; }
+        setAdding(true);
+        try {
+            const res = await fetch(`/api/bot-messenger/${guildId}/reaction-roles`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId, messageId, emoji: emoji.trim(), roleId }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed to add'); }
+            setMsg({ type: 'success', text: 'Reaction role added! The bot has reacted on the message.' });
+            setMessageId(''); setEmoji(''); setRoleId('');
+            fetchData();
+        } catch (e: any) {
+            setMsg({ type: 'error', text: e.message || 'Failed to create reaction role' });
+        } finally { setAdding(false); }
+    };
+
+    const handleDelete = async (id: string) => {
+        try {
+            const res = await fetch(`/api/bot-messenger/${guildId}/reaction-roles/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (!res.ok) throw new Error();
+            setMsg({ type: 'success', text: 'Reaction role removed' });
+            fetchData();
+        } catch {
+            setMsg({ type: 'error', text: 'Failed to delete' });
+        }
+    };
+
+    const roleName = (id: string) => roles.find(r => r.id === id)?.name || id;
+    const roleColor = (id: string) => { const c = roles.find(r => r.id === id)?.color; return c ? `#${c.toString(16).padStart(6, '0')}` : colors.textPrimary; };
+
+    if (loading) return <div style={{ padding: '32px', textAlign: 'center', color: colors.textTertiary }}>Loading...</div>;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            {msg && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.sm,
+                    backgroundColor: msg.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${msg.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    color: msg.type === 'success' ? colors.success : colors.error, fontSize: '13px', fontWeight: 600 }}>
+                    <AlertCircle size={14} /> {msg.text}
+                </div>
+            )}
+
+            {/* Explanation */}
+            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
+                    Set up reaction roles so users can react to a message and receive a role automatically.
+                    First send a message using the <strong>Send Message</strong> or <strong>Embed Builder</strong> tab, copy its Message ID,
+                    then add a reaction role mapping below. The bot will add its own reaction to the message so users can click it.
+                </p>
+            </div>
+
+            {/* Add form */}
+            <div style={{ ...cardStyle, padding: spacing.lg }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: colors.textPrimary, marginBottom: spacing.md }}>Add Reaction Role</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                    <div>
+                        <label style={labelStyle}>Channel</label>
+                        <ChannelSelect guildId={guildId} value={channelId} onChange={v => setChannelId(v as string)} channelTypes={[0, 5]} placeholder="Select channel..." />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Message ID</label>
+                        <input style={inputStyle} value={messageId} onChange={e => setMessageId(e.target.value)} placeholder="Right-click message → Copy ID" />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Emoji</label>
+                        <input style={inputStyle} value={emoji} onChange={e => setEmoji(e.target.value)} placeholder="🎵 or name:123456789" />
+                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textTertiary }}>Unicode emoji or custom <code style={{ fontSize: '10px' }}>name:id</code></p>
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Role</label>
+                        <select style={{ ...inputStyle, cursor: 'pointer' }} value={roleId} onChange={e => setRoleId(e.target.value)}>
+                            <option value="">Select role...</option>
+                            {roles.map(r => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <button onClick={handleAdd} disabled={adding} style={{ ...btnPrimary, opacity: adding ? 0.6 : 1 }}>
+                    <Plus size={16} /> {adding ? 'Adding...' : 'Add Reaction Role'}
+                </button>
+            </div>
+
+            {/* Existing reaction roles */}
+            <div style={{ ...cardStyle, padding: spacing.lg }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: colors.textPrimary, marginBottom: spacing.md }}>
+                    Active Reaction Roles ({entries.length})
+                </div>
+                {entries.length === 0 ? (
+                    <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.lg, fontSize: '13px' }}>
+                        No reaction roles configured yet. Add one above!
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {entries.map(e => (
+                            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>
+                                <span style={{ fontSize: '22px', flexShrink: 0 }}>{e.emoji.includes(':') ? `<:${e.emoji}>` : e.emoji}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontWeight: 600, color: roleColor(e.roleId), fontSize: '14px' }}>@{roleName(e.roleId)}</span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '2px' }}>
+                                        Channel: <code>{e.channelId}</code> · Message: <code>{e.messageId}</code>
+                                    </div>
+                                </div>
+                                <button onClick={() => handleDelete(e.id)} title="Delete" style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: '4px', display: 'flex' }}>
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 export function BotMessengerPage() {
     const { selectedGuild } = useAuth();
     const guildId = selectedGuild?.id || '';
-    const [tab, setTab] = useState<'send' | 'embed' | 'forum'>('send');
+    const [tab, setTab] = useState<'send' | 'embed' | 'forum' | 'reaction-roles'>('send');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -1092,7 +1251,7 @@ export function BotMessengerPage() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
-                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList]] as const).map(([key, label, Icon]) => (
+                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList], ['reaction-roles', 'Reaction Roles', Shield]] as const).map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setTab(key as any)} style={{
                         flex: isMobile ? 1 : undefined,
                         padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
@@ -1379,6 +1538,11 @@ export function BotMessengerPage() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* ============== REACTION ROLES TAB ============== */}
+            {tab === 'reaction-roles' && (
+                <ReactionRolesTab guildId={guildId} />
             )}
         </div>
     );
