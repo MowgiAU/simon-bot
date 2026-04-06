@@ -1527,6 +1527,7 @@ model ConversationParticipant {
   joinedAt        DateTime  @default(now())
   lastReadAt      DateTime  @default(now())
   muted           Boolean   @default(false)
+  archived        Boolean   @default(false)
 
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 

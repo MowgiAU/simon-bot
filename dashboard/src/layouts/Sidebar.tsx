@@ -267,6 +267,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('private-messages') && (
+            <button
+                className={`nav-item ${activeSection === 'private-messages' ? 'active' : ''}`}
+                onClick={() => onNavigate('private-messages')}
+                title={collapsed ? "Private Messages" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
+                <span className="nav-label">Private Messages</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('booster-color') && (
             <button
                 className={`nav-item ${activeSection === 'booster-color' ? 'active' : ''}`}

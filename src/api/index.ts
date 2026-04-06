@@ -3764,7 +3764,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages'] 
             });
         }
 
@@ -11823,8 +11823,9 @@ app.get('/api/messages/search-users', requireAuth, async (req: any, res) => {
 app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const showArchived = req.query.archived === 'true';
         const participations = await db.conversationParticipant.findMany({
-            where: { userId: me },
+            where: { userId: me, archived: showArchived },
             include: {
                 conversation: {
                     include: {
@@ -11873,6 +11874,7 @@ app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
                 lastMessageSenderId,
                 unread,
                 muted: p.muted,
+                archived: p.archived,
                 createdAt: conv.createdAt.toISOString(),
             };
         }));
@@ -11996,6 +11998,11 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
             where: { conversationId_userId: { conversationId: convId, userId: me } },
             data: { lastReadAt: new Date() },
         });
+        // Unarchive conversation for all participants when a new message arrives
+        await db.conversationParticipant.updateMany({
+            where: { conversationId: convId, archived: true },
+            data: { archived: false },
+        });
         res.json({ id: msg.id, senderId: me, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString(), editedAt: null });
     } catch (e) {
         logger.error('Send message', e);
@@ -12046,7 +12053,7 @@ app.put('/api/messages/conversations/:id/read', requireAuth, async (req: any, re
 app.get('/api/messages/unread', requireAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
-        const participations = await db.conversationParticipant.findMany({ where: { userId: me, muted: false } });
+        const participations = await db.conversationParticipant.findMany({ where: { userId: me, muted: false, archived: false } });
         let total = 0;
         for (const p of participations) {
             const count = await db.privateMessage.count({
@@ -12079,6 +12086,13 @@ app.patch('/api/messages/conversations/:id', requireAuth, async (req: any, res) 
             await db.conversationParticipant.update({
                 where: { conversationId_userId: { conversationId: convId, userId: me } },
                 data: { muted },
+            });
+        }
+        const { archived } = req.body;
+        if (archived !== undefined) {
+            await db.conversationParticipant.update({
+                where: { conversationId_userId: { conversationId: convId, userId: me } },
+                data: { archived: !!archived },
             });
         }
         res.json({ success: true });
@@ -12163,6 +12177,139 @@ app.get('/api/messages/conversations/:id', requireAuth, async (req: any, res) =>
         res.json({ id: conv.id, name: conv.name, isGroup: conv.isGroup, createdById: conv.createdById, createdAt: conv.createdAt, participants: enriched });
     } catch (e) {
         logger.error('Get conversation', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN — Private Messaging Dashboard
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Admin: list all conversations with stats
+app.get('/api/admin/messages/conversations', requireAdmin, async (_req: any, res) => {
+    try {
+        const conversations = await db.conversation.findMany({
+            include: {
+                participants: true,
+                messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+                _count: { select: { messages: true } },
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 200,
+        });
+        const result = await Promise.all(conversations.map(async (conv) => {
+            const participantProfiles = await Promise.all(conv.participants.map(async (p) => {
+                const profile = await db.musicianProfile.findUnique({
+                    where: { userId: p.userId },
+                    select: { userId: true, username: true, displayName: true, avatar: true },
+                });
+                return profile || { userId: p.userId, username: 'Unknown', displayName: null, avatar: null };
+            }));
+            let lastMessagePreview: string | null = null;
+            let lastMessageAt: string | null = null;
+            if (conv.messages.length > 0) {
+                const msg = conv.messages[0];
+                lastMessageAt = msg.createdAt.toISOString();
+                if (!msg.deleted) {
+                    try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
+                    if (lastMessagePreview && lastMessagePreview.length > 100) lastMessagePreview = lastMessagePreview.slice(0, 100) + '…';
+                } else {
+                    lastMessagePreview = '[deleted]';
+                }
+            }
+            return {
+                id: conv.id,
+                name: conv.name,
+                isGroup: conv.isGroup,
+                createdById: conv.createdById,
+                createdAt: conv.createdAt.toISOString(),
+                updatedAt: conv.updatedAt.toISOString(),
+                messageCount: conv._count.messages,
+                participantCount: conv.participants.length,
+                participants: participantProfiles,
+                lastMessagePreview,
+                lastMessageAt,
+            };
+        }));
+        res.json(result);
+    } catch (e) {
+        logger.error('Admin list conversations', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Admin: get messages for a conversation
+app.get('/api/admin/messages/conversations/:id/messages', requireAdmin, async (req: any, res) => {
+    try {
+        const convId = req.params.id;
+        const conv = await db.conversation.findUnique({ where: { id: convId } });
+        if (!conv) return res.status(404).json({ error: 'Not found' });
+        const messages = await db.privateMessage.findMany({
+            where: { conversationId: convId },
+            orderBy: { createdAt: 'asc' },
+            take: 200,
+        });
+        const decrypted = messages.map(m => ({
+            id: m.id,
+            senderId: m.senderId,
+            content: m.deleted ? null : (() => { try { return msgEnc.decrypt(m.encryptedContent, m.iv, conv.encryptedKey); } catch { return '[decryption error]'; } })(),
+            deleted: m.deleted,
+            createdAt: m.createdAt.toISOString(),
+        }));
+        const senderIds = [...new Set(messages.map(m => m.senderId))];
+        const senderProfiles = await db.musicianProfile.findMany({
+            where: { userId: { in: senderIds } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const senderMap: Record<string, any> = {};
+        senderProfiles.forEach(p => { senderMap[p.userId] = p; });
+        res.json({ messages: decrypted, senders: senderMap });
+    } catch (e) {
+        logger.error('Admin get messages', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Admin: delete a conversation entirely
+app.delete('/api/admin/messages/conversations/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const convId = req.params.id;
+        const conv = await db.conversation.findUnique({ where: { id: convId } });
+        if (!conv) return res.status(404).json({ error: 'Not found' });
+        await db.conversation.delete({ where: { id: convId } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Admin delete conversation', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Admin: delete a specific message
+app.delete('/api/admin/messages/conversations/:convId/messages/:msgId', requireAdmin, async (req: any, res) => {
+    try {
+        const { convId, msgId } = req.params;
+        const msg = await db.privateMessage.findUnique({ where: { id: msgId } });
+        if (!msg || msg.conversationId !== convId) return res.status(404).json({ error: 'Not found' });
+        await db.privateMessage.update({ where: { id: msgId }, data: { deleted: true } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Admin delete message', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Admin: messaging stats
+app.get('/api/admin/messages/stats', requireAdmin, async (_req: any, res) => {
+    try {
+        const [totalConversations, totalMessages, activeUsers, last24hMessages] = await Promise.all([
+            db.conversation.count(),
+            db.privateMessage.count(),
+            db.conversationParticipant.groupBy({ by: ['userId'], _count: true }).then(r => r.length),
+            db.privateMessage.count({ where: { createdAt: { gte: new Date(Date.now() - 86400000) } } }),
+        ]);
+        res.json({ totalConversations, totalMessages, activeUsers, last24hMessages });
+    } catch (e) {
+        logger.error('Admin messaging stats', e);
         res.status(500).json({ error: 'Failed' });
     }
 });

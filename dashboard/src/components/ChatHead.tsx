@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthProvider';
 import { useChat, Conversation, Message, UserResult } from './ChatProvider';
-import { Send, X, Minimize2, Maximize2, Trash2, Lock, Users, MoreVertical, BellOff, Bell, LogOut } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2, Trash2, Lock, Users, MoreVertical, BellOff, Bell, LogOut, Archive } from 'lucide-react';
 
 const C = {
     bg: '#161925', surface: '#1A1E2E', surfaceDark: 'rgba(22, 25, 37, 0.98)',
@@ -34,7 +34,7 @@ interface ChatHeadProps {
 
 export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) => {
     const { user } = useAuth();
-    const { conversations, closeChat, minimizeChat, restoreChat } = useChat();
+    const { conversations, closeChat, minimizeChat, restoreChat, archiveChat } = useChat();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(true);
@@ -222,6 +222,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                         {showMenu && (
                             <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 2, background: C.surface, border: `1px solid ${C.borderLight}`, borderRadius: 8, padding: 4, zIndex: 100, minWidth: 130, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                                 <button onClick={toggleMute} style={menuBtn}>{conv?.muted ? <><Bell size={11} /> Unmute</> : <><BellOff size={11} /> Mute</>}</button>
+                                <button onClick={() => { archiveChat(convId); setShowMenu(false); }} style={menuBtn}><Archive size={11} /> Archive</button>
                                 {conv?.isGroup && <button onClick={leaveGroup} style={{ ...menuBtn, color: C.error }}><LogOut size={11} /> Leave</button>}
                             </div>
                         )}

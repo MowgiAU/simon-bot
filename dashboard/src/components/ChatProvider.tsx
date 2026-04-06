@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import axios from 'axios';
 
 interface UserResult { userId: string; username: string; displayName: string | null; avatar: string | null; }
-interface Conversation { id: string; name: string | null; isGroup: boolean; participants: UserResult[]; lastMessagePreview: string | null; lastMessageAt: string | null; lastMessageSenderId: string | null; unread: number; muted: boolean; createdAt: string; }
+interface Conversation { id: string; name: string | null; isGroup: boolean; participants: UserResult[]; lastMessagePreview: string | null; lastMessageAt: string | null; lastMessageSenderId: string | null; unread: number; muted: boolean; archived: boolean; createdAt: string; }
 interface Message { id: string; senderId: string; content: string | null; deleted: boolean; createdAt: string; editedAt: string | null; }
 
 interface OpenChat {
@@ -19,6 +19,7 @@ interface ChatContextType {
     minimizeChat: (convId: string) => void;
     restoreChat: (convId: string) => void;
     startConversation: (participantIds: string[], isGroup?: boolean, name?: string) => Promise<string | null>;
+    archiveChat: (convId: string) => Promise<void>;
     fetchConversations: () => Promise<void>;
     dropdownOpen: boolean;
     setDropdownOpen: (open: boolean) => void;
@@ -77,6 +78,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode; userId?: string
         setOpenChats(prev => prev.map(c => c.convId === convId ? { ...c, minimized: false } : c));
     }, []);
 
+    const archiveChat = useCallback(async (convId: string) => {
+        try {
+            await axios.patch(`/api/messages/conversations/${convId}`, { archived: true }, { withCredentials: true });
+            setOpenChats(prev => prev.filter(c => c.convId !== convId));
+            await fetchConversations();
+        } catch { /* silent */ }
+    }, [fetchConversations]);
+
     const startConversation = useCallback(async (participantIds: string[], isGroup = false, name?: string): Promise<string | null> => {
         try {
             const { data } = await axios.post('/api/messages/conversations', {
@@ -96,7 +105,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode; userId?: string
         <ChatContext.Provider value={{
             conversations, unreadTotal, openChats,
             openChat, closeChat, minimizeChat, restoreChat,
-            startConversation, fetchConversations,
+            startConversation, archiveChat, fetchConversations,
             dropdownOpen, setDropdownOpen,
         }}>
             {children}

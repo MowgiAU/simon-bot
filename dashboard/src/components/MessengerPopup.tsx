@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthProvider';
 import { useChat, Conversation, UserResult } from './ChatProvider';
-import { MessageCircle, Search, Plus, Users, Lock, ArrowLeft, X, BellOff, UserPlus } from 'lucide-react';
+import { MessageCircle, Search, Plus, Users, Lock, ArrowLeft, X, BellOff, UserPlus, Archive, ArchiveRestore } from 'lucide-react';
 
 const C = {
     bg: '#161925', surface: 'rgba(36, 44, 61, 0.97)', surfaceSolid: '#1A1E2E',
@@ -28,14 +28,24 @@ const formatTime = (iso: string) => {
 /** Dropdown conversation list — clicking a conversation opens a ChatHead */
 export const MessengerPopup: React.FC = () => {
     const { user } = useAuth();
-    const { conversations, dropdownOpen, setDropdownOpen, openChat, startConversation } = useChat();
+    const { conversations, dropdownOpen, setDropdownOpen, openChat, startConversation, archiveChat } = useChat();
     const [showNewChat, setShowNewChat] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<UserResult[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserResult[]>([]);
     const [isGroup, setIsGroup] = useState(false);
     const [groupName, setGroupName] = useState('');
     const [convFilter, setConvFilter] = useState('');
+    const [archivedConvos, setArchivedConvos] = useState<Conversation[]>([]);
+
+    // Fetch archived conversations when archive tab is shown
+    useEffect(() => {
+        if (!showArchived || !dropdownOpen) return;
+        axios.get('/api/messages/conversations?archived=true', { withCredentials: true })
+            .then(({ data }) => setArchivedConvos(data))
+            .catch(() => setArchivedConvos([]));
+    }, [showArchived, dropdownOpen]);
 
     // User search
     useEffect(() => {
@@ -63,15 +73,23 @@ export const MessengerPopup: React.FC = () => {
         setIsGroup(false);
     };
 
+    const unarchiveChat = async (convId: string) => {
+        try {
+            await axios.patch(`/api/messages/conversations/${convId}`, { archived: false }, { withCredentials: true });
+            setArchivedConvos(prev => prev.filter(c => c.id !== convId));
+        } catch { /* silent */ }
+    };
+
     const convDisplayName = (conv: Conversation) => {
         if (conv.isGroup && conv.name) return conv.name;
         if (conv.participants.length > 0) return conv.participants.map(p => p.displayName || p.username).join(', ');
         return 'Conversation';
     };
 
+    const activeConvos = showArchived ? archivedConvos : conversations;
     const filteredConvos = convFilter
-        ? conversations.filter(c => convDisplayName(c).toLowerCase().includes(convFilter.toLowerCase()))
-        : conversations;
+        ? activeConvos.filter(c => convDisplayName(c).toLowerCase().includes(convFilter.toLowerCase()))
+        : activeConvos;
 
     if (!dropdownOpen || !user) return null;
 
@@ -103,9 +121,12 @@ export const MessengerPopup: React.FC = () => {
                     <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <Lock size={12} color={C.primary} />
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>Messages</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: C.text }}>{showArchived ? 'Archived' : 'Messages'}</span>
                         </div>
                         <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={() => setShowArchived(!showArchived)} style={{ background: showArchived ? C.primaryGlow : 'rgba(255,255,255,0.06)', border: showArchived ? `1px solid ${C.primary}44` : `1px solid ${C.border}`, borderRadius: '6px', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={showArchived ? 'Show active' : 'Show archived'}>
+                                <Archive size={13} color={showArchived ? C.primary : C.textSec} />
+                            </button>
                             <button onClick={() => setShowNewChat(true)} style={{ background: C.primary, border: 'none', borderRadius: '6px', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="New message">
                                 <Plus size={13} color="white" />
                             </button>
@@ -129,15 +150,16 @@ export const MessengerPopup: React.FC = () => {
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                         {filteredConvos.length === 0 && (
                             <div style={{ padding: '28px 16px', textAlign: 'center', color: C.textTer, fontSize: '12px' }}>
-                                <MessageCircle size={22} style={{ opacity: 0.3, marginBottom: 6 }} /><br />
-                                No conversations yet
+                                {showArchived ? <Archive size={22} style={{ opacity: 0.3, marginBottom: 6 }} /> : <MessageCircle size={22} style={{ opacity: 0.3, marginBottom: 6 }} />}<br />
+                                {showArchived ? 'No archived conversations' : 'No conversations yet'}
                             </div>
                         )}
                         {filteredConvos.map(conv => (
-                            <div key={conv.id} onClick={() => { openChat(conv.id); setDropdownOpen(false); }}
-                                style={{ padding: '9px 12px', cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'center', transition: 'background 0.1s' }}
+                            <div key={conv.id} style={{ display: 'flex', alignItems: 'center', transition: 'background 0.1s' }}
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                            <div onClick={() => { if (showArchived) { unarchiveChat(conv.id); } openChat(conv.id); setDropdownOpen(false); }}
+                                style={{ padding: '9px 12px', cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'center', flex: 1, minWidth: 0 }}>
                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                     {conv.isGroup ? (
                                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -165,6 +187,25 @@ export const MessengerPopup: React.FC = () => {
                                         {conv.lastMessagePreview || 'No messages yet'}
                                     </div>
                                 </div>
+                            </div>
+                            {!showArchived && (
+                                <button onClick={(e) => { e.stopPropagation(); archiveChat(conv.id); }}
+                                    style={{ background: 'none', border: 'none', color: C.textTer, cursor: 'pointer', padding: '4px 8px', display: 'flex', flexShrink: 0, opacity: 0.5, transition: 'opacity 0.15s' }}
+                                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+                                    title="Archive">
+                                    <Archive size={13} />
+                                </button>
+                            )}
+                            {showArchived && (
+                                <button onClick={(e) => { e.stopPropagation(); unarchiveChat(conv.id); }}
+                                    style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: '4px 8px', display: 'flex', flexShrink: 0, opacity: 0.6, transition: 'opacity 0.15s' }}
+                                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                    onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+                                    title="Unarchive">
+                                    <ArchiveRestore size={13} />
+                                </button>
+                            )}
                             </div>
                         ))}
                     </div>
