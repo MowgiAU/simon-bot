@@ -702,12 +702,14 @@ export const TrackPage: React.FC = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Zap size={15} color={colors.primary} />
                                         <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                            {pluginsSamplesOpen ? 'Plugins & Samples' : <>
                                             Plugins & Samples
                                             {track.arrangement.projectInfo.plugins.length > 0 && ` (${track.arrangement.projectInfo.plugins.length} plugins`}
                                             {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 && ', '}
                                             {track.arrangement.projectInfo.plugins.length === 0 && track.arrangement.projectInfo.samples.length > 0 && ' ('}
                                             {track.arrangement.projectInfo.samples.length > 0 && `${track.arrangement.projectInfo.samples.length} samples)`}
                                             {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length === 0 && ')'}
+                                            </>}
                                         </span>
                                     </div>
                                     {pluginsSamplesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
