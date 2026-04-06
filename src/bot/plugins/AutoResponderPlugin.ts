@@ -28,7 +28,7 @@ export class AutoResponderPlugin implements IPlugin {
     version = '1.0.0';
     author = 'Fuji Studio Team';
 
-    requiredPermissions: PermissionResolvable[] = ['SendMessages', 'ViewChannel'];
+    requiredPermissions: PermissionResolvable[] = ['SendMessages', 'ViewChannel', 'AddReactions'];
     commands: string[] = [];
     events: string[] = ['messageCreate'];
     dashboardSections = ['auto-responder'];
@@ -180,9 +180,23 @@ export class AutoResponderPlugin implements IPlugin {
                 const sendPayload: any = {};
                 if (content) sendPayload.content = content;
                 if (embed) sendPayload.embeds = [embed];
-                if (!sendPayload.content && !sendPayload.embeds) continue;
 
-                await (msg.channel as TextChannel).send(sendPayload);
+                // React to the message if reactionEmoji is set
+                if (rule.reactionEmoji) {
+                    try {
+                        await msg.react(rule.reactionEmoji);
+                    } catch (reactErr: any) {
+                        this.logger.warn(`AutoResponder: failed to react with "${rule.reactionEmoji}": ${reactErr?.message}`);
+                    }
+                }
+
+                // Send text/embed response if present
+                if (sendPayload.content || sendPayload.embeds) {
+                    await (msg.channel as TextChannel).send(sendPayload);
+                } else if (!rule.reactionEmoji) {
+                    // No reaction and no response — skip this rule entirely
+                    continue;
+                }
 
                 // Update cooldown
                 this.cooldowns.set(rule.id, Date.now());

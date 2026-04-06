@@ -1939,6 +1939,7 @@ model AutoResponderRule {
   triggerType     String   @default("regex")  // 'regex' | 'exact' | 'startsWith' | 'contains'
   response        String   @db.Text    // response text (supports placeholders)
   embedJson       String?  @db.Text    // JSON-serialized embed (optional)
+  reactionEmoji   String?              // emoji to react with (unicode or custom <:name:id>)
   mentionUser     Boolean  @default(false)  // prepend @mention before response
   enabled         Boolean  @default(true)
   allowedChannels String?  @db.Text    // JSON array of channel IDs (null = all channels)

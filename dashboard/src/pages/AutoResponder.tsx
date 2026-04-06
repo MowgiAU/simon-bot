@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import {
     Zap, Plus, Trash2, ToggleLeft, ToggleRight, Save, AlertCircle,
     ChevronDown, ChevronUp, Pencil, Check, X, Code, AtSign,
-    Code2, Palette, Eye,
+    Code2, Palette, Eye, Smile,
 } from 'lucide-react';
 
 // â”€â”€â”€ Embed types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -34,6 +34,7 @@ interface AutoResponderRule {
     triggerType: 'regex' | 'exact' | 'startsWith' | 'contains';
     response: string;
     embedJson: string | null;
+    reactionEmoji: string | null;
     mentionUser: boolean;
     enabled: boolean;
     allowedChannels: string | null;
@@ -332,8 +333,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                     trigger: draft.trigger,
                     triggerType: draft.triggerType,
                     response: draft.response,
-                    embedJson: hasEmbed ? embedDraft : null,
-                    mentionUser: draft.mentionUser,
+                    embedJson: hasEmbed ? embedDraft : null,                    reactionEmoji: draft.reactionEmoji || null,                    mentionUser: draft.mentionUser,
                     enabled: draft.enabled,
                     allowedChannels: parseChannels(draft.allowedChannels),
                     ignoredChannels: parseChannels(draft.ignoredChannels),
@@ -420,6 +420,11 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                             embed
                         </span>
                     )}
+                    {draft.reactionEmoji && (
+                        <span style={{ fontSize: '12px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '2px 8px' }} title="Reaction emoji">
+                            {draft.reactionEmoji}
+                        </span>
+                    )}
                     <span style={{ fontSize: '10px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '2px 8px' }}>
                         {draft.matchCount} hit{draft.matchCount !== 1 ? 's' : ''}
                     </span>
@@ -470,6 +475,20 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
                             {draft.mentionUser ? <ToggleRight size={26} color={colors.primary} /> : <ToggleLeft size={26} color={colors.textTertiary} />}
                         </button>
+                    </div>
+
+                    {/* Reaction emoji */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>
+                        <Smile size={16} color={draft.reactionEmoji ? colors.primary : colors.textTertiary} />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>React to Message</div>
+                            <div style={{ fontSize: '11px', color: colors.textTertiary }}>Add an emoji reaction to the triggering message</div>
+                        </div>
+                        <input value={draft.reactionEmoji || ''}
+                            onChange={e => update({ reactionEmoji: e.target.value || null } as any)}
+                            placeholder="e.g. \u{1F525} or emoji name"
+                            maxLength={100}
+                            style={{ ...inputBase, width: '140px', textAlign: 'center', fontSize: '16px', padding: '6px 10px' }} />
                     </div>
 
                     {/* Response: Text / Embed tabs */}
