@@ -65,7 +65,7 @@ export const MusicianProfilePage: React.FC = () => {
             }
         };
         fetchData();
-    }, [user?.id]);
+    }, [user?.id, urlIdentifier]);
 
     if (loading || authLoading) return (
         <DiscoveryLayout activeTab="profile">

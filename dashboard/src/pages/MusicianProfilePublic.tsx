@@ -190,7 +190,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         const fetchProfile = async () => {
             let data: any;
 
-            if (initialProfile) {
+            if (initialProfile && (initialProfile.username === identifier || initialProfile.id === identifier)) {
                 // Use pre-fetched profile from parent — no duplicate API call
                 data = initialProfile;
                 // Map socials if needed
