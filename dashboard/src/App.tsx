@@ -71,7 +71,6 @@ const MessagesPage           = lazy(() => import("./pages/Messages").then(m => (
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
-const InternalChat           = lazy(() => import("./components/InternalChat").then(m => ({ default: m.InternalChat })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -542,9 +541,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </main>
-      <Suspense fallback={null}>
-        <InternalChat guildId={selectedGuild.id} />
-      </Suspense>
     </div>
   );
 };

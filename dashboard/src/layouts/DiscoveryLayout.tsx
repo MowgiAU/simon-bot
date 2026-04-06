@@ -1,4 +1,5 @@
-import React, { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
+import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle } from 'lucide-react';
@@ -6,6 +7,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
 import { MusicNotificationMenu } from '../components/MusicNotificationMenu';
+import { MessengerPopup } from '../components/MessengerPopup';
 
 interface DiscoveryLayoutProps {
     children: ReactNode;
@@ -33,6 +35,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const [isPieMenuOpen, setIsPieMenuOpen] = useState(false);
+    const [messengerOpen, setMessengerOpen] = useState(false);
+    const [unreadMsgCount, setUnreadMsgCount] = useState(0);
     const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const openAccountMenu = () => {
@@ -49,6 +53,20 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
 
     // Check if user has access to ANY guild's dashboard
     const hasDashboardAccess = permissions.canManagePlugins || dashboardGuilds.length > 0;
+
+    // Poll unread message count
+    const fetchUnread = useCallback(async () => {
+        if (!user) return;
+        try {
+            const { data } = await axios.get('/api/messages/unread', { withCredentials: true });
+            setUnreadMsgCount(data.count || 0);
+        } catch { /* silent */ }
+    }, [user]);
+    useEffect(() => {
+        fetchUnread();
+        const iv = setInterval(fetchUnread, 10000);
+        return () => clearInterval(iv);
+    }, [fetchUnread]);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -159,9 +177,14 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                     {isMobile && user && (
                         <>
-                        <Link to="/messages" title="Messages" style={{ backgroundColor: pathname === '/messages' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px', borderRadius: '7px', display: 'flex', textDecoration: 'none' }}>
+                        <button onClick={() => setMessengerOpen(o => !o)} title="Messages" style={{ position: 'relative', backgroundColor: messengerOpen ? 'rgba(59,168,134,0.2)' : 'rgba(255,255,255,0.07)', color: messengerOpen ? colors.primary : 'white', border: `1px solid ${messengerOpen ? colors.primary + '55' : 'rgba(255,255,255,0.1)'}`, padding: '7px', borderRadius: '7px', cursor: 'pointer', display: 'flex' }}>
                             <MessageCircle size={15} />
-                        </Link>
+                            {unreadMsgCount > 0 && (
+                                <div style={{ position: 'absolute', top: -3, right: -3, background: colors.primary, color: 'white', borderRadius: '50%', width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, border: '2px solid #1A1E2E' }}>
+                                    {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                                </div>
+                            )}
+                        </button>
                         <Link to="/account" title="Account Settings" style={{ backgroundColor: pathname === '/account' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px', borderRadius: '7px', display: 'flex', textDecoration: 'none' }}>
                             <Settings size={15} />
                         </Link>
@@ -185,6 +208,14 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {!isMobile && user && (
                         <>
                         <MusicNotificationMenu />
+                        <button onClick={() => setMessengerOpen(o => !o)} title="Messages" style={{ position: 'relative', backgroundColor: messengerOpen ? 'rgba(59,168,134,0.2)' : 'rgba(255,255,255,0.05)', color: messengerOpen ? colors.primary : 'white', border: `1px solid ${messengerOpen ? colors.primary + '55' : 'rgba(255,255,255,0.1)'}`, padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <MessageCircle size={16} />
+                            {unreadMsgCount > 0 && (
+                                <div style={{ position: 'absolute', top: -4, right: -4, background: colors.primary, color: 'white', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 700, border: '2px solid #1A1E2E' }}>
+                                    {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                                </div>
+                            )}
+                        </button>
                         <div style={{ position: 'relative' }} onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
                             <Link to="/profile/edit" style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
                                 <User size={14} /> ACCOUNT <ChevronDown size={12} />
@@ -200,8 +231,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                             <Link to="/feed" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Rss size={13} /> Feed</Link>
                                             <Link to="/my-favourites" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Heart size={13} /> Favourites</Link>
                                             <Link to="/my-playlists" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ListMusic size={13} /> Playlists</Link>
-                                            <Link to="/messages" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><MessageCircle size={13} /> Messages</Link>
-                                            <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+                                                            <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
                                             <Link to="/account" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Settings size={13} /> Account Settings</Link>
                                             <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
                                             <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#F87171', fontSize: '11px', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(248,113,113,0.1)'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}><LogOut size={13} /> Log Out</button>
@@ -404,6 +434,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     </div>
                 </div>
             )}
+            {user && <MessengerPopup isOpen={messengerOpen} onClose={() => setMessengerOpen(false)} />}
         </div>
     );
 };
