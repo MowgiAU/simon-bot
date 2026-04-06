@@ -304,7 +304,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, guildId, onUpdate
                                 guildId={guildId}
                                 value={draft.channelId || ''}
                                 onChange={v => { const ch = typeof v === 'string' ? v : v[0]; update({ channelId: ch || null }); }}
-                                placeholder="Select channelâ€¦"
+                                placeholder="Select channel..."
                             />
                         </div>
 
@@ -319,14 +319,14 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, guildId, onUpdate
                                     </button>
                                 ))}
                             </div>
-                            <input type="number" min={1} max={10080} value={customInterval} placeholder="Custom (mins)â€¦"
+                            <input type="number" min={1} max={10080} value={customInterval} placeholder="Custom (mins)..."
                                 onChange={e => { setCustomInterval(e.target.value); const v = parseInt(e.target.value); if (!isNaN(v) && v >= 1) update({ intervalMinutes: v }); }}
                                 style={{ ...inputBase, fontSize: '13px' }} />
                         </div>
                     </div>
 
                     {/* Messages list */}
-                    <span style={labelStyle}>Messages ({draft.messages.length}/50) â€” cycle in order, drag to reorder</span>
+                    <span style={labelStyle}>Messages ({draft.messages.length}/50) - cycle in order, drag to reorder</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
                         {draft.messages.length === 0 && (
                             <div style={{ textAlign: 'center', padding: '24px', color: colors.textTertiary, fontSize: '12px', border: `1px dashed ${colors.glassBorder}`, borderRadius: borderRadius.md }}>
@@ -364,7 +364,7 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, guildId, onUpdate
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '20px' }}>
                             <textarea value={newContent} onChange={e => setNewContent(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addMessage(); }}
-                                placeholder="New messageâ€¦ (Ctrl+Enter to add)" rows={2} maxLength={2000}
+                                placeholder="New message... (Ctrl+Enter to add)" rows={2} maxLength={2000}
                                 style={{ ...inputBase, flex: 1, resize: 'vertical', minHeight: '60px', fontFamily: 'inherit', fontSize: '13px' }} />
                             <button onClick={addMessage} disabled={!newContent.trim()}
                                 style={{ padding: '8px 14px', borderRadius: borderRadius.sm, backgroundColor: newContent.trim() ? colors.primary : 'rgba(255,255,255,0.05)', color: newContent.trim() ? '#fff' : colors.textTertiary, border: 'none', cursor: newContent.trim() ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
@@ -377,13 +377,13 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({ schedule, guildId, onUpdate
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                         <button onClick={handleDelete} disabled={deleting}
                             style={{ padding: '8px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', opacity: deleting ? 0.6 : 1 }}>
-                            <Trash2 size={14} /> {deleting ? 'Deletingâ€¦' : 'Delete'}
+                            <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete'}
                         </button>
 
                         {isDirty && (
                             <button onClick={handleSave} disabled={saving}
                                 style={{ padding: '9px 22px', borderRadius: borderRadius.sm, backgroundColor: colors.primary, color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', opacity: saving ? 0.7 : 1 }}>
-                                <Save size={14} /> {saving ? 'Savingâ€¦' : 'Save Changes'}
+                                <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
                             </button>
                         )}
                     </div>
@@ -472,7 +472,7 @@ export const AutoMessagesPage: React.FC = () => {
                 <div>
                     <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Auto Messages</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>
-                        Create multiple schedules â€” each with its own channel, interval, and rotating message list
+                        Create multiple schedules - each with its own channel, interval, and rotating message list
                     </p>
                 </div>
             </div>
@@ -481,7 +481,7 @@ export const AutoMessagesPage: React.FC = () => {
             <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
                     Each schedule sends its messages in order to its chosen channel, then loops back to the start.
-                    Create as many schedules as you need â€” for example, tips every hour in #general and announcements every 6 hours in #announcements.
+                    Create as many schedules as you need - for example, tips every hour in #general and announcements every 6 hours in #announcements.
                 </p>
             </div>
 
@@ -493,7 +493,7 @@ export const AutoMessagesPage: React.FC = () => {
             )}
 
             {loading ? (
-                <div style={{ padding: '48px', textAlign: 'center', color: colors.textTertiary, fontSize: '13px' }}>Loading schedulesâ€¦</div>
+                <div style={{ padding: '48px', textAlign: 'center', color: colors.textTertiary, fontSize: '13px' }}>Loading schedules...</div>
             ) : (
                 <>
                     {schedules.length === 0 && !error && (
@@ -518,7 +518,7 @@ export const AutoMessagesPage: React.FC = () => {
             {/* Add schedule button */}
             <button onClick={handleCreate} disabled={creating || loading}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: borderRadius.md, backgroundColor: colors.primary, color: '#fff', border: 'none', cursor: creating || loading ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '14px', opacity: creating ? 0.7 : 1 }}>
-                <Plus size={16} /> {creating ? 'Creatingâ€¦' : 'Add Schedule'}
+                <Plus size={16} /> {creating ? 'Creating...' : 'Add Schedule'}
             </button>
         </div>
     );
