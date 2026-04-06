@@ -578,7 +578,7 @@ export const TrackPage: React.FC = () => {
                                         </button>
                                     )}
                                     {user && !isOwner && (
-                                        <ReportButton targetType="track" targetId={track.id} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 600, fontSize: '13px' }} />
+                                        <ReportButton targetType="track" targetId={track.id} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '13px' }} />
                                     )}
                                     {canEdit && (
                                         <button onClick={openEditMode}

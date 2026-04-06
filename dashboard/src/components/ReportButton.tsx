@@ -65,21 +65,23 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                     position: 'fixed', inset: 0, zIndex: 10000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    padding: '16px',
                 }} onClick={() => setOpen(false)}>
                     <div
                         onClick={e => e.stopPropagation()}
                         style={{
                             backgroundColor: colors.surface, borderRadius: borderRadius.lg,
                             border: `1px solid ${colors.glassBorder}`,
-                            padding: '24px', width: '420px', maxWidth: '90vw',
+                            padding: '20px', width: '380px', maxWidth: '90vw',
+                            maxHeight: '85vh', overflowY: 'auto',
                             boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
                         }}
                     >
                         {/* Header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <AlertTriangle size={20} color="#ef4444" />
-                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: colors.textPrimary }}>
+                                <AlertTriangle size={18} color="#ef4444" />
+                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>
                                     Report {targetType}
                                 </h3>
                             </div>
@@ -89,15 +91,15 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                         </div>
 
                         {/* Reason select */}
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Reason
                             </label>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 {REASONS.map(r => (
                                     <label key={r.value} style={{
-                                        display: 'flex', alignItems: 'center', gap: '10px',
-                                        padding: '8px 12px', borderRadius: borderRadius.sm,
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                        padding: '6px 10px', borderRadius: borderRadius.sm,
                                         backgroundColor: reason === r.value ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.03)',
                                         border: `1px solid ${reason === r.value ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.06)'}`,
                                         cursor: 'pointer', fontSize: '13px', color: colors.textPrimary,
@@ -113,8 +115,8 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                         </div>
 
                         {/* Details */}
-                        <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <div style={{ marginBottom: '12px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Additional details <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span>
                             </label>
                             <textarea
@@ -126,8 +128,8 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                                     backgroundColor: 'rgba(255,255,255,0.04)',
                                     border: '1px solid rgba(255,255,255,0.08)',
                                     borderRadius: borderRadius.sm,
-                                    padding: '10px 12px', color: colors.textPrimary,
-                                    fontSize: '13px', minHeight: '80px', resize: 'vertical', outline: 'none',
+                                    padding: '8px 10px', color: colors.textPrimary,
+                                    fontSize: '13px', minHeight: '60px', resize: 'vertical', outline: 'none',
                                 }}
                             />
                         </div>
@@ -135,7 +137,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                         {/* Result message */}
                         {result && (
                             <div style={{
-                                padding: '10px 12px', borderRadius: borderRadius.sm, marginBottom: '12px',
+                                padding: '8px 10px', borderRadius: borderRadius.sm, marginBottom: '10px',
                                 fontSize: '13px', fontWeight: 600,
                                 backgroundColor: result.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                                 color: result.type === 'success' ? '#10b981' : '#ef4444',
@@ -145,22 +147,35 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                             </div>
                         )}
 
-                        {/* Submit */}
-                        <button
-                            onClick={handleSubmit}
-                            disabled={!reason || submitting || result?.type === 'success'}
-                            style={{
-                                width: '100%', padding: '10px',
-                                backgroundColor: '#ef4444', color: 'white', border: 'none',
-                                borderRadius: borderRadius.md, cursor: (!reason || submitting) ? 'not-allowed' : 'pointer',
-                                fontWeight: 700, fontSize: '14px',
-                                opacity: (!reason || submitting || result?.type === 'success') ? 0.5 : 1,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            }}
-                        >
-                            <Send size={14} />
-                            {submitting ? 'Submitting...' : 'Submit Report'}
-                        </button>
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={() => setOpen(false)}
+                                style={{
+                                    flex: 1, padding: '9px',
+                                    backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: `1px solid rgba(255,255,255,0.1)`,
+                                    borderRadius: borderRadius.md, cursor: 'pointer',
+                                    fontWeight: 600, fontSize: '13px',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!reason || submitting || result?.type === 'success'}
+                                style={{
+                                    flex: 1, padding: '9px',
+                                    backgroundColor: '#ef4444', color: 'white', border: 'none',
+                                    borderRadius: borderRadius.md, cursor: (!reason || submitting) ? 'not-allowed' : 'pointer',
+                                    fontWeight: 700, fontSize: '13px',
+                                    opacity: (!reason || submitting || result?.type === 'success') ? 0.5 : 1,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                }}
+                            >
+                                <Send size={13} />
+                                {submitting ? 'Submitting...' : 'Submit Report'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

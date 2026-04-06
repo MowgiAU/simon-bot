@@ -389,7 +389,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
                                 </button>
                                 {!isOwnProfile && user && profile?.id && (
-                                    <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px' }} />
+                                    <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.06)', color: '#B9C3CE' }} />
                                 )}
                                 {/* Social Icons inline */}
                                 {socials.map(s => {
