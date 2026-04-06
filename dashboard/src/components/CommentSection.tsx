@@ -3,6 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
 import { showToast } from './Toast';
+import { ReportButton } from './ReportButton';
 import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
     Search, Loader2, ChevronDown, Reply, ThumbsUp, ThumbsDown
@@ -581,6 +582,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                 <Trash2 size={12} /> Delete
                                             </button>
+                                        )}
+                                        {user && comment.userId !== user.id && (
+                                            <ReportButton targetType="comment" targetId={comment.id} iconOnly style={{ padding: 0, fontSize: '12px' }} />
                                         )}
                                         <button onClick={() => { setReplyingTo(replyingTo === comment.id ? null : comment.id); setReplyContent(''); setShowReplyEmoji(false); }}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: replyingTo === comment.id ? colors.primary : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>

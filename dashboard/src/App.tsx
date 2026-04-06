@@ -75,6 +75,7 @@ const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m =
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
+const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -124,7 +125,8 @@ type Section =
   | "booster-color"
   | "boost"
   | "automation"
-  | "progression";
+  | "progression"
+  | "reports";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -321,6 +323,7 @@ const AdminDashboard: React.FC = () => {
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
     'account-management': 'account-management',
+    'reports': 'reports',
     // Grouped pages — no single plugin requirement (handled in sidebar visibility)
     'boost': '',
     'automation': '',
@@ -435,6 +438,8 @@ const AdminDashboard: React.FC = () => {
           return <ProgressionPage />;
         case "account-management":
           return <AccountManagementPage />;
+        case "reports":
+          return <ReportsPage />;
         case "genres-list":
           return <GenresPage />;
         default:

@@ -17,6 +17,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
+import { ReportButton } from '../components/ReportButton';
 import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint } from '../components/ArrangementViewer';
 
 interface TrackSample {
@@ -575,6 +576,9 @@ export const TrackPage: React.FC = () => {
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
                                             <ListPlus size={15} /> Playlist
                                         </button>
+                                    )}
+                                    {user && !isOwner && (
+                                        <ReportButton targetType="track" targetId={track.id} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 600, fontSize: '13px' }} />
                                     )}
                                     {canEdit && (
                                         <button onClick={openEditMode}

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from './AuthProvider';
 import { useChat, Conversation, Message, UserResult } from './ChatProvider';
 import { Send, X, Minimize2, Maximize2, Trash2, Lock, Users, MoreVertical, BellOff, Bell, LogOut, Archive } from 'lucide-react';
+import { ReportButton } from './ReportButton';
 
 const C = {
     bg: '#161925', surface: '#1A1E2E', surfaceDark: 'rgba(22, 25, 37, 0.98)',
@@ -277,6 +278,11 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                                             <button onClick={() => deleteMessage(msg.id)} style={{ background: 'none', border: 'none', padding: 1, cursor: 'pointer', color: C.textTer, display: 'flex' }} title="Delete">
                                                 <Trash2 size={10} />
                                             </button>
+                                        </div>
+                                    )}
+                                    {!isMine && !msg.deleted && (
+                                        <div className="del-btn" style={{ position: 'absolute', top: 2, right: -18, opacity: 0, transition: 'opacity 0.1s' }}>
+                                            <ReportButton targetType="message" targetId={msg.id} iconOnly style={{ padding: 1, fontSize: '10px' }} />
                                         </div>
                                     )}
                                 </div>

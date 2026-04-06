@@ -5,6 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { useChat } from '../components/ChatProvider';
 import axios from 'axios';
+import { ReportButton } from '../components/ReportButton';
 import { 
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
@@ -387,6 +388,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)', color: copied ? '#4caf50' : '#B9C3CE', transition: 'all 0.2s' }}>
                                     {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
                                 </button>
+                                {!isOwnProfile && user && profile?.id && (
+                                    <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px' }} />
+                                )}
                                 {/* Social Icons inline */}
                                 {socials.map(s => {
                                     const url = (profile as any)[s.key];

@@ -35,6 +35,7 @@ import {
   Clock,
   Zap,
   Gift,
+  Flag,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -316,6 +317,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
                 <span className="nav-label">Accounts</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('reports') && (
+            <button
+                className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
+                onClick={() => onNavigate('reports')}
+                title={collapsed ? "Reports" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Flag} size={20} /></span>
+                <span className="nav-label">Reports</span>
             </button>
           )}
 

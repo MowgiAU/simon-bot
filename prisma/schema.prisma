@@ -1959,3 +1959,43 @@ model AutoResponderRule {
   @@index([guildId])
   @@map("auto_responder_rules")
 }
+
+// ──────────────────────────────────────────────
+// Reports (user-submitted content reports)
+// ──────────────────────────────────────────────
+model Report {
+  id              String   @id @default(cuid())
+  reporterUserId  String   // Discord user ID of person filing report
+  reporterName    String   // Cached display name at time of report
+
+  // Target type: "track" | "profile" | "comment" | "message"
+  targetType      String
+  targetId        String   // ID of the reported item
+
+  // Reported user info (owner/author of the content)
+  reportedUserId  String   // Discord user ID of the content owner
+  reportedName    String   // Cached display name at time of report
+
+  // Report details
+  reason          String   // Category: "spam" | "harassment" | "copyright" | "nsfw" | "scam" | "other"
+  details         String?  @db.Text // Free-text description from reporter
+
+  // Snapshot of content at time of report (in case it gets deleted)
+  contentSnapshot String?  @db.Text // JSON blob: title, body, url, etc.
+
+  // Resolution
+  status          String   @default("open") // "open" | "reviewing" | "resolved" | "dismissed"
+  resolvedByUserId String? // Admin who resolved
+  resolvedByName  String?  // Admin display name
+  resolvedAt      DateTime?
+  resolutionNote  String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([reporterUserId])
+  @@index([reportedUserId])
+  @@index([targetType, targetId])
+  @@map("reports")
+}

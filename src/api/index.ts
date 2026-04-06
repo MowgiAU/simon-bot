@@ -3770,7 +3770,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports'] 
             });
         }
 
@@ -12654,6 +12654,161 @@ app.put('/api/server-boost/:guildId', async (req: any, res) => {
     } catch (e) {
         logger.error('PUT server-boost settings', e);
         res.status(500).json({ error: 'Failed to save settings' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  REPORTS (user-submitted content reports)
+// ═══════════════════════════════════════════════════════════════
+
+// Submit a report (any authenticated user)
+app.post('/api/reports', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { targetType, targetId, reason, details } = req.body;
+        if (!targetType || !targetId || !reason) {
+            return res.status(400).json({ error: 'targetType, targetId, and reason are required' });
+        }
+        const validTypes = ['track', 'profile', 'comment', 'message'];
+        const validReasons = ['spam', 'harassment', 'copyright', 'nsfw', 'scam', 'other'];
+        if (!validTypes.includes(targetType)) return res.status(400).json({ error: 'Invalid targetType' });
+        if (!validReasons.includes(reason)) return res.status(400).json({ error: 'Invalid reason' });
+
+        // Rate limit: max 10 open reports per user
+        const openCount = await db.report.count({ where: { reporterUserId: user.id, status: 'open' } });
+        if (openCount >= 10) return res.status(429).json({ error: 'Too many open reports. Please wait for existing reports to be reviewed.' });
+
+        // Prevent duplicate reports on the same target
+        const existing = await db.report.findFirst({
+            where: { reporterUserId: user.id, targetType, targetId, status: { in: ['open', 'reviewing'] } }
+        });
+        if (existing) return res.status(409).json({ error: 'You have already reported this content.' });
+
+        // Build content snapshot & find reported user
+        let reportedUserId = 'unknown';
+        let reportedName = 'Unknown User';
+        let contentSnapshot: any = {};
+
+        if (targetType === 'track') {
+            const track = await db.track.findUnique({
+                where: { id: targetId },
+                include: { profile: { select: { userId: true, username: true, displayName: true } } }
+            });
+            if (!track) return res.status(404).json({ error: 'Track not found' });
+            reportedUserId = track.profile.userId;
+            reportedName = track.profile.displayName || track.profile.username;
+            contentSnapshot = { title: track.title, artist: track.artist, description: track.description, url: track.url, coverUrl: track.coverUrl, slug: track.slug, profileUsername: track.profile.username };
+        } else if (targetType === 'profile') {
+            const profile = await db.musicianProfile.findUnique({ where: { id: targetId } });
+            if (!profile) return res.status(404).json({ error: 'Profile not found' });
+            reportedUserId = profile.userId;
+            reportedName = profile.displayName || profile.username;
+            contentSnapshot = { username: profile.username, displayName: profile.displayName, bio: profile.bio, avatar: profile.avatar };
+        } else if (targetType === 'comment') {
+            const comment = await db.comment.findUnique({ where: { id: targetId } });
+            if (!comment) return res.status(404).json({ error: 'Comment not found' });
+            reportedUserId = comment.userId;
+            reportedName = comment.username;
+            contentSnapshot = { content: comment.content, gifUrl: comment.gifUrl, trackId: comment.trackId, profileId: comment.profileId };
+        } else if (targetType === 'message') {
+            const message = await db.privateMessage.findUnique({ where: { id: targetId } });
+            if (!message) return res.status(404).json({ error: 'Message not found' });
+            reportedUserId = message.senderId;
+            // Try to get sender display name
+            const senderProfile = await db.musicianProfile.findUnique({ where: { userId: message.senderId } });
+            reportedName = senderProfile?.displayName || senderProfile?.username || message.senderId;
+            contentSnapshot = { encryptedContent: message.encryptedContent, iv: message.iv, conversationId: message.conversationId };
+        }
+
+        // Don't allow self-reports
+        if (reportedUserId === user.id) return res.status(400).json({ error: 'You cannot report your own content.' });
+
+        const report = await db.report.create({
+            data: {
+                reporterUserId: user.id,
+                reporterName: user.global_name || user.username || user.id,
+                targetType,
+                targetId,
+                reportedUserId,
+                reportedName,
+                reason,
+                details: details?.slice(0, 2000) || null,
+                contentSnapshot: JSON.stringify(contentSnapshot),
+            }
+        });
+
+        res.status(201).json({ id: report.id, message: 'Report submitted. Our team will review it shortly.' });
+    } catch (e: any) {
+        logger.error('POST /api/reports error', e);
+        res.status(500).json({ error: 'Failed to submit report' });
+    }
+});
+
+// Admin: List all reports (with filters)
+app.get('/api/admin/reports', requireAdmin, async (req: any, res) => {
+    try {
+        const { status, targetType, page = '1', limit = '50' } = req.query;
+        const where: any = {};
+        if (status) where.status = status;
+        if (targetType) where.targetType = targetType;
+
+        const take = Math.min(parseInt(limit) || 50, 100);
+        const skip = (Math.max(parseInt(page) || 1, 1) - 1) * take;
+
+        const [reports, total] = await Promise.all([
+            db.report.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+            db.report.count({ where }),
+        ]);
+
+        res.json({ reports, total, page: parseInt(page) || 1, pages: Math.ceil(total / take) });
+    } catch (e: any) {
+        logger.error('GET /api/admin/reports error', e);
+        res.status(500).json({ error: 'Failed to fetch reports' });
+    }
+});
+
+// Admin: Get single report details
+app.get('/api/admin/reports/:reportId', requireAdmin, async (req: any, res) => {
+    try {
+        const report = await db.report.findUnique({ where: { id: req.params.reportId } });
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+        res.json(report);
+    } catch (e: any) {
+        logger.error('GET /api/admin/reports/:id error', e);
+        res.status(500).json({ error: 'Failed to fetch report' });
+    }
+});
+
+// Admin: Update report status (resolve/dismiss)
+app.patch('/api/admin/reports/:reportId', requireAdmin, async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        const { status, resolutionNote } = req.body;
+        const validStatuses = ['open', 'reviewing', 'resolved', 'dismissed'];
+        if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+        const report = await db.report.findUnique({ where: { id: req.params.reportId } });
+        if (!report) return res.status(404).json({ error: 'Report not found' });
+
+        const updated = await db.report.update({
+            where: { id: req.params.reportId },
+            data: {
+                status,
+                resolutionNote: resolutionNote?.slice(0, 2000) || null,
+                ...(status === 'resolved' || status === 'dismissed' ? {
+                    resolvedByUserId: user.id,
+                    resolvedByName: user.global_name || user.username || user.id,
+                    resolvedAt: new Date(),
+                } : {}),
+            }
+        });
+
+        res.json(updated);
+    } catch (e: any) {
+        logger.error('PATCH /api/admin/reports/:id error', e);
+        res.status(500).json({ error: 'Failed to update report' });
     }
 });
 
