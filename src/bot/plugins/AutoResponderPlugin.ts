@@ -3,6 +3,7 @@ import {
     TextChannel,
     EmbedBuilder,
     PermissionResolvable,
+    Guild,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -40,6 +41,39 @@ export class AutoResponderPlugin implements IPlugin {
     private logger = new Logger('AutoResponderPlugin');
     // Per-rule cooldown tracker (ruleId -> last triggered timestamp)
     private cooldowns = new Map<string, number>();
+
+    /**
+     * Resolve an emoji string to something message.react() can use.
+     * Handles:  Unicode chars (pass-through), custom emoji <:name:id> (pass-through),
+     *           :flag_xx: → regional indicator unicode, :name: → guild custom emoji lookup.
+     */
+    private resolveEmoji(emojiStr: string, guild: Guild): string | null {
+        const trimmed = emojiStr.trim();
+
+        // Already a custom emoji format like <:name:123456> or <a:name:123456>
+        if (/^<a?:\w+:\d+>$/.test(trimmed)) return trimmed;
+
+        // Not wrapped in colons → assume unicode character, pass through
+        if (!trimmed.startsWith(':') || !trimmed.endsWith(':') || trimmed.length < 3) return trimmed;
+
+        const name = trimmed.slice(1, -1); // strip colons
+
+        // Discord flag shortcodes: :flag_xx: → regional indicator symbols
+        const flagMatch = name.match(/^flag_([a-z]{2})$/i);
+        if (flagMatch) {
+            const code = flagMatch[1].toUpperCase();
+            return String.fromCodePoint(
+                ...code.split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65),
+            );
+        }
+
+        // Look up guild custom emoji by name
+        const custom = guild.emojis.cache.find(e => e.name?.toLowerCase() === name.toLowerCase());
+        if (custom) return custom.id;
+
+        // Return as-is and let Discord API try
+        return trimmed;
+    }
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
@@ -184,7 +218,8 @@ export class AutoResponderPlugin implements IPlugin {
                 // React to the message if reactionEmoji is set
                 if (rule.reactionEmoji) {
                     try {
-                        await msg.react(rule.reactionEmoji);
+                        const resolved = this.resolveEmoji(rule.reactionEmoji, msg.guild!);
+                        if (resolved) await msg.react(resolved);
                     } catch (reactErr: any) {
                         this.logger.warn(`AutoResponder: failed to react with "${rule.reactionEmoji}": ${reactErr?.message}`);
                     }
