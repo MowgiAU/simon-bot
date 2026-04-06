@@ -1,6 +1,7 @@
 import {
     Message,
     TextChannel,
+    EmbedBuilder,
     PermissionResolvable,
 } from 'discord.js';
 import { z } from 'zod';
@@ -42,7 +43,6 @@ export class AutoResponderPlugin implements IPlugin {
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
-        context.client.on('messageCreate', (msg) => this.onMessage(msg));
         this.logger.info('Auto Responder Plugin initialized');
     }
 
@@ -50,7 +50,8 @@ export class AutoResponderPlugin implements IPlugin {
         this.cooldowns.clear();
     }
 
-    private async onMessage(msg: Message): Promise<void> {
+    // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage)
+    async onMessage(msg: Message): Promise<void> {
         // Ignore bots and DMs
         if (msg.author.bot || !msg.guild || !msg.content) return;
         if (!this.context) return;
@@ -127,24 +128,61 @@ export class AutoResponderPlugin implements IPlugin {
 
             if (!match) continue;
 
-            // Build response with placeholders
-            let response = rule.response;
-            response = response
-                .replace(/\{user\}/gi, `<@${msg.author.id}>`)
-                .replace(/\{username\}/gi, msg.author.username)
-                .replace(/\{displayname\}/gi, msg.member?.displayName || msg.author.username)
-                .replace(/\{channel\}/gi, `<#${msg.channel.id}>`)
-                .replace(/\{server\}/gi, msg.guild.name);
-
-            // Replace regex capture groups {match1}, {match2}, ...
-            if (match && match.length > 1) {
-                for (let i = 1; i < match.length && i <= 9; i++) {
-                    response = response.replace(new RegExp(`\\{match${i}\\}`, 'gi'), match[i] || '');
+            // Helper: resolve placeholders in any string
+            const resolvePlaceholders = (text: string): string => {
+                let out = text
+                    .replace(/\{user\}/gi, `<@${msg.author.id}>`)
+                    .replace(/\{mention\}/gi, `<@${msg.author.id}>`)
+                    .replace(/\{username\}/gi, msg.author.username)
+                    .replace(/\{displayname\}/gi, msg.member?.displayName || msg.author.username)
+                    .replace(/\{channel\}/gi, `<#${msg.channel.id}>`)
+                    .replace(/\{server\}/gi, msg.guild!.name);
+                if (match && match.length > 1) {
+                    for (let i = 1; i < match.length && i <= 9; i++) {
+                        out = out.replace(new RegExp(`\\{match${i}\\}`, 'gi'), match[i] || '');
+                    }
                 }
+                return out;
+            };
+
+            // Build the message payload
+            const mentionPrefix = rule.mentionUser ? `<@${msg.author.id}> ` : '';
+            const responseText = rule.response ? resolvePlaceholders(rule.response) : '';
+            const content = mentionPrefix + responseText || undefined;
+
+            // Build embed if present
+            let embed: EmbedBuilder | undefined;
+            if (rule.embedJson) {
+                try {
+                    const raw = typeof rule.embedJson === 'string' ? JSON.parse(rule.embedJson) : rule.embedJson;
+                    const e = new EmbedBuilder();
+                    if (raw.title) e.setTitle(resolvePlaceholders(raw.title));
+                    if (raw.description) e.setDescription(resolvePlaceholders(raw.description));
+                    if (raw.url) e.setURL(raw.url);
+                    if (raw.color) e.setColor(parseInt(String(raw.color).replace('#', ''), 16) as any);
+                    if (raw.authorName) e.setAuthor({ name: resolvePlaceholders(raw.authorName), iconURL: raw.authorIconUrl || undefined, url: raw.authorUrl || undefined });
+                    if (raw.footerText) e.setFooter({ text: resolvePlaceholders(raw.footerText), iconURL: raw.footerIconUrl || undefined });
+                    if (raw.thumbnailUrl) e.setThumbnail(raw.thumbnailUrl);
+                    if (raw.imageUrl) e.setImage(raw.imageUrl);
+                    if (raw.timestamp) e.setTimestamp();
+                    if (Array.isArray(raw.fields)) {
+                        e.addFields(raw.fields.filter((f: any) => f.name || f.value).map((f: any) => ({
+                            name: resolvePlaceholders(f.name || '\u200b'),
+                            value: resolvePlaceholders(f.value || '\u200b'),
+                            inline: !!f.inline,
+                        })));
+                    }
+                    embed = e;
+                } catch { /* skip malformed embed */ }
             }
 
             try {
-                await (msg.channel as TextChannel).send(response);
+                const sendPayload: any = {};
+                if (content) sendPayload.content = content;
+                if (embed) sendPayload.embeds = [embed];
+                if (!sendPayload.content && !sendPayload.embeds) continue;
+
+                await (msg.channel as TextChannel).send(sendPayload);
 
                 // Update cooldown
                 this.cooldowns.set(rule.id, Date.now());

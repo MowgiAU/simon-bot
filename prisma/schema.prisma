@@ -1901,6 +1901,8 @@ model AutoResponderRule {
   trigger         String              // regex pattern or exact-match string
   triggerType     String   @default("regex")  // 'regex' | 'exact' | 'startsWith' | 'contains'
   response        String   @db.Text    // response text (supports placeholders)
+  embedJson       String?  @db.Text    // JSON-serialized embed (optional)
+  mentionUser     Boolean  @default(false)  // prepend @mention before response
   enabled         Boolean  @default(true)
   allowedChannels String?  @db.Text    // JSON array of channel IDs (null = all channels)
   ignoredChannels String?  @db.Text    // JSON array of ignored channel IDs

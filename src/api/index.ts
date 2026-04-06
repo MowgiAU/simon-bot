@@ -5099,7 +5099,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
 
-        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds } = req.body;
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, embedJson, mentionUser } = req.body;
 
         // Validate trigger type
         const validTypes = ['regex', 'exact', 'startsWith', 'contains'];
@@ -5122,6 +5122,8 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
                 allowedChannels: allowedChannels !== undefined ? (allowedChannels ? JSON.stringify(allowedChannels) : null) : undefined,
                 ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
                 cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
+                embedJson: embedJson !== undefined ? (embedJson ? JSON.stringify(embedJson) : null) : undefined,
+                mentionUser: mentionUser !== undefined ? !!mentionUser : undefined,
             },
         });
         res.json(updated);
