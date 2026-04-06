@@ -538,17 +538,14 @@ export class TicketPlugin implements IPlugin {
 
         const level = interaction.options.getString('level', true);
         
-        // Map level to emoji
-        const EMOJI_LOW  = String.fromCodePoint(0x1F7E2); // 🟢
-        const EMOJI_MED  = String.fromCodePoint(0x1F7E1); // 🟡
-        const EMOJI_HIGH = String.fromCodePoint(0x1F534); // 🔴
+        // Use literal emoji (fromCodePoint/escape sequences get corrupted in channel names)
         const emojis: Record<string, string> = {
-            'low': EMOJI_LOW,
-            'medium': EMOJI_MED,
-            'high': EMOJI_HIGH
+            'low': '🟢',
+            'medium': '🟡',
+            'high': '🔴'
         };
 
-        const emoji = emojis[level] || EMOJI_LOW;
+        const emoji = emojis[level] || emojis['low'];
 
         // Update DB
         await this.db.ticket.update({
@@ -556,17 +553,15 @@ export class TicketPlugin implements IPlugin {
             data: { priority: level }
         });
 
-        // Rename channel
-        // 1. Remove existing emoji prefix if any (handles correct emoji AND accumulated mojibake
-        //    from old corrupted renames like "ðÿÿ¡-ÿ"´-ticket-name")
+        // Rename channel with emoji prefix
         const channel = interaction.channel as TextChannel;
         let newName = channel.name;
 
-        // Strip all leading non-alphanumeric segments (emoji or mojibake) + their trailing dash
+        // Strip existing priority prefix: emoji, old mojibake, or text labels from previous fix
+        newName = newName.replace(/^(high|med|low)-/, '');
         newName = newName.replace(/^([^a-zA-Z0-9]+-?)+/, '');
 
-        // 2. Prepend new emoji
-        newName = `${emoji}-${newName}`;
+        newName = `${emoji}${newName}`;
 
         try {
             await channel.setName(newName);
