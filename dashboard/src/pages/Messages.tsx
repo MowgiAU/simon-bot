@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
+import { useLocation } from 'react-router-dom';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { showToast } from '../components/Toast';
 import { MessageCircle, Send, Search, Plus, Users, Lock, ArrowLeft, MoreVertical, UserPlus, BellOff, Bell, LogOut, Trash2, X, Shield } from 'lucide-react';
@@ -63,6 +64,8 @@ export const MessagesPage: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const location = useLocation();
+    const handledConvParam = useRef(false);
 
     useEffect(() => {
         const h = () => setIsMobile(window.innerWidth < 768);
@@ -77,6 +80,17 @@ export const MessagesPage: React.FC = () => {
     }, []);
 
     useEffect(() => { fetchConversations().then(() => setLoading(false)); }, [fetchConversations]);
+
+    // Handle ?conv= query param to auto-open a conversation
+    useEffect(() => {
+        if (handledConvParam.current) return;
+        const params = new URLSearchParams(location.search);
+        const convId = params.get('conv');
+        if (convId && !loading) {
+            handledConvParam.current = true;
+            openConversation(convId);
+        }
+    }, [location.search, loading]);
 
     // Poll conversations for new messages
     useEffect(() => {

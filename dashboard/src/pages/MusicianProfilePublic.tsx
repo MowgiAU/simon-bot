@@ -91,6 +91,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [copied, setCopied] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followerCount, setFollowerCount] = useState(0);
+    const [startingChat, setStartingChat] = useState(false);
     const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts'>('all');
     const [favourites, setFavourites] = useState<Record<string, boolean>>({});
     const [reposts, setReposts] = useState<Record<string, boolean>>({});
@@ -140,6 +141,22 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             setIsFollowing(data.following);
             setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
         } catch { /* not logged in */ }
+    };
+
+    const startMessage = async () => {
+        if (!profile || !user || startingChat) return;
+        setStartingChat(true);
+        try {
+            const { data } = await axios.post('/api/messages/conversations', {
+                participantIds: [profile.userId],
+                isGroup: false,
+            }, { withCredentials: true });
+            navigate(`/messages?conv=${data.id}`);
+        } catch {
+            // User may not be logged in or API error
+        } finally {
+            setStartingChat(false);
+        }
     };
 
     useEffect(() => {
@@ -340,6 +357,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {!isOwnProfile && (
                                     <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${colors.primary}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : colors.primary, color: isFollowing ? colors.primary : 'white', transition: 'all 0.2s' }}>
                                         {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
+                                    </button>
+                                )}
+                                {!isOwnProfile && user && (
+                                    <button onClick={startMessage} disabled={startingChat} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: startingChat ? 'default' : 'pointer', border: `1px solid ${colors.primary}4D`, backgroundColor: `${colors.primary}1A`, color: colors.primary, transition: 'all 0.2s', opacity: startingChat ? 0.6 : 1 }}>
+                                        <MessageCircle size={13} /> {startingChat ? 'Opening…' : 'Message'}
                                     </button>
                                 )}
                                 {(isOwnProfile || isAdmin) && (
