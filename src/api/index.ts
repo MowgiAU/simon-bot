@@ -11897,6 +11897,9 @@ app.post('/api/messages/conversations', requireAuth, async (req: any, res) => {
         // Sanitize — remove self, deduplicate
         const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
         if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
+        // Verify all participant IDs are real users
+        const validUsers = await db.musicianProfile.findMany({ where: { userId: { in: uniqueIds } }, select: { userId: true } });
+        if (validUsers.length !== uniqueIds.length) return res.status(400).json({ error: 'One or more participant IDs are invalid' });
         // For 1:1, check if conversation already exists
         if (!isGroup && uniqueIds.length === 1) {
             const existing = await db.conversation.findFirst({
@@ -12024,6 +12027,10 @@ app.delete('/api/messages/conversations/:convId/messages/:msgId', requireAuth, a
 app.put('/api/messages/conversations/:id/read', requireAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const participant = await db.conversationParticipant.findUnique({
+            where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
+        });
+        if (!participant) return res.status(403).json({ error: 'Not a participant' });
         await db.conversationParticipant.update({
             where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
             data: { lastReadAt: new Date() },
@@ -12094,6 +12101,11 @@ app.post('/api/messages/conversations/:id/participants', requireAuth, async (req
         if (!conv.participants.some(p => p.userId === me)) return res.status(403).json({ error: 'Not a participant' });
         const existing = new Set(conv.participants.map(p => p.userId));
         const newIds = userIds.filter((id: string) => !existing.has(id));
+        // Verify new user IDs are real users
+        if (newIds.length > 0) {
+            const validUsers = await db.musicianProfile.findMany({ where: { userId: { in: newIds } }, select: { userId: true } });
+            if (validUsers.length !== newIds.length) return res.status(400).json({ error: 'One or more user IDs are invalid' });
+        }
         if (newIds.length > 0) {
             await db.conversationParticipant.createMany({
                 data: newIds.map((uid: string) => ({ conversationId: convId, userId: uid })),

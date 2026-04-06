@@ -13,8 +13,15 @@ export class MessageEncryption {
         if (envKey && envKey.length === 64) {
             this.masterKey = Buffer.from(envKey, 'hex');
         } else {
-            // Derive from SESSION_SECRET so it works out of the box
-            const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fuji-studio-default';
+            // Fallback: derive from session secret (must be set)
+            const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+            if (!secret) {
+                throw new Error(
+                    'MESSAGE_ENCRYPTION_KEY (64-char hex) or SESSION_SECRET must be set. '
+                    + 'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+                );
+            }
+            // PBKDF2 derivation — params must not change (existing data encrypted with these)
             this.masterKey = crypto.pbkdf2Sync(secret, 'fuji-msg-enc', 100_000, 32, 'sha256');
         }
     }
@@ -58,7 +65,9 @@ export class MessageEncryption {
     }
 
     private unwrapKey(wrapped: string): Buffer {
-        const [ivHex, encHex, tagHex] = wrapped.split(':');
+        const parts = wrapped.split(':');
+        if (parts.length !== 3) throw new Error('Malformed wrapped key');
+        const [ivHex, encHex, tagHex] = parts;
         const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, Buffer.from(ivHex, 'hex'));
         decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
         return Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
