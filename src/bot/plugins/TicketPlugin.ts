@@ -16,7 +16,6 @@ import {
     Collection,
     Message,
     MessageFlags,
-    Routes,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -539,14 +538,20 @@ export class TicketPlugin implements IPlugin {
 
         const level = interaction.options.getString('level', true);
         
-        // Use literal emoji (fromCodePoint/escape sequences get corrupted in channel names)
-        const emojis: Record<string, string> = {
-            'low': '🟢',
-            'medium': '🟡',
-            'high': '🔴'
+        // Text labels for channel names and reply messages
+        const labels: Record<string, string> = {
+            'low': 'LOW',
+            'medium': 'MED',
+            'high': 'HIGH'
+        };
+        const prefixes: Record<string, string> = {
+            'low': 'low',
+            'medium': 'med',
+            'high': 'high'
         };
 
-        const emoji = emojis[level] || emojis['low'];
+        const label = labels[level] || 'LOW';
+        const prefix = prefixes[level] || 'low';
 
         // Update DB
         await this.db.ticket.update({
@@ -554,32 +559,24 @@ export class TicketPlugin implements IPlugin {
             data: { priority: level }
         });
 
-        // Rename channel with emoji prefix
+        // Rename channel with text prefix
         const channel = interaction.channel as TextChannel;
         let newName = channel.name;
 
-        // Strip existing priority prefix: emoji, old mojibake, or text labels from previous fix
+        // Strip existing priority prefix: text labels or old mojibake/emoji
         newName = newName.replace(/^(high|med|low)-/, '');
         newName = newName.replace(/^([^a-zA-Z0-9]+-?)+/, '');
 
-        newName = `${emoji}${newName}`;
+        newName = `${prefix}-${newName}`;
 
         try {
-            // Use REST API directly with explicit UTF-8 Buffer to prevent
-            // any encoding corruption in the undici/discord.js request pipeline
-            const jsonBody = JSON.stringify({ name: newName });
-            const utf8Body = Buffer.from(jsonBody, 'utf8');
-            await this.client.rest.patch(Routes.channel(channel.id), {
-                body: utf8Body,
-                passThroughBody: true,
-                headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            } as any);
+            await channel.setName(newName);
             await interaction.reply({ 
-                content: `Priority set to **${level.toUpperCase()}** ${emoji}` 
+                content: `Priority set to **${label}**` 
             });
         } catch (error) {
             await interaction.reply({ 
-                content: `Priority updated to **${level.toUpperCase()}** ${emoji}, but failed to rename channel (rate limit?).`,
+                content: `Priority updated to **${label}**, but failed to rename channel (rate limit?).`,
                 flags: MessageFlags.Ephemeral 
             });
         }
