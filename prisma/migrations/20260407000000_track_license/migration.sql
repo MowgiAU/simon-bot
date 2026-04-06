@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "tracks" ADD COLUMN "license" TEXT NOT NULL DEFAULT 'all-rights-reserved';
+ALTER TABLE "musician_tracks" ADD COLUMN "license" TEXT NOT NULL DEFAULT 'all-rights-reserved';
