@@ -5105,9 +5105,10 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const validTypes = ['regex', 'exact', 'startsWith', 'contains'];
         const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
 
-        // Validate regex if regex type
+        // Validate regex if regex type (strip unsupported inline flags like (?i) — JS applies 'i' flag natively)
         if (type === 'regex' && trigger) {
-            try { new RegExp(trigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
+            const sanitizedTrigger = String(trigger).replace(/^\(\?[imsxUu-]+\)/g, '');
+            try { new RegExp(sanitizedTrigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
         }
 
         const updated = await db.autoResponderRule.update({

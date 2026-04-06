@@ -96,9 +96,12 @@ export class AutoResponderPlugin implements IPlugin {
             let match: RegExpMatchArray | null = null;
             try {
                 switch (rule.triggerType) {
-                    case 'regex':
-                        match = msg.content.match(new RegExp(rule.trigger, 'i'));
+                    case 'regex': {
+                        // Strip inline flags (e.g. (?i)) — JS regex flags are applied separately
+                        const pattern = rule.trigger.replace(/^\(\?[imsxUu-]+\)/g, '');
+                        match = msg.content.match(new RegExp(pattern, 'i'));
                         break;
+                    }
                     case 'exact':
                         if (msg.content.toLowerCase() === rule.trigger.toLowerCase()) {
                             match = [msg.content];

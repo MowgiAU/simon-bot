@@ -95,7 +95,9 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
             const type = patch.triggerType ?? draft.triggerType;
             const trigger = patch.trigger ?? draft.trigger;
             if (type === 'regex' && trigger) {
-                try { new RegExp(trigger); setRegexError(null); } catch (e: any) { setRegexError(e.message); }
+                // Strip unsupported inline flags like (?i) — JS uses the 'i' flag natively
+                const sanitized = trigger.replace(/^\(\?[imsxUu-]+\)/g, '');
+                try { new RegExp(sanitized); setRegexError(null); } catch (e: any) { setRegexError(e.message); }
             } else {
                 setRegexError(null);
             }
@@ -229,7 +231,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                         <div>
                             <span style={labelStyle}>Trigger Type</span>
                             <select value={draft.triggerType} onChange={e => update({ triggerType: e.target.value as any })}
-                                style={{ ...inputBase, cursor: 'pointer', appearance: 'auto' }}>
+                                style={{ ...inputBase, backgroundColor: 'rgba(255,255,255,0.08)', color: colors.textPrimary, cursor: 'pointer' }}>
                                 {TRIGGER_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
                             <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>
