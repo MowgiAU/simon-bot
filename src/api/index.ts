@@ -11752,13 +11752,6 @@ app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     }
 });
 
-        res.json({ success: true, key: result.key, sizeMB: +(result.sizeBytes / 1024 / 1024).toFixed(2) });
-    } catch (e: any) {
-        logger.error('Manual backup failed', e);
-        res.status(500).json({ error: 'Backup failed' });
-    }
-});
-
 // ── Booster Colour Roles ──────────────────────────────────────────────────────
 
 app.get('/api/booster-color/settings/:guildId', async (req, res) => {
