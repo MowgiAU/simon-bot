@@ -33,7 +33,7 @@ const commands = [
     new SlashCommandBuilder().setName('purge').setDescription('Delete messages').setDefaultMemberPermissions(0x2000).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true)).toJSON(),
 
     // 2b. Booster Colour Roles
-    new SlashCommandBuilder().setName('color').setDescription('Pick your booster name colour').addStringOption(opt => opt.setName('role').setDescription('Colour to apply').setRequired(true).setAutocomplete(true)).toJSON(),
+    new SlashCommandBuilder().setName('booster').setDescription('Pick your booster name colour').addStringOption(opt => opt.setName('role').setDescription('Colour to apply').setRequired(true).setAutocomplete(true)).toJSON(),
 
     // 3. Economy
     new SlashCommandBuilder().setName('wallet').setDescription('Check balance').addUserOption(opt => opt.setName('user').setDescription('User')).toJSON(),

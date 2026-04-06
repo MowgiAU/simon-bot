@@ -18,7 +18,7 @@ export class BoosterColorPlugin implements IPlugin {
     readonly author = 'Fuji Studio';
 
     readonly requiredPermissions = [PermissionFlagsBits.ManageRoles];
-    readonly commands = ['color'];
+    readonly commands = ['booster'];
     readonly events = ['interactionCreate', 'guildMemberUpdate'];
     readonly dashboardSections = ['booster-color'];
     readonly defaultEnabled = true;
@@ -40,7 +40,7 @@ export class BoosterColorPlugin implements IPlugin {
 
     async onInteractionCreate(interaction: ChatInputCommandInteraction | AutocompleteInteraction): Promise<void> {
         if ((interaction as AutocompleteInteraction).isAutocomplete?.()) {
-            if ((interaction as AutocompleteInteraction).commandName === 'color') {
+            if ((interaction as AutocompleteInteraction).commandName === 'booster') {
                 await this.handleAutocomplete(interaction as AutocompleteInteraction);
             }
             return;
@@ -48,7 +48,7 @@ export class BoosterColorPlugin implements IPlugin {
 
         if (!(interaction as ChatInputCommandInteraction).isChatInputCommand?.()) return;
         const cmd = interaction as ChatInputCommandInteraction;
-        if (cmd.commandName === 'color') {
+        if (cmd.commandName === 'booster') {
             await this.handleColor(cmd);
         }
     }
