@@ -1,32 +1,25 @@
 /**
- * Radio Worker — dedicated Discord client for Fuji FM radio playback
+ * Radio Worker — standalone process (DEPRECATED)
  *
- * Runs as a separate PM2 process so it can hold a persistent voice connection
- * in the radio channel without conflicting with the voice recording workers.
+ * Radio playback is now handled by FujiRadioPlugin in the main bot process,
+ * which creates its own dedicated Discord client using RADIO_BOT_TOKEN.
  *
- * Required env vars:
- *   RADIO_BOT_TOKEN     Discord bot token
- *   RADIO_BOT_CLIENT_ID Discord application/client ID
- *   DATABASE_URL        Same Postgres DB as the main bot
- *
- * NOTE: Full radio playback logic is not yet implemented in this worker.
- *       The FujiRadioPlugin on the main bot continues to handle radio while
- *       this worker is being prepared. Set RADIO_WORKER_ENABLED=true in .env
- *       once this worker is ready to take over.
+ * This worker is kept for potential future use (e.g. sharded radio).
+ * It will only run if RADIO_WORKER_ENABLED=true is explicitly set.
  */
 
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { Client, GatewayIntentBits, Events } from 'discord.js';
-
-const TOKEN     = process.env.RADIO_BOT_TOKEN;
-const CLIENT_ID = process.env.RADIO_BOT_CLIENT_ID;
-
-if (!TOKEN) {
-    console.warn('[RadioWorker] RADIO_BOT_TOKEN not set — worker exiting cleanly');
+const ENABLED = process.env.RADIO_WORKER_ENABLED === 'true';
+if (!ENABLED) {
+    console.log('[RadioWorker] RADIO_WORKER_ENABLED not set — radio is handled by FujiRadioPlugin. Exiting.');
     process.exit(0);
 }
+
+import { Client, GatewayIntentBits, Events } from 'discord.js';
+
+const TOKEN = process.env.RADIO_BOT_TOKEN!;
 
 const client = new Client({
     intents: [

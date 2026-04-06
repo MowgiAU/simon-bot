@@ -1,4 +1,7 @@
 import {
+    Client,
+    Events,
+    GatewayIntentBits,
     PermissionsBitField,
     SlashCommandBuilder,
     EmbedBuilder,
@@ -88,6 +91,10 @@ export class FujiRadioPlugin implements IPlugin {
     private logger: any;
     private context!: IPluginContext;
 
+    // Dedicated radio bot client (uses RADIO_BOT_TOKEN)
+    private radioClient: Client | null = null;
+    private radioBotId: string | null = null;
+
     // Per-guild radio state
     private radioStates = new Map<string, RadioState>();
 
@@ -110,6 +117,32 @@ export class FujiRadioPlugin implements IPlugin {
         // Watchdog: every 60s check if any radio is stuck and kick it back
         this.watchdogInterval = setInterval(() => this.watchdogTick(), 60_000);
 
+        // Login dedicated radio bot if token is configured
+        const radioToken = process.env.RADIO_BOT_TOKEN;
+        if (radioToken) {
+            try {
+                this.radioClient = new Client({
+                    intents: [
+                        GatewayIntentBits.Guilds,
+                        GatewayIntentBits.GuildVoiceStates,
+                    ],
+                });
+                await this.radioClient.login(radioToken);
+                await new Promise<void>(resolve => {
+                    if (this.radioClient!.isReady()) return resolve();
+                    this.radioClient!.once(Events.ClientReady, () => resolve());
+                });
+                this.radioBotId = this.radioClient.user?.id ?? null;
+                this.logger.info(`[FujiRadio] Radio bot logged in as ${this.radioClient.user?.tag}`);
+
+                // Auto-join configured radio channels after a short delay for guild cache
+                setTimeout(() => this.autoJoinChannels(), 5_000);
+            } catch (err) {
+                this.logger.error(`[FujiRadio] Failed to login radio bot: ${err}`);
+                this.radioClient = null;
+            }
+        }
+
         this.logger.info('[FujiRadio] Plugin initialized');
     }
 
@@ -120,12 +153,19 @@ export class FujiRadioPlugin implements IPlugin {
         // Disconnect all radio sessions
         for (const [guildId, state] of this.radioStates) {
             try {
+                state.killStream?.();
                 state.player?.stop(true);
                 state.connection?.destroy();
             } catch { /* ignore */ }
         }
         this.radioStates.clear();
         this.listenerXpTicks.clear();
+
+        // Destroy dedicated radio client
+        if (this.radioClient) {
+            this.radioClient.destroy();
+            this.radioClient = null;
+        }
     }
 
     // ─── Slash Commands ──────────────────────────────────────────────────
@@ -242,6 +282,16 @@ export class FujiRadioPlugin implements IPlugin {
 
         const existing = this.radioStates.get(guildId);
         if (existing?.connection) {
+            if (existing.paused) {
+                // Radio is connected but paused (no listeners) — force resume
+                existing.paused = false;
+                if (existing.queue.length === 0) {
+                    await this.populateAutoQueue(guildId, settings);
+                }
+                this.playNextTrack(guildId).catch(() => {});
+                await interaction.editReply('📻 Fuji FM is now live!');
+                return true;
+            }
             await interaction.editReply('📻 Radio is already running!');
             return true;
         }
@@ -257,7 +307,7 @@ export class FujiRadioPlugin implements IPlugin {
             const connection = joinVoiceChannel({
                 channelId: channel.id,
                 guildId,
-                adapterCreator: (channel as VoiceChannel).guild.voiceAdapterCreator as any,
+                adapterCreator: this.getVoiceAdapterCreator(guildId, channel as VoiceChannel),
                 selfDeaf: false,
                 selfMute: false,
             });
@@ -305,8 +355,9 @@ export class FujiRadioPlugin implements IPlugin {
                 }
             });
 
-            // When player goes idle, play next track
+            // When player goes idle, play next track (unless paused for no listeners)
             player.on(AudioPlayerStatus.Idle, () => {
+                if (state.paused) return;
                 this.playNextTrack(guildId).catch(err =>
                     this.logger.error(`[FujiRadio] Auto-play error: ${err}`)
                 );
@@ -606,7 +657,8 @@ export class FujiRadioPlugin implements IPlugin {
 
         const userId = newState.member?.id || oldState.member?.id;
         const botId = this.client.user?.id;
-        if (!userId || userId === botId) return;
+        // Ignore both the main bot and the dedicated radio bot
+        if (!userId || userId === botId || userId === this.radioBotId) return;
 
         // ── Track listeners joining/leaving the radio channel
         const joinedRadio = newState.channelId === radioChannelId;
@@ -617,6 +669,27 @@ export class FujiRadioPlugin implements IPlugin {
         } else if (leftRadio) {
             state.listeners.delete(userId);
             this.listenerXpTicks.delete(`${guildId}:${userId}`);
+        }
+
+        // ── Auto-pause when no listeners, auto-resume when someone joins
+        if (leftRadio && state.listeners.size === 0 && !state.paused) {
+            state.paused = true;
+            state.killStream?.();
+            if (state.nowPlaying) {
+                state.queue.unshift(state.nowPlaying);
+                state.nowPlaying = null;
+            }
+            state.player?.stop(true);
+            this.logger.info(`[FujiRadio] No listeners in ${guildId}, pausing playback`);
+            if (settings.voiceChannelId) {
+                void this.setVoiceChannelStatus(settings.voiceChannelId, '📻 Fuji FM — Waiting for listeners...');
+            }
+        } else if (joinedRadio && state.paused && state.listeners.size >= 1) {
+            state.paused = false;
+            this.logger.info(`[FujiRadio] Listener joined in ${guildId}, resuming playback`);
+            this.playNextTrack(guildId).catch(err =>
+                this.logger.error(`[FujiRadio] Resume error in ${guildId}: ${err}`)
+            );
         }
 
         // ── Audio ducking for host mode
@@ -656,7 +729,7 @@ export class FujiRadioPlugin implements IPlugin {
 
     private async playNextTrack(guildId: string): Promise<void> {
         const state = this.radioStates.get(guildId);
-        if (!state?.player || !state.connection) return;
+        if (!state?.player || !state.connection || state.paused) return;
 
         const settings = await this.getSettings(guildId);
 
@@ -1092,7 +1165,7 @@ export class FujiRadioPlugin implements IPlugin {
         const connection = joinVoiceChannel({
             channelId: channel.id,
             guildId,
-            adapterCreator: (channel as VoiceChannel).guild.voiceAdapterCreator as any,
+            adapterCreator: this.getVoiceAdapterCreator(guildId, channel as VoiceChannel),
             selfDeaf: false,
             selfMute: false,
         });
@@ -1137,6 +1210,7 @@ export class FujiRadioPlugin implements IPlugin {
         });
 
         player.on(AudioPlayerStatus.Idle, () => {
+            if (state.paused) return;
             this.playNextTrack(guildId).catch(err =>
                 this.logger.error(`[FujiRadio] Auto-play error: ${err}`)
             );
@@ -1144,6 +1218,7 @@ export class FujiRadioPlugin implements IPlugin {
 
         // Recover from AutoPaused (lost subscribers briefly)
         player.on(AudioPlayerStatus.AutoPaused as any, () => {
+            if (state.paused) return;
             this.logger.warn(`[FujiRadio] Player auto-paused in ${guildId}, unpausing...`);
             player.unpause();
         });
@@ -1151,17 +1226,65 @@ export class FujiRadioPlugin implements IPlugin {
         // Recover from player errors
         player.on('error' as any, (err: Error) => {
             this.logger.error(`[FujiRadio] Player error in ${guildId}: ${err.message}`);
-            setTimeout(() => this.playNextTrack(guildId).catch(() => {}), 2000);
+            if (!state.paused) {
+                setTimeout(() => this.playNextTrack(guildId).catch(() => {}), 2000);
+            }
         });
 
-        await this.populateAutoQueue(guildId, settings);
-        await this.playNextTrack(guildId);
+        // Check current members in the voice channel
+        const voiceChannel = channel as VoiceChannel;
+        const nonBotMembers = voiceChannel.members.filter(m => !m.user.bot);
+        for (const [memberId] of nonBotMembers) {
+            state.listeners.add(memberId);
+        }
+
+        if (nonBotMembers.size > 0) {
+            // There are listeners — start playing
+            await this.populateAutoQueue(guildId, settings);
+            await this.playNextTrack(guildId);
+        } else {
+            // No listeners — join but wait
+            state.paused = true;
+            this.logger.info(`[FujiRadio] Joined radio channel in ${guildId}, waiting for listeners...`);
+            if (settings.voiceChannelId) {
+                void this.setVoiceChannelStatus(settings.voiceChannelId, '📻 Fuji FM — Waiting for listeners...');
+            }
+        }
 
         return true;
     }
 
     stopRadio(guildId: string): void {
         this.cleanupGuild(guildId);
+    }
+
+    // ─── Radio Bot Helpers ───────────────────────────────────────────────
+
+    /** Auto-join all guilds that have a configured radio voice channel */
+    private async autoJoinChannels(): Promise<void> {
+        const allSettings = await this.db.radioSettings.findMany({
+            where: { voiceChannelId: { not: null } },
+        });
+
+        for (const settings of allSettings) {
+            try {
+                if (this.radioStates.has(settings.guildId)) continue;
+                await this.startAuto(settings.guildId);
+                this.logger.info(`[FujiRadio] Auto-joined radio channel in guild ${settings.guildId}`);
+            } catch (err) {
+                this.logger.error(`[FujiRadio] Auto-join failed for ${settings.guildId}: ${err}`);
+            }
+        }
+    }
+
+    /** Get the voice adapter creator — prefers the dedicated radio bot, falls back to main bot */
+    private getVoiceAdapterCreator(guildId: string, channel: VoiceChannel): any {
+        if (this.radioClient) {
+            const guild = this.radioClient.guilds.cache.get(guildId);
+            if (guild) return guild.voiceAdapterCreator;
+        }
+        // Fallback to main bot
+        return channel.guild.voiceAdapterCreator;
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
