@@ -132,7 +132,18 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   item_bought:              { label: 'Currency',  color: '#FBBF24' },
   transaction:              { label: 'Currency',  color: '#FBBF24' },
   // Studio Guide
-  STUDIO_GUIDE_AUTO_RESPONSE: { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_AUTO_RESPONSE:  { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_PAUSED:         { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_RESUMED:        { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_USER_OPTOUT:    { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_DIRECT_ASK:     { label: 'Studio Guide', color: '#A78BFA' },
+  // Channel Rules
+  message_approved:            { label: 'Channel Rules', color: '#34D399' },
+  message_rejected:            { label: 'Channel Rules', color: '#F87171' },
+  rule_triggered:              { label: 'Channel Rules', color: '#FBBF24' },
+  review_request:              { label: 'Channel Rules', color: '#60A5FA' },
+  // Feedback
+  FEEDBACK_REWARD_GIVEN:       { label: 'Feedback',     color: '#34D399' },
 };
 
 const getCategoryBadge = (action: string): { label: string; color: string } => {
@@ -801,20 +812,34 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 );
                             }
 
-                            // Studio Guide AI Response
-                            if (log.action === 'STUDIO_GUIDE_AUTO_RESPONSE') {
+                            // Studio Guide action types
+                            if ([
+                                'STUDIO_GUIDE_AUTO_RESPONSE',
+                                'STUDIO_GUIDE_PAUSED',
+                                'STUDIO_GUIDE_RESUMED',
+                                'STUDIO_GUIDE_USER_OPTOUT',
+                                'STUDIO_GUIDE_DIRECT_ASK',
+                            ].includes(log.action)) {
                                 const d = log.details || {};
+                                const sgMeta: Record<string, { label: string; icon: string; color: string }> = {
+                                    STUDIO_GUIDE_AUTO_RESPONSE: { label: 'Auto Response',  icon: '🤖', color: '#A78BFA' },
+                                    STUDIO_GUIDE_PAUSED:        { label: 'Guide Paused',   icon: '⏸️', color: '#FBBF24' },
+                                    STUDIO_GUIDE_RESUMED:       { label: 'Guide Resumed',  icon: '▶️', color: '#34D399' },
+                                    STUDIO_GUIDE_USER_OPTOUT:   { label: 'User Opted Out', icon: '🙈', color: '#FB923C' },
+                                    STUDIO_GUIDE_DIRECT_ASK:    { label: 'Direct Question', icon: '❓', color: '#60A5FA' },
+                                };
+                                const meta = sgMeta[log.action];
                                 return (
                                     <div style={{ fontSize: '13px' }}>
-                                        <div style={{ fontWeight: 600, color: '#A78BFA' }}>Studio Guide Response</div>
-                                        <div style={{ marginTop: 6, color: colors.textSecondary, fontStyle: 'italic', lineHeight: 1.5 }}>
-                                            "{d.question}"
-                                        </div>
-                                        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '6px 16px', color: colors.textTertiary, fontSize: '12px' }}>
+                                        <div style={{ fontWeight: 600, color: meta.color }}>{meta.icon} {meta.label}</div>
+                                        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary, fontSize: '12px' }}>
+                                            {d.question && <span style={{ fontStyle: 'italic', color: colors.textTertiary, maxWidth: 400 }}>"<span style={{ color: colors.textPrimary }}>{String(d.question).slice(0, 120)}{String(d.question).length > 120 ? '…' : ''}</span>"</span>}
+                                            {d.minutes !== undefined && <span>Duration: <span style={{ color: colors.textPrimary }}>{d.permanent || d.minutes === 'permanent' ? 'Permanent' : `${d.minutes} min`}</span></span>}
+                                            {d.permanent === true && log.action !== 'STUDIO_GUIDE_USER_OPTOUT' && <span style={{ color: '#FB923C' }}>Permanent</span>}
                                             {d.answerLength && <span>Answer: {d.answerLength} chars</span>}
-                                            {d.hadImages && <span>🖼 Attached image</span>}
-                                            {d.hadAudio && <span>🎵 Attached audio</span>}
-                                            {d.hadVideo && <span>🎬 Attached video</span>}
+                                            {d.hadImages && <span>🖼 Image</span>}
+                                            {d.hadAudio && <span>🎵 Audio</span>}
+                                            {d.hadVideo && <span>🎬 Video</span>}
                                         </div>
                                     </div>
                                 );
@@ -904,40 +929,71 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                             }
 
                             // 5. Moderation Logs
-                            if (['ban', 'kick', 'timeout', 'unban', 'warn', 'softban'].includes(log.action)) {
-                                const colorMap: any = { ban: colors.error, kick: colors.highlight, timeout: colors.highlightLight, unban: colors.success };
+                            if (['ban', 'kick', 'timeout', 'unban', 'warn', 'warnings', 'softban', 'purge'].includes(log.action)) {
+                                const colorMap: any = { ban: colors.error, kick: colors.highlight, timeout: colors.highlightLight, unban: colors.success, warn: '#FBBF24', purge: '#FB923C' };
+                                const d = log.details || {};
                                 return (
                                     <div style={{ fontSize: '13px' }}>
                                         <div style={{ fontWeight: 600, color: colorMap[log.action] || colors.primary, textTransform: 'capitalize' }}>
-                                            {log.action}
+                                            {log.action === 'purge' ? `Purge (${d.count ?? d.amount ?? '?'} messages)` : log.action}
                                         </div>
-                                        <div style={{ marginTop: 4, color: colors.textSecondary }}>
-                                            {log.details.reason && <span>Reason: <span style={{ color: colors.textPrimary }}>{log.details.reason}</span></span>}
-                                            {log.details.duration && <span style={{ marginLeft: 8, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: '12px' }}>{log.details.duration}</span>}
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            // 6. Channel Rules & Feedback Reviews
-                            if (log.details?.ruleId) {
-                                return (
-                                    <div style={{ fontSize: '13px' }}>
-                                        <div style={{ fontWeight: 600, color: colors.primaryLight }}>Channel Rule Update</div>
-                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary, flexWrap: 'wrap' }}>
-                                            <span>Rule ID: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.ruleId}</code></span>
-                                            {log.details.channelId && <span>Channel: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.channelId}</code></span>}
+                                        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
+                                            {d.targetUsername && <span>User: <span style={{ color: colors.textPrimary }}>{d.targetUsername}</span></span>}
+                                            {d.reason && <span>Reason: <span style={{ color: colors.textPrimary }}>{d.reason}</span></span>}
+                                            {d.duration && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: '12px' }}>{d.duration}</span>}
                                         </div>
                                     </div>
                                 );
                             }
 
-                            if (log.details?.reviewId) {
+                            // 6. Channel Rules
+                            if (['message_approved', 'message_rejected', 'rule_triggered', 'review_request'].includes(log.action)) {
+                                const d = log.details || {};
+                                const crMeta: Record<string, { label: string; color: string }> = {
+                                    message_approved: { label: 'Message Approved', color: '#34D399' },
+                                    message_rejected: { label: 'Message Rejected', color: '#F87171' },
+                                    rule_triggered:   { label: 'Rule Triggered',   color: '#FBBF24' },
+                                    review_request:   { label: 'Review Requested', color: '#60A5FA' },
+                                };
+                                const meta = crMeta[log.action];
                                 return (
                                     <div style={{ fontSize: '13px' }}>
-                                        <div style={{ fontWeight: 600, color: colors.highlight }}>Feedback Review</div>
-                                        <div style={{ marginTop: 4, display: 'flex', gap: 12, color: colors.textSecondary }}>
-                                            <span>Review ID: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{log.details.reviewId}</code></span>
+                                        <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
+                                            {d.channelId  && <span>Channel: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{d.channelName ?? d.channelId}</code></span>}
+                                            {d.ruleId     && <span>Rule: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{d.ruleName ?? d.ruleId}</code></span>}
+                                            {d.content    && <span style={{ maxWidth: 360, fontStyle: 'italic', color: colors.textTertiary }}>"<span style={{ color: colors.textPrimary }}>{String(d.content).slice(0, 120)}{String(d.content).length > 120 ? '…' : ''}</span>"</span>}
+                                            {d.reason     && <span>Reason: <span style={{ color: colors.textPrimary }}>{d.reason}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Feedback Reward
+                            if (log.action === 'FEEDBACK_REWARD_GIVEN') {
+                                const d = log.details || {};
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: '#34D399' }}>Feedback Reward Given</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
+                                            {d.recipientId  && <span>Recipient: <span style={{ color: colors.textPrimary }}>{d.recipientUsername ?? d.recipientId}</span></span>}
+                                            {d.amount       && <span>Amount: <span style={{ color: '#FBBF24', fontWeight: 600 }}>{d.amount} 🪙</span></span>}
+                                            {d.threadName   && <span>Thread: <span style={{ color: colors.textPrimary }}>{d.threadName}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Word Filter
+                            if (log.action === 'message_filtered') {
+                                const d = log.details || {};
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: '#A78BFA' }}>Message Filtered</div>
+                                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4, color: colors.textSecondary }}>
+                                            {d.word       && <span>Matched: <span style={{ color: '#F87171', fontWeight: 600 }}>{d.word}</span>{d.groupName ? ` (${d.groupName})` : ''}</span>}
+                                            {d.content    && <span style={{ fontStyle: 'italic', color: colors.textTertiary }}>"<span style={{ color: colors.textPrimary }}>{String(d.content).slice(0, 160)}{String(d.content).length > 160 ? '…' : ''}</span>"</span>}
+                                            {d.channelName && <span>Channel: <span style={{ color: colors.textPrimary }}>#{d.channelName}</span></span>}
                                         </div>
                                     </div>
                                 );
