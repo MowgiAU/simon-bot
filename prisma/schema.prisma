@@ -113,7 +113,7 @@ model Guild {
   studioGuideSettings  StudioGuideSettings?
   studioGuideKnowledge StudioGuideKnowledge[]
   studioGuideOptOuts   StudioGuideOptOut[]
-  autoMessageConfig    AutoMessageConfig?
+  autoMessageSchedules AutoMessageSchedule[]
 
   @@map("guilds")
 }
@@ -1854,9 +1854,10 @@ model StudioGuideOptOut {
 // Auto Messages Plugin
 // ──────────────────────────────────────────────
 
-model AutoMessageConfig {
+model AutoMessageSchedule {
   id              String   @id @default(cuid())
-  guildId         String   @unique
+  guildId         String
+  name            String   @default("New Schedule")
   channelId       String?
   intervalMinutes Int      @default(60)
   enabled         Boolean  @default(false)
@@ -1870,19 +1871,20 @@ model AutoMessageConfig {
 
   guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
-  @@map("auto_message_configs")
+  @@index([guildId])
+  @@map("auto_message_schedules")
 }
 
 model AutoMessageEntry {
-  id        String   @id @default(cuid())
-  configId  String
-  content   String   @db.Text
-  position  Int      @default(0)
+  id         String   @id @default(cuid())
+  scheduleId String
+  content    String   @db.Text
+  position   Int      @default(0)
 
-  config    AutoMessageConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  schedule   AutoMessageSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  @@index([configId])
+  @@index([scheduleId])
   @@map("auto_message_entries")
 }

@@ -4947,68 +4947,106 @@ app.get('/api/bot-messenger/:guildId/forum-threads/:channelId', async (req, res)
 
 // ─── Auto Messages Endpoints ───────────────────────────────────────────────
 
-// GET: load config + messages
+// GET: list all schedules for a guild
 app.get('/api/auto-messages/:guildId', async (req: any, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
-        const config = await db.autoMessageConfig.findUnique({
+        const schedules = await db.autoMessageSchedule.findMany({
             where: { guildId },
             include: { messages: { orderBy: { position: 'asc' } } },
+            orderBy: { createdAt: 'asc' },
         });
-        if (!config) {
-            return res.json({ guildId, channelId: null, intervalMinutes: 60, enabled: false, messages: [] });
-        }
-        res.json(config);
-    } catch {
-        res.status(500).json({ error: 'Internal server error' });
+        res.json(schedules);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
     }
 });
 
-// POST: save config + messages (full replace)
+// POST: create a new schedule
 app.post('/api/auto-messages/:guildId', async (req: any, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const { channelId, intervalMinutes, enabled, messages } = req.body;
+    // Ensure guild row exists
+    await db.guild.upsert({ where: { id: guildId }, create: { id: guildId }, update: {} });
 
-    // Validate interval
-    const interval = Math.max(1, Math.min(10080, parseInt(intervalMinutes) || 60)); // 1 min – 1 week
+    const { name } = req.body;
+    try {
+        const schedule = await db.autoMessageSchedule.create({
+            data: { guildId, name: (name || 'New Schedule').slice(0, 100) },
+            include: { messages: true },
+        });
+        res.json(schedule);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// PUT: update a schedule (config + full message replace)
+app.put('/api/auto-messages/:guildId/:scheduleId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, scheduleId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { name, channelId, intervalMinutes, enabled, messages } = req.body;
+    const interval = Math.max(1, Math.min(10080, parseInt(intervalMinutes) || 60));
     const msgs: { content: string; position: number }[] = (Array.isArray(messages) ? messages : [])
         .filter((m: any) => typeof m.content === 'string' && m.content.trim().length > 0)
-        .slice(0, 50) // max 50 messages
+        .slice(0, 50)
         .map((m: any, i: number) => ({ content: m.content.trim().slice(0, 2000), position: i }));
 
     try {
-        const config = await db.autoMessageConfig.upsert({
-            where: { guildId },
-            create: { guildId, channelId: channelId || null, intervalMinutes: interval, enabled: !!enabled },
-            update: { channelId: channelId || null, intervalMinutes: interval, enabled: !!enabled },
+        // Verify schedule belongs to this guild
+        const existing = await db.autoMessageSchedule.findFirst({ where: { id: scheduleId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Schedule not found' });
+
+        await db.autoMessageSchedule.update({
+            where: { id: scheduleId },
+            data: {
+                name: name ? name.slice(0, 100) : existing.name,
+                channelId: channelId || null,
+                intervalMinutes: interval,
+                enabled: !!enabled,
+                // Reset index if messages shrank past current position
+                currentIndex: msgs.length > 0 ? existing.currentIndex % msgs.length : 0,
+            },
         });
 
-        // Replace all messages
-        await db.autoMessageEntry.deleteMany({ where: { configId: config.id } });
+        // Replace all messages atomically
+        await db.autoMessageEntry.deleteMany({ where: { scheduleId } });
         if (msgs.length > 0) {
             await db.autoMessageEntry.createMany({
-                data: msgs.map(m => ({ configId: config.id, content: m.content, position: m.position })),
+                data: msgs.map(m => ({ scheduleId, content: m.content, position: m.position })),
             });
         }
 
-        // Reset index if out of bounds
-        if (config.currentIndex >= msgs.length && msgs.length > 0) {
-            await db.autoMessageConfig.update({ where: { id: config.id }, data: { currentIndex: 0 } });
-        }
-
-        const updated = await db.autoMessageConfig.findUnique({
-            where: { guildId },
+        const updated = await db.autoMessageSchedule.findUnique({
+            where: { id: scheduleId },
             include: { messages: { orderBy: { position: 'asc' } } },
         });
         res.json(updated);
-    } catch {
-        res.status(500).json({ error: 'Internal server error' });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// DELETE: remove a schedule
+app.delete('/api/auto-messages/:guildId/:scheduleId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, scheduleId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const existing = await db.autoMessageSchedule.findFirst({ where: { id: scheduleId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Schedule not found' });
+        await db.autoMessageSchedule.delete({ where: { id: scheduleId } });
+        res.json({ ok: true });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
     }
 });
 

@@ -47,7 +47,7 @@ export class AutoMessagesPlugin implements IPlugin {
 
         let configs: any[];
         try {
-            configs = await db.autoMessageConfig.findMany({
+            configs = await db.autoMessageSchedule.findMany({
                 where: { enabled: true, channelId: { not: null } },
                 include: { messages: { orderBy: { position: 'asc' } } },
             });
@@ -73,7 +73,7 @@ export class AutoMessagesPlugin implements IPlugin {
 
                 await (channel as TextChannel).send(entry.content);
 
-                await db.autoMessageConfig.update({
+                await db.autoMessageSchedule.update({
                     where: { id: config.id },
                     data: {
                         lastSentAt: now,
