@@ -21,6 +21,7 @@ interface ArtistProfile {
     bio: string | null;
     hardware: string[];
     genres: { genre: { name: string } }[];
+    primaryGenre?: { id: string; name: string; slug: string } | null;
     totalPlays: number;
 }
 
@@ -231,21 +232,28 @@ export const ArtistsPage: React.FC = () => {
                                     @{artist.username}
                                 </p>
                                 {artist.genres?.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '8px' }}>
-                                        {artist.genres.slice(0, 2).map((g, i) => (
-                                            <span key={i} style={{ 
-                                                fontSize: '8px', 
-                                                fontWeight: 600, 
-                                                color: accentColors[(idx + i) % accentColors.length], 
-                                                backgroundColor: accentColors[(idx + i) % accentColors.length] + '15', 
-                                                padding: '2px 6px', 
-                                                borderRadius: '999px',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.03em'
-                                            }}>
-                                                {g.genre.name}
-                                            </span>
-                                        ))}
+                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+                                        {(() => {
+                                            const displayGenre = artist.primaryGenre
+                                                ? artist.primaryGenre.name
+                                                : artist.genres[0]?.genre?.name;
+                                            if (!displayGenre) return null;
+                                            return (
+                                                <span style={{ 
+                                                    fontSize: '8px', 
+                                                    fontWeight: 700, 
+                                                    color: accentColors[idx % accentColors.length], 
+                                                    backgroundColor: accentColors[idx % accentColors.length] + '18', 
+                                                    padding: '2px 8px', 
+                                                    borderRadius: '999px',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                    border: `1px solid ${accentColors[idx % accentColors.length]}30`,
+                                                }}>
+                                                    {displayGenre}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                                 <p style={{ margin: '8px 0 0', fontSize: '10px', color: '#B9C3CE', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>

@@ -19,6 +19,7 @@ interface ArtistProfile {
     bio: string | null;
     hardware: string[];
     genres: { genre: { name: string } }[];
+    primaryGenre?: { id: string; name: string; slug: string } | null;
     totalPlays: number;
 }
 
@@ -545,10 +546,23 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     {artists[0].displayName || artists[0].username}
                                                 </div>
                                             </Link>
-                                            {artists[0].genres?.length > 0 && (
+                                            {(artists[0].primaryGenre || artists[0].genres?.length > 0) && (
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
-                                                    {artists[0].genres.slice(0, 4).map((g, i) => (
+                                                    {/* Primary genre — accented */}
+                                                    {artists[0].primaryGenre && (
+                                                        <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '20px', background: `${colors.primary}20`, border: `1px solid ${colors.primary}50`, color: colors.primary }}>
+                                                            {artists[0].primaryGenre.name}
+                                                        </span>
+                                                    )}
+                                                    {/* Secondary genres — muted */}
+                                                    {artists[0].genres?.filter(g => g.genre && (!artists[0].primaryGenre || g.genre.name !== artists[0].primaryGenre!.name)).slice(0, 3).map((g, i) => (
                                                         <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '3px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary }}>
+                                                            {g.genre.name}
+                                                        </span>
+                                                    ))}
+                                                    {/* Fallback: no primary set, show all genres uniformly */}
+                                                    {!artists[0].primaryGenre && artists[0].genres?.slice(0, 4).map((g, i) => (
+                                                        <span key={`fb-${i}`} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '3px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary }}>
                                                             {g.genre.name}
                                                         </span>
                                                     ))}

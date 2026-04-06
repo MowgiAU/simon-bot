@@ -28,7 +28,9 @@ interface MusicianProfile {
     discordUrl: string | null;
     hardware: string[];
     gearList: string[];
-    genres: { genre: { name: string } }[];
+    genres: { genre: { id?: string; name: string; slug?: string } }[];
+    primaryGenreId?: string | null;
+    primaryGenre?: { id: string; name: string; slug: string } | null;
     totalPlays?: number;
     featuredTrackId?: string | null;
     featuredTrack?: {
@@ -341,7 +343,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             )}
                             {/* Genre Chips + Stats inline */}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '16px' }}>
-                                {profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
+                                {/* Primary genre — larger, full color */}
+                                {profile.primaryGenre && (
+                                    <span onClick={() => navigate(`/category/${profile.primaryGenre!.slug}`)} style={{ backgroundColor: `${colors.primary}22`, border: `1px solid ${colors.primary}66`, color: colors.primary, padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+                                        {profile.primaryGenre.name}
+                                    </span>
+                                )}
+                                {/* Secondary genres — smaller, muted */}
+                                {profile.genres.filter((g: any) => g.genre && g.genre.id !== profile.primaryGenreId).map((g: any, i: number) => (
+                                    <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${colors.primary}0D`, border: `1px solid ${colors.primary}2A`, color: `${colors.primary}BB`, padding: '3px 9px', borderRadius: '999px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
+                                ))}
+                                {/* If no primary genre, fall back to showing all genres with original style */}
+                                {!profile.primaryGenre && profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
                                     <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}4D`, color: colors.primary, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
                                 ))}
                                 <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>

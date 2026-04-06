@@ -30,6 +30,7 @@ interface MusicianProfile {
     discordUrl: string | null;
     gearList: Array<{name: string; category: string}>;
     genres: { id: string; name: string }[];
+    primaryGenreId?: string | null;
     featuredTrackId?: string | null;
     featuredPlaylistId?: string | null;
 }
@@ -259,7 +260,8 @@ export const ProfileEditPage: React.FC = () => {
             const payload = { 
                 ...profile, 
                 gearList: (profile.gearList || []).map(g => JSON.stringify(g)),
-                genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || []
+                genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || [],
+                primaryGenreId: profile.primaryGenreId || null
             };
             const endpoint = isAdminMode
                 ? `/api/admin/musician/profile/${effectiveUserId}`
@@ -351,7 +353,10 @@ export const ProfileEditPage: React.FC = () => {
 
     const removeGenre = (id: string) => {
         if (!profile) return;
-        setProfile({ ...profile, genres: profile.genres.filter(g => g.id !== id) });
+        const updated = { ...profile, genres: profile.genres.filter(g => g.id !== id) };
+        // Clear primary genre if it was removed
+        if (profile.primaryGenreId === id) updated.primaryGenreId = null;
+        setProfile(updated);
     };
 
     const addGear = (e: React.MouseEvent) => {
@@ -882,6 +887,26 @@ export const ProfileEditPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Main Genre Picker */}
+                        {profile?.genres && profile.genres.length > 0 && (
+                            <div style={{ marginBottom: '14px' }}>
+                                <span style={{ ...label }}>Main Genre <span style={{ color: colors.textTertiary, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— shown on your artist card</span></span>
+                                <select
+                                    value={profile.primaryGenreId || ''}
+                                    onChange={(e) => {
+                                        setProfile({ ...profile, primaryGenreId: e.target.value || null });
+                                        setIsDirty(true);
+                                    }}
+                                    style={{ ...inputBase, cursor: 'pointer' }}
+                                >
+                                    <option value="" style={{ backgroundColor: colors.surface }}>None (hide on card)</option>
+                                    {profile.genres.map(g => (
+                                        <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <select
                             onChange={(e) => {

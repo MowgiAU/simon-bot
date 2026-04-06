@@ -34,6 +34,7 @@ export class ProfileService {
         contactEmail?: string;
         socials?: Array<{ platform: string, url: string }>;
         genreIds?: string[];
+        primaryGenreId?: string | null;
         gearList?: string[];
         featuredTrackId?: string | null;
         featuredPlaylistId?: string | null;
@@ -66,6 +67,7 @@ export class ProfileService {
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
                     hardware: data.gearList || [],
+                    primaryGenreId: data.primaryGenreId || null,
                     featuredTrackId: data.featuredTrackId,
                     featuredPlaylistId: data.featuredPlaylistId
                 },
@@ -81,6 +83,7 @@ export class ProfileService {
                     contactEmail: data.contactEmail,
                     socials: validatedSocials,
                     hardware: data.gearList,
+                    primaryGenreId: data.primaryGenreId !== undefined ? (data.primaryGenreId || null) : undefined,
                     featuredTrackId: data.featuredTrackId,
                     featuredPlaylistId: data.featuredPlaylistId
                 }
@@ -121,6 +124,7 @@ export class ProfileService {
                 genres: {
                     include: { genre: true }
                 },
+                primaryGenre: true,
                 tracks: {
                     where: { isPublic: true, deletedAt: null },
                     orderBy: { createdAt: 'desc' },

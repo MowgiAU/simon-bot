@@ -6675,6 +6675,7 @@ app.get('/api/musician/profiles', async (req, res) => {
           where,
           include: {
               genres: { include: { genre: true } },
+              primaryGenre: true,
               tracks: { 
                   where: { isPublic: true, status: 'active', deletedAt: null },
                   take: 1,

@@ -788,6 +788,8 @@ model MusicianProfile {
   
   // Genres (Many-to-Many via Join Table)
   genres          ProfileGenre[]
+  primaryGenreId  String?
+  primaryGenre    Genre?   @relation("PrimaryGenre", fields: [primaryGenreId], references: [id], onDelete: SetNull)
   
   // Featured Content
   featuredTrackId    String?  @unique
@@ -920,6 +922,7 @@ model Genre {
   // Relations
   profiles        ProfileGenre[]
   tracks          TrackGenre[]
+  primaryForProfiles MusicianProfile[] @relation("PrimaryGenre")
 
   @@map("genres")
 }
