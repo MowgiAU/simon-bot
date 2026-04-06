@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
-    BarChart3, AlertCircle, Check, Save, AlignLeft
+    BarChart3, AlertCircle, Check, Save, AlignLeft, Scale
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -92,7 +92,7 @@ export const MyTracksPage: React.FC = () => {
     const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
     const [newTrack, setNewTrack] = useState({
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
-        allowAudioDownload: true, allowProjectDownload: true
+        allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved'
     });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
@@ -169,6 +169,7 @@ export const MyTracksPage: React.FC = () => {
         if (newTrack.key) formData.append('key', newTrack.key);
         formData.append('allowAudioDownload', String(newTrack.allowAudioDownload));
         formData.append('allowProjectDownload', String(newTrack.allowProjectDownload));
+        formData.append('license', newTrack.license);
         if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
         setSaving(true);
@@ -196,7 +197,7 @@ export const MyTracksPage: React.FC = () => {
             }
             setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
-            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true });
+            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null);
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics('');
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
@@ -243,6 +244,7 @@ export const MyTracksPage: React.FC = () => {
             formData.append('key', editingTrack.key || '');
             formData.append('allowAudioDownload', String(editingTrack.allowAudioDownload ?? true));
             formData.append('allowProjectDownload', String(editingTrack.allowProjectDownload ?? true));
+            formData.append('license', editingTrack.license || 'all-rights-reserved');
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
             const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
@@ -553,6 +555,38 @@ export const MyTracksPage: React.FC = () => {
                             style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
                         Allow project download
                     </label>
+                </div>
+
+                {/* ── License ── */}
+                <div style={{
+                    padding: '14px 16px', borderRadius: borderRadius.md,
+                    backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                    marginBottom: '20px',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                        <Scale size={14} color={colors.textSecondary} />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            License
+                        </span>
+                    </div>
+                    <select value={track.license || 'all-rights-reserved'} onChange={e => setField('license', e.target.value)}
+                        style={{ ...inputBase, cursor: 'pointer', maxWidth: '360px' }}>
+                        <option value="all-rights-reserved" style={{ backgroundColor: colors.surface }}>All Rights Reserved</option>
+                        <option value="cc0" style={{ backgroundColor: colors.surface }}>CC0 — Public Domain</option>
+                        <option value="cc-by" style={{ backgroundColor: colors.surface }}>CC BY — Attribution</option>
+                        <option value="cc-by-sa" style={{ backgroundColor: colors.surface }}>CC BY-SA — Attribution ShareAlike</option>
+                        <option value="cc-by-nc" style={{ backgroundColor: colors.surface }}>CC BY-NC — Attribution NonCommercial</option>
+                        <option value="cc-by-nc-sa" style={{ backgroundColor: colors.surface }}>CC BY-NC-SA — Attribution NonCommercial ShareAlike</option>
+                        <option value="cc-by-nd" style={{ backgroundColor: colors.surface }}>CC BY-ND — Attribution NoDerivs</option>
+                        <option value="cc-by-nc-nd" style={{ backgroundColor: colors.surface }}>CC BY-NC-ND — Attribution NonCommercial NoDerivs</option>
+                    </select>
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: colors.textTertiary, lineHeight: 1.5 }}>
+                        {(track.license || 'all-rights-reserved') === 'all-rights-reserved'
+                            ? 'Others cannot use, remix, or share this work without your permission.'
+                            : (track.license || '') === 'cc0'
+                            ? 'You waive all rights. Anyone can use this work for any purpose.'
+                            : 'Learn more at creativecommons.org/licenses'}
+                    </p>
                 </div>
 
                 {/* ── Genres ── */}

@@ -6053,6 +6053,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             key: metadata.key,
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
+            ...(req.body.license ? { license: req.body.license } : {}),
             ...(arrangement ? { arrangement } : {}),
             ...(projectFileUrl ? { projectFileUrl } : {}),
             ...(projectZipUrl ? { projectZipUrl } : {}),
@@ -6254,7 +6255,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
-        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload } = req.body;
+        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -6283,6 +6284,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(key !== undefined && { key: key || null }),
                 ...(allowAudioDownload !== undefined && { allowAudioDownload: allowAudioDownload === 'true' || allowAudioDownload === true }),
                 ...(allowProjectDownload !== undefined && { allowProjectDownload: allowProjectDownload === 'true' || allowProjectDownload === true }),
+                ...(license !== undefined && { license }),
             }
         });
 
@@ -6385,7 +6387,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const updateData: any = {};
 
         // Text field updates
-        const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload } = req.body;
+        const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
         logger.info(`[PUT track ${trackId}] allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             updateData.title = title;
@@ -6399,6 +6401,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (musicKey !== undefined) updateData.key = musicKey || null;
         if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
         if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
+        if (license !== undefined) updateData.license = license;
         logger.info(`[PUT track ${trackId}] updateData.allowAudioDownload=${updateData.allowAudioDownload}`);
 
         // Audio file replacement

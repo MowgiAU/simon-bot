@@ -12,7 +12,7 @@ import {
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
     Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
-    SkipBack, SkipForward
+    SkipBack, SkipForward, Scale
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -47,6 +47,7 @@ interface Track {
     projectZipUrl: string | null;
     allowAudioDownload: boolean;
     allowProjectDownload: boolean;
+    license: string;
     lyrics: string | null;
     lyricsSync: Array<{ time: number; text: string }> | null;
     samples?: TrackSample[];
@@ -99,6 +100,23 @@ const MemoizedArrangement: React.FC<{
     );
 });
 
+const LICENSE_LABELS: Record<string, string> = {
+    'all-rights-reserved': 'All Rights Reserved',
+    'cc0': 'CC0 — Public Domain',
+    'cc-by': 'CC BY — Attribution',
+    'cc-by-sa': 'CC BY-SA — Attribution ShareAlike',
+    'cc-by-nc': 'CC BY-NC — Attribution NonCommercial',
+    'cc-by-nc-sa': 'CC BY-NC-SA — Attribution NonCommercial ShareAlike',
+    'cc-by-nd': 'CC BY-ND — Attribution NoDerivs',
+    'cc-by-nc-nd': 'CC BY-NC-ND — Attribution NonCommercial NoDerivs',
+};
+
+const getLicenseUrl = (license: string): string | null => {
+    if (license === 'all-rights-reserved') return null;
+    if (license === 'cc0') return 'https://creativecommons.org/publicdomain/zero/1.0/';
+    return `https://creativecommons.org/licenses/${license.replace('cc-', '')}/4.0/`;
+};
+
 export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
     const { user, mutualAdminGuilds } = useAuth();
@@ -122,7 +140,8 @@ export const TrackPage: React.FC = () => {
         bpm: '', 
         key: '',
         allowAudioDownload: true,
-        allowProjectDownload: true
+        allowProjectDownload: true,
+        license: 'all-rights-reserved'
     });
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
     const [genreSearchTerm, setGenreSearchTerm] = useState('');
@@ -216,6 +235,7 @@ export const TrackPage: React.FC = () => {
             key: track.key || '',
             allowAudioDownload: track.allowAudioDownload ?? true,
             allowProjectDownload: track.allowProjectDownload ?? true,
+            license: track.license || 'all-rights-reserved',
         });
         setSelectedTrackGenres(track.genres?.map(g => g.genre.id) || []);
         setEditAudioFile(null);
@@ -281,6 +301,7 @@ export const TrackPage: React.FC = () => {
             formData.append('key', editForm.key);
             formData.append('allowAudioDownload', String(editForm.allowAudioDownload));
             formData.append('allowProjectDownload', String(editForm.allowProjectDownload));
+            formData.append('license', editForm.license);
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
             if (editAudioFile) formData.append('audio', editAudioFile);
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
@@ -736,6 +757,26 @@ export const TrackPage: React.FC = () => {
                         {track.artist && <InfoItem icon={<Info size={16}/>} label="Artist" value={track.artist} />}
                         {track.album && <InfoItem icon={<Music size={16}/>} label="Album" value={track.album} />}
                         {track.year && <InfoItem icon={<Calendar size={16}/>} label="Year" value={track.year.toString()} />}
+                    </div>
+                )}
+
+                {/* License badge */}
+                {track.license && track.license !== 'all-rights-reserved' && (
+                    <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 14px', borderRadius: borderRadius.md,
+                        backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                        marginBottom: '24px', fontSize: '13px', color: colors.textSecondary,
+                    }}>
+                        <Scale size={14} color={colors.primary} />
+                        {getLicenseUrl(track.license) ? (
+                            <a href={getLicenseUrl(track.license)!} target="_blank" rel="noopener noreferrer"
+                                style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>
+                                {LICENSE_LABELS[track.license] || track.license}
+                            </a>
+                        ) : (
+                            <span style={{ fontWeight: 600 }}>{LICENSE_LABELS[track.license] || track.license}</span>
+                        )}
                     </div>
                 )}
 
@@ -1242,6 +1283,25 @@ export const TrackPage: React.FC = () => {
                                             Public: Allow .flp project & ZIP loop package download
                                         </label>
                                     </div>
+                                </div>
+
+                                {/* License */}
+                                <div style={{ marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                        <Scale size={14} color={colors.textSecondary} />
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary }}>License</span>
+                                    </div>
+                                    <select value={editForm.license} onChange={e => setEditForm(f => ({ ...f, license: e.target.value }))}
+                                        style={{ width: '100%', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}>
+                                        <option value="all-rights-reserved">All Rights Reserved</option>
+                                        <option value="cc0">CC0 — Public Domain</option>
+                                        <option value="cc-by">CC BY — Attribution</option>
+                                        <option value="cc-by-sa">CC BY-SA — Attribution ShareAlike</option>
+                                        <option value="cc-by-nc">CC BY-NC — Attribution NonCommercial</option>
+                                        <option value="cc-by-nc-sa">CC BY-NC-SA — Attribution NonCommercial ShareAlike</option>
+                                        <option value="cc-by-nd">CC BY-ND — Attribution NoDerivs</option>
+                                        <option value="cc-by-nc-nd">CC BY-NC-ND — Attribution NonCommercial NoDerivs</option>
+                                    </select>
                                 </div>
 
                                 {/* File Uploads */}

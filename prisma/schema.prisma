@@ -829,6 +829,9 @@ model Track {
   allowAudioDownload Boolean @default(true)
   allowProjectDownload Boolean @default(true)
 
+  // Creative Commons license
+  license         String   @default("all-rights-reserved")  // "all-rights-reserved" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "cc-by-nc-sa" | "cc-by-nd" | "cc-by-nc-nd" | "cc0"
+
   // Moderation
   status          String   @default("active") // "active" | "suspended" | "deleted"
   statusReason    String?  // Admin-provided note
