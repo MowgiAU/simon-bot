@@ -162,7 +162,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     )}
                     {isMobile && user && (
                         <>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', zIndex: 1002 }}>
                         <button onClick={() => setMessengerOpen(!messengerOpen)} title="Messages" style={{ position: 'relative', backgroundColor: messengerOpen ? 'rgba(59,168,134,0.2)' : 'rgba(255,255,255,0.07)', color: messengerOpen ? colors.primary : 'white', border: `1px solid ${messengerOpen ? colors.primary + '55' : 'rgba(255,255,255,0.1)'}`, padding: '7px', borderRadius: '7px', cursor: 'pointer', display: 'flex' }}>
                             <MessageCircle size={15} />
                             {unreadMsgCount > 0 && (
@@ -196,7 +196,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {!isMobile && user && (
                         <>
                         <MusicNotificationMenu />
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', zIndex: 1002 }}>
                         <button onClick={() => setMessengerOpen(!messengerOpen)} title="Messages" style={{ position: 'relative', backgroundColor: messengerOpen ? 'rgba(59,168,134,0.2)' : 'rgba(255,255,255,0.05)', color: messengerOpen ? colors.primary : 'white', border: `1px solid ${messengerOpen ? colors.primary + '55' : 'rgba(255,255,255,0.1)'}`, padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <MessageCircle size={16} />
                             {unreadMsgCount > 0 && (

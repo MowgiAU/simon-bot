@@ -122,7 +122,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
 
     const displayName = conv ? convDisplayName(conv) : 'Chat';
     const RIGHT_OFFSET = 24;
-    const CHAT_WIDTH = 328;
+    const CHAT_WIDTH = 360;
     const CHAT_GAP = 12;
     const rightPos = RIGHT_OFFSET + index * (CHAT_WIDTH + CHAT_GAP);
 
@@ -227,7 +227,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                                     <img src={avatarUrl(sender)} style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0 }} alt="" />
                                 )}
                                 {!isMine && !showAvatar && <div style={{ width: 20, flexShrink: 0 }} />}
-                                <div style={{ position: 'relative', maxWidth: '80%' }}
+                                <div style={{ position: 'relative', maxWidth: '85%' }}
                                     onMouseEnter={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '1'; }}
                                     onMouseLeave={e => { const d = e.currentTarget.querySelector('.del-btn') as HTMLElement; if (d) d.style.opacity = '0'; }}>
                                     <div style={{
