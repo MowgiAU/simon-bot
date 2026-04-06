@@ -1502,6 +1502,55 @@ model ChartEntry {
   @@map("chart_entries")
 }
 
+// Private Messaging
+// ──────────────────────────────────────────────
+
+model Conversation {
+  id            String    @id @default(cuid())
+  name          String?   // null for 1:1, custom name for group chats
+  isGroup       Boolean   @default(false)
+  createdById   String
+  encryptedKey  String    // AES-256 conversation key, encrypted with server master key
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  participants  ConversationParticipant[]
+  messages      PrivateMessage[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id              String    @id @default(cuid())
+  conversationId  String
+  userId          String
+  joinedAt        DateTime  @default(now())
+  lastReadAt      DateTime  @default(now())
+  muted           Boolean   @default(false)
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model PrivateMessage {
+  id                String    @id @default(cuid())
+  conversationId    String
+  senderId          String
+  encryptedContent  String    // AES-256-GCM encrypted message body
+  iv                String    // Initialization vector for decryption
+  deleted           Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  editedAt          DateTime?
+
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("private_messages")
+}
+
 // Anti-Piracy Plugin
 // ──────────────────────────────────────────────
 // Leveling Plugin

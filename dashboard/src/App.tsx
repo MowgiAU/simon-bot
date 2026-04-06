@@ -67,6 +67,7 @@ const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").th
 const StudioGuidePage        = lazy(() => import("./pages/StudioGuide").then(m => ({ default: m.StudioGuidePage })));
 const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m => ({ default: m.BotMessengerPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
+const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
@@ -750,6 +751,11 @@ const AppInternal: React.FC = () => {
   // /feed → Subscription feed from followed artists
   if (currentPath === '/feed') {
     return <Suspense fallback={<PageSpinner />}><FeedPage /></Suspense>;
+  }
+
+  // /messages → Private messaging
+  if (currentPath === '/messages') {
+    return <Suspense fallback={<PageSpinner />}><MessagesPage /></Suspense>;
   }
 
   // /my-playlists → User's playlists
