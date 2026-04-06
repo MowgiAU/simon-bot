@@ -16,6 +16,7 @@ import {
     Collection,
     Message,
     MessageFlags,
+    Routes,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -564,7 +565,15 @@ export class TicketPlugin implements IPlugin {
         newName = `${emoji}${newName}`;
 
         try {
-            await channel.setName(newName);
+            // Use REST API directly with explicit UTF-8 Buffer to prevent
+            // any encoding corruption in the undici/discord.js request pipeline
+            const jsonBody = JSON.stringify({ name: newName });
+            const utf8Body = Buffer.from(jsonBody, 'utf8');
+            await this.client.rest.patch(Routes.channel(channel.id), {
+                body: utf8Body,
+                passThroughBody: true,
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            } as any);
             await interaction.reply({ 
                 content: `Priority set to **${level.toUpperCase()}** ${emoji}` 
             });
