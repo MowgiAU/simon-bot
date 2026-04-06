@@ -265,6 +265,15 @@ export class WelcomeGatePlugin implements IPlugin {
                     return; 
                 }
 
+                // Allow messages in ticket channels
+                const ticket = await this.db.ticket.findUnique({
+                    where: { channelId: message.channelId },
+                    select: { id: true, status: true },
+                });
+                if (ticket && ticket.status === 'open') {
+                    return;
+                }
+
                 // Delete message
                 if (message.deletable) {
                     await message.delete();
