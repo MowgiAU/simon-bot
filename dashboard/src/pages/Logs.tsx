@@ -131,6 +131,8 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string }> = {
   // Currency
   item_bought:              { label: 'Currency',  color: '#FBBF24' },
   transaction:              { label: 'Currency',  color: '#FBBF24' },
+  // Studio Guide
+  STUDIO_GUIDE_AUTO_RESPONSE: { label: 'Studio Guide', color: '#A78BFA' },
 };
 
 const getCategoryBadge = (action: string): { label: string; color: string } => {
@@ -794,6 +796,25 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                             <span>Thread: <span style={{ color: colors.textPrimary }}>{log.details.threadName}</span></span>
                                             <span style={{ fontSize: '12px' }}>Cost: {log.details.cost} Credits</span>
                                             <span style={{ fontSize: '11px', opacity: 0.7 }}>ID: {log.details.threadId}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Studio Guide AI Response
+                            if (log.action === 'STUDIO_GUIDE_AUTO_RESPONSE') {
+                                const d = log.details || {};
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: '#A78BFA' }}>Studio Guide Response</div>
+                                        <div style={{ marginTop: 6, color: colors.textSecondary, fontStyle: 'italic', lineHeight: 1.5 }}>
+                                            "{d.question}"
+                                        </div>
+                                        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '6px 16px', color: colors.textTertiary, fontSize: '12px' }}>
+                                            {d.answerLength && <span>Answer: {d.answerLength} chars</span>}
+                                            {d.hadImages && <span>🖼 Attached image</span>}
+                                            {d.hadAudio && <span>🎵 Attached audio</span>}
+                                            {d.hadVideo && <span>🎬 Attached video</span>}
                                         </div>
                                     </div>
                                 );

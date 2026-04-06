@@ -11512,6 +11512,23 @@ app.get('/api/studio-guide/conversations/:guildId', async (req, res) => {
   }
 });
 
+app.get('/api/studio-guide/conversations/:guildId/:conversationId', async (req, res) => {
+  try {
+    const { guildId, conversationId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'studio-guide')) return res.status(403).json({ error: 'Forbidden' });
+
+    const convo = await db.studioGuideConversation.findFirst({
+      where: { id: conversationId, guildId },
+      select: { id: true, userId: true, channelId: true, topic: true, active: true, messages: true, createdAt: true, updatedAt: true },
+    });
+    if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+    res.json(convo);
+  } catch (error) {
+    logger.error('Failed to get studio-guide conversation', error);
+    res.status(500).json({ error: 'Failed to get conversation' });
+  }
+});
+
 // ── Studio Guide Knowledge Base CRUD ──────────────────────────────────────────
 
 app.get('/api/studio-guide/knowledge/:guildId', async (req, res) => {

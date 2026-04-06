@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { colors, spacing, borderRadius, typography } from '../theme/theme';
-import { BookOpen, Save, RefreshCw, MessageSquare, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { BookOpen, Save, RefreshCw, MessageSquare, Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
@@ -79,6 +79,24 @@ export const StudioGuidePage: React.FC = () => {
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [tab, setTab] = useState<'settings' | 'knowledge' | 'conversations'>('settings');
+
+    // Conversation expand state: id -> messages[] | 'loading'
+    const [expandedConvo, setExpandedConvo] = useState<string | null>(null);
+    const [loadedMessages, setLoadedMessages] = useState<Record<string, any[]>>({});
+
+    const toggleConvo = async (id: string) => {
+        if (expandedConvo === id) { setExpandedConvo(null); return; }
+        setExpandedConvo(id);
+        if (loadedMessages[id]) return; // already fetched
+        try {
+            const res = await fetch(`${API}/api/studio-guide/conversations/${guildId}/${id}`, { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                const msgs = Array.isArray(data.messages) ? data.messages : [];
+                setLoadedMessages(prev => ({ ...prev, [id]: msgs }));
+            }
+        } catch { /* ignore */ }
+    };
 
     // Knowledge form state
     const [newEntry, setNewEntry] = useState({ title: '', content: '', category: 'general' });
@@ -477,41 +495,90 @@ export const StudioGuidePage: React.FC = () => {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                            {conversations.map(c => (
-                                <div
-                                    key={c.id}
-                                    style={{
-                                        background: colors.surface, borderRadius: borderRadius.md,
-                                        padding: spacing.md, display: 'flex', alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                                            <span style={{
-                                                display: 'inline-block', width: '8px', height: '8px',
-                                                borderRadius: '50%', background: c.active ? colors.primary : colors.border,
-                                            }} />
-                                            <span style={{ color: colors.textPrimary, fontWeight: 500 }}>
-                                                User: {c.userId.substring(0, 8)}...
-                                            </span>
+                            {conversations.map(c => {
+                                const isOpen = expandedConvo === c.id;
+                                const msgs: any[] = loadedMessages[c.id] || [];
+                                return (
+                                    <div
+                                        key={c.id}
+                                        style={{
+                                            background: colors.surface, borderRadius: borderRadius.md,
+                                            border: `1px solid ${isOpen ? colors.primary + '55' : colors.border}`,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        {/* Header row — click to expand */}
+                                        <div
+                                            onClick={() => toggleConvo(c.id)}
+                                            style={{
+                                                padding: spacing.md, display: 'flex', alignItems: 'center',
+                                                justifyContent: 'space-between', cursor: 'pointer',
+                                                background: isOpen ? 'rgba(255,255,255,0.03)' : 'transparent',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                                                {isOpen
+                                                    ? <ChevronDown size={16} color={colors.primary} />
+                                                    : <ChevronRight size={16} color={colors.textTertiary} />
+                                                }
+                                                <span style={{
+                                                    display: 'inline-block', width: '8px', height: '8px',
+                                                    borderRadius: '50%', background: c.active ? colors.primary : colors.border, flexShrink: 0,
+                                                }} />
+                                                <span style={{ color: colors.textPrimary, fontWeight: 500, fontSize: '13px' }}>
+                                                    {'<@' + c.userId + '>'}
+                                                </span>
+                                                {c.topic && (
+                                                    <span style={{ color: colors.textSecondary, fontSize: '12px' }}>— {c.topic}</span>
+                                                )}
+                                            </div>
+                                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: spacing.md }}>
+                                                <div style={{ color: colors.textSecondary, fontSize: '12px' }}>
+                                                    {new Date(c.updatedAt).toLocaleString()}
+                                                </div>
+                                                <div style={{ color: c.active ? colors.primary : colors.textTertiary, fontSize: '11px', marginTop: '2px' }}>
+                                                    {c.active ? 'Active' : 'Ended'}
+                                                </div>
+                                            </div>
                                         </div>
-                                        {c.topic && (
-                                            <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '13px' }}>
-                                                {c.topic}
-                                            </p>
+
+                                        {/* Expanded messages */}
+                                        {isOpen && (
+                                            <div style={{ borderTop: `1px solid ${colors.border}`, padding: spacing.md, display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto' }}>
+                                                {msgs.length === 0 ? (
+                                                    <div style={{ color: colors.textTertiary, fontSize: '13px', textAlign: 'center', padding: spacing.md }}>
+                                                        Loading messages...
+                                                    </div>
+                                                ) : msgs.map((msg: any, i: number) => (
+                                                    <div key={i} style={{
+                                                        display: 'flex', gap: '10px', alignItems: 'flex-start',
+                                                        flexDirection: msg.role === 'assistant' ? 'row' : 'row-reverse',
+                                                    }}>
+                                                        <div style={{
+                                                            flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                                                            background: msg.role === 'assistant' ? colors.primary + '33' : colors.surfaceLight,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '13px',
+                                                        }}>
+                                                            {msg.role === 'assistant' ? '🤖' : '👤'}
+                                                        </div>
+                                                        <div style={{
+                                                            flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm,
+                                                            background: msg.role === 'assistant' ? 'rgba(99,102,241,0.1)' : colors.surfaceLight,
+                                                            border: `1px solid ${msg.role === 'assistant' ? colors.primary + '33' : colors.border}`,
+                                                            fontSize: '13px', color: colors.textPrimary, lineHeight: 1.6,
+                                                            maxWidth: '85%',
+                                                            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                                        }}>
+                                                            {msg.content}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ color: colors.textSecondary, fontSize: '12px' }}>
-                                            {new Date(c.updatedAt).toLocaleString()}
-                                        </div>
-                                        <div style={{ color: c.active ? colors.primary : colors.textTertiary, fontSize: '11px', marginTop: '2px' }}>
-                                            {c.active ? 'Active' : 'Ended'}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
