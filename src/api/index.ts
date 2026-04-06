@@ -3763,7 +3763,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color'] 
             });
         }
 
@@ -11749,6 +11749,46 @@ app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     } catch (e: any) {
         logger.error('Manual backup failed', e);
         res.status(500).json({ error: 'Backup failed' });
+    }
+});
+
+        res.json({ success: true, key: result.key, sizeMB: +(result.sizeBytes / 1024 / 1024).toFixed(2) });
+    } catch (e: any) {
+        logger.error('Manual backup failed', e);
+        res.status(500).json({ error: 'Backup failed' });
+    }
+});
+
+// ── Booster Colour Roles ──────────────────────────────────────────────────────
+
+app.get('/api/booster-color/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'booster-color')) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.boosterColorSettings.findUnique({ where: { guildId } });
+        res.json(settings || { boosterRoleId: null, colorRoleIds: [] });
+    } catch (e) {
+        logger.error('Failed to get booster-color settings', e);
+        res.status(500).json({ error: 'Failed to get settings' });
+    }
+});
+
+app.post('/api/booster-color/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'booster-color')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { boosterRoleId, colorRoleIds } = req.body;
+        const settings = await db.boosterColorSettings.upsert({
+            where: { guildId },
+            update: { boosterRoleId: boosterRoleId || null, colorRoleIds: colorRoleIds || [] },
+            create: { guildId, boosterRoleId: boosterRoleId || null, colorRoleIds: colorRoleIds || [] },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to save booster-color settings', e);
+        res.status(500).json({ error: 'Failed to save settings' });
     }
 });
 

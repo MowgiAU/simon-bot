@@ -77,6 +77,7 @@ model Guild {
 
   moderationSettings  ModerationSettings?
   moderationWarnings  ModerationWarning[]
+  boosterColorSettings BoosterColorSettings?
   welcomeGateSettings WelcomeGateSettings?
 
   economyAccounts    EconomyAccount[]
@@ -178,6 +179,17 @@ model ModerationWarning {
   guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("moderation_warnings")
+}
+
+model BoosterColorSettings {
+  id            String   @id @default(cuid())
+  guildId       String   @unique
+  boosterRoleId String?  // Optional: if set, checks this role instead of premiumSince
+  colorRoleIds  String[] @default([])
+
+  guild         Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("booster_color_settings")
 }
 
 // ---------------------------------------------------------

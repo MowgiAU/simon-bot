@@ -31,6 +31,7 @@ import {
   TrendingUp,
   Radio,
   Send,
+  Sparkles,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -263,6 +264,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Send} size={20} /></span>
                 <span className="nav-label">Bot Messenger</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('booster-color') && (
+            <button
+                className={`nav-item ${activeSection === 'booster-color' ? 'active' : ''}`}
+                onClick={() => onNavigate('booster-color')}
+                title={collapsed ? "Booster Colors" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Sparkles} size={20} /></span>
+                <span className="nav-label">Booster Colors</span>
             </button>
           )}
 

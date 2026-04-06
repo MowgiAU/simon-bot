@@ -32,6 +32,7 @@ import { LevelingPlugin } from './plugins/LevelingPlugin';
 import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
 import { StudioGuidePlugin } from './plugins/StudioGuidePlugin';
 import { BotMessengerPlugin } from './plugins/BotMessengerPlugin';
+import { BoosterColorPlugin } from './plugins/BoosterColorPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -121,6 +122,7 @@ export class SimonBot {
       this.pluginManager.register(new FujiRadioPlugin());
       this.pluginManager.register(new StudioGuidePlugin());
       this.pluginManager.register(new BotMessengerPlugin());
+      this.pluginManager.register(new BoosterColorPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
@@ -517,6 +519,26 @@ export class SimonBot {
               await p.onGuildMemberRemove(member);
             } catch (error) {
               this.logger.error(`Error in plugin ${plugin.id} member remove handler`, error);
+            }
+          }
+        }
+      }
+    });
+
+    this.client.on('guildMemberUpdate', async (oldMember, newMember) => {
+      const guildId = newMember.guild?.id;
+      if (!guildId) return;
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (plugin.events.includes('guildMemberUpdate')) {
+          const isEnabled = await this.isPluginEnabled(guildId, plugin.id);
+          if (!isEnabled) continue;
+          const p = plugin as any;
+          if (typeof p.onGuildMemberUpdate === 'function') {
+            try {
+              await p.onGuildMemberUpdate(oldMember, newMember);
+            } catch (error) {
+              this.logger.error(`Error in plugin ${plugin.id} guildMemberUpdate handler`, error);
             }
           }
         }

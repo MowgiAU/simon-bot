@@ -66,6 +66,7 @@ const FujiRadioPage          = lazy(() => import("./pages/FujiRadio").then(m => 
 const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").then(m => ({ default: m.AccountManagementPage })));
 const StudioGuidePage        = lazy(() => import("./pages/StudioGuide").then(m => ({ default: m.StudioGuidePage })));
 const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m => ({ default: m.BotMessengerPage })));
+const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
@@ -106,7 +107,8 @@ type Section =
   | "leveling"
   | "fuji-radio"
   | "studio-guide"
-  | "bot-messenger";
+  | "bot-messenger"
+  | "booster-color";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -297,6 +299,7 @@ const AdminDashboard: React.FC = () => {
     'fuji-radio': 'fuji-radio',
     'studio-guide': 'studio-guide',
     'bot-messenger': 'bot-messenger',
+    'booster-color': 'booster-color',
     'account-management': 'account-management',
     'genres-list': 'musician-profiles',
   };
@@ -390,6 +393,8 @@ const AdminDashboard: React.FC = () => {
           return <StudioGuidePage />;
         case "bot-messenger":
           return <BotMessengerPage />;
+        case "booster-color":
+          return <BoosterColorPage />;
         case "account-management":
           return <AccountManagementPage />;
         case "genres-list":
