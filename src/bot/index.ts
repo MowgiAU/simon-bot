@@ -734,6 +734,23 @@ export class SimonBot {
     commands.push(timeoutCommand.toJSON());
     commands.push(purgeCommand.toJSON());
 
+    // Warn command
+    const warnCommand = new SlashCommandBuilder()
+        .setName('warn')
+        .setDescription('Issue a warning to a user')
+        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
+        .addUserOption(opt => opt.setName('user').setDescription('User to warn').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for warning').setRequired(false));
+
+    const warningsCommand = new SlashCommandBuilder()
+        .setName('warnings')
+        .setDescription('View warnings for a user')
+        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
+        .addUserOption(opt => opt.setName('user').setDescription('User to check').setRequired(true));
+
+    commands.push(warnCommand.toJSON());
+    commands.push(warningsCommand.toJSON());
+
     // 3. Economy Commands
     const walletCommand = new SlashCommandBuilder()
         .setName('wallet')
