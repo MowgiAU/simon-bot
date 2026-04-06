@@ -202,8 +202,9 @@ export const BoosterColorPage: React.FC = () => {
                     >
                         <Plus size={16} /> Add
                     </button>
-                </div>
-            </div>
+                    </div>{/* end flex row */}
+                </div>{/* end column */}
+            </div>{/* end card */}
 
             {/* Save */}
             <button
