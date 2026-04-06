@@ -55,7 +55,7 @@ export const TermsPage: React.FC = () => {
                             Terms of Service & Privacy Policy
                         </h1>
                         <p style={{ margin: '4px 0 0', color: colors.textSecondary, fontSize: '14px' }}>
-                            Fuji Studio — Last updated March 16, 2026
+                            Fuji Studio — Last updated April 6, 2026
                         </p>
                     </div>
                 </div>
@@ -166,6 +166,39 @@ export const TermsPage: React.FC = () => {
                             changes are made constitutes your acceptance of the new terms.
                         </P>
                     </Section>
+
+                    <Section title="10. Communication Tools (Comments &amp; Private Messaging)">
+                        <P>
+                            Fuji Studio provides community features, including public comment sections and a private messaging (DM)
+                            system, to facilitate collaboration. By using these features, you agree to the following:
+                        </P>
+                        <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
+                            <Bullet label="User Responsibility">
+                                You are solely responsible for your interactions with other users. Fuji Studio is not liable for
+                                any harm, harassment, or disputes resulting from private or public communications.
+                            </Bullet>
+                            <Bullet label="Prohibited Content">
+                                You may not use communication tools to distribute:
+                                <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', listStyle: 'disc' }}>
+                                    <li style={{ color: colors.textSecondary, lineHeight: 1.7, marginBottom: '4px', fontSize: '14px' }}>Spam, phishing links, or malware.</li>
+                                    <li style={{ color: colors.textSecondary, lineHeight: 1.7, marginBottom: '4px', fontSize: '14px' }}>Harassing, threatening, or defamatory language.</li>
+                                    <li style={{ color: colors.textSecondary, lineHeight: 1.7, marginBottom: '4px', fontSize: '14px' }}>Sexually explicit or &quot;NSFW&quot; content.</li>
+                                    <li style={{ color: colors.textSecondary, lineHeight: 1.7, marginBottom: '4px', fontSize: '14px' }}>Unsolicited commercial advertisements or &quot;leaked&quot; software links.</li>
+                                </ul>
+                            </Bullet>
+                            <Bullet label="Moderation &amp; Monitoring">
+                                To ensure platform safety and prevent abuse, Fuji Studio reserves the right (but does not assume
+                                the obligation) to monitor public comments. While private messages are intended to be private, we
+                                reserve the right to access and review DM logs in the event of a reported violation of these terms
+                                or a formal legal request.
+                            </Bullet>
+                            <Bullet label="Reporting">
+                                Users are encouraged to report any abusive behavior or scamming via our official support channels
+                                or Discord server. We reserve the right to revoke communication privileges or terminate accounts
+                                for misuse of these systems.
+                            </Bullet>
+                        </ul>
+                    </Section>
                 </div>
 
                 {/* Part 2 */}
@@ -180,7 +213,11 @@ export const TermsPage: React.FC = () => {
                             <Bullet label="Authentication">Discord Username, Discord ID, and Email Address.</Bullet>
                             <Bullet label="Profile Data">Bio, display name, social links, and gear lists.</Bullet>
                             <Bullet label="Content">Hosted audio previews, user-uploaded audio samples, artwork, and .flp files.</Bullet>
-                            <Bullet label="Analytics & Security">
+                            <Bullet label="Communications">
+                                We store the content of public comments you post and private messages you send/receive to ensure
+                                delivery and allow for moderation. This includes timestamps and recipient IDs.
+                            </Bullet>
+                            <Bullet label="Analytics &amp; Security">
                                 Basic play counts, download metrics to power "Trending" sections, and IP addresses strictly
                                 for security, moderation, and anti-spam purposes.
                             </Bullet>
@@ -194,13 +231,28 @@ export const TermsPage: React.FC = () => {
                             with trusted third-party service providers (such as hosting and database providers) essential to
                             operating the site.
                         </P>
+                        <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
+                            <Bullet label="Moderation">
+                                We may use automated tools or manual review of communication data to detect and prevent spam,
+                                fraud, or harassment.
+                            </Bullet>
+                        </ul>
                     </Section>
 
                     <Section title="3. Visibility">
-                        <P>
-                            Profiles and tracks/files marked "Public" are visible to all visitors. Users can manage the visibility
-                            of their tracks (Public vs. Private) via their dashboard at any time.
-                        </P>
+                        <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
+                            <Bullet label="Profiles &amp; Tracks">
+                                Profiles and tracks/files marked "Public" are visible to all visitors. Users can manage the visibility
+                                of their tracks (Public vs. Private) via their dashboard at any time.
+                            </Bullet>
+                            <Bullet label="Comments">
+                                Anything posted in the public comments section of a project or profile is visible to all visitors.
+                            </Bullet>
+                            <Bullet label="Private Messages">
+                                These are visible only to the participants of the conversation and authorized Fuji Studio
+                                administrators during moderation investigations.
+                            </Bullet>
+                        </ul>
                     </Section>
 
                     <Section title="4. Cookies & Security">
