@@ -127,31 +127,7 @@ export class AutoResponderPlugin implements IPlugin {
                 } catch { /* ignore parse errors */ }
             }
 
-            // Cooldown check (in-memory for speed)
-            if (rule.cooldownSeconds > 0) {
-                const lastFired = this.cooldowns.get(rule.id) || 0;
-                if (Date.now() - lastFired < rule.cooldownSeconds * 1000) {
-                    // React with cooldown emoji if configured, then skip
-                    if (rule.cooldownReactionEmoji) {
-                        try {
-                            const resolved = this.resolveEmoji(rule.cooldownReactionEmoji, msg.guild!);
-                            if (resolved) await msg.react(resolved);
-                        } catch { /* ignore */ }
-                    }
-                    continue;
-                }
-            }
-
-            // Global per-user cooldown check (guild-level setting)
-            const userKey = `${guildId}:${msg.author.id}`;
-            if (globalCooldownSeconds > 0) {
-                const lastUserFired = this.userCooldowns.get(userKey) || 0;
-                if (Date.now() - lastUserFired < globalCooldownSeconds * 1000) {
-                    continue;
-                }
-            }
-
-            // Pattern matching
+            // Pattern matching (must happen before cooldown check)
             let match: RegExpMatchArray | null = null;
             try {
                 switch (rule.triggerType) {
@@ -187,6 +163,30 @@ export class AutoResponderPlugin implements IPlugin {
             }
 
             if (!match) continue;
+
+            // Cooldown check (in-memory for speed) — only runs if message matched
+            if (rule.cooldownSeconds > 0) {
+                const lastFired = this.cooldowns.get(rule.id) || 0;
+                if (Date.now() - lastFired < rule.cooldownSeconds * 1000) {
+                    // React with cooldown emoji if configured, then skip
+                    if (rule.cooldownReactionEmoji) {
+                        try {
+                            const resolved = this.resolveEmoji(rule.cooldownReactionEmoji, msg.guild!);
+                            if (resolved) await msg.react(resolved);
+                        } catch { /* ignore */ }
+                    }
+                    continue;
+                }
+            }
+
+            // Global per-user cooldown check (guild-level setting)
+            const userKey = `${guildId}:${msg.author.id}`;
+            if (globalCooldownSeconds > 0) {
+                const lastUserFired = this.userCooldowns.get(userKey) || 0;
+                if (Date.now() - lastUserFired < globalCooldownSeconds * 1000) {
+                    continue;
+                }
+            }
 
             // Helper: resolve placeholders in any string
             const resolvePlaceholders = (text: string): string => {
