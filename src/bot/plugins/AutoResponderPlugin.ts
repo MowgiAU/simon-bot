@@ -41,6 +41,8 @@ export class AutoResponderPlugin implements IPlugin {
     private logger = new Logger('AutoResponderPlugin');
     // Per-rule cooldown tracker (ruleId -> last triggered timestamp)
     private cooldowns = new Map<string, number>();
+    // Global per-user cooldown tracker (guildId:userId -> last triggered timestamp)
+    private userCooldowns = new Map<string, number>();
 
     /**
      * Resolve an emoji string to something message.react() can use.
@@ -82,6 +84,7 @@ export class AutoResponderPlugin implements IPlugin {
 
     async shutdown(): Promise<void> {
         this.cooldowns.clear();
+        this.userCooldowns.clear();
     }
 
     // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage)
@@ -124,7 +127,25 @@ export class AutoResponderPlugin implements IPlugin {
             // Cooldown check (in-memory for speed)
             if (rule.cooldownSeconds > 0) {
                 const lastFired = this.cooldowns.get(rule.id) || 0;
-                if (Date.now() - lastFired < rule.cooldownSeconds * 1000) continue;
+                if (Date.now() - lastFired < rule.cooldownSeconds * 1000) {
+                    // React with cooldown emoji if configured, then skip
+                    if (rule.cooldownReactionEmoji) {
+                        try {
+                            const resolved = this.resolveEmoji(rule.cooldownReactionEmoji, msg.guild!);
+                            if (resolved) await msg.react(resolved);
+                        } catch { /* ignore */ }
+                    }
+                    continue;
+                }
+            }
+
+            // Global per-user cooldown check
+            const userKey = `${guildId}:${msg.author.id}`;
+            if (rule.globalCooldownSeconds > 0) {
+                const lastUserFired = this.userCooldowns.get(userKey) || 0;
+                if (Date.now() - lastUserFired < rule.globalCooldownSeconds * 1000) {
+                    continue;
+                }
             }
 
             // Pattern matching
@@ -259,6 +280,9 @@ export class AutoResponderPlugin implements IPlugin {
 
                 // Update cooldown
                 this.cooldowns.set(rule.id, Date.now());
+                if (rule.globalCooldownSeconds > 0) {
+                    this.userCooldowns.set(userKey, Date.now());
+                }
 
                 // Increment match count + update lastTriggeredAt (fire-and-forget)
                 db.autoResponderRule.update({

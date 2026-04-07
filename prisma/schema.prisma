@@ -1948,9 +1948,11 @@ model AutoResponderRule {
   enabled         Boolean  @default(true)
   allowedChannels String?  @db.Text    // JSON array of channel IDs (null = all channels)
   ignoredChannels String?  @db.Text    // JSON array of ignored channel IDs
-  cooldownSeconds Int      @default(0)
-  lastTriggeredAt DateTime?
-  matchCount      Int      @default(0) // lifetime trigger count
+  cooldownSeconds       Int      @default(0)
+  cooldownReactionEmoji String?              // emoji to react with when rule is on cooldown
+  globalCooldownSeconds Int      @default(0) // per-user cooldown — prevents one user triggering many rules at once
+  lastTriggeredAt       DateTime?
+  matchCount            Int      @default(0) // lifetime trigger count
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

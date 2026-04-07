@@ -44,6 +44,8 @@ interface AutoResponderRule {
     allowedChannels: string | null;
     ignoredChannels: string | null;
     cooldownSeconds: number;
+    cooldownReactionEmoji: string | null;
+    globalCooldownSeconds: number;
     matchCount: number;
     lastTriggeredAt: string | null;
 }
@@ -443,6 +445,8 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                     allowedChannels: parseChannels(draft.allowedChannels),
                     ignoredChannels: parseChannels(draft.ignoredChannels),
                     cooldownSeconds: draft.cooldownSeconds,
+                    cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
+                    globalCooldownSeconds: draft.globalCooldownSeconds,
                 }),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Save failed'); }
@@ -681,10 +685,30 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                     </div>
 
                     <div style={{ marginBottom: '20px' }}>
-                        <span style={labelStyle}>Cooldown (seconds, 0 = none)</span>
-                        <input type="number" min={0} max={86400} value={draft.cooldownSeconds}
-                            onChange={e => update({ cooldownSeconds: parseInt(e.target.value) || 0 })}
-                            style={{ ...inputBase, maxWidth: '160px' }} />
+                        <span style={labelStyle}>Rule Cooldown (seconds, 0 = none)</span>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                            <div>
+                                <input type="number" min={0} max={86400} value={draft.cooldownSeconds}
+                                    onChange={e => update({ cooldownSeconds: parseInt(e.target.value) || 0 })}
+                                    style={{ ...inputBase, maxWidth: '140px' }} />
+                                <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>How long before this rule can fire again</p>
+                            </div>
+                            <div>
+                                <input value={draft.cooldownReactionEmoji || ''}
+                                    onChange={e => update({ cooldownReactionEmoji: e.target.value || null })}
+                                    placeholder="React emoji when on cooldown" maxLength={100}
+                                    style={{ ...inputBase, maxWidth: '220px' }} />
+                                <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>React with this emoji instead of responding</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                        <span style={labelStyle}>Global User Cooldown (seconds, 0 = none)</span>
+                        <input type="number" min={0} max={86400} value={draft.globalCooldownSeconds || 0}
+                            onChange={e => update({ globalCooldownSeconds: parseInt(e.target.value) || 0 })}
+                            style={{ ...inputBase, maxWidth: '140px' }} />
+                        <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Prevents one user from triggering any rule more than once in this window</p>
                     </div>
 
                     {/* Footer buttons */}
