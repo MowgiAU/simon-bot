@@ -206,6 +206,16 @@ export class AutoResponderPlugin implements IPlugin {
                             inline: !!f.inline,
                         })));
                     }
+                    if (Array.isArray(raw.links) && raw.links.length > 0) {
+                        const validLinks = raw.links.filter((l: any) => l.title && l.url);
+                        if (validLinks.length > 0) {
+                            e.addFields({
+                                name: '🔗 Links',
+                                value: validLinks.map((l: any) => `[${resolvePlaceholders(l.title)}](${l.url})`).join('\n'),
+                                inline: false,
+                            });
+                        }
+                    }
                     embed = e;
                 } catch { /* skip malformed embed */ }
             }

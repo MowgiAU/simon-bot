@@ -5,22 +5,24 @@ import { useAuth } from '../components/AuthProvider';
 import {
     Zap, Plus, Trash2, ToggleLeft, ToggleRight, Save, AlertCircle,
     ChevronDown, ChevronUp, Pencil, Check, X, Code, AtSign,
-    Code2, Palette, Eye, Smile,
+    Code2, Palette, Eye, Smile, Link,
 } from 'lucide-react';
 
 // â”€â”€â”€ Embed types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface EmbedField { name: string; value: string; inline: boolean; }
+interface EmbedLink { title: string; url: string; }
 interface EmbedData {
     title: string; description: string; url: string; color: string;
     fields: EmbedField[];
+    links: EmbedLink[];
     authorName: string; authorIconUrl: string; authorUrl: string;
     footerText: string; footerIconUrl: string;
     thumbnailUrl: string; imageUrl: string;
     timestamp: boolean;
 }
 const defaultEmbed: EmbedData = {
-    title: '', description: '', url: '', color: '#10B981', fields: [],
+    title: '', description: '', url: '', color: '#10B981', fields: [], links: [],
     authorName: '', authorIconUrl: '', authorUrl: '',
     footerText: '', footerIconUrl: '',
     thumbnailUrl: '', imageUrl: '', timestamp: false,
@@ -127,6 +129,12 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
     const updateField = (i: number, p: Partial<EmbedField>) => {
         const f = [...embed.fields]; f[i] = { ...f[i], ...p }; upd({ fields: f });
     };
+    const links = embed.links || [];
+    const addLink = () => upd({ links: [...links, { title: '', url: '' }] });
+    const removeLink = (i: number) => upd({ links: links.filter((_, idx) => idx !== i) });
+    const updateLink = (i: number, p: Partial<EmbedLink>) => {
+        const l = [...links]; l[i] = { ...l[i], ...p }; upd({ links: l });
+    };
     const inp: React.CSSProperties = { ...inputBase, marginBottom: '8px' };
     return (
         <div>
@@ -187,6 +195,33 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                 </button>
             )}
 
+            {sectionTitle('Links')}
+            <p style={{ fontSize: '11px', color: colors.textTertiary, margin: '0 0 8px' }}>
+                Add clickable resource links — they appear as a list at the bottom of your embed.
+            </p>
+            {links.map((link, i) => (
+                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm,
+                    padding: '10px', border: `1px solid ${colors.glassBorder}`, marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}><Link size={11} /> Link {i + 1}</span>
+                        <button onClick={() => removeLink(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex' }}><Trash2 size={13} /></button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        <input style={{ ...inputBase, marginBottom: 0 }} value={link.title}
+                            onChange={e => updateLink(i, { title: e.target.value })} placeholder="Link title (e.g. FL Studio Manual)" />
+                        <input style={{ ...inputBase, marginBottom: 0 }} value={link.url}
+                            onChange={e => updateLink(i, { url: e.target.value })} placeholder="URL (e.g. https://...)" />
+                    </div>
+                </div>
+            ))}
+            {links.length < 10 && (
+                <button onClick={addLink} style={{ padding: '6px 14px', borderRadius: borderRadius.sm,
+                    backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.glassBorder}`,
+                    color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Plus size={12} /> Add Link
+                </button>
+            )}
+
             {sectionTitle('Footer')}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <input style={inp} value={embed.footerText} onChange={e => upd({ footerText: e.target.value })} placeholder="Footer text" />
@@ -202,7 +237,8 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
 // â”€â”€â”€ Embed Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
-    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl;
+    const links = embed.links || [];
+    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || links.length > 0 || embed.imageUrl || embed.thumbnailUrl;
     if (!hasContent) return (
         <div style={{ color: colors.textTertiary, textAlign: 'center', padding: '24px', fontSize: '12px', border: `1px dashed ${colors.glassBorder}`, borderRadius: borderRadius.sm }}>
             Embed preview will appear here
@@ -234,6 +270,16 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
                 {embed.thumbnailUrl && <img src={embed.thumbnailUrl} alt="" style={{ width: 70, height: 70, borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} />}
             </div>
             {embed.imageUrl && <img src={embed.imageUrl} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: '4px', marginTop: '8px' }} />}
+            {links.filter(l => l.title && l.url).length > 0 && (
+                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {links.filter(l => l.title && l.url).map((l, i) => (
+                        <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Link size={12} /> {l.title}
+                        </a>
+                    ))}
+                </div>
+            )}
             {(embed.footerText || embed.timestamp) && (
                 <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '8px' }}>
                     {embed.footerText}{embed.footerText && embed.timestamp && ' â€¢ '}{embed.timestamp && new Date().toLocaleString()}
