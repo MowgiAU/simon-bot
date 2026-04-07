@@ -76,6 +76,8 @@ const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m 
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
+const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
+const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -126,7 +128,8 @@ type Section =
   | "boost"
   | "automation"
   | "progression"
-  | "reports";
+  | "reports"
+  | "articles";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -324,6 +327,7 @@ const AdminDashboard: React.FC = () => {
     'booster-color': 'booster-color',
     'account-management': 'account-management',
     'reports': 'reports',
+    'articles': 'articles',
     // Grouped pages — no single plugin requirement (handled in sidebar visibility)
     'boost': '',
     'automation': '',
@@ -440,6 +444,8 @@ const AdminDashboard: React.FC = () => {
           return <AccountManagementPage />;
         case "reports":
           return <ReportsPage />;
+        case "articles":
+          return <ArticlesPage />;
         case "genres-list":
           return <GenresPage />;
         default:
@@ -628,6 +634,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/my-favourites', title: 'Fuji Studio | My Favourites' },
       { test: p => p === '/my-playlists', title: 'Fuji Studio | My Playlists' },
       { test: p => p === '/feed', title: 'Fuji Studio | Feed' },
+      { test: p => p.startsWith('/article/'), title: 'Fuji Studio | Article' },
       { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
     ];
     const match = titles.find(t => t.test(currentPath));
@@ -820,6 +827,11 @@ const AppInternal: React.FC = () => {
   // /battles → Public Beat Battles page
   if (currentPath === '/battles') {
     return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
+  }
+
+  // /article/:slug → Public article view
+  if (currentPath.startsWith('/article/')) {
+    return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
   }
 
   return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryV2Page /></Suspense>;

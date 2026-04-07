@@ -117,6 +117,7 @@ model Guild {
   autoResponderRules   AutoResponderRule[]
   serverBoostSettings  ServerBoostSettings?
   reactionRoles        ReactionRole[]
+  articles             Article[]
 
   @@map("guilds")
 }
@@ -1998,4 +1999,58 @@ model Report {
   @@index([reportedUserId])
   @@index([targetType, targetId])
   @@map("reports")
+}
+
+// ──────────────────── Articles / News Plugin ────────────────────
+model Article {
+  id              String   @id @default(cuid())
+  guildId         String
+  slug            String   @unique
+  title           String
+  subtitle        String?
+  content         String   @db.Text   // Rich HTML from WYSIWYG editor
+  excerpt         String?  @db.Text   // Short summary for cards / previews
+  coverImageUrl   String?             // Hero / cover image
+
+  // Author
+  authorUserId    String
+  authorName      String
+  authorAvatar    String?
+
+  // Categorisation
+  category        String   @default("news") // news | guide | announcement | tutorial
+  tags            Json?    @default("[]")
+
+  // Publishing workflow
+  status          String   @default("draft") // draft | pending | published | rejected | archived
+  publishedAt     DateTime?
+
+  // Admin review
+  reviewedByUserId String?
+  reviewedByName   String?
+  reviewedAt       DateTime?
+  reviewNote       String?  @db.Text
+
+  // Featured on front-page
+  isFeatured      Boolean  @default(false)
+  featuredAt      DateTime?
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?  @db.Text
+
+  // Stats
+  viewCount       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([status, publishedAt])
+  @@index([authorUserId])
+  @@index([category])
+  @@index([isFeatured])
+  @@index([guildId])
+  @@map("articles")
 }

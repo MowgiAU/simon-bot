@@ -144,6 +144,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
+    const [featuredArticle, setFeaturedArticle] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
@@ -155,6 +156,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
     useEffect(() => {
         axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
         axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
+        axios.get('/api/articles/featured/current').then(r => setFeaturedArticle(r.data)).catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -726,35 +728,86 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             </div>
                                         )
                                     ) : (
-                                        /* News / Guide — coming soon */
-                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
-                                            <div style={{
-                                                width: '90px', height: '90px', flexShrink: 0, borderRadius: '18px',
-                                                background: `${tc.accentColor}12`,
-                                                border: `1px solid ${tc.accentColor}30`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}>
-                                                {contentType === 'news'
-                                                    ? <Newspaper size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
-                                                    : <BookOpen size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />}
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '8px' }}>
-                                                    {contentType === 'news' ? 'Community News' : 'Community Guides'}
+                                        /* News / Guide — show featured article or fallback */
+                                        featuredArticle ? (
+                                            <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '14px' : '20px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
+                                                {featuredArticle.coverImageUrl ? (
+                                                    <div style={{
+                                                        width: isMobile ? '80px' : '120px', height: isMobile ? '80px' : '120px', flexShrink: 0, borderRadius: '14px',
+                                                        overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                                                    }}>
+                                                        <img src={featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{
+                                                        width: isMobile ? '80px' : '120px', height: isMobile ? '80px' : '120px', flexShrink: 0, borderRadius: '14px',
+                                                        background: `${tc.accentColor}12`, border: `1px solid ${tc.accentColor}30`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    }}>
+                                                        {contentType === 'news'
+                                                            ? <Newspaper size={32} color={tc.accentColor} style={{ opacity: 0.6 }} />
+                                                            : <BookOpen size={32} color={tc.accentColor} style={{ opacity: 0.6 }} />}
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                    <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {featuredArticle.title}
+                                                    </div>
+                                                    {featuredArticle.excerpt && (
+                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {featuredArticle.excerpt}
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                            padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
+                                                            background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
+                                                            color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                        }}>Read Article</span>
+                                                        {featuredArticle.authorName && (
+                                                            <span style={{ fontSize: '10px', color: colors.textTertiary }}>
+                                                                by {featuredArticle.authorName}
+                                                            </span>
+                                                        )}
+                                                        {featuredArticle.publishedAt && (
+                                                            <span style={{ fontSize: '10px', color: colors.textTertiary }}>
+                                                                {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '12px' }}>
+                                            </a>
+                                        ) : (
+                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
+                                                <div style={{
+                                                    width: '90px', height: '90px', flexShrink: 0, borderRadius: '18px',
+                                                    background: `${tc.accentColor}12`,
+                                                    border: `1px solid ${tc.accentColor}30`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
                                                     {contentType === 'news'
-                                                        ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
-                                                        : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
+                                                        ? <Newspaper size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
+                                                        : <BookOpen size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />}
                                                 </div>
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                                    padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-                                                    background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
-                                                    color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                }}>Coming soon</span>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '8px' }}>
+                                                        {contentType === 'news' ? 'Community News' : 'Community Guides'}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '12px' }}>
+                                                        {contentType === 'news'
+                                                            ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
+                                                            : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
+                                                    </div>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                        padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
+                                                        background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
+                                                        color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                    }}>No articles yet</span>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )
                                     )}
                                 </div>
                             </div>

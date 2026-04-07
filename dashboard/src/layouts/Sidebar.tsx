@@ -363,6 +363,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Featured Content</span>
             </button>
           )}
+
+          {permissions.accessiblePlugins.includes('articles') && (
+            <button
+                className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`}
+                onClick={() => onNavigate('articles')}
+                title={collapsed ? "Articles" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
+                <span className="nav-label">Articles</span>
+            </button>
+          )}
         </div>
 
         {/* System Section */}
