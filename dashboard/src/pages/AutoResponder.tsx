@@ -485,6 +485,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={e => e.stopPropagation()}>
                             <input value={nameInput} onChange={e => setNameInput(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(draft.name); setEditingName(false); } }}
+                                onBlur={saveName}
                                 autoFocus maxLength={100} style={{ ...inputBase, width: '200px', padding: '4px 8px' }} />
                             <button onClick={saveName} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, display: 'flex' }}><Check size={15} /></button>
                             <button onClick={() => { setNameInput(draft.name); setEditingName(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, display: 'flex' }}><X size={15} /></button>
