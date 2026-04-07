@@ -116,6 +116,7 @@ model Guild {
   autoMessageSchedules AutoMessageSchedule[]
   autoResponderRules    AutoResponderRule[]
   autoResponderSettings AutoResponderSettings?
+  pauseSettings         PauseSettings?
   serverBoostSettings  ServerBoostSettings?
   reactionRoles        ReactionRole[]
   articles             Article[]
@@ -1971,6 +1972,16 @@ model AutoResponderSettings {
   guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("auto_responder_settings")
+}
+
+model PauseSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  allowedRoleIds String[] @default([])
+
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("pause_settings")
 }
 
 // ──────────────────────────────────────────────

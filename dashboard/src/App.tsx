@@ -71,6 +71,7 @@ const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m 
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
+const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
@@ -123,6 +124,7 @@ type Section =
   | "private-messages"
   | "auto-messages"
   | "auto-responder"
+  | "pause"
   | "server-boost"
   | "booster-color"
   | "boost"
@@ -323,6 +325,7 @@ const AdminDashboard: React.FC = () => {
     'private-messages': 'private-messages',
     'auto-messages': 'auto-messages',
     'auto-responder': 'auto-responder',
+    'pause': 'pause',
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
     'account-management': 'account-management',
@@ -430,6 +433,8 @@ const AdminDashboard: React.FC = () => {
           return <AutoMessagesPage />;
         case "auto-responder":
           return <AutoResponderPage />;
+        case "pause":
+          return <PausePage />;
         case "server-boost":
           return <ServerBoostPage />;
         case "booster-color":

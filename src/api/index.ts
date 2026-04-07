@@ -3772,7 +3772,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'pause'] 
             });
         }
 
@@ -5269,6 +5269,70 @@ app.put('/api/auto-responder/settings/:guildId', async (req: any, res) => {
             update: {
                 globalCooldownSeconds: globalCooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(globalCooldownSeconds) || 0)) : undefined,
             },
+        });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// --- Pause Command Endpoints ---
+
+app.get('/api/pause/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        let settings = await db.pauseSettings.findUnique({ where: { guildId } });
+        if (!settings) settings = await db.pauseSettings.create({ data: { guildId } });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+app.put('/api/pause/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const { allowedRoleIds } = req.body;
+        const settings = await db.pauseSettings.upsert({
+            where: { guildId },
+            create: { guildId, allowedRoleIds: Array.isArray(allowedRoleIds) ? allowedRoleIds : [] },
+            update: { allowedRoleIds: Array.isArray(allowedRoleIds) ? allowedRoleIds : [] },
+        });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// --- Pause Command Endpoints ---
+
+app.get('/api/pause/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        let settings = await db.pauseSettings.findUnique({ where: { guildId } });
+        if (!settings) settings = await db.pauseSettings.create({ data: { guildId } });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+app.put('/api/pause/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const { allowedRoleIds } = req.body;
+        const settings = await db.pauseSettings.upsert({
+            where: { guildId },
+            create: { guildId, allowedRoleIds: Array.isArray(allowedRoleIds) ? allowedRoleIds : [] },
+            update: { allowedRoleIds: Array.isArray(allowedRoleIds) ? allowedRoleIds : [] },
         });
         res.json(settings);
     } catch (err: any) {

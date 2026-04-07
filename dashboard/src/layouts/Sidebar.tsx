@@ -36,6 +36,7 @@ import {
   Zap,
   Gift,
   Flag,
+  Hammer,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -191,6 +192,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
                 <span className="nav-label">Automation</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('pause') && (
+            <button
+                className={`nav-item ${activeSection === 'pause' ? 'active' : ''}`}
+                onClick={() => onNavigate('pause')}
+                title={collapsed ? "Pause Command" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
+                <span className="nav-label">Pause Command</span>
             </button>
           )}
 
