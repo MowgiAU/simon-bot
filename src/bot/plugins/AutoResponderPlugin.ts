@@ -147,11 +147,13 @@ export class AutoResponderPlugin implements IPlugin {
                             match = [msg.content];
                         }
                         break;
-                    case 'contains':
-                        if (msg.content.toLowerCase().includes(rule.trigger.toLowerCase())) {
+                    case 'contains': {
+                        const terms = rule.trigger.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+                        if (terms.some(t => msg.content.toLowerCase().includes(t))) {
                             match = [msg.content];
                         }
                         break;
+                    }
                     default:
                         continue;
                 }

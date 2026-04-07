@@ -52,7 +52,7 @@ const TRIGGER_TYPES: { value: string; label: string; desc: string }[] = [
     { value: 'regex', label: 'Regex', desc: 'Regular expression (case-insensitive)' },
     { value: 'exact', label: 'Exact', desc: 'Must match the full message exactly' },
     { value: 'startsWith', label: 'Starts With', desc: 'Message begins with this text' },
-    { value: 'contains', label: 'Contains', desc: 'Message includes this text anywhere' },
+    { value: 'contains', label: 'Contains', desc: 'Message includes this text anywhere — separate multiple words with commas (e.g. bean, beans)' },
 ];
 
 const RESPONSE_TABS = [
@@ -550,7 +550,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                         <div>
                             <span style={labelStyle}>Trigger {draft.triggerType === 'regex' ? 'Pattern' : 'Text'}</span>
                             <input value={draft.trigger} onChange={e => update({ trigger: e.target.value })}
-                                placeholder={draft.triggerType === 'regex' ? '^!hello\\b(.*)' : 'Type trigger text...'}
+                                placeholder={draft.triggerType === 'regex' ? '^!hello\\b(.*)' : draft.triggerType === 'contains' ? 'bean, beans, legume' : 'Type trigger text...'}
                                 maxLength={500}
                                 style={{ ...inputBase, fontFamily: draft.triggerType === 'regex' ? 'monospace' : 'inherit', borderColor: regexError ? '#ef4444' : colors.glassBorder }} />
                             {regexError && <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#ef4444' }}>{regexError}</p>}
