@@ -168,14 +168,21 @@ export class AutoResponderPlugin implements IPlugin {
             if (rule.cooldownSeconds > 0) {
                 const lastFired = this.cooldowns.get(rule.id) || 0;
                 if (Date.now() - lastFired < rule.cooldownSeconds * 1000) {
-                    // React with cooldown emoji if configured, then skip
+                    // Still react normally even on cooldown
+                    if (rule.reactionEmoji) {
+                        try {
+                            const resolved = this.resolveEmoji(rule.reactionEmoji, msg.guild!);
+                            if (resolved) await msg.react(resolved);
+                        } catch { /* ignore */ }
+                    }
+                    // Also react with the cooldown-specific emoji if set
                     if (rule.cooldownReactionEmoji) {
                         try {
                             const resolved = this.resolveEmoji(rule.cooldownReactionEmoji, msg.guild!);
                             if (resolved) await msg.react(resolved);
                         } catch { /* ignore */ }
                     }
-                    continue;
+                    continue; // skip text/embed response
                 }
             }
 
