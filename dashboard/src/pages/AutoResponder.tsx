@@ -235,7 +235,7 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                             <button onClick={() => removeCatLink(ci, li)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={12} /></button>
                         </div>
                     ))}
-                    {cat.links.length < 10 && (
+                    {cat.links.length < 25 && (
                         <button onClick={() => addCatLink(ci)} style={{ padding: '4px 10px', borderRadius: borderRadius.sm,
                             backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.glassBorder}`,
                             color: colors.textTertiary, cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
@@ -244,7 +244,7 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                     )}
                 </div>
             ))}
-            {cats.length < 10 && (
+            {cats.length < 25 && (
                 <button onClick={addCategory} style={{ padding: '6px 14px', borderRadius: borderRadius.sm,
                     backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.glassBorder}`,
                     color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -309,7 +309,7 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
                         {cat.links.filter(l => l.title && l.url).map((l, li) => (
                             <a key={li} href={l.url} target="_blank" rel="noopener noreferrer"
                                 style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <Link size={12} /> {l.title}
+                                <span style={{ color: colors.textSecondary }}>•</span> {l.title}
                             </a>
                         ))}
                     </div>
@@ -321,7 +321,7 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
                     {links.filter(l => l.title && l.url).map((l, i) => (
                         <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
                             style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Link size={12} /> {l.title}
+                            <span style={{ color: colors.textSecondary }}>•</span> {l.title}
                         </a>
                     ))}
                 </div>
