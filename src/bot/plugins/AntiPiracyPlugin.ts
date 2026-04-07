@@ -98,7 +98,14 @@ export class AntiPiracyPlugin implements IPlugin {
 
     // Step 1: Keyword pre-filter (FREE)
     const allKeywords = [...DEFAULT_KEYWORDS, ...settings.customKeywords.map((k: string) => k.toLowerCase())];
-    const matchedKeywords = allKeywords.filter(kw => content.includes(kw.toLowerCase()));
+    const matchedKeywords = allKeywords.filter(kw => {
+      const lower = kw.toLowerCase();
+      // Multi-word phrases use substring matching
+      if (lower.includes(' ')) return content.includes(lower);
+      // Single words use word-boundary matching to avoid false positives (e.g. "crack" matching "crackling")
+      const regex = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+      return regex.test(content);
+    });
 
     if (matchedKeywords.length === 0) return;
 
