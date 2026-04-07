@@ -113,6 +113,13 @@ export class AutoResponderPlugin implements IPlugin {
         const channelId = msg.channel.id;
         let textResponseSent = false; // only the first matching rule sends a text/embed reply
 
+        // Evaluate global per-user cooldown ONCE before the loop so that rules firing
+        // within this message don't cascade-block each other.
+        const userKey = `${guildId}:${msg.author.id}`;
+        const globalCooldownBlocked = globalCooldownSeconds > 0 &&
+            (Date.now() - (this.userCooldowns.get(userKey) || 0)) < globalCooldownSeconds * 1000;
+        let globalCooldownUpdated = false;
+
         for (const rule of rules) {
             // Channel filtering
             if (rule.allowedChannels) {
@@ -187,14 +194,8 @@ export class AutoResponderPlugin implements IPlugin {
                 }
             }
 
-            // Global per-user cooldown check (guild-level setting)
-            const userKey = `${guildId}:${msg.author.id}`;
-            if (globalCooldownSeconds > 0) {
-                const lastUserFired = this.userCooldowns.get(userKey) || 0;
-                if (Date.now() - lastUserFired < globalCooldownSeconds * 1000) {
-                    continue;
-                }
-            }
+            // Global per-user cooldown only suppresses text/embed — reactions always fire.
+            // (Evaluated before the loop so a rule firing mid-loop can't block later rules.)
 
             // Helper: resolve placeholders in any string
             const resolvePlaceholders = (text: string): string => {
@@ -281,8 +282,8 @@ export class AutoResponderPlugin implements IPlugin {
                     }
                 }
 
-                // Send text/embed response if present (only once per message)
-                if (!textResponseSent && (sendPayload.content || sendPayload.embeds)) {
+                // Send text/embed response if present (only once per message, not when global cooldown active)
+                if (!textResponseSent && !globalCooldownBlocked && (sendPayload.content || sendPayload.embeds)) {
                     await (msg.channel as TextChannel).send(sendPayload);
                     textResponseSent = true;
                 } else if (!rule.reactionEmoji && !(sendPayload.content || sendPayload.embeds)) {
@@ -290,10 +291,12 @@ export class AutoResponderPlugin implements IPlugin {
                     continue;
                 }
 
-                // Update cooldown
+                // Update per-rule cooldown
                 this.cooldowns.set(rule.id, Date.now());
-                if (globalCooldownSeconds > 0) {
+                // Update global user cooldown once per message (first fired rule)
+                if (globalCooldownSeconds > 0 && !globalCooldownBlocked && !globalCooldownUpdated) {
                     this.userCooldowns.set(userKey, Date.now());
+                    globalCooldownUpdated = true;
                 }
 
                 // Increment match count + update lastTriggeredAt (fire-and-forget)
