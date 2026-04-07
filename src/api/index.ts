@@ -5191,7 +5191,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji } = req.body;
 
         // Validate trigger type
-        const validTypes = ['regex', 'exact', 'startsWith', 'contains'];
+        const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord'];
         const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
 
         // Validate regex if regex type (strip unsupported inline flags like (?i) — JS applies 'i' flag natively)
