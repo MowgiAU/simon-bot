@@ -162,6 +162,13 @@ export class AutoResponderPlugin implements IPlugin {
                         }
                         break;
                     }
+                    case 'wholeWord': {
+                        const terms = rule.trigger.split(',').map((t: string) => t.trim()).filter(Boolean);
+                        if (terms.some((t: string) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(msg.content))) {
+                            match = [msg.content];
+                        }
+                        break;
+                    }
                     default:
                         continue;
                 }

@@ -35,7 +35,7 @@ interface AutoResponderRule {
     guildId: string;
     name: string;
     trigger: string;
-    triggerType: 'regex' | 'exact' | 'startsWith' | 'contains';
+    triggerType: 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord';
     response: string;
     embedJson: string | null;
     reactionEmoji: string | null;
@@ -54,6 +54,7 @@ const TRIGGER_TYPES: { value: string; label: string; desc: string }[] = [
     { value: 'exact', label: 'Exact', desc: 'Must match the full message exactly' },
     { value: 'startsWith', label: 'Starts With', desc: 'Message begins with this text' },
     { value: 'contains', label: 'Contains', desc: 'Message includes this text anywhere — separate multiple words with commas (e.g. bean, beans)' },
+    { value: 'wholeWord', label: 'Whole Word', desc: 'Word must appear as a standalone word (not inside another word) — separate multiple words with commas' },
 ];
 
 const RESPONSE_TABS = [
