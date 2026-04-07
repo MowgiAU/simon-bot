@@ -216,6 +216,18 @@ export class AutoResponderPlugin implements IPlugin {
                             });
                         }
                     }
+                    if (Array.isArray(raw.linkCategories) && raw.linkCategories.length > 0) {
+                        for (const cat of raw.linkCategories) {
+                            if (!cat.category || !Array.isArray(cat.links)) continue;
+                            const validLinks = cat.links.filter((l: any) => l.title && l.url);
+                            if (validLinks.length === 0) continue;
+                            e.addFields({
+                                name: `🔗 ${resolvePlaceholders(cat.category)}`,
+                                value: validLinks.map((l: any) => `[${resolvePlaceholders(l.title)}](${l.url})`).join('\n'),
+                                inline: false,
+                            });
+                        }
+                    }
                     embed = e;
                 } catch { /* skip malformed embed */ }
             }

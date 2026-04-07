@@ -12,17 +12,19 @@ import {
 
 interface EmbedField { name: string; value: string; inline: boolean; }
 interface EmbedLink { title: string; url: string; }
+interface EmbedLinkCategory { category: string; links: EmbedLink[]; }
 interface EmbedData {
     title: string; description: string; url: string; color: string;
     fields: EmbedField[];
-    links: EmbedLink[];
+    links: EmbedLink[];           // legacy flat links (auto-migrated)
+    linkCategories: EmbedLinkCategory[];
     authorName: string; authorIconUrl: string; authorUrl: string;
     footerText: string; footerIconUrl: string;
     thumbnailUrl: string; imageUrl: string;
     timestamp: boolean;
 }
 const defaultEmbed: EmbedData = {
-    title: '', description: '', url: '', color: '#10B981', fields: [], links: [],
+    title: '', description: '', url: '', color: '#10B981', fields: [], links: [], linkCategories: [],
     authorName: '', authorIconUrl: '', authorUrl: '',
     footerText: '', footerIconUrl: '',
     thumbnailUrl: '', imageUrl: '', timestamp: false,
@@ -135,6 +137,22 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
     const updateLink = (i: number, p: Partial<EmbedLink>) => {
         const l = [...links]; l[i] = { ...l[i], ...p }; upd({ links: l });
     };
+    // --- Link categories ---
+    const cats = embed.linkCategories || [];
+    const addCategory = () => upd({ linkCategories: [...cats, { category: '', links: [{ title: '', url: '' }] }] });
+    const removeCategory = (ci: number) => upd({ linkCategories: cats.filter((_, idx) => idx !== ci) });
+    const updateCategory = (ci: number, p: Partial<EmbedLinkCategory>) => {
+        const c = [...cats]; c[ci] = { ...c[ci], ...p }; upd({ linkCategories: c });
+    };
+    const addCatLink = (ci: number) => {
+        const c = [...cats]; c[ci] = { ...c[ci], links: [...c[ci].links, { title: '', url: '' }] }; upd({ linkCategories: c });
+    };
+    const removeCatLink = (ci: number, li: number) => {
+        const c = [...cats]; c[ci] = { ...c[ci], links: c[ci].links.filter((_, idx) => idx !== li) }; upd({ linkCategories: c });
+    };
+    const updateCatLink = (ci: number, li: number, p: Partial<EmbedLink>) => {
+        const c = [...cats]; const lnks = [...c[ci].links]; lnks[li] = { ...lnks[li], ...p }; c[ci] = { ...c[ci], links: lnks }; upd({ linkCategories: c });
+    };
     const inp: React.CSSProperties = { ...inputBase, marginBottom: '8px' };
     return (
         <div>
@@ -197,28 +215,40 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
 
             {sectionTitle('Links')}
             <p style={{ fontSize: '11px', color: colors.textTertiary, margin: '0 0 8px' }}>
-                Add clickable resource links — they appear as a list at the bottom of your embed.
+                Group links under categories — each category becomes its own section in the embed.
             </p>
-            {links.map((link, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm,
-                    padding: '10px', border: `1px solid ${colors.glassBorder}`, marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '11px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}><Link size={11} /> Link {i + 1}</span>
-                        <button onClick={() => removeLink(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex' }}><Trash2 size={13} /></button>
+            {cats.map((cat, ci) => (
+                <div key={ci} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm,
+                    padding: '12px', border: `1px solid ${colors.glassBorder}`, marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <input style={{ ...inputBase, marginBottom: 0, fontWeight: 600, flex: 1, marginRight: '8px' }}
+                            value={cat.category} onChange={e => updateCategory(ci, { category: e.target.value })}
+                            placeholder="Category title (e.g. Samples, Synths, Tutorials)" />
+                        <button onClick={() => removeCategory(ci)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={14} /></button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <input style={{ ...inputBase, marginBottom: 0 }} value={link.title}
-                            onChange={e => updateLink(i, { title: e.target.value })} placeholder="Link title (e.g. FL Studio Manual)" />
-                        <input style={{ ...inputBase, marginBottom: 0 }} value={link.url}
-                            onChange={e => updateLink(i, { url: e.target.value })} placeholder="URL (e.g. https://...)" />
-                    </div>
+                    {cat.links.map((link, li) => (
+                        <div key={li} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
+                            <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.title}
+                                onChange={e => updateCatLink(ci, li, { title: e.target.value })} placeholder="Link title" />
+                            <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.url}
+                                onChange={e => updateCatLink(ci, li, { url: e.target.value })} placeholder="URL (https://...)" />
+                            <button onClick={() => removeCatLink(ci, li)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={12} /></button>
+                        </div>
+                    ))}
+                    {cat.links.length < 10 && (
+                        <button onClick={() => addCatLink(ci)} style={{ padding: '4px 10px', borderRadius: borderRadius.sm,
+                            backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.glassBorder}`,
+                            color: colors.textTertiary, cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <Plus size={10} /> Add Link
+                        </button>
+                    )}
                 </div>
             ))}
-            {links.length < 10 && (
-                <button onClick={addLink} style={{ padding: '6px 14px', borderRadius: borderRadius.sm,
+            {cats.length < 10 && (
+                <button onClick={addCategory} style={{ padding: '6px 14px', borderRadius: borderRadius.sm,
                     backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.glassBorder}`,
                     color: colors.textSecondary, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Plus size={12} /> Add Link
+                    <Plus size={12} /> Add Link Category
                 </button>
             )}
 
@@ -238,7 +268,9 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
 
 const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
     const links = embed.links || [];
-    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || links.length > 0 || embed.imageUrl || embed.thumbnailUrl;
+    const cats = embed.linkCategories || [];
+    const allCatLinks = cats.flatMap(c => c.links.filter(l => l.title && l.url));
+    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || links.length > 0 || allCatLinks.length > 0 || embed.imageUrl || embed.thumbnailUrl;
     if (!hasContent) return (
         <div style={{ color: colors.textTertiary, textAlign: 'center', padding: '24px', fontSize: '12px', border: `1px dashed ${colors.glassBorder}`, borderRadius: borderRadius.sm }}>
             Embed preview will appear here
@@ -270,6 +302,20 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
                 {embed.thumbnailUrl && <img src={embed.thumbnailUrl} alt="" style={{ width: 70, height: 70, borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} />}
             </div>
             {embed.imageUrl && <img src={embed.imageUrl} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: '4px', marginTop: '8px' }} />}
+            {cats.filter(c => c.category && c.links.some(l => l.title && l.url)).map((cat, ci) => (
+                <div key={ci} style={{ marginTop: '10px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>{cat.category}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {cat.links.filter(l => l.title && l.url).map((l, li) => (
+                            <a key={li} href={l.url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Link size={12} /> {l.title}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            ))}
+            {/* legacy flat links */}
             {links.filter(l => l.title && l.url).length > 0 && (
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {links.filter(l => l.title && l.url).map((l, i) => (
