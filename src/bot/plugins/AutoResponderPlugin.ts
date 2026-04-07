@@ -111,6 +111,7 @@ export class AutoResponderPlugin implements IPlugin {
         if (!rules.length) return;
 
         const channelId = msg.channel.id;
+        let textResponseSent = false; // only the first matching rule sends a text/embed reply
 
         for (const rule of rules) {
             // Channel filtering
@@ -280,10 +281,11 @@ export class AutoResponderPlugin implements IPlugin {
                     }
                 }
 
-                // Send text/embed response if present
-                if (sendPayload.content || sendPayload.embeds) {
+                // Send text/embed response if present (only once per message)
+                if (!textResponseSent && (sendPayload.content || sendPayload.embeds)) {
                     await (msg.channel as TextChannel).send(sendPayload);
-                } else if (!rule.reactionEmoji) {
+                    textResponseSent = true;
+                } else if (!rule.reactionEmoji && !(sendPayload.content || sendPayload.embeds)) {
                     // No reaction and no response — skip this rule entirely
                     continue;
                 }
@@ -302,9 +304,6 @@ export class AutoResponderPlugin implements IPlugin {
             } catch (err: any) {
                 this.logger.warn(`AutoResponder: failed to send in ${channelId}: ${err?.message}`);
             }
-
-            // Only fire the first matching rule per message
-            break;
         }
     }
 }
