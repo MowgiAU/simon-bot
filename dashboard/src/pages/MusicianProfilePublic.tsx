@@ -287,9 +287,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, color: '#5865F2', isHandle: true },
     ];
 
-    const featuredTrack = profile.featuredTrack || null;
+    const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username } : null;
     const featuredPlaylist = profile.featuredPlaylist || null;
-    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => pt.track) || [];
+    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => ({ ...pt.track, username: pt.track.profile?.username || profile.username })) || [];
     
     // Fallback logic for avatar:
     // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
@@ -550,8 +550,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 </div>
                             </div>
                             {(() => {
-                                const ownTracks = (profile.tracks || []).map(t => ({ ...t, _repost: false as const, _repostedAt: null as string | null, _originalArtist: null as any }));
-                                const repostedTracks = (profile.reposts || []).map(t => ({ ...t, _repost: true as const }));
+                                const ownTracks = (profile.tracks || []).map(t => ({ ...t, username: profile.username, _repost: false as const, _repostedAt: null as string | null, _originalArtist: null as any }));
+                                const repostedTracks = (profile.reposts || []).map(t => ({ ...t, username: t._originalArtist?.username || profile.username, _repost: true as const }));
                                 let filtered = discographyFilter === 'tracks' ? ownTracks
                                              : discographyFilter === 'reposts' ? repostedTracks
                                              : [...ownTracks, ...repostedTracks];
