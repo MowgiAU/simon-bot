@@ -96,7 +96,7 @@ export class PausePlugin implements IPlugin {
         if (!action || !target) return;
 
         await interaction.reply({
-            content: `${action.emoji} **${target.username}** has been **${action.past}** by **${interaction.user.username}**.\n**Reason:** ${reason}`,
+            content: `${action.emoji} **${target.username}** has been **${action.past}**.\n**Reason:** ${reason}`,
         });
     }
 }
