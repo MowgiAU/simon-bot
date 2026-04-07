@@ -399,10 +399,23 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
         setTimeout(() => { el.focus(); el.setSelectionRange(start + token.length, start + token.length); }, 0);
     };
 
-    const saveName = () => {
+    const saveName = async () => {
         const trimmed = nameInput.trim() || 'New Rule';
         update({ name: trimmed });
         setEditingName(false);
+        // Persist name to server immediately — don't require clicking the main Save button
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/${draft.id}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: trimmed }),
+            });
+            if (res.ok) {
+                const updated: AutoResponderRule = await res.json();
+                onUpdated(updated);
+                setIsDirty(false);
+            }
+        } catch { /* silent — name is still in local draft */ }
     };
 
     const parseChannels = (raw: string | null): string[] => {
