@@ -173,6 +173,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('pause') && (
+            <button
+                className={`nav-item ${activeSection === 'pause' ? 'active' : ''}`}
+                onClick={() => onNavigate('pause')}
+                title={collapsed ? "Pause Command" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
+                <span className="nav-label">Pause Command</span>
+            </button>
+          )}
+
           {['leveling', 'economy'].some(p => permissions.accessiblePlugins.includes(p)) && (
             <button
                 className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`}
@@ -195,16 +206,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {permissions.accessiblePlugins.includes('pause') && (
-            <button
-                className={`nav-item ${activeSection === 'pause' ? 'active' : ''}`}
-                onClick={() => onNavigate('pause')}
-                title={collapsed ? "Pause Command" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
-                <span className="nav-label">Pause Command</span>
-            </button>
-          )}
 
           {permissions.accessiblePlugins.includes('email-client') && (
             <button
