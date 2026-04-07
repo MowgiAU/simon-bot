@@ -97,10 +97,13 @@ export class AutoResponderPlugin implements IPlugin {
         const guildId = msg.guild.id;
 
         let rules: any[];
+        let globalCooldownSeconds = 0;
         try {
-            rules = await db.autoResponderRule.findMany({
-                where: { guildId, enabled: true },
-            });
+            [rules] = await Promise.all([
+                db.autoResponderRule.findMany({ where: { guildId, enabled: true } }),
+            ]);
+            const settings = await db.autoResponderSettings.findUnique({ where: { guildId } });
+            globalCooldownSeconds = settings?.globalCooldownSeconds ?? 0;
         } catch {
             return; // DB not ready
         }
@@ -139,11 +142,11 @@ export class AutoResponderPlugin implements IPlugin {
                 }
             }
 
-            // Global per-user cooldown check
+            // Global per-user cooldown check (guild-level setting)
             const userKey = `${guildId}:${msg.author.id}`;
-            if (rule.globalCooldownSeconds > 0) {
+            if (globalCooldownSeconds > 0) {
                 const lastUserFired = this.userCooldowns.get(userKey) || 0;
-                if (Date.now() - lastUserFired < rule.globalCooldownSeconds * 1000) {
+                if (Date.now() - lastUserFired < globalCooldownSeconds * 1000) {
                     continue;
                 }
             }
@@ -169,8 +172,8 @@ export class AutoResponderPlugin implements IPlugin {
                         }
                         break;
                     case 'contains': {
-                        const terms = rule.trigger.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-                        if (terms.some(t => msg.content.toLowerCase().includes(t))) {
+                        const terms = rule.trigger.split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+                        if (terms.some((t: string) => msg.content.toLowerCase().includes(t))) {
                             match = [msg.content];
                         }
                         break;
@@ -280,7 +283,7 @@ export class AutoResponderPlugin implements IPlugin {
 
                 // Update cooldown
                 this.cooldowns.set(rule.id, Date.now());
-                if (rule.globalCooldownSeconds > 0) {
+                if (globalCooldownSeconds > 0) {
                     this.userCooldowns.set(userKey, Date.now());
                 }
 

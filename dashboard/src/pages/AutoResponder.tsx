@@ -45,7 +45,6 @@ interface AutoResponderRule {
     ignoredChannels: string | null;
     cooldownSeconds: number;
     cooldownReactionEmoji: string | null;
-    globalCooldownSeconds: number;
     matchCount: number;
     lastTriggeredAt: string | null;
 }
@@ -446,7 +445,6 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                     ignoredChannels: parseChannels(draft.ignoredChannels),
                     cooldownSeconds: draft.cooldownSeconds,
                     cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
-                    globalCooldownSeconds: draft.globalCooldownSeconds,
                 }),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Save failed'); }
@@ -703,14 +701,6 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: '20px' }}>
-                        <span style={labelStyle}>Global User Cooldown (seconds, 0 = none)</span>
-                        <input type="number" min={0} max={86400} value={draft.globalCooldownSeconds || 0}
-                            onChange={e => update({ globalCooldownSeconds: parseInt(e.target.value) || 0 })}
-                            style={{ ...inputBase, maxWidth: '140px' }} />
-                        <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Prevents one user from triggering any rule more than once in this window</p>
-                    </div>
-
                     {/* Footer buttons */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                         <button onClick={handleDelete} disabled={deleting}
@@ -741,6 +731,9 @@ export const AutoResponderPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [globalCooldown, setGlobalCooldown] = useState(0);
+    const [globalCooldownDirty, setGlobalCooldownDirty] = useState(false);
+    const [savingGlobal, setSavingGlobal] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
@@ -754,12 +747,27 @@ export const AutoResponderPage: React.FC = () => {
                 const res = await fetch(`/api/auto-responder/${guildId}`, { credentials: 'include', signal: controller.signal });
                 if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || d.error || `HTTP ${res.status}`); }
                 setRules(await res.json());
+                const sRes = await fetch(`/api/auto-responder/settings/${guildId}`, { credentials: 'include', signal: controller.signal });
+                if (sRes.ok) { const s = await sRes.json(); setGlobalCooldown(s.globalCooldownSeconds ?? 0); }
             } catch (e: any) {
                 if (e.name !== 'AbortError') setError(e.message || 'Failed to load.');
             } finally { setLoading(false); }
         }, 300);
         return () => { clearTimeout(tid); controller.abort(); };
     }, [guildId]);
+
+    const handleSaveGlobal = async () => {
+        if (!guildId) return;
+        setSavingGlobal(true);
+        try {
+            await fetch(`/api/auto-responder/settings/${guildId}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ globalCooldownSeconds: globalCooldown }),
+            });
+            setGlobalCooldownDirty(false);
+        } catch { /* ignore */ } finally { setSavingGlobal(false); }
+    };
 
     const handleCreate = async () => {
         if (!guildId) return;
@@ -797,6 +805,27 @@ export const AutoResponderPage: React.FC = () => {
                     Enable <strong>Mention User</strong> to prepend an @mention (or use <code style={{ backgroundColor: 'rgba(255,255,255,0.06)', padding: '1px 4px', borderRadius: '3px', fontFamily: 'monospace' }}>{'{mention}'}</code> anywhere in text).
                     Only the first matching rule fires per message.
                 </p>
+            </div>
+
+            {/* Global Settings */}
+            <div style={{ ...card, padding: '20px', marginBottom: '24px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, marginBottom: '12px' }}>Global Settings</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                        <span style={labelStyle}>Per-User Cooldown (seconds, 0 = off)</span>
+                        <input type="number" min={0} max={86400}
+                            value={globalCooldown}
+                            onChange={e => { setGlobalCooldown(parseInt(e.target.value) || 0); setGlobalCooldownDirty(true); }}
+                            style={{ ...inputBase, maxWidth: '160px' }} />
+                        <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Prevents one user from triggering any rule more than once in this window</p>
+                    </div>
+                    {globalCooldownDirty && (
+                        <button onClick={handleSaveGlobal} disabled={savingGlobal}
+                            style={{ padding: '8px 18px', borderRadius: borderRadius.sm, backgroundColor: colors.primary, color: '#fff', border: 'none', cursor: savingGlobal ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', opacity: savingGlobal ? 0.7 : 1, marginBottom: '18px' }}>
+                            <Save size={13} /> {savingGlobal ? 'Saving...' : 'Save'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {error && (

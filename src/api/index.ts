@@ -5188,7 +5188,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
 
-        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, globalCooldownSeconds, embedJson, mentionUser, reactionEmoji } = req.body;
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji } = req.body;
 
         // Validate trigger type
         const validTypes = ['regex', 'exact', 'startsWith', 'contains'];
@@ -5212,7 +5212,6 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
                 ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
                 cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
                 cooldownReactionEmoji: cooldownReactionEmoji !== undefined ? (cooldownReactionEmoji ? String(cooldownReactionEmoji).slice(0, 100) : null) : undefined,
-                globalCooldownSeconds: globalCooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(globalCooldownSeconds) || 0)) : undefined,
                 embedJson: embedJson !== undefined ? (embedJson ? JSON.stringify(embedJson) : null) : undefined,
                 mentionUser: mentionUser !== undefined ? !!mentionUser : undefined,
                 reactionEmoji: reactionEmoji !== undefined ? (reactionEmoji ? String(reactionEmoji).slice(0, 100) : null) : undefined,
@@ -5235,6 +5234,43 @@ app.delete('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
         await db.autoResponderRule.delete({ where: { id: ruleId } });
         res.json({ ok: true });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// GET: guild-level auto-responder settings
+app.get('/api/auto-responder/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        let settings = await db.autoResponderSettings.findUnique({ where: { guildId } });
+        if (!settings) settings = await db.autoResponderSettings.create({ data: { guildId } });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// PUT: update guild-level auto-responder settings
+app.put('/api/auto-responder/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const { globalCooldownSeconds } = req.body;
+        const settings = await db.autoResponderSettings.upsert({
+            where: { guildId },
+            create: {
+                guildId,
+                globalCooldownSeconds: Math.max(0, Math.min(86400, parseInt(globalCooldownSeconds) || 0)),
+            },
+            update: {
+                globalCooldownSeconds: globalCooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(globalCooldownSeconds) || 0)) : undefined,
+            },
+        });
+        res.json(settings);
     } catch (err: any) {
         res.status(500).json({ error: 'Internal server error', detail: err?.message });
     }

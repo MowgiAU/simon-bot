@@ -114,7 +114,8 @@ model Guild {
   studioGuideKnowledge StudioGuideKnowledge[]
   studioGuideOptOuts   StudioGuideOptOut[]
   autoMessageSchedules AutoMessageSchedule[]
-  autoResponderRules   AutoResponderRule[]
+  autoResponderRules    AutoResponderRule[]
+  autoResponderSettings AutoResponderSettings?
   serverBoostSettings  ServerBoostSettings?
   reactionRoles        ReactionRole[]
   articles             Article[]
@@ -1950,7 +1951,6 @@ model AutoResponderRule {
   ignoredChannels String?  @db.Text    // JSON array of ignored channel IDs
   cooldownSeconds       Int      @default(0)
   cooldownReactionEmoji String?              // emoji to react with when rule is on cooldown
-  globalCooldownSeconds Int      @default(0) // per-user cooldown — prevents one user triggering many rules at once
   lastTriggeredAt       DateTime?
   matchCount            Int      @default(0) // lifetime trigger count
 
@@ -1961,6 +1961,16 @@ model AutoResponderRule {
 
   @@index([guildId])
   @@map("auto_responder_rules")
+}
+
+model AutoResponderSettings {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  globalCooldownSeconds Int      @default(0) // per-user cooldown across all rules
+
+  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("auto_responder_settings")
 }
 
 // ──────────────────────────────────────────────
