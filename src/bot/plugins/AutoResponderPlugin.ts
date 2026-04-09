@@ -97,10 +97,12 @@ export class AutoResponderPlugin implements IPlugin {
         const guildId = msg.guild.id;
 
         let rules: any[];
+        let categories: any[];
         let globalCooldownSeconds = 0;
         try {
-            [rules] = await Promise.all([
+            [rules, categories] = await Promise.all([
                 db.autoResponderRule.findMany({ where: { guildId, enabled: true } }),
+                db.autoResponderCategory.findMany({ where: { guildId } }),
             ]);
             const settings = await db.autoResponderSettings.findUnique({ where: { guildId } });
             globalCooldownSeconds = settings?.globalCooldownSeconds ?? 0;
@@ -109,6 +111,9 @@ export class AutoResponderPlugin implements IPlugin {
         }
 
         if (!rules.length) return;
+
+        // Build a lookup map for categories
+        const categoryMap = new Map<string, any>(categories.map((c: any) => [c.id, c]));
 
         const channelId = msg.channel.id;
         let textResponseSent = false; // only the first matching rule sends a text/embed reply
@@ -121,16 +126,23 @@ export class AutoResponderPlugin implements IPlugin {
         let globalCooldownUpdated = false;
 
         for (const rule of rules) {
+            // Resolve effective settings — category overrides per-rule when assigned
+            const cat = rule.categoryId ? categoryMap.get(rule.categoryId) : null;
+            const effectiveAllowedChannels = cat ? cat.allowedChannels : rule.allowedChannels;
+            const effectiveIgnoredChannels  = cat ? cat.ignoredChannels  : rule.ignoredChannels;
+            const effectiveCooldownSeconds  = cat ? cat.cooldownSeconds  : rule.cooldownSeconds;
+            const effectiveCooldownReactionEmoji = cat ? cat.cooldownReactionEmoji : rule.cooldownReactionEmoji;
+
             // Channel filtering
-            if (rule.allowedChannels) {
+            if (effectiveAllowedChannels) {
                 try {
-                    const allowed: string[] = JSON.parse(rule.allowedChannels);
+                    const allowed: string[] = JSON.parse(effectiveAllowedChannels);
                     if (allowed.length > 0 && !allowed.includes(channelId)) continue;
                 } catch { /* ignore parse errors */ }
             }
-            if (rule.ignoredChannels) {
+            if (effectiveIgnoredChannels) {
                 try {
-                    const ignored: string[] = JSON.parse(rule.ignoredChannels);
+                    const ignored: string[] = JSON.parse(effectiveIgnoredChannels);
                     if (ignored.includes(channelId)) continue;
                 } catch { /* ignore parse errors */ }
             }
@@ -180,9 +192,9 @@ export class AutoResponderPlugin implements IPlugin {
             if (!match) continue;
 
             // Cooldown check (in-memory for speed) — only runs if message matched
-            if (rule.cooldownSeconds > 0) {
+            if (effectiveCooldownSeconds > 0) {
                 const lastFired = this.cooldowns.get(rule.id) || 0;
-                if (Date.now() - lastFired < rule.cooldownSeconds * 1000) {
+                if (Date.now() - lastFired < effectiveCooldownSeconds * 1000) {
                     // Still react normally even on cooldown
                     if (rule.reactionEmoji) {
                         try {
@@ -191,9 +203,9 @@ export class AutoResponderPlugin implements IPlugin {
                         } catch { /* ignore */ }
                     }
                     // Also react with the cooldown-specific emoji if set
-                    if (rule.cooldownReactionEmoji) {
+                    if (effectiveCooldownReactionEmoji) {
                         try {
-                            const resolved = this.resolveEmoji(rule.cooldownReactionEmoji, msg.guild!);
+                            const resolved = this.resolveEmoji(effectiveCooldownReactionEmoji, msg.guild!);
                             if (resolved) await msg.react(resolved);
                         } catch { /* ignore */ }
                     }

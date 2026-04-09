@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import {
     Zap, Plus, Trash2, ToggleLeft, ToggleRight, Save, AlertCircle,
     ChevronDown, ChevronUp, Pencil, Check, X, Code, AtSign,
-    Code2, Palette, Eye, Smile, Link,
+    Code2, Palette, Eye, Smile, Link, FolderOpen,
 } from 'lucide-react';
 
 // â”€â”€â”€ Embed types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -47,6 +47,17 @@ interface AutoResponderRule {
     cooldownReactionEmoji: string | null;
     matchCount: number;
     lastTriggeredAt: string | null;
+    categoryId: string | null;
+}
+
+interface AutoResponderCategory {
+    id: string;
+    guildId: string;
+    name: string;
+    allowedChannels: string | null;
+    ignoredChannels: string | null;
+    cooldownSeconds: number;
+    cooldownReactionEmoji: string | null;
 }
 
 const TRIGGER_TYPES: { value: string; label: string; desc: string }[] = [
@@ -339,14 +350,171 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 
 // â”€â”€â”€ Rule Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ─── Category Card ────────────────────────────────────────────────────────────
+
+interface CategoryCardProps {
+    category: AutoResponderCategory;
+    guildId: string;
+    onUpdated: (c: AutoResponderCategory) => void;
+    onDeleted: (id: string) => void;
+}
+
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, onUpdated, onDeleted }) => {
+    const [draft, setDraft] = useState<AutoResponderCategory>({ ...category });
+    const [isDirty, setIsDirty] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [editingName, setEditingName] = useState(false);
+    const [nameInput, setNameInput] = useState(category.name);
+
+    useEffect(() => { if (msg) { const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); } }, [msg]);
+    useEffect(() => { setDraft({ ...category }); setNameInput(category.name); setIsDirty(false); }, [category.id]);
+
+    const update = (patch: Partial<AutoResponderCategory>) => { setDraft(prev => ({ ...prev, ...patch })); setIsDirty(true); };
+    const parseChannels = (raw: string | null): string[] => { if (!raw) return []; try { return JSON.parse(raw); } catch { return []; } };
+
+    const saveName = async () => {
+        const trimmed = nameInput.trim() || 'New Category';
+        setDraft(prev => ({ ...prev, name: trimmed }));
+        setEditingName(false);
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/categories/${category.id}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: trimmed }),
+            });
+            if (res.ok) { onUpdated(await res.json()); setIsDirty(false); }
+        } catch { /* silent */ }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/categories/${category.id}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: draft.name,
+                    allowedChannels: parseChannels(draft.allowedChannels),
+                    ignoredChannels: parseChannels(draft.ignoredChannels),
+                    cooldownSeconds: draft.cooldownSeconds,
+                    cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
+                }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Save failed'); }
+            onUpdated(await res.json());
+            setIsDirty(false);
+            setMsg({ type: 'success', text: 'Saved!' });
+        } catch (e) {
+            setMsg({ type: 'error', text: (e as any).message || 'Save failed.' });
+        } finally { setSaving(false); }
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete category "${draft.name}"? Rules in this category will become uncategorised.`)) return;
+        setDeleting(true);
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/categories/${category.id}`, { method: 'DELETE', credentials: 'include' });
+            if (!res.ok) throw new Error();
+            onDeleted(category.id);
+        } catch { setMsg({ type: 'error', text: 'Failed to delete.' }); setDeleting(false); }
+    };
+
+    return (
+        <div style={{ ...card, borderLeft: `3px solid ${colors.primary}`, marginBottom: '10px' }}>
+            <div style={{ padding: '14px 16px' }}>
+                {/* Name row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <FolderOpen size={16} color={colors.primary} style={{ flexShrink: 0 }} />
+                    {editingName ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                            <input value={nameInput} onChange={e => setNameInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setNameInput(draft.name); setEditingName(false); } }}
+                                onBlur={saveName} autoFocus maxLength={100}
+                                style={{ ...inputBase, flex: 1, padding: '4px 8px' }} />
+                            <button onClick={saveName} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.primary, display: 'flex' }}><Check size={14} /></button>
+                            <button onClick={() => { setNameInput(draft.name); setEditingName(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, display: 'flex' }}><X size={14} /></button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary }}>{draft.name}</span>
+                            <button onClick={() => setEditingName(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: 0, display: 'flex' }}><Pencil size={11} /></button>
+                        </div>
+                    )}
+                    <button onClick={handleDelete} disabled={deleting}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', flexShrink: 0, opacity: deleting ? 0.5 : 1 }}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+
+                {msg && (
+                    <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: msg.type === 'success' ? colors.primary : '#ef4444' }}>
+                        <AlertCircle size={12} /> {msg.text}
+                    </div>
+                )}
+
+                {/* Channel filters */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                    <div>
+                        <span style={labelStyle}>Allowed Channels (empty = all)</span>
+                        <ChannelSelect guildId={guildId} value={parseChannels(draft.allowedChannels)}
+                            onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ allowedChannels: a.length ? JSON.stringify(a) : null }); }}
+                            placeholder="All channels..." multiple />
+                    </div>
+                    <div>
+                        <span style={labelStyle}>Ignored Channels</span>
+                        <ChannelSelect guildId={guildId} value={parseChannels(draft.ignoredChannels)}
+                            onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ ignoredChannels: a.length ? JSON.stringify(a) : null }); }}
+                            placeholder="None..." multiple />
+                    </div>
+                </div>
+
+                {/* Cooldown */}
+                <div style={{ marginBottom: '14px' }}>
+                    <span style={labelStyle}>Category Cooldown (seconds, 0 = none)</span>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <div>
+                            <input type="number" min={0} max={86400} value={draft.cooldownSeconds}
+                                onChange={e => update({ cooldownSeconds: parseInt(e.target.value) || 0 })}
+                                style={{ ...inputBase, maxWidth: '140px' }} />
+                            <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Applies to all rules in this category</p>
+                        </div>
+                        <div>
+                            <input value={draft.cooldownReactionEmoji || ''}
+                                onChange={e => update({ cooldownReactionEmoji: e.target.value || null })}
+                                placeholder="React emoji when on cooldown" maxLength={100}
+                                style={{ ...inputBase, maxWidth: '220px' }} />
+                            <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>React with this emoji instead of responding</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    {isDirty && (
+                        <button onClick={handleSave} disabled={saving}
+                            style={{ padding: '7px 18px', borderRadius: borderRadius.sm, backgroundColor: colors.primary, color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', opacity: saving ? 0.7 : 1 }}>
+                            <Save size={13} /> {saving ? 'Saving...' : 'Save Category'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─── Rule Card ────────────────────────────────────────────────────────────────
+
 interface RuleCardProps {
     rule: AutoResponderRule;
     guildId: string;
+    categories: AutoResponderCategory[];
     onUpdated: (r: AutoResponderRule) => void;
     onDeleted: (id: string) => void;
 }
 
-const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted }) => {
+const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdated, onDeleted }) => {
     const [expanded, setExpanded] = useState(!rule.trigger);
     const [editingName, setEditingName] = useState(false);
     const [nameInput, setNameInput] = useState(rule.name);
@@ -446,6 +614,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                     ignoredChannels: parseChannels(draft.ignoredChannels),
                     cooldownSeconds: draft.cooldownSeconds,
                     cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
+                    categoryId: draft.categoryId || null,
                 }),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Save failed'); }
@@ -659,7 +828,31 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                         )}
                     </div>
 
-                    {/* Channel filters */}
+                    {/* Category assignment */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <span style={labelStyle}>Category (optional)</span>
+                        <select
+                            value={draft.categoryId || ''}
+                            onChange={e => update({ categoryId: e.target.value || null })}
+                            style={{ ...inputBase, backgroundColor: 'rgba(255,255,255,0.08)', color: colors.textPrimary, cursor: 'pointer' }}>
+                            <option value="">— No category —</option>
+                            {categories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                        <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>
+                            Rules in a category inherit its channel filters and cooldown settings.
+                        </p>
+                    </div>
+
+                    {/* Channel filters — disabled when category is assigned */}
+                    {draft.categoryId ? (
+                        <div style={{ marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px dashed ${colors.glassBorder}`, color: colors.textTertiary, fontSize: '12px' }}>
+                            <FolderOpen size={13} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+                            Channel filters and cooldown are inherited from the <strong style={{ color: colors.textSecondary }}>{categories.find(c => c.id === draft.categoryId)?.name ?? 'category'}</strong>.
+                        </div>
+                    ) : (
+                        <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                         <div>
                             <span style={labelStyle}>Allowed Channels (empty = all)</span>
@@ -701,6 +894,8 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, onUpdated, onDeleted
                             </div>
                         </div>
                     </div>
+                        </>
+                    )}
 
                     {/* Footer buttons */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -729,8 +924,10 @@ export const AutoResponderPage: React.FC = () => {
     const guildId = selectedGuild?.id;
 
     const [rules, setRules] = useState<AutoResponderRule[]>([]);
+    const [categories, setCategories] = useState<AutoResponderCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
+    const [creatingCategory, setCreatingCategory] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [globalCooldown, setGlobalCooldown] = useState(0);
     const [globalCooldownDirty, setGlobalCooldownDirty] = useState(false);
@@ -745,11 +942,15 @@ export const AutoResponderPage: React.FC = () => {
         const tid = setTimeout(async () => {
             try {
                 setLoading(true); setError(null);
-                const res = await fetch(`/api/auto-responder/${guildId}`, { credentials: 'include', signal: controller.signal });
-                if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || d.error || `HTTP ${res.status}`); }
-                setRules(await res.json());
-                const sRes = await fetch(`/api/auto-responder/settings/${guildId}`, { credentials: 'include', signal: controller.signal });
-                if (sRes.ok) { const s = await sRes.json(); setGlobalCooldown(s.globalCooldownSeconds ?? 0); }
+                const [rulesRes, catsRes, settingsRes] = await Promise.all([
+                    fetch(`/api/auto-responder/${guildId}`, { credentials: 'include', signal: controller.signal }),
+                    fetch(`/api/auto-responder/${guildId}/categories`, { credentials: 'include', signal: controller.signal }),
+                    fetch(`/api/auto-responder/settings/${guildId}`, { credentials: 'include', signal: controller.signal }),
+                ]);
+                if (!rulesRes.ok) { const d = await rulesRes.json().catch(() => ({})); throw new Error(d.detail || d.error || `HTTP ${rulesRes.status}`); }
+                setRules(await rulesRes.json());
+                if (catsRes.ok) setCategories(await catsRes.json());
+                if (settingsRes.ok) { const s = await settingsRes.json(); setGlobalCooldown(s.globalCooldownSeconds ?? 0); }
             } catch (e: any) {
                 if (e.name !== 'AbortError') setError(e.message || 'Failed to load.');
             } finally { setLoading(false); }
@@ -784,6 +985,22 @@ export const AutoResponderPage: React.FC = () => {
             setRules(prev => [...prev, r]);
         } catch (e: any) { setError(e.message); }
         finally { setCreating(false); }
+    };
+
+    const handleCreateCategory = async () => {
+        if (!guildId) return;
+        setCreatingCategory(true);
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/categories`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: `Category ${categories.length + 1}` }),
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || d.error || 'Failed'); }
+            const c: AutoResponderCategory = await res.json();
+            setCategories(prev => [...prev, c]);
+        } catch (e: any) { setError(e.message); }
+        finally { setCreatingCategory(false); }
     };
 
     return (
@@ -839,6 +1056,44 @@ export const AutoResponderPage: React.FC = () => {
                 <div style={{ padding: '48px', textAlign: 'center', color: colors.textTertiary, fontSize: '13px' }}>Loading rules...</div>
             ) : (
                 <>
+                    {/* Categories section */}
+                    <div style={{ marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FolderOpen size={16} color={colors.primary} />
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Categories</span>
+                                <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{categories.length}</span>
+                            </div>
+                            <button onClick={handleCreateCategory} disabled={creatingCategory || loading}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: `1px solid ${colors.glassBorder}`, cursor: creatingCategory ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingCategory ? 0.7 : 1 }}>
+                                <Plus size={13} /> {creatingCategory ? 'Creating...' : 'Add Category'}
+                            </button>
+                        </div>
+                        {categories.length === 0 ? (
+                            <div style={{ fontSize: '12px', color: colors.textTertiary, padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px dashed ${colors.glassBorder}` }}>
+                                No categories yet. Create one to group rules with shared channel filters and cooldown settings.
+                            </div>
+                        ) : (
+                            categories.map(c => (
+                                <CategoryCard key={c.id} category={c} guildId={guildId || ''}
+                                    onUpdated={u => setCategories(prev => prev.map(x => x.id === u.id ? u : x))}
+                                    onDeleted={id => {
+                                        setCategories(prev => prev.filter(x => x.id !== id));
+                                        // Clear categoryId on rules that belonged to deleted category
+                                        setRules(prev => prev.map(r => r.categoryId === id ? { ...r, categoryId: null } : r));
+                                    }}
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {/* Rules section */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <Zap size={16} color={colors.primary} />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Rules</span>
+                        <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{rules.length}</span>
+                    </div>
+
                     {rules.length === 0 && !error && (
                         <div style={{ textAlign: 'center', padding: '48px 24px', color: colors.textSecondary, fontSize: '14px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px dashed ${colors.glassBorder}`, marginBottom: '16px' }}>
                             <Zap size={32} color={colors.textTertiary} style={{ marginBottom: '12px' }} />
@@ -846,7 +1101,7 @@ export const AutoResponderPage: React.FC = () => {
                         </div>
                     )}
                     {rules.map(r => (
-                        <RuleCard key={r.id} rule={r} guildId={guildId || ''}
+                        <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
                             onUpdated={u => setRules(prev => prev.map(x => x.id === u.id ? u : x))}
                             onDeleted={id => setRules(prev => prev.filter(x => x.id !== id))} />
                     ))}

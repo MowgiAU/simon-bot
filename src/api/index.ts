@@ -5139,6 +5139,85 @@ app.delete('/api/auto-messages/:guildId/:scheduleId', async (req: any, res) => {
 
 // --- Auto Responder Endpoints ---
 
+// ─── Category endpoints (must be registered before /:guildId/:ruleId routes) ───
+
+// GET: list all categories for a guild
+app.get('/api/auto-responder/:guildId/categories', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const cats = await db.autoResponderCategory.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'asc' },
+        });
+        res.json(cats);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// POST: create a new category
+app.post('/api/auto-responder/:guildId/categories', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const cat = await db.autoResponderCategory.create({
+            data: {
+                guildId,
+                name: (req.body.name || 'New Category').slice(0, 100),
+            },
+        });
+        res.json(cat);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// PUT: update a category
+app.put('/api/auto-responder/:guildId/categories/:categoryId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, categoryId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const existing = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Category not found' });
+        const { name, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji } = req.body;
+        const updated = await db.autoResponderCategory.update({
+            where: { id: categoryId },
+            data: {
+                name: name !== undefined ? String(name).slice(0, 100) : undefined,
+                allowedChannels: allowedChannels !== undefined ? (allowedChannels ? JSON.stringify(allowedChannels) : null) : undefined,
+                ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
+                cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
+                cooldownReactionEmoji: cooldownReactionEmoji !== undefined ? (cooldownReactionEmoji ? String(cooldownReactionEmoji).slice(0, 100) : null) : undefined,
+            },
+        });
+        res.json(updated);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// DELETE: remove a category (rules in the category will have categoryId set to null)
+app.delete('/api/auto-responder/:guildId/categories/:categoryId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, categoryId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const existing = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Category not found' });
+        await db.autoResponderCategory.delete({ where: { id: categoryId } });
+        res.json({ ok: true });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Internal server error', detail: err?.message });
+    }
+});
+
+// ─── Rule endpoints ──────────────────────────────────────────────────────────
+
 // GET: list all rules for a guild
 app.get('/api/auto-responder/:guildId', async (req: any, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -5188,7 +5267,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
 
-        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji } = req.body;
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId } = req.body;
 
         // Validate trigger type
         const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord'];
@@ -5198,6 +5277,12 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         if (type === 'regex' && trigger) {
             const sanitizedTrigger = String(trigger).replace(/^\(\?[imsxUu-]+\)/g, '');
             try { new RegExp(sanitizedTrigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
+        }
+
+        // Validate categoryId if provided — must belong to the same guild
+        if (categoryId !== undefined && categoryId !== null) {
+            const cat = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
+            if (!cat) return res.status(400).json({ error: 'Category not found in this guild' });
         }
 
         const updated = await db.autoResponderRule.update({
@@ -5215,6 +5300,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
                 embedJson: embedJson !== undefined ? (embedJson ? JSON.stringify(embedJson) : null) : undefined,
                 mentionUser: mentionUser !== undefined ? !!mentionUser : undefined,
                 reactionEmoji: reactionEmoji !== undefined ? (reactionEmoji ? String(reactionEmoji).slice(0, 100) : null) : undefined,
+                categoryId: categoryId !== undefined ? (categoryId || null) : undefined,
             },
         });
         res.json(updated);

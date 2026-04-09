@@ -114,8 +114,9 @@ model Guild {
   studioGuideKnowledge StudioGuideKnowledge[]
   studioGuideOptOuts   StudioGuideOptOut[]
   autoMessageSchedules AutoMessageSchedule[]
-  autoResponderRules    AutoResponderRule[]
-  autoResponderSettings AutoResponderSettings?
+  autoResponderRules      AutoResponderRule[]
+  autoResponderSettings   AutoResponderSettings?
+  autoResponderCategories AutoResponderCategory[]
   pauseSettings         PauseSettings?
   serverBoostSettings  ServerBoostSettings?
   reactionRoles        ReactionRole[]
@@ -1954,14 +1955,35 @@ model AutoResponderRule {
   cooldownReactionEmoji String?              // emoji to react with when rule is on cooldown
   lastTriggeredAt       DateTime?
   matchCount            Int      @default(0) // lifetime trigger count
+  categoryId            String?              // optional category grouping
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild           Guild                  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  category        AutoResponderCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([guildId])
   @@map("auto_responder_rules")
+}
+
+model AutoResponderCategory {
+  id                    String   @id @default(cuid())
+  guildId               String
+  name                  String   @default("New Category")
+  allowedChannels       String?  @db.Text   // JSON array of allowed channel IDs
+  ignoredChannels       String?  @db.Text   // JSON array of ignored channel IDs
+  cooldownSeconds       Int      @default(0)
+  cooldownReactionEmoji String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild              @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  rules AutoResponderRule[]
+
+  @@index([guildId])
+  @@map("auto_responder_categories")
 }
 
 model AutoResponderSettings {
