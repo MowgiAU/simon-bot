@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { usePlayer } from '../components/PlayerProvider';
+import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
 import {
     Calendar, Eye, Clock, User, ChevronLeft, Tag,
     Newspaper, BookOpen, Megaphone, GraduationCap, Share2,
@@ -39,6 +40,7 @@ export const ArticlePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const { setTrack, togglePlay } = usePlayer();
+    const contentRef = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -61,19 +63,14 @@ export const ArticlePage: React.FC = () => {
         fetchArticle();
     }, [slug]);
 
-    // Wire up track/profile embed clicks
+    // Wire up social embed clicks (track/profile are now interactive React components)
     useEffect(() => {
         if (!article) return;
         const handler = (e: MouseEvent) => {
-            const target = (e.target as HTMLElement).closest('[data-embed-type]') as HTMLElement | null;
+            const target = (e.target as HTMLElement).closest('[data-embed-type="social"]') as HTMLElement | null;
             if (!target) return;
-            const embedType = target.getAttribute('data-embed-type');
             const embedUrl = target.getAttribute('data-embed-url');
-            if (!embedUrl) return;
-            if (embedType === 'track' || embedType === 'profile') {
-                e.preventDefault();
-                window.location.href = embedUrl;
-            } else if (embedType === 'social') {
+            if (embedUrl) {
                 e.preventDefault();
                 window.open(embedUrl, '_blank', 'noopener,noreferrer');
             }
@@ -213,6 +210,7 @@ export const ArticlePage: React.FC = () => {
 
                 {/* Article content */}
                 <div
+                    ref={contentRef}
                     className="article-content"
                     dangerouslySetInnerHTML={{ __html: article.content }}
                     style={{
@@ -220,6 +218,9 @@ export const ArticlePage: React.FC = () => {
                         fontFamily: "'Inter', sans-serif",
                     }}
                 />
+
+                {/* Hydrate track/profile embeds into interactive components */}
+                <ArticleEmbedHydrator contentRef={contentRef} />
 
                 {/* Tags */}
                 {article.tags && article.tags.length > 0 && (
@@ -286,17 +287,20 @@ export const ArticlePage: React.FC = () => {
                     }
                     .article-content li { margin: 6px 0; }
                     .article-content .article-embed {
-                        cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+                        transition: border-color 0.15s, transform 0.15s;
                     }
                     .article-content .article-embed:hover {
                         border-color: ${colors.primary} !important;
-                        transform: translateY(-1px);
                     }
                     .article-content .article-video {
                         border-radius: 12px; overflow: hidden;
                     }
                     .article-content .article-video iframe {
                         border-radius: 12px;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.4; }
                     }
                 `}</style>
             </article>
