@@ -3482,14 +3482,14 @@ app.get('/api/guilds/:guildId/moderation', async (req, res) => {
 app.post('/api/guilds/:guildId/moderation', async (req, res) => {
     try {
         const { guildId } = req.params;
-        const { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage } = req.body;
+        const { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage, caseLogForumId } = req.body;
         
         if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
 
         const settings = await db.moderationSettings.upsert({
             where: { guildId },
-            update: { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage },
-            create: { guildId, logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage },
+            update: { logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage, caseLogForumId },
+            create: { guildId, logChannelId, dmUponAction, kickMessage, banMessage, timeoutMessage, caseLogForumId },
             include: { permissions: true }
         });
         res.json(settings);

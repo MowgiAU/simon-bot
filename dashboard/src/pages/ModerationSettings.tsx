@@ -5,13 +5,14 @@ import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import axios from 'axios';
-import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List } from 'lucide-react';
+import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 
 interface ModerationSettings {
     id: string;
     guildId: string;
     logChannelId: string | null;
+    caseLogForumId: string | null;
     dmUponAction: boolean;
     kickMessage: string | null;
     banMessage: string | null;
@@ -92,6 +93,7 @@ export const ModerationSettingsPage: React.FC = () => {
         try {
             await axios.post(`/api/guilds/${selectedGuild.id}/moderation`, {
                 logChannelId: settings.logChannelId === '' ? null : settings.logChannelId,
+                caseLogForumId: settings.caseLogForumId === '' ? null : settings.caseLogForumId,
                 dmUponAction: settings.dmUponAction,
                 kickMessage: settings.kickMessage,
                 banMessage: settings.banMessage,
@@ -204,7 +206,7 @@ export const ModerationSettingsPage: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Log Channel</label>
-                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post case logs?</p>
+                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Where should I post moderation embeds?</p>
                         <ChannelSelect 
                             guildId={selectedGuild?.id || ''}
                             value={settings?.logChannelId || ''} 
@@ -214,6 +216,20 @@ export const ModerationSettingsPage: React.FC = () => {
                         />
                     </div>
 
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Case File Forum</label>
+                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Forum channel for per-user case file threads</p>
+                        <ChannelSelect 
+                            guildId={selectedGuild?.id || ''}
+                            value={settings?.caseLogForumId || ''} 
+                            onChange={(val) => setSettings({ ...settings!, caseLogForumId: val as string })}
+                            placeholder="-- No Case Files --"
+                            channelTypes={[15]}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', marginTop: '24px' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>DM Users</label>
                         <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Send DM when moderated?</p>

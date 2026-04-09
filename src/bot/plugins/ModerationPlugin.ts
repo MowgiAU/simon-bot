@@ -6,8 +6,10 @@ import {
     PermissionFlagsBits,
     EmbedBuilder,
     TextChannel,
+    ForumChannel,
     Colors,
     MessageFlags,
+    ChannelType,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -435,30 +437,119 @@ export class ModerationPlugin implements IPlugin {
                 }
             });
 
-            // 2. Channel Log
+            // 2. Channel Log + Case File (parallel)
             const settings = await this.db.moderationSettings.findUnique({ where: { guildId }});
+
+            const embed = new EmbedBuilder()
+                .setTitle(`Moderation: ${action.toUpperCase()}`)
+                .setColor(Colors.Red)
+                .addFields(
+                    { name: 'Executor', value: `<@${executorId}>`, inline: true },
+                    { name: 'Target', value: `<@${targetId}>`, inline: true },
+                    { name: 'Reason', value: details.reason || 'None' }
+                )
+                .setTimestamp();
+            
+            if (details.duration) embed.addFields({ name: 'Duration', value: details.duration, inline: true });
+            if (details.amount) embed.addFields({ name: 'Amount', value: String(details.amount), inline: true });
+            if (details.totalWarnings) embed.addFields({ name: 'Total Warnings', value: String(details.totalWarnings), inline: true });
+
+            // Channel log
             if (settings?.logChannelId) {
                 const channel = this.client.channels.cache.get(settings.logChannelId) as TextChannel;
                 if (channel) {
-                    const embed = new EmbedBuilder()
-                        .setTitle(`Moderation: ${action.toUpperCase()}`)
-                        .setColor(Colors.Red)
-                        .addFields(
-                            { name: 'Executor', value: `<@${executorId}>`, inline: true },
-                            { name: 'Target', value: `<@${targetId}>`, inline: true },
-                            { name: 'Reason', value: details.reason || 'None' }
-                        )
-                        .setTimestamp();
-                    
-                    if (details.duration) embed.addFields({ name: 'Duration', value: details.duration, inline: true });
-                    if (details.amount) embed.addFields({ name: 'Amount', value: String(details.amount), inline: true });
-
                     channel.send({ embeds: [embed] }).catch(() => {});
                 }
+            }
+
+            // Case file forum thread
+            if (settings?.caseLogForumId) {
+                this.postToCaseThread(guildId, settings.caseLogForumId, targetId, embed).catch(e => {
+                    this.logger.error('Failed to post to case thread', e);
+                });
             }
         } catch(e) {
             this.logger.error('Failed to log action', e);
         }
+    }
+
+    /**
+     * Posts a moderation embed to a per-user forum thread.
+     * Thread naming: "Nickname (username) - UserID"
+     * If a thread already exists for the user (matched by user ID in thread name), reuses it.
+     * Otherwise creates a new one. Automatically unarchives threads if needed.
+     */
+    private async postToCaseThread(guildId: string, forumId: string, targetId: string, embed: EmbedBuilder) {
+        const forum = await this.client.channels.fetch(forumId).catch(() => null);
+        if (!forum || forum.type !== ChannelType.GuildForum) return;
+
+        const forumChannel = forum as ForumChannel;
+
+        // Search active + archived threads for one containing the user ID
+        let thread = await this.findCaseThread(forumChannel, targetId);
+
+        if (!thread) {
+            // Resolve user for display name
+            const guild = this.client.guilds.cache.get(guildId);
+            let threadName = `Unknown User - ${targetId}`;
+            if (guild) {
+                const member = await guild.members.fetch(targetId).catch(() => null);
+                if (member) {
+                    const displayName = member.displayName || member.user.username;
+                    threadName = `${displayName} (${member.user.username}) - ${targetId}`;
+                } else {
+                    const user = await this.client.users.fetch(targetId).catch(() => null);
+                    if (user) {
+                        threadName = `${user.displayName || user.username} (${user.username}) - ${targetId}`;
+                    }
+                }
+            }
+
+            // Truncate to Discord's 100 char limit
+            if (threadName.length > 100) {
+                threadName = threadName.substring(0, 97) + '...';
+            }
+
+            const created = await forumChannel.threads.create({
+                name: threadName,
+                message: { content: `📂 **Case file opened for <@${targetId}>**` },
+            });
+            thread = created;
+        }
+
+        // Unarchive if needed
+        if (thread.archived) {
+            await thread.setArchived(false).catch(() => {});
+        }
+
+        await thread.send({ embeds: [embed] });
+    }
+
+    /**
+     * Searches both active and archived threads for a matching user ID.
+     */
+    private async findCaseThread(forum: ForumChannel, userId: string) {
+        // Check active threads
+        const active = await forum.threads.fetch();
+        const match = active.threads.find(t => t.name.includes(userId));
+        if (match) return match;
+
+        // Check archived threads (paginate)
+        let hasMore = true;
+        let before: string | undefined;
+        while (hasMore) {
+            const archived = await forum.threads.fetchArchived({ before, limit: 100 }).catch(() => null);
+            if (!archived || archived.threads.size === 0) break;
+
+            const found = archived.threads.find(t => t.name.includes(userId));
+            if (found) return found;
+
+            hasMore = archived.hasMore;
+            const last = archived.threads.last();
+            before = last?.id;
+        }
+
+        return null;
     }
 
     private parseDuration(input: string): number | null {

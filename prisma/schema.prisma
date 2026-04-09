@@ -149,6 +149,9 @@ model ModerationSettings {
   kickMessage    String?  // e.g. "You were kicked from {server} for: {reason}"
   banMessage     String?
   timeoutMessage String?
+
+  // Case File Forum
+  caseLogForumId String?  // Forum channel ID for per-user case file threads
   
   permissions    ModerationPermission[]
   
