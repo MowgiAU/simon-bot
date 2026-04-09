@@ -454,17 +454,54 @@ export class ModerationPlugin implements IPlugin {
             if (details.amount) embed.addFields({ name: 'Amount', value: String(details.amount), inline: true });
             if (details.totalWarnings) embed.addFields({ name: 'Total Warnings', value: String(details.totalWarnings), inline: true });
 
+            // Fetch recent messages (skip for purge which targets a channel)
+            const embeds: EmbedBuilder[] = [embed];
+            if (action !== 'purge') {
+                try {
+                    const recentMsgs = await this.fetchRecentMessages(guildId, targetId);
+                    if (recentMsgs.length > 0) {
+                        const msgEmbed = new EmbedBuilder()
+                            .setTitle(`📝 Last ${recentMsgs.length} message${recentMsgs.length !== 1 ? 's' : ''} from <@${targetId}>`)
+                            .setColor(0xF59E0B)
+                            .setTimestamp();
+
+                        for (const msg of recentMsgs) {
+                            const ts = Math.floor(msg.timestamp.getTime() / 1000);
+                            const attachTxt = msg.attachments.length > 0
+                                ? '\n' + msg.attachments.map(a => {
+                                    const icon = a.contentType?.startsWith('image') ? '🖼️' : a.contentType?.startsWith('video') ? '🎬' : a.contentType?.startsWith('audio') ? '🎵' : '📎';
+                                    return `${icon} [${a.name}](${a.url})`;
+                                }).join('\n')
+                                : '';
+                            const content = msg.content.length > 180 ? msg.content.substring(0, 180) + '…' : msg.content;
+                            const value = ((content || '*(no text)*') + attachTxt).substring(0, 1024);
+                            msgEmbed.addFields({ name: `#${msg.channelName} — <t:${ts}:R>`, value });
+                        }
+
+                        // Set first image attachment as embed image for visual preview
+                        const firstImage = recentMsgs
+                            .flatMap(m => m.attachments)
+                            .find(a => a.contentType?.startsWith('image'));
+                        if (firstImage) msgEmbed.setImage(firstImage.url);
+
+                        embeds.push(msgEmbed);
+                    }
+                } catch (e) {
+                    this.logger.error('Failed to fetch recent messages for moderation log', e);
+                }
+            }
+
             // Channel log
             if (settings?.logChannelId) {
                 const channel = this.client.channels.cache.get(settings.logChannelId) as TextChannel;
                 if (channel) {
-                    channel.send({ embeds: [embed] }).catch(() => {});
+                    channel.send({ embeds }).catch(() => {});
                 }
             }
 
             // Case file forum thread
             if (settings?.caseLogForumId) {
-                this.postToCaseThread(guildId, settings.caseLogForumId, targetId, embed).catch(e => {
+                this.postToCaseThread(guildId, settings.caseLogForumId, targetId, embeds).catch(e => {
                     this.logger.error('Failed to post to case thread', e);
                 });
             }
@@ -479,7 +516,7 @@ export class ModerationPlugin implements IPlugin {
      * If a thread already exists for the user (matched by user ID in thread name), reuses it.
      * Otherwise creates a new one. Automatically unarchives threads if needed.
      */
-    private async postToCaseThread(guildId: string, forumId: string, targetId: string, embed: EmbedBuilder) {
+    private async postToCaseThread(guildId: string, forumId: string, targetId: string, embeds: EmbedBuilder[]) {
         const forum = await this.client.channels.fetch(forumId).catch(() => null);
         if (!forum || forum.type !== ChannelType.GuildForum) return;
 
@@ -522,7 +559,7 @@ export class ModerationPlugin implements IPlugin {
             await thread.setArchived(false).catch(() => {});
         }
 
-        await thread.send({ embeds: [embed] });
+        await thread.send({ embeds });
     }
 
     /**
@@ -550,6 +587,45 @@ export class ModerationPlugin implements IPlugin {
         }
 
         return null;
+    }
+
+    /**
+     * Fetches the target user's last N messages across the guild's text channels.
+     * Returns them sorted newest-first with content, channel, timestamp, and attachment URLs.
+     */
+    private async fetchRecentMessages(guildId: string, userId: string, limit = 5) {
+        const guild = this.client.guilds.cache.get(guildId);
+        if (!guild) return [];
+
+        const textChannels = guild.channels.cache
+            .filter(c => c.type === ChannelType.GuildText)
+            .map(c => c as TextChannel)
+            .slice(0, 20); // cap to avoid rate limits
+
+        const all: { content: string; channelId: string; channelName: string; timestamp: Date; attachments: { url: string; name: string; contentType: string | null }[] }[] = [];
+
+        const results = await Promise.allSettled(
+            textChannels.map(async ch => {
+                const msgs = await ch.messages.fetch({ limit: 50 });
+                return msgs
+                    .filter(m => m.author.id === userId)
+                    .map(m => ({
+                        content: m.content || '',
+                        channelId: ch.id,
+                        channelName: ch.name,
+                        timestamp: m.createdAt,
+                        attachments: m.attachments.map(a => ({ url: a.url, name: a.name, contentType: a.contentType })),
+                    }));
+            })
+        );
+
+        for (const r of results) {
+            if (r.status === 'fulfilled') all.push(...r.value);
+        }
+
+        return all
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, limit);
     }
 
     private parseDuration(input: string): number | null {
