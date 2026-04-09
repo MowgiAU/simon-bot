@@ -30,6 +30,7 @@ import {
 } from '@discordjs/voice';
 import { z } from 'zod';
 import type { IPlugin, IPluginContext } from '../types/plugin.js';
+import { WordCensor } from '../../services/WordCensor.js';
 import axios from 'axios';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
@@ -98,6 +99,9 @@ export class FujiRadioPlugin implements IPlugin {
     // Per-guild radio state
     private radioStates = new Map<string, RadioState>();
 
+    // Word censor (shared filter utility)
+    private censor!: WordCensor;
+
     // Listener XP tracking: guildId:userId -> lastXpTick
     private listenerXpTicks = new Map<string, number>();
 
@@ -110,6 +114,7 @@ export class FujiRadioPlugin implements IPlugin {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.censor = new WordCensor(context.db);
 
         // Start listener XP ticker (every 60s)
         this.xpInterval = setInterval(() => this.tickListenerXp(), 60_000);
@@ -480,10 +485,12 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         const track = tracks[0];
+        const safeTitle = await this.censor.clean(guildId, track.title);
+        const safeArtist = await this.censor.clean(guildId, track.profile.displayName || track.profile.username);
         const entry: NowPlaying = {
             trackId: track.id,
-            title: track.title,
-            artist: track.profile.displayName || track.profile.username,
+            title: safeTitle,
+            artist: safeArtist,
             coverUrl: track.coverUrl,
             url: track.url,
             duration: track.duration,
@@ -504,7 +511,7 @@ export class FujiRadioPlugin implements IPlugin {
             },
         });
 
-        await interaction.editReply(`✅ Queued: **${track.title}** by ${entry.artist} (Position #${state.queue.length})`);
+        await interaction.editReply(`✅ Queued: **${safeTitle}** by ${safeArtist} (Position #${state.queue.length})`);
         return true;
     }
 
@@ -913,12 +920,12 @@ export class FujiRadioPlugin implements IPlugin {
                 break;
         }
 
-        // Convert to NowPlaying entries
+        // Convert to NowPlaying entries (censor titles/artists per guild word filter)
         for (const track of tracks) {
             state.queue.push({
                 trackId: track.id,
-                title: track.title,
-                artist: track.profile?.displayName || track.profile?.username || 'Unknown',
+                title: await this.censor.clean(guildId, track.title),
+                artist: await this.censor.clean(guildId, track.profile?.displayName || track.profile?.username || 'Unknown'),
                 coverUrl: track.coverUrl,
                 url: track.url,
                 duration: track.duration,
