@@ -122,6 +122,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     const presetInputRef = useRef<HTMLInputElement>(null);
     const [embedModal, setEmbedModal] = useState<null | 'link' | 'image' | 'video' | 'track' | 'profile' | 'social'>(null);
     const isInternalUpdate = useRef(false);
+    const savedRange = useRef<Range | null>(null);
+
+    const saveSelection = useCallback(() => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+            savedRange.current = sel.getRangeAt(0).cloneRange();
+        }
+    }, []);
+
+    const restoreSelection = useCallback(() => {
+        const range = savedRange.current;
+        if (range && editorRef.current) {
+            editorRef.current.focus();
+            const sel = window.getSelection();
+            if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            savedRange.current = null;
+        } else {
+            editorRef.current?.focus();
+        }
+    }, []);
 
     // Sync external value into editor
     useEffect(() => {
@@ -156,10 +179,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     }, [exec]);
 
     const insertHTML = useCallback((html: string) => {
-        editorRef.current?.focus();
+        restoreSelection();
         document.execCommand('insertHTML', false, html);
         handleInput();
-    }, [handleInput]);
+    }, [handleInput, restoreSelection]);
 
     const handleImageUpload = useCallback(async (file: File) => {
         if (!onImageUpload) return;
@@ -290,17 +313,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 <ToolbarBtn icon={<AlignCenter size={15} />} title="Align Center" onClick={() => exec('justifyCenter')} />
                 <ToolbarBtn icon={<AlignRight size={15} />} title="Align Right" onClick={() => exec('justifyRight')} />
 
-                <ToolbarBtn icon={<LinkIcon size={15} />} title="Insert Link" onClick={() => setEmbedModal('link')} separator />
-                <ToolbarBtn icon={<Image size={15} />} title="Upload Image" onClick={() => fileInputRef.current?.click()} />
-                <ToolbarBtn icon={<Image size={15} />} title="Image from URL" onClick={() => setEmbedModal('image')} />
-                <ToolbarBtn icon={<Youtube size={15} />} title="Embed Video" onClick={() => setEmbedModal('video')} />
-                <ToolbarBtn icon={<Music size={15} />} title="Embed Track" onClick={() => setEmbedModal('track')} />
-                <ToolbarBtn icon={<User size={15} />} title="Embed Profile" onClick={() => setEmbedModal('profile')} />
-                <ToolbarBtn icon={<Twitter size={15} />} title="Embed Social Post" onClick={() => setEmbedModal('social')} />
+                <ToolbarBtn icon={<LinkIcon size={15} />} title="Insert Link" onClick={() => { saveSelection(); setEmbedModal('link'); }} separator />
+                <ToolbarBtn icon={<Image size={15} />} title="Upload Image" onClick={() => { saveSelection(); fileInputRef.current?.click(); }} />
+                <ToolbarBtn icon={<Image size={15} />} title="Image from URL" onClick={() => { saveSelection(); setEmbedModal('image'); }} />
+                <ToolbarBtn icon={<Youtube size={15} />} title="Embed Video" onClick={() => { saveSelection(); setEmbedModal('video'); }} />
+                <ToolbarBtn icon={<Music size={15} />} title="Embed Track" onClick={() => { saveSelection(); setEmbedModal('track'); }} />
+                <ToolbarBtn icon={<User size={15} />} title="Embed Profile" onClick={() => { saveSelection(); setEmbedModal('profile'); }} />
+                <ToolbarBtn icon={<Twitter size={15} />} title="Embed Social Post" onClick={() => { saveSelection(); setEmbedModal('social'); }} />
 
-                <ToolbarBtn icon={<FileAudio size={15} />} title="Upload Audio Sample" onClick={() => audioInputRef.current?.click()} separator />
-                <ToolbarBtn icon={<FolderDown size={15} />} title="Upload Project File" onClick={() => projectInputRef.current?.click()} />
-                <ToolbarBtn icon={<Sliders size={15} />} title="Upload Preset" onClick={() => presetInputRef.current?.click()} />
+                <ToolbarBtn icon={<FileAudio size={15} />} title="Upload Audio Sample" onClick={() => { saveSelection(); audioInputRef.current?.click(); }} separator />
+                <ToolbarBtn icon={<FolderDown size={15} />} title="Upload Project File" onClick={() => { saveSelection(); projectInputRef.current?.click(); }} />
+                <ToolbarBtn icon={<Sliders size={15} />} title="Upload Preset" onClick={() => { saveSelection(); presetInputRef.current?.click(); }} />
 
                 <ToolbarBtn icon={<Undo2 size={15} />} title="Undo (Ctrl+Z)" onClick={() => exec('undo')} separator />
                 <ToolbarBtn icon={<Redo2 size={15} />} title="Redo (Ctrl+Shift+Z)" onClick={() => exec('redo')} />
