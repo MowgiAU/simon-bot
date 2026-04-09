@@ -5492,10 +5492,13 @@ app.post('/api/voice-stats/refresh/:guildId', async (req: any, res) => {
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
     try {
-        // Find the plugin instance via the bot's inter-process communication (bot IPC or direct module)
-        // Since the API and bot run in the same process in this setup, we can call the plugin directly.
-        // We emit a custom IPC event picked up by the bot.
-        process.emit('voiceStatRefresh' as any, guildId);
+        // The API and bot run in separate PM2 processes, so process.emit() won't cross the boundary.
+        // Instead, we set a pendingRefresh flag in the DB. The bot polls every 30s and picks it up.
+        await db.voiceStatSettings.upsert({
+            where: { guildId },
+            create: { guildId, pendingRefresh: true },
+            update: { pendingRefresh: true },
+        });
         res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: 'Failed to trigger refresh', detail: err?.message });

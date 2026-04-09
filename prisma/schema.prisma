@@ -2125,7 +2125,8 @@ model VoiceStatSettings {
   trackChannelEnabled  Boolean @default(false)
   trackLabel           String  @default("🎶 Tracks: {count}")
 
-  updatedAt DateTime @updatedAt
+  pendingRefresh Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 

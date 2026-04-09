@@ -45,6 +45,7 @@ export class VoiceStatChannelsPlugin implements IPlugin {
     private context!: IPluginContext;
     private logger = new Logger('VoiceStatChannelsPlugin');
     private updateTimer: ReturnType<typeof setInterval> | null = null;
+    private pollTimer: ReturnType<typeof setInterval> | null = null;
 
     // Track the last update time per guild to prevent rate-limit bursts
     private lastUpdateTime = new Map<string, number>();
@@ -54,12 +55,8 @@ export class VoiceStatChannelsPlugin implements IPlugin {
         this.context = context;
         this.logger.info('Voice Stat Channels Plugin initialized');
 
-        // Listen for manual refresh requests from the API (same process)
-        process.on('voiceStatRefresh', (guildId: string) => {
-            this.updateGuild(guildId).catch(err =>
-                this.logger.warn(`Manual refresh failed for guild ${guildId}: ${err.message}`)
-            );
-        });
+        // Poll the DB every 30s for pending refresh requests from the API (separate PM2 process)
+        this.pollTimer = setInterval(() => this.checkPendingRefreshes(), 30_000);
 
         // Run an initial update shortly after boot, then every 10 minutes
         setTimeout(() => this.updateAllGuilds(), 30_000);
@@ -71,7 +68,10 @@ export class VoiceStatChannelsPlugin implements IPlugin {
             clearInterval(this.updateTimer);
             this.updateTimer = null;
         }
-        process.removeAllListeners('voiceStatRefresh');
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer);
+            this.pollTimer = null;
+        }
     }
 
     // ─── Event handlers ─────────────────────────────────────────────────────────
@@ -85,6 +85,30 @@ export class VoiceStatChannelsPlugin implements IPlugin {
     }
 
     // ─── Internal helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Check for pending refresh requests set by the API process via the DB flag.
+     */
+    private async checkPendingRefreshes(): Promise<void> {
+        try {
+            const pending = await this.context.db.voiceStatSettings.findMany({
+                where: { pendingRefresh: true },
+            });
+            for (const settings of pending) {
+                // Clear the flag first to avoid double-processing
+                await this.context.db.voiceStatSettings.update({
+                    where: { guildId: settings.guildId },
+                    data: { pendingRefresh: false },
+                });
+                this.logger.info(`Manual refresh triggered for guild ${settings.guildId}`);
+                await this.updateGuild(settings.guildId).catch(err =>
+                    this.logger.warn(`Manual refresh failed for guild ${settings.guildId}: ${err.message}`)
+                );
+            }
+        } catch (err: any) {
+            this.logger.warn(`checkPendingRefreshes error: ${err.message}`);
+        }
+    }
 
     /**
      * Update stat channels for every guild configured in DB.
