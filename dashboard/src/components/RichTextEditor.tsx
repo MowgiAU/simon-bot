@@ -4,13 +4,14 @@ import {
     Bold, Italic, Underline, Strikethrough, List, ListOrdered,
     Heading2, Heading3, Quote, Code, Link as LinkIcon, Image,
     Youtube, Music, User, AlignLeft, AlignCenter, AlignRight,
-    Undo2, Redo2, Minus, Type, Twitter,
+    Undo2, Redo2, Minus, Type, Twitter, FileAudio, FolderDown, Sliders,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
     value: string;
     onChange: (html: string) => void;
     onImageUpload?: (file: File) => Promise<string>;
+    onFileUpload?: (file: File, type: 'audio' | 'project' | 'preset') => Promise<{ url: string; filename: string; size: number }>;
     placeholder?: string;
 }
 
@@ -113,9 +114,12 @@ const EmbedModal: React.FC<{
 };
 
 // ── Main Editor ───────────────────────────────────────────────────────────────
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, onImageUpload, placeholder }) => {
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, onImageUpload, onFileUpload, placeholder }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const audioInputRef = useRef<HTMLInputElement>(null);
+    const projectInputRef = useRef<HTMLInputElement>(null);
+    const presetInputRef = useRef<HTMLInputElement>(null);
     const [embedModal, setEmbedModal] = useState<null | 'link' | 'image' | 'video' | 'track' | 'profile' | 'social'>(null);
     const isInternalUpdate = useRef(false);
 
@@ -166,6 +170,35 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             // upload failed silently
         }
     }, [onImageUpload, insertHTML]);
+
+    const formatFileSize = (bytes: number) => {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    };
+
+    const handleFileUpload = useCallback(async (file: File, type: 'audio' | 'project' | 'preset') => {
+        if (!onFileUpload) return;
+        try {
+            const result = await onFileUpload(file, type);
+            const safeFilename = result.filename.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            const sizeStr = formatFileSize(result.size);
+            let html = '';
+
+            if (type === 'audio') {
+                html = `<div class="article-embed article-audio-file" data-embed-type="audio-file" data-embed-url="${result.url}" data-filename="${safeFilename}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:12px;"><span style="font-size:20px;">&#127925;</span><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeFilename}</div><div style="color:${colors.textSecondary};font-size:12px;">Audio Sample &middot; ${sizeStr}</div></div><audio controls preload="none" src="${result.url}" style="height:32px;max-width:260px;"></audio></div>`;
+            } else if (type === 'project') {
+                const icon = safeFilename.toLowerCase().endsWith('.flp') ? '&#128196;' : '&#128230;';
+                html = `<div class="article-embed article-project-file" data-embed-type="project-file" data-embed-url="${result.url}" data-filename="${safeFilename}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:12px;">${icon}<div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeFilename}</div><div style="color:${colors.textSecondary};font-size:12px;">Project File &middot; ${sizeStr}</div></div><a href="${result.url}" download style="color:${colors.primary};font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;">&#8595; Download</a></div>`;
+            } else if (type === 'preset') {
+                html = `<div class="article-embed article-preset-file" data-embed-type="preset-file" data-embed-url="${result.url}" data-filename="${safeFilename}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:12px;"><span style="font-size:20px;">&#127899;</span><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeFilename}</div><div style="color:${colors.textSecondary};font-size:12px;">Preset &middot; ${sizeStr}</div></div><a href="${result.url}" download style="color:${colors.primary};font-size:13px;font-weight:600;white-space:nowrap;text-decoration:none;">&#8595; Download</a></div>`;
+            }
+
+            if (html) insertHTML(html);
+        } catch {
+            // upload failed silently
+        }
+    }, [onFileUpload, insertHTML]);
 
     const handleInsertEmbed = useCallback((type: string, url: string, displayText?: string) => {
         let html = '';
@@ -261,6 +294,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 <ToolbarBtn icon={<User size={15} />} title="Embed Profile" onClick={() => setEmbedModal('profile')} />
                 <ToolbarBtn icon={<Twitter size={15} />} title="Embed Social Post" onClick={() => setEmbedModal('social')} />
 
+                <ToolbarBtn icon={<FileAudio size={15} />} title="Upload Audio Sample" onClick={() => audioInputRef.current?.click()} separator />
+                <ToolbarBtn icon={<FolderDown size={15} />} title="Upload Project File" onClick={() => projectInputRef.current?.click()} />
+                <ToolbarBtn icon={<Sliders size={15} />} title="Upload Preset" onClick={() => presetInputRef.current?.click()} />
+
                 <ToolbarBtn icon={<Undo2 size={15} />} title="Undo (Ctrl+Z)" onClick={() => exec('undo')} separator />
                 <ToolbarBtn icon={<Redo2 size={15} />} title="Redo (Ctrl+Shift+Z)" onClick={() => exec('redo')} />
             </div>
@@ -290,6 +327,45 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleImageUpload(file);
+                    e.target.value = '';
+                }}
+            />
+
+            {/* Hidden file input for audio uploads */}
+            <input
+                ref={audioInputRef}
+                type="file"
+                accept=".mp3,.wav,.flac,.ogg,.aac,.m4a,.aiff,.aif"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, 'audio');
+                    e.target.value = '';
+                }}
+            />
+
+            {/* Hidden file input for project file uploads */}
+            <input
+                ref={projectInputRef}
+                type="file"
+                accept=".flp,.zip,.als,.logicx"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, 'project');
+                    e.target.value = '';
+                }}
+            />
+
+            {/* Hidden file input for preset uploads */}
+            <input
+                ref={presetInputRef}
+                type="file"
+                accept=".fst,.fxp,.fxb,.nmsv,.vstpreset,.adv,.adg,.aupreset,.wav,.zip,.rar,.7z"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, 'preset');
                     e.target.value = '';
                 }}
             />

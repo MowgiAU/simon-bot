@@ -82,6 +82,12 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/embed-images');
     } else if (file.fieldname === 'articleImage' || file.fieldname === 'articleCover') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles');
+    } else if (file.fieldname === 'articleAudio') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/articles/audio');
+    } else if (file.fieldname === 'articleProject') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/articles/projects');
+    } else if (file.fieldname === 'articlePreset') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/articles/presets');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -123,6 +129,29 @@ const upload = multer({
         cb(null, true);
       } else {
         cb(new Error('Only FL Studio (.flp) project files or .zip bundles are allowed!'));
+      }
+    } else if (file.fieldname === 'articleAudio') {
+      const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif'];
+      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+      if (file.mimetype.startsWith('audio/') || audioExtensions.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only audio files are allowed!'));
+      }
+    } else if (file.fieldname === 'articleProject') {
+      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+      if (['.flp', '.zip', '.als', '.logicx'].includes(ext) || file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
+        cb(null, true);
+      } else {
+        cb(new Error('Only project files (.flp, .zip, .als) are allowed!'));
+      }
+    } else if (file.fieldname === 'articlePreset') {
+      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+      const presetExts = ['.fst', '.fxp', '.fxb', '.nmsv', '.vstpreset', '.adv', '.adg', '.aupreset', '.wav', '.zip', '.rar', '.7z'];
+      if (presetExts.includes(ext) || file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed' || file.mimetype === 'application/octet-stream') {
+        cb(null, true);
+      } else {
+        cb(new Error('Only preset files (.fst, .fxp, .nmsv, .vstpreset, .zip, etc.) are allowed!'));
       }
     } else {
       cb(null, true);
@@ -13462,6 +13491,42 @@ app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCov
     }
 });
 
+// ── Writer: Upload article audio (samples, loops, stems) ─────────────────────
+app.post('/api/my/articles/upload-audio', requireAuth, upload.single('articleAudio'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
+        const fileUrl = `/uploads/articles/audio/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-audio error', e);
+        res.status(500).json({ error: 'Failed to upload audio file' });
+    }
+});
+
+// ── Writer: Upload article project file (.flp, .zip, .als) ───────────────────
+app.post('/api/my/articles/upload-project', requireAuth, upload.single('articleProject'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No project file provided' });
+        const fileUrl = `/uploads/articles/projects/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-project error', e);
+        res.status(500).json({ error: 'Failed to upload project file' });
+    }
+});
+
+// ── Writer: Upload article preset file ────────────────────────────────────────
+app.post('/api/my/articles/upload-preset', requireAuth, upload.single('articlePreset'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No preset file provided' });
+        const fileUrl = `/uploads/articles/presets/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-preset error', e);
+        res.status(500).json({ error: 'Failed to upload preset file' });
+    }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ██  ADMIN ARTICLE REVIEW ENDPOINTS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -13681,6 +13746,42 @@ app.post('/api/admin/articles/upload-cover', requireAdmin, upload.single('articl
     } catch (e: any) {
         logger.error('POST /api/admin/articles/upload-cover error', e);
         res.status(500).json({ error: 'Failed to upload cover image' });
+    }
+});
+
+// ── Admin: Upload article audio ───────────────────────────────────────────────
+app.post('/api/admin/articles/upload-audio', requireAdmin, upload.single('articleAudio'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
+        const fileUrl = `/uploads/articles/audio/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/admin/articles/upload-audio error', e);
+        res.status(500).json({ error: 'Failed to upload audio file' });
+    }
+});
+
+// ── Admin: Upload article project file ────────────────────────────────────────
+app.post('/api/admin/articles/upload-project', requireAdmin, upload.single('articleProject'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No project file provided' });
+        const fileUrl = `/uploads/articles/projects/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/admin/articles/upload-project error', e);
+        res.status(500).json({ error: 'Failed to upload project file' });
+    }
+});
+
+// ── Admin: Upload article preset file ─────────────────────────────────────────
+app.post('/api/admin/articles/upload-preset', requireAdmin, upload.single('articlePreset'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No preset file provided' });
+        const fileUrl = `/uploads/articles/presets/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.originalname, size: req.file.size });
+    } catch (e: any) {
+        logger.error('POST /api/admin/articles/upload-preset error', e);
+        res.status(500).json({ error: 'Failed to upload preset file' });
     }
 });
 

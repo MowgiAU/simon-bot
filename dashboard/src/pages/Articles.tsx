@@ -124,6 +124,14 @@ export const ArticleEditor: React.FC<{
         return res.data.url;
     };
 
+    const handleFileUpload = async (file: File, type: 'audio' | 'project' | 'preset'): Promise<{ url: string; filename: string; size: number }> => {
+        const formData = new FormData();
+        const fieldMap = { audio: 'articleAudio', project: 'articleProject', preset: 'articlePreset' };
+        formData.append(fieldMap[type], file);
+        const res = await axios.post(`${uploadPrefix}/articles/upload-${type}`, formData, { withCredentials: true });
+        return res.data;
+    };
+
     const buildPayload = (status: string) => ({
         title, subtitle: subtitle || null, content, excerpt: excerpt || null,
         coverImageUrl: coverImageUrl || null, category,
@@ -243,6 +251,7 @@ export const ArticleEditor: React.FC<{
                     value={content}
                     onChange={setContent}
                     onImageUpload={handleImageUpload}
+                    onFileUpload={handleFileUpload}
                     placeholder="Write your article here... Use the toolbar to add formatting, images, videos, track embeds, and more."
                 />
             </div>
