@@ -73,7 +73,10 @@ export const TrackEmbed: React.FC<{ trackPath: string }> = ({ trackPath }) => {
     const progress = isThisLoaded && player.duration > 0 ? player.currentTime / player.duration : 0;
 
     useEffect(() => {
-        const parts = trackPath.replace(/^\/track\//, '').split('/');
+        // Normalize full URLs (e.g. https://fujistud.io/track/...) to just the path
+        let normalized = trackPath;
+        try { normalized = new URL(trackPath).pathname; } catch { /* already a path */ }
+        const parts = normalized.replace(/^\/track\//, '').split('/');
         if (parts.length < 2) { setError(true); setLoading(false); return; }
         const [username, slug] = parts;
         axios.get(`/api/musician/tracks/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`)
@@ -260,7 +263,9 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
     const [hover, setHover] = useState(false);
 
     useEffect(() => {
-        const username = profilePath.replace(/^\/profile\//, '').split('/')[0];
+        let normalized = profilePath;
+        try { normalized = new URL(profilePath).pathname; } catch { /* already a path */ }
+        const username = normalized.replace(/^\/profile\//, '').split('/')[0];
         if (!username) { setError(true); setLoading(false); return; }
         axios.get(`/api/musician/profile/${encodeURIComponent(username)}`)
             .then(r => setProfile(r.data))

@@ -241,13 +241,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             }
         } else if (type === 'track') {
             // Track embed card placeholder — rendered interactively on article view
-            const trackPath = url.startsWith('/') ? url : `/${url}`;
+            // Strip full domain URLs (e.g. https://fujistud.io/track/...) down to /track/...
+            let trackPath = url;
+            try { trackPath = new URL(url).pathname; } catch { /* already a path */ }
+            if (!trackPath.startsWith('/')) trackPath = `/${trackPath}`;
             const parts = trackPath.replace(/^\/track\//, '').split('/');
             const artist = parts[0] || 'artist';
             const trackName = (parts[1] || 'track').replace(/-/g, ' ');
             html = `<div class="article-embed article-track" data-embed-type="track" data-embed-url="${trackPath}" contenteditable="false" style="background:linear-gradient(135deg,${colors.surface} 0%,rgba(16,185,129,0.04) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,rgba(16,185,129,0.3),rgba(16,185,129,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:18px;margin-left:2px;">&#9654;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${trackName}</div><div style="color:${colors.textSecondary};font-size:12px;">by ${artist} &middot; Interactive player on publish</div></div><div style="padding:6px 12px;border-radius:8px;background:${colors.primary};color:white;font-size:11px;font-weight:700;white-space:nowrap;">TRACK EMBED</div></div>`;
         } else if (type === 'profile') {
-            const profilePath = url.startsWith('/') ? url : `/${url}`;
+            let profilePath = url;
+            try { profilePath = new URL(url).pathname; } catch { /* already a path */ }
+            if (!profilePath.startsWith('/')) profilePath = `/${profilePath}`;
             const username = profilePath.replace(/^\/profile\//, '').split('/')[0] || 'user';
             html = `<div class="article-embed article-profile" data-embed-type="profile" data-embed-url="${profilePath}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(16,185,129,0.3),rgba(16,185,129,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:18px;">&#128100;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;">@${username}</div><div style="color:${colors.textSecondary};font-size:12px;">Mini profile card on publish</div></div><div style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.08);color:${colors.textSecondary};font-size:11px;font-weight:700;white-space:nowrap;">PROFILE EMBED</div></div>`;
         } else if (type === 'social') {
