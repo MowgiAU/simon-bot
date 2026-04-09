@@ -124,6 +124,56 @@ export class ModerationPlugin implements IPlugin {
         }
     }
 
+    // --- Permission Check ---
+
+    /**
+     * Checks whether the invoking member is allowed to run a moderation command.
+     * Allows if:
+     *   1. Member has the Administrator native Discord permission, OR
+     *   2. Member has the relevant native Discord permission for that action, OR
+     *   3. Member has a custom ModerationPermission row (from the dashboard) with the flag set to true.
+     *
+     * This is the single source of truth for moderation access. Do NOT use
+     * setDefaultMemberPermissions on the command builders — that would bypass this check.
+     */
+    private async checkModerationAccess(
+        interaction: ChatInputCommandInteraction,
+        flag: 'canWarn' | 'canKick' | 'canBan' | 'canTimeout' | 'canPurge' | 'canViewLogs'
+    ): Promise<boolean> {
+        const member = interaction.member as GuildMember;
+        if (!member) return false;
+
+        // Administrators always have access
+        if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+
+        // Native Discord permission shortcuts (for existing server roles that already have these)
+        const nativeMap: Record<typeof flag, bigint> = {
+            canKick:     PermissionFlagsBits.KickMembers,
+            canBan:      PermissionFlagsBits.BanMembers,
+            canTimeout:  PermissionFlagsBits.ModerateMembers,
+            canPurge:    PermissionFlagsBits.ManageMessages,
+            canWarn:     PermissionFlagsBits.KickMembers,
+            canViewLogs: PermissionFlagsBits.ViewAuditLog,
+        };
+        if (member.permissions.has(nativeMap[flag])) return true;
+
+        // Custom dashboard permissions stored in DB
+        try {
+            const settings = await this.db.moderationSettings.findUnique({
+                where: { guildId: interaction.guildId! },
+                include: { permissions: true },
+            });
+            if (!settings?.permissions?.length) return false;
+            const memberRoleIds = member.roles.cache.map(r => r.id);
+            return settings.permissions.some(
+                perm => memberRoleIds.includes(perm.roleId) && perm[flag] === true
+            );
+        } catch (e) {
+            this.logger.error('Failed to check moderation permissions', e);
+            return false;
+        }
+    }
+
     // --- Commands ---
 
     private async sendDM(guildId: string, member: GuildMember, action: 'kick' | 'ban' | 'timeout', reason: string, duration?: string) {
@@ -151,6 +201,9 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleKick(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canKick')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
         const target = interaction.options.getMember('user') as GuildMember;
         const reason = interaction.options.getString('reason') || 'No reason provided';
         
@@ -184,6 +237,9 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleBan(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canBan')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
          const targetMember = interaction.options.getMember('user') as GuildMember;
          const user = interaction.options.getUser('user'); 
          const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -236,6 +292,9 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleTimeout(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canTimeout')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
         const target = interaction.options.getMember('user') as GuildMember;
         const durationStr = interaction.options.getString('duration') || '5m';
         const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -263,6 +322,9 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handlePurge(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canPurge')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
         const amount = interaction.options.getInteger('amount');
         if (!amount || amount < 1 || amount > 100) {
             return interaction.reply({ content: 'Amount must be between 1 and 100.', flags: MessageFlags.Ephemeral });
@@ -285,6 +347,9 @@ export class ModerationPlugin implements IPlugin {
     // --- Helpers ---
 
     private async handleWarn(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canWarn')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
         const target = interaction.options.getMember('user') as GuildMember;
         const user = interaction.options.getUser('user');
         const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -323,6 +388,9 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleWarnings(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canViewLogs')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
         const user = interaction.options.getUser('user');
         if (!user) return interaction.reply({ content: 'User not found.', flags: MessageFlags.Ephemeral });
 

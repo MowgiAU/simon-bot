@@ -705,14 +705,12 @@ export class SimonBot {
     const kickCommand = new SlashCommandBuilder()
         .setName('kick')
         .setDescription('Kick a user')
-        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to kick').setRequired(true))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for kick').setRequired(false));
 
     const banCommand = new SlashCommandBuilder()
         .setName('ban')
         .setDescription('Ban a user')
-        .setDefaultMemberPermissions(0x0000000000000004) // BAN_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to ban').setRequired(true))
         .addStringOption(opt => opt.setName('duration').setDescription('Duration (e.g. 1d, 7d). Leave empty for permanent.').setRequired(false))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for ban').setRequired(false));
@@ -720,7 +718,6 @@ export class SimonBot {
     const timeoutCommand = new SlashCommandBuilder()
         .setName('timeout')
         .setDescription('Timeout a user')
-        .setDefaultMemberPermissions(0x0000010000000000) // MODERATE_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to timeout').setRequired(true))
         .addStringOption(opt => opt.setName('duration').setDescription('Duration (e.g. 10m, 1h, 1d, 7d)').setRequired(true))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for timeout').setRequired(false));
@@ -728,7 +725,6 @@ export class SimonBot {
     const purgeCommand = new SlashCommandBuilder()
         .setName('purge')
         .setDescription('Delete multiple messages')
-        .setDefaultMemberPermissions(0x0000000000002000) // MANAGE_MESSAGES
         .addIntegerOption(opt => opt.setName('amount').setDescription('Number of messages to delete').setRequired(true).setMinValue(1).setMaxValue(100));
 
     commands.push(kickCommand.toJSON());
@@ -740,14 +736,12 @@ export class SimonBot {
     const warnCommand = new SlashCommandBuilder()
         .setName('warn')
         .setDescription('Issue a warning to a user')
-        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to warn').setRequired(true))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for warning').setRequired(false));
 
     const warningsCommand = new SlashCommandBuilder()
         .setName('warnings')
         .setDescription('View warnings for a user')
-        .setDefaultMemberPermissions(0x0000000000000002) // KICK_MEMBERS
         .addUserOption(opt => opt.setName('user').setDescription('User to check').setRequired(true));
 
     commands.push(warnCommand.toJSON());
