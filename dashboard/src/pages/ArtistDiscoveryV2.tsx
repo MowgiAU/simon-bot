@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay, Newspaper, BookOpen
+    Star, MonitorPlay, Newspaper, BookOpen, FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -624,9 +624,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {(() => {
                         const contentType = featured?.featuredContentType || 'video';
                         const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
-                            video: { icon: <MonitorPlay size={13} />, label: 'Featured Video', accentColor: colors.primary },
-                            news:  { icon: <Newspaper size={13} />,   label: 'Featured News',  accentColor: '#A78BFA' },
-                            guide: { icon: <BookOpen size={13} />,    label: 'Featured Guide', accentColor: '#FBBF24' },
+                            video:   { icon: <MonitorPlay size={13} />, label: 'Featured Video',   accentColor: colors.primary },
+                            news:    { icon: <Newspaper size={13} />,   label: 'Featured News',    accentColor: '#A78BFA' },
+                            guide:   { icon: <BookOpen size={13} />,    label: 'Featured Guide',   accentColor: '#FBBF24' },
+                            article: { icon: <FileText size={13} />,    label: 'Featured Article', accentColor: '#34D399' },
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
@@ -788,15 +789,19 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                 }}>
                                                     {contentType === 'news'
                                                         ? <Newspaper size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
+                                                        : contentType === 'article'
+                                                        ? <FileText size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
                                                         : <BookOpen size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />}
                                                 </div>
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '8px' }}>
-                                                        {contentType === 'news' ? 'Community News' : 'Community Guides'}
+                                                        {contentType === 'news' ? 'Community News' : contentType === 'article' ? 'Featured Article' : 'Community Guides'}
                                                     </div>
                                                     <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '12px' }}>
                                                         {contentType === 'news'
                                                             ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
+                                                            : contentType === 'article'
+                                                            ? 'A featured article selected by the community team.'
                                                             : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
                                                     </div>
                                                     <span style={{

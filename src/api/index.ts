@@ -13788,8 +13788,11 @@ app.post('/api/admin/articles/upload-preset', requireAdmin, upload.single('artic
 // ── Public: Get featured article for front page ───────────────────────────────
 app.get('/api/articles/featured/current', async (req: any, res) => {
     try {
-        const article = await db.article.findFirst({
-            where: { isFeatured: true, status: 'published' },
+        // Look up the featured article ID from discovery settings
+        const settings = await db.discoverySettings.findUnique({ where: { id: 'singleton' }, select: { featuredArticleId: true } });
+        if (!settings?.featuredArticleId) return res.json(null);
+        const article = await db.article.findUnique({
+            where: { id: settings.featuredArticleId, status: 'published' },
             select: {
                 id: true, slug: true, title: true, subtitle: true, excerpt: true,
                 coverImageUrl: true, authorName: true, authorAvatar: true,
