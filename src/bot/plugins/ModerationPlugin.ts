@@ -591,6 +591,7 @@ export class ModerationPlugin implements IPlugin {
 
     /**
      * Fetches the target user's last N messages across the guild's text channels.
+     * Scans all text channels, fetching up to 100 messages each to find the user's.
      * Returns them sorted newest-first with content, channel, timestamp, and attachment URLs.
      */
     private async fetchRecentMessages(guildId: string, userId: string, limit = 5) {
@@ -599,28 +600,36 @@ export class ModerationPlugin implements IPlugin {
 
         const textChannels = guild.channels.cache
             .filter(c => c.type === ChannelType.GuildText)
-            .map(c => c as TextChannel)
-            .slice(0, 20); // cap to avoid rate limits
+            .map(c => c as TextChannel);
 
-        const all: { content: string; channelId: string; channelName: string; timestamp: Date; attachments: { url: string; name: string; contentType: string | null }[] }[] = [];
+        type MsgEntry = { content: string; channelId: string; channelName: string; timestamp: Date; attachments: { url: string; name: string; contentType: string | null }[] };
+        const all: MsgEntry[] = [];
 
-        const results = await Promise.allSettled(
-            textChannels.map(async ch => {
-                const msgs = await ch.messages.fetch({ limit: 50 });
-                return msgs
-                    .filter(m => m.author.id === userId)
-                    .map(m => ({
-                        content: m.content || '',
-                        channelId: ch.id,
-                        channelName: ch.name,
-                        timestamp: m.createdAt,
-                        attachments: m.attachments.map(a => ({ url: a.url, name: a.name, contentType: a.contentType })),
-                    }));
-            })
-        );
+        // Process channels in batches of 10 to avoid hammering the API
+        const batchSize = 10;
+        for (let i = 0; i < textChannels.length; i += batchSize) {
+            const batch = textChannels.slice(i, i + batchSize);
+            const results = await Promise.allSettled(
+                batch.map(async ch => {
+                    const msgs = await ch.messages.fetch({ limit: 100 });
+                    return msgs
+                        .filter(m => m.author.id === userId)
+                        .map(m => ({
+                            content: m.content || '',
+                            channelId: ch.id,
+                            channelName: ch.name,
+                            timestamp: m.createdAt,
+                            attachments: m.attachments.map(a => ({ url: a.url, name: a.name, contentType: a.contentType })),
+                        }));
+                })
+            );
 
-        for (const r of results) {
-            if (r.status === 'fulfilled') all.push(...r.value);
+            for (const r of results) {
+                if (r.status === 'fulfilled') all.push(...r.value);
+            }
+
+            // Early exit: if we already collected plenty, no need to scan more
+            if (all.length >= limit * 3) break;
         }
 
         return all
