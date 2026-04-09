@@ -103,30 +103,32 @@ const StatRow: React.FC<StatRowProps> = ({
                             Create a voice channel in Discord first (you can name it anything), then select it here. The bot will rename it automatically.
                         </div>
                     </div>
-                    <div>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary,
-                            textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
-                            Label Format <span style={{ color: colors.textTertiary, fontWeight: 400, textTransform: 'none' }}>— use <code style={{ color: colors.primary }}>{'{count}'}</code> for the number</span>
-                        </div>
-                        <input
-                            value={formatLabel}
-                            onChange={(e) => onChange({ [labelKey]: e.target.value } as any)}
-                            placeholder="e.g. 👥 Members: {count}"
-                            style={{
-                                width: '100%', boxSizing: 'border-box',
-                                background: 'rgba(255,255,255,0.04)',
-                                border: `1px solid ${colors.glassBorder}`,
-                                borderRadius: borderRadius.sm,
-                                padding: '9px 12px', color: colors.textPrimary,
-                                fontSize: '13px', outline: 'none',
-                            }}
-                        />
-                        <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '5px' }}>
-                            Preview: <span style={{ color: colors.primary }}>{preview}</span>
-                        </div>
-                    </div>
                 </div>
             )}
+
+            {/* Label format — always visible */}
+            <div style={{ marginTop: enabled ? '12px' : '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary,
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    Label Format <span style={{ color: colors.textTertiary, fontWeight: 400, textTransform: 'none' }}>— use <code style={{ color: colors.primary }}>{'{count}'}</code> for the number</span>
+                </div>
+                <input
+                    value={formatLabel}
+                    onChange={(e) => onChange({ [labelKey]: e.target.value } as any)}
+                    placeholder="e.g. 👥 Members: {count}"
+                    style={{
+                        width: '100%', boxSizing: 'border-box',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${colors.glassBorder}`,
+                        borderRadius: borderRadius.sm,
+                        padding: '9px 12px', color: colors.textPrimary,
+                        fontSize: '13px', outline: 'none',
+                    }}
+                />
+                <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '5px' }}>
+                    Preview: <span style={{ color: colors.primary }}>{preview}</span>
+                </div>
+            </div>
         </div>
     );
 };
