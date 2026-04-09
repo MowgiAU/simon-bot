@@ -1087,40 +1087,67 @@ export const AutoResponderPage: React.FC = () => {
                 <div style={{ padding: '48px', textAlign: 'center', color: colors.textTertiary, fontSize: '13px' }}>Loading rules...</div>
             ) : (
                 <>
-                    {/* Categories section */}
-                    <div style={{ marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FolderOpen size={16} color={colors.primary} />
-                                <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Categories</span>
-                                <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{categories.length}</span>
+                    {/* Categories section — each category shows its rules nested underneath */}
+                    {categories.length > 0 && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FolderOpen size={16} color={colors.primary} />
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Categories</span>
+                                    <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{categories.length}</span>
+                                </div>
+                                <button onClick={handleCreateCategory} disabled={creatingCategory || loading}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: `1px solid ${colors.glassBorder}`, cursor: creatingCategory ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingCategory ? 0.7 : 1 }}>
+                                    <Plus size={13} /> {creatingCategory ? 'Creating...' : 'Add Category'}
+                                </button>
                             </div>
-                            <button onClick={handleCreateCategory} disabled={creatingCategory || loading}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: `1px solid ${colors.glassBorder}`, cursor: creatingCategory ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingCategory ? 0.7 : 1 }}>
-                                <Plus size={13} /> {creatingCategory ? 'Creating...' : 'Add Category'}
-                            </button>
+                            {categories.map(c => {
+                                const catRules = rules.filter(r => r.categoryId === c.id);
+                                return (
+                                    <div key={c.id} style={{ marginBottom: '16px' }}>
+                                        <CategoryCard category={c} guildId={guildId || ''}
+                                            ruleCount={catRules.length}
+                                            onUpdated={u => setCategories(prev => prev.map(x => x.id === u.id ? u : x))}
+                                            onDeleted={id => {
+                                                setCategories(prev => prev.filter(x => x.id !== id));
+                                                setRules(prev => prev.map(r => r.categoryId === id ? { ...r, categoryId: null } : r));
+                                            }}
+                                            onDropRule={handleDropRuleOnCategory}
+                                        />
+                                        {catRules.length > 0 && (
+                                            <div style={{ marginLeft: '18px', borderLeft: `2px solid ${colors.primary}33`, paddingLeft: '12px' }}>
+                                                {catRules.map(r => (
+                                                    <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
+                                                        onUpdated={u => setRules(prev => prev.map(x => x.id === u.id ? u : x))}
+                                                        onDeleted={id => setRules(prev => prev.filter(x => x.id !== id))} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
-                        {categories.length === 0 ? (
+                    )}
+
+                    {categories.length === 0 && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FolderOpen size={16} color={colors.primary} />
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Categories</span>
+                                </div>
+                                <button onClick={handleCreateCategory} disabled={creatingCategory || loading}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: `1px solid ${colors.glassBorder}`, cursor: creatingCategory ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '12px', opacity: creatingCategory ? 0.7 : 1 }}>
+                                    <Plus size={13} /> {creatingCategory ? 'Creating...' : 'Add Category'}
+                                </button>
+                            </div>
                             <div style={{ fontSize: '12px', color: colors.textTertiary, padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px dashed ${colors.glassBorder}` }}>
                                 No categories yet. Create one to group rules with shared channel filters and cooldown settings.
                             </div>
-                        ) : (
-                            categories.map(c => (
-                                <CategoryCard key={c.id} category={c} guildId={guildId || ''}
-                                    ruleCount={rules.filter(r => r.categoryId === c.id).length}
-                                    onUpdated={u => setCategories(prev => prev.map(x => x.id === u.id ? u : x))}
-                                    onDeleted={id => {
-                                        setCategories(prev => prev.filter(x => x.id !== id));
-                                        // Clear categoryId on rules that belonged to deleted category
-                                        setRules(prev => prev.map(r => r.categoryId === id ? { ...r, categoryId: null } : r));
-                                    }}
-                                    onDropRule={handleDropRuleOnCategory}
-                                />
-                            ))
-                        )}
-                    </div>
+                        </div>
+                    )}
 
-                    {/* Rules section — drop here to uncategorize */}
+                    {/* Uncategorized rules — drop here to remove from category */}
                     <div
                         onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setUncatDragOver(true); }}
                         onDragLeave={() => setUncatDragOver(false)}
@@ -1128,20 +1155,24 @@ export const AutoResponderPage: React.FC = () => {
                         style={{ padding: uncatDragOver ? '8px' : '0', border: uncatDragOver ? `2px dashed ${colors.textTertiary}` : '2px solid transparent', borderRadius: borderRadius.md, transition: 'all 0.15s' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                             <Zap size={16} color={colors.primary} />
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Rules</span>
-                            <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{rules.length}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>
+                                {categories.length > 0 ? 'Uncategorized Rules' : 'Rules'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>
+                                {rules.filter(r => !r.categoryId).length}
+                            </span>
                             {categories.length > 0 && (
                                 <span style={{ fontSize: '10px', color: colors.textTertiary, marginLeft: '4px' }}>Drag rules onto categories to group them</span>
                             )}
                         </div>
 
-                        {rules.length === 0 && !error && (
+                        {rules.filter(r => !r.categoryId).length === 0 && rules.length === 0 && !error && (
                             <div style={{ textAlign: 'center', padding: '48px 24px', color: colors.textSecondary, fontSize: '14px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px dashed ${colors.glassBorder}`, marginBottom: '16px' }}>
                                 <Zap size={32} color={colors.textTertiary} style={{ marginBottom: '12px' }} />
                                 <div>No rules yet. Create one to get started.</div>
                             </div>
                         )}
-                        {rules.map(r => (
+                        {rules.filter(r => !r.categoryId).map(r => (
                             <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
                                 onUpdated={u => setRules(prev => prev.map(x => x.id === u.id ? u : x))}
                                 onDeleted={id => setRules(prev => prev.filter(x => x.id !== id))} />
