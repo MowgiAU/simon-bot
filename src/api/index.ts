@@ -13302,7 +13302,12 @@ app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
         }
 
         // Determine guild ID from session
-        const guildId = req.session?.mutualAdminGuilds?.[0] || req.session?.mutualStaffGuilds?.[0] || 'default';
+        const guildObj = req.session?.mutualAdminGuilds?.[0] || req.session?.mutualStaffGuilds?.[0];
+        const guildId = guildObj?.id;
+        if (!guildId) return res.status(400).json({ error: 'No guild context found' });
+
+        // Ensure guild exists in DB
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: guildObj.name || 'Unknown' } });
 
         const articleStatus = status === 'published' ? 'published' : (status === 'pending' ? 'pending' : 'draft');
 
