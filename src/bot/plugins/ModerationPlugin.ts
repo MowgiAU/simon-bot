@@ -590,51 +590,41 @@ export class ModerationPlugin implements IPlugin {
     }
 
     /**
-     * Fetches the target user's last N messages across the guild's text channels.
-     * Scans all text channels, fetching up to 100 messages each to find the user's.
+     * Fetches the target user's last N messages across the guild using Discord's
+     * guild message search API (GET /guilds/:id/messages/search?author_id=...).
      * Returns them sorted newest-first with content, channel, timestamp, and attachment URLs.
      */
     private async fetchRecentMessages(guildId: string, userId: string, limit = 5) {
-        const guild = this.client.guilds.cache.get(guildId);
-        if (!guild) return [];
+        try {
+            const data = await this.client.rest.get(
+                `/guilds/${guildId}/messages/search?author_id=${userId}&limit=${limit}`
+            ) as any;
 
-        const textChannels = guild.channels.cache
-            .filter(c => c.type === ChannelType.GuildText)
-            .map(c => c as TextChannel);
+            if (!data?.messages?.length) return [];
 
-        type MsgEntry = { content: string; channelId: string; channelName: string; timestamp: Date; attachments: { url: string; name: string; contentType: string | null }[] };
-        const all: MsgEntry[] = [];
+            return data.messages.map((group: any[]) => {
+                // Search results come as arrays with the matched message at index 0
+                const msg = group[0];
+                const channelId = msg.channel_id || '';
+                const channel = this.client.channels.cache.get(channelId);
+                const channelName = channel && 'name' in channel ? (channel as TextChannel).name : 'unknown';
 
-        // Process channels in batches of 10 to avoid hammering the API
-        const batchSize = 10;
-        for (let i = 0; i < textChannels.length; i += batchSize) {
-            const batch = textChannels.slice(i, i + batchSize);
-            const results = await Promise.allSettled(
-                batch.map(async ch => {
-                    const msgs = await ch.messages.fetch({ limit: 100 });
-                    return msgs
-                        .filter(m => m.author.id === userId)
-                        .map(m => ({
-                            content: m.content || '',
-                            channelId: ch.id,
-                            channelName: ch.name,
-                            timestamp: m.createdAt,
-                            attachments: m.attachments.map(a => ({ url: a.url, name: a.name, contentType: a.contentType })),
-                        }));
-                })
-            );
-
-            for (const r of results) {
-                if (r.status === 'fulfilled') all.push(...r.value);
-            }
-
-            // Early exit: if we already collected plenty, no need to scan more
-            if (all.length >= limit * 3) break;
+                return {
+                    content: msg.content || '',
+                    channelId,
+                    channelName,
+                    timestamp: new Date(msg.timestamp),
+                    attachments: (msg.attachments || []).map((a: any) => ({
+                        url: a.url,
+                        name: a.filename || 'file',
+                        contentType: a.content_type || null,
+                    })),
+                };
+            });
+        } catch (e) {
+            this.logger.error('Failed to search messages via REST', e);
+            return [];
         }
-
-        return all
-            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-            .slice(0, limit);
     }
 
     private parseDuration(input: string): number | null {
