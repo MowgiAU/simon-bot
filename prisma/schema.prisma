@@ -911,6 +911,23 @@ model TrackPlay {
   @@map("track_plays")
 }
 
+model DownloadLog {
+  id          String   @id @default(cuid())
+  userId      String   // Discord user ID of the downloader
+  username    String?  // Cached username at download time
+  trackId     String?  // Track ID if applicable
+  fileType    String   // "audio" | "project_flp" | "project_zip" | "sample"
+  fileName    String?  // Original/served filename
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([trackId])
+  @@index([createdAt])
+  @@map("download_logs")
+}
+
 model TrackSample {
   id               String   @id @default(cuid())
   trackId          String

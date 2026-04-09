@@ -645,7 +645,7 @@ export const TrackPage: React.FC = () => {
                                 {track.projectFileUrl && (track.allowProjectDownload ?? true) && (
                                     <>
                                         <button
-                                            onClick={() => setFlpConfirmOpen(true)}
+                                            onClick={() => user ? setFlpConfirmOpen(true) : (window.location.href = '/auth/discord')}
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}15`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
                                             <Download size={14} /> .flp
                                         </button>
@@ -654,20 +654,20 @@ export const TrackPage: React.FC = () => {
                                             title="Project File Download"
                                             message={`This project file is for educational display. It does not include the audio samples or VSTs used by the artist. Some files may appear missing upon opening.\n\nContinue with download?`}
                                             confirmLabel="Download"
-                                            onConfirm={() => { setFlpConfirmOpen(false); window.open(track.projectFileUrl!, '_blank'); }}
+                                            onConfirm={() => { setFlpConfirmOpen(false); window.open(`/api/downloads/project/${track.id}`, '_blank'); }}
                                             onCancel={() => setFlpConfirmOpen(false)}
                                         />
                                     </>
                                 )}
                                 {track.projectZipUrl && (track.allowProjectDownload ?? true) && (
-                                    <a href={track.projectZipUrl.startsWith('http') ? track.projectZipUrl : `/api/tracks/${track.id}/download-zip`}
-                                        download={`${track.title || 'project'}_loop_package.zip`}
+                                    <a href={user ? `/api/tracks/${track.id}/download-zip` : '/auth/discord'}
+                                        {...(user ? { download: `${track.title || 'project'}_loop_package.zip` } : {})}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}>
                                         <Package size={14} /> Download Project
                                     </a>
                                 )}
                                 {track.allowAudioDownload && (
-                                    <button onClick={() => window.open(track.url, '_blank')}
+                                    <button onClick={() => user ? window.open(`/api/downloads/audio/${track.id}`, '_blank') : (window.location.href = '/auth/discord')}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
                                         <Download size={14} /> Audio
                                     </button>
@@ -775,7 +775,7 @@ export const TrackPage: React.FC = () => {
                 {!track.arrangement && (
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
                         {track.allowAudioDownload && (
-                            <button onClick={() => window.open(track.url, '_blank')}
+                            <button onClick={() => user ? window.open(`/api/downloads/audio/${track.id}`, '_blank') : (window.location.href = '/auth/discord')}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
                                 <Download size={16} /> Download Audio
                             </button>

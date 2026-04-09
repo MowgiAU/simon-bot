@@ -337,7 +337,7 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
                         </div>
                     ))}
                     {projectZipUrl && trackId && (
-                        <a href={projectZipUrl.startsWith('http') ? projectZipUrl : `/api/tracks/${trackId}/download-zip`}
+                        <a href={`/api/tracks/${trackId}/download-zip`}
                             download style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px', padding: '8px', backgroundColor: `${color}22`, border: `1px solid ${color}44`, borderRadius: borderRadius.md, color, textDecoration: 'none', fontSize: '0.82rem', fontWeight: 600 }}>
                             <Download size={14} /> Download Loop Package
                         </a>

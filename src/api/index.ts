@@ -476,18 +476,25 @@ const logAction = async (guildId: string, action: string, executorId: string, ta
     }
 };
 
-// Static files for uploads (Public access) - Served first to avoid SPA/Auth redirects
+// Static files for uploads - Tracks & Projects require auth; images are public
 const uploadsPath = path.join(PROJECT_ROOT, 'public', 'uploads');
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 console.log(`[Uploads] Serving static files from: ${uploadsPath}`);
 app.use('/uploads', (req, res, next) => {
+    // Gate tracks and projects behind authentication
+    const protectedPaths = ['/tracks/', '/projects/'];
+    const isProtected = protectedPaths.some(p => req.path.startsWith(p));
+    if (isProtected && !req.session?.user) {
+        return res.status(401).json({ error: 'Authentication required to access this file.' });
+    }
+
     // Security headers for user-uploaded content
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', isProtected ? 'private, no-cache' : 'public, max-age=86400');
     next();
 }, express.static(uploadsPath));
 
@@ -7144,8 +7151,85 @@ app.get('/api/musician/leaderboards/artists', async (req, res) => {
     }
 });
 
+// --- Download Routes (Auth-gated + Logged) ---
+
+// Helper to log downloads
+async function logDownload(req: any, fileType: string, trackId?: string, fileName?: string) {
+    try {
+        await db.downloadLog.create({
+            data: {
+                userId: req.session.user.id,
+                username: req.session.user.username || req.session.user.global_name || null,
+                trackId: trackId || null,
+                fileType,
+                fileName: fileName || null,
+                ipAddress: req.ip || req.headers['x-forwarded-for'] as string || null,
+                userAgent: req.headers['user-agent'] || null,
+            }
+        });
+    } catch (e) {
+        logger.error('[DownloadLog] Failed to log download', e);
+    }
+}
+
+// Download audio file
+app.get('/api/downloads/audio/:trackId', requireAuth, async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            select: { url: true, title: true, allowAudioDownload: true, isPublic: true }
+        });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (!track.allowAudioDownload) return res.status(403).json({ error: 'Audio downloads are disabled for this track' });
+
+        const safeName = (track.title || 'audio').replace(/[^a-z0-9_\- ]/gi, '_');
+        const ext = path.extname(track.url) || '.mp3';
+        await logDownload(req, 'audio', trackId, `${safeName}${ext}`);
+
+        if (track.url.startsWith('http')) {
+            return res.redirect(302, track.url);
+        }
+
+        const localPath = path.join(PROJECT_ROOT, 'public', track.url);
+        if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}${ext}"`);
+        fs.createReadStream(localPath).pipe(res);
+    } catch (e: any) {
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Download project .flp file
+app.get('/api/downloads/project/:trackId', requireAuth, async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            select: { projectFileUrl: true, title: true, allowProjectDownload: true, isPublic: true }
+        });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (!track.projectFileUrl) return res.status(404).json({ error: 'No project file available for this track' });
+        if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
+
+        const safeName = (track.title || 'project').replace(/[^a-z0-9_\- ]/gi, '_');
+        await logDownload(req, 'project_flp', trackId, `${safeName}.flp`);
+
+        if (track.projectFileUrl.startsWith('http')) {
+            return res.redirect(302, track.projectFileUrl);
+        }
+
+        const localPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
+        if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}.flp"`);
+        fs.createReadStream(localPath).pipe(res);
+    } catch (e: any) {
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Download ZIP loop package (proxied to handle CDN cross-origin)
-app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
+app.get('/api/tracks/:trackId/download-zip', requireAuth, async (req: any, res) => {
     try {
         const { trackId } = req.params;
         const track = await db.track.findUnique({
@@ -7156,13 +7240,14 @@ app.get('/api/tracks/:trackId/download-zip', async (req: any, res) => {
         if (!track.projectZipUrl) return res.status(404).json({ error: 'No loop package available for this track' });
         if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
 
+        const safeName = (track.title || 'loop_package').replace(/[^a-z0-9_\- ]/gi, '_');
+        await logDownload(req, 'project_zip', trackId, `${safeName}_loop_package.zip`);
+
         if (track.projectZipUrl.startsWith('http')) {
-            // File is on CDN â€” redirect directly, no proxying
             return res.redirect(302, track.projectZipUrl);
         }
 
         // Local fallback
-        const safeName = (track.title || 'loop_package').replace(/[^a-z0-9_\- ]/gi, '_');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_loop_package.zip"`);
         res.setHeader('Content-Type', 'application/zip');
         const localPath = path.join(PROJECT_ROOT, 'public', track.projectZipUrl);
@@ -8710,7 +8795,7 @@ app.get('/api/fuji/stream/:attachmentId', async (req, res) => {
 });
 
 // Download Proxy
-app.get('/api/fuji/download/:attachmentId', async (req, res) => {
+app.get('/api/fuji/download/:attachmentId', requireAuth, async (req: any, res) => {
     try {
         const { attachmentId } = req.params;
         const sample = await db.sampleMetadata.findUnique({
@@ -8724,6 +8809,8 @@ app.get('/api/fuji/download/:attachmentId', async (req, res) => {
         const attachment = discordMsgResp.data.attachments.find((a: any) => a.id === attachmentId);
 
         if (!attachment || !attachment.url) return res.status(410).send('Expired');
+
+        await logDownload(req, 'sample', undefined, sample.filename);
 
         res.setHeader('Content-Disposition', `attachment; filename="${sample.filename}"`);
         const streamResp = await axios.get(attachment.url, { responseType: 'stream' });
