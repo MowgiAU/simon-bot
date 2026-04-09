@@ -7837,7 +7837,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
 // Search published articles (for admin featured article picker)
 app.get('/api/discovery/articles/search', requireAdmin, async (req: any, res) => {
     try {
-        const search = req.query.search as string;
+        const search = (req.query.q || req.query.search) as string;
         const articles = await db.article.findMany({
             where: {
                 status: 'published',
@@ -7850,7 +7850,7 @@ app.get('/api/discovery/articles/search', requireAdmin, async (req: any, res) =>
                 coverImageUrl: true, authorName: true, category: true, publishedAt: true,
             },
         });
-        res.json(articles);
+        res.json({ articles });
     } catch (e: any) {
         logger.error('GET /api/discovery/articles/search error', e);
         res.status(500).json({ error: 'Failed to search articles' });
