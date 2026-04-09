@@ -525,7 +525,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: '20px' }}>
 
                     {/* LEFT: Main Content */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
 
                         {/* Discography */}
                         <div>

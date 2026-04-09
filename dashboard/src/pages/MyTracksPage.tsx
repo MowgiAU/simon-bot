@@ -482,11 +482,11 @@ export const MyTracksPage: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                     <div style={{ gridColumn: isMobile ? undefined : '1 / -1' }}>
                         <span style={label}>Track Title</span>
-                        <input type="text" placeholder={isEdit ? '' : 'Will use metadata/filename if empty'} value={track.title || ''} onChange={e => setField('title', e.target.value)} style={inputBase} />
+                        <input type="text" placeholder={isEdit ? '' : 'Will use metadata/filename if empty'} value={track.title || ''} onChange={e => setField('title', e.target.value)} style={inputBase} maxLength={100} />
                     </div>
                     <div>
                         <span style={label}>Artist</span>
-                        <input type="text" placeholder="Artist name" value={track.artist || ''} onChange={e => setField('artist', e.target.value)} style={inputBase} />
+                        <input type="text" placeholder="Artist name" value={track.artist || ''} onChange={e => setField('artist', e.target.value)} style={inputBase} maxLength={100} />
                     </div>
                     <div>
                         <span style={label}>Album</span>

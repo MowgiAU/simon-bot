@@ -32,7 +32,7 @@ import { runBackup } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
-import { FileValidator, sanitizeFilename } from '../services/FileValidator.js';
+import { FileValidator, sanitizeFilename, sanitizeDisplayName } from '../services/FileValidator.js';
 import { MessageEncryption } from '../services/MessageEncryption.js';
 import * as otplibAll from 'otplib';
 const generateSecret = otplibAll.generateSecret;
@@ -6209,7 +6209,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         }
 
         // --- Duplicate upload detection (prevents double-submit caused by 504/slow response) ---
-        const uploadTitle = (req.body.title || audioFile.originalname).trim();
+        const uploadTitle = sanitizeDisplayName((req.body.title || audioFile.originalname).trim());
         if (uploaderProfile) {
             const recentDupe = await db.track.findFirst({
                 where: {
@@ -6277,7 +6277,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
 
         // 1. Initial metadata extraction
         let metadata = {
-            title: req.body.title || audioFile.originalname,
+            title: sanitizeDisplayName(req.body.title || audioFile.originalname),
             duration: 0,
             bpm: undefined as number | undefined,
             artist: req.body.artist || undefined,
@@ -6289,9 +6289,9 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         try {
             const parsed = await mm.parseFile(audioFile.path);
             metadata.duration = Math.round(parsed.format.duration || 0);
-            if (!req.body.title && parsed.common.title) metadata.title = parsed.common.title;
+            if (!req.body.title && parsed.common.title) metadata.title = sanitizeDisplayName(parsed.common.title);
             // Auto-fill from ID3 if user didn't supply
-            if (!metadata.artist && parsed.common.artist) metadata.artist = parsed.common.artist;
+            if (!metadata.artist && parsed.common.artist) metadata.artist = sanitizeDisplayName(parsed.common.artist);
             if (!metadata.album && parsed.common.album) metadata.album = parsed.common.album;
             if (!metadata.year && parsed.common.year) metadata.year = parsed.common.year;
             if (parsed.common.bpm) metadata.bpm = Math.round(parsed.common.bpm);
@@ -6553,10 +6553,10 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const updated = await db.track.update({
             where: { id: trackId },
             data: { 
-                ...(title !== undefined && { title }),
+                ...(title !== undefined && { title: sanitizeDisplayName(title) }),
                 ...(description !== undefined && { description }),
                 ...(isPublic !== undefined && { isPublic }),
-                ...(artist !== undefined && { artist }),
+                ...(artist !== undefined && { artist: sanitizeDisplayName(artist) }),
                 ...(album !== undefined && { album }),
                 ...(year !== undefined && { year: year ? parseInt(year) : null }),
                 ...(bpm !== undefined && { bpm: bpm ? parseInt(bpm) : null }),
@@ -6669,11 +6669,12 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
         logger.info(`[PUT track ${trackId}] allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
-            updateData.title = title;
-            updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            const cleanTitle = sanitizeDisplayName(title);
+            updateData.title = cleanTitle;
+            updateData.slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         }
         if (description !== undefined) updateData.description = description || null;
-        if (artist !== undefined) updateData.artist = artist || null;
+        if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;
         if (album !== undefined) updateData.album = album || null;
         if (year !== undefined) updateData.year = year ? parseInt(year) : null;
         if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
@@ -6842,11 +6843,12 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
 
         const { title, description, artist, album, year, bpm, key: musicKey, genreIds } = req.body;
         if (title !== undefined) {
-            updateData.title = title;
-            updateData.slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            const cleanTitle = sanitizeDisplayName(title);
+            updateData.title = cleanTitle;
+            updateData.slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         }
         if (description !== undefined) updateData.description = description || null;
-        if (artist !== undefined) updateData.artist = artist || null;
+        if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;
         if (album !== undefined) updateData.album = album || null;
         if (year !== undefined) updateData.year = year ? parseInt(year) : null;
         if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
