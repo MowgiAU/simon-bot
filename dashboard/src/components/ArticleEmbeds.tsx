@@ -444,21 +444,27 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
 
 
 // ── Hydrator: replaces static embed divs with interactive React components ───
-export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDivElement | null> }> = ({ contentRef }) => {
+import { createPortal } from 'react-dom';
+
+export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDivElement | null>; articleContent: string }> = ({ contentRef, articleContent }) => {
     const [embeds, setEmbeds] = useState<{ type: string; url: string; el: HTMLElement }[]>([]);
 
     useEffect(() => {
-        if (!contentRef.current) return;
-        const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"]');
-        const found: { type: string; url: string; el: HTMLElement }[] = [];
-        nodes.forEach(n => {
-            const el = n as HTMLElement;
-            const type = el.getAttribute('data-embed-type')!;
-            const url = el.getAttribute('data-embed-url')!;
-            if (type && url) found.push({ type, url, el });
-        });
-        setEmbeds(found);
-    }, [contentRef.current]);
+        // Small delay to ensure the DOM has been painted with the new content
+        const timer = setTimeout(() => {
+            if (!contentRef.current) return;
+            const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"]');
+            const found: { type: string; url: string; el: HTMLElement }[] = [];
+            nodes.forEach(n => {
+                const el = n as HTMLElement;
+                const type = el.getAttribute('data-embed-type')!;
+                const url = el.getAttribute('data-embed-url')!;
+                if (type && url) found.push({ type, url, el });
+            });
+            setEmbeds(found);
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [articleContent]);
 
     return (
         <>
@@ -475,20 +481,32 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
     );
 };
 
-// ── Portal: renders React inside a DOM element, replacing its contents ────────
-import { createPortal } from 'react-dom';
-
+// ── Portal: renders React into a wrapper inside the container, hiding originals ──
 const EmbedPortal: React.FC<{ container: HTMLElement; children: React.ReactNode }> = ({ container, children }) => {
-    useEffect(() => {
-        // Clear original static content
-        container.innerHTML = '';
-        container.style.cssText = '';
-        container.style.margin = '0';
-        container.style.padding = '0';
-        container.style.border = 'none';
-        container.style.background = 'none';
-        container.removeAttribute('contenteditable');
-    }, [container]);
+    const [wrapper] = useState(() => document.createElement('div'));
 
-    return createPortal(children, container);
+    useEffect(() => {
+        // Hide original static content instead of removing it (prevents React removeChild crash)
+        Array.from(container.childNodes).forEach(child => {
+            if (child instanceof HTMLElement && child !== wrapper) {
+                child.style.display = 'none';
+            }
+        });
+        container.style.cssText = 'margin:0;padding:0;border:none;background:none;';
+        container.removeAttribute('contenteditable');
+
+        if (!wrapper.parentNode) {
+            container.appendChild(wrapper);
+        }
+
+        return () => {
+            try {
+                if (wrapper.parentNode === container) {
+                    container.removeChild(wrapper);
+                }
+            } catch { /* container may already be detached */ }
+        };
+    }, [container, wrapper]);
+
+    return createPortal(children, wrapper);
 };

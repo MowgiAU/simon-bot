@@ -220,7 +220,7 @@ export const ArticlePage: React.FC = () => {
                 />
 
                 {/* Hydrate track/profile embeds into interactive components */}
-                <ArticleEmbedHydrator contentRef={contentRef} />
+                <ArticleEmbedHydrator contentRef={contentRef} articleContent={article.content} />
 
                 {/* Tags */}
                 {article.tags && article.tags.length > 0 && (
