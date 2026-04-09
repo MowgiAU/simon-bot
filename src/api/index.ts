@@ -3347,7 +3347,9 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       allEmails,
       economyAgg,
       welcomeSettings,
-      filterSettings
+      filterSettings,
+      artistCount,
+      trackCount,
     ] = await Promise.all([
       // 1. Server Stats History
       db.serverStats.findMany({
@@ -3391,6 +3393,10 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.welcomeGateSettings.findUnique({ where: { guildId } }),
       // 10. Filter Settings
       db.filterSettings.findUnique({ where: { guildId } }),
+      // 11. Artist count (global — platform-wide Fuji Studio profiles)
+      db.musicianProfile.count({ where: { status: 'active', deletedAt: null } }),
+      // 12. Track count (global — platform-wide public tracks)
+      db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
     ]);
 
     const topChannels = topChannelsRaw.map(c => ({
@@ -3427,6 +3433,8 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       },
       today: todayStats,
       totalMembers,
+      artistCount,
+      trackCount,
       recentLogs: resolvedLogs,
       pluginsData: {
         tickets: { open: openTickets },
@@ -3772,7 +3780,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'pause'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'pause', 'voice-stats'] 
             });
         }
 
@@ -5427,6 +5435,73 @@ app.put('/api/pause/settings/:guildId', async (req: any, res) => {
 });
 
 // --- Ticket System Endpoints ---
+
+// ─── Voice Stat Channels API ─────────────────────────────────────────────────
+// GET settings
+app.get('/api/voice-stats/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        let settings = await db.voiceStatSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.voiceStatSettings.create({ data: { guildId } });
+        }
+        // Also return current live counts for the UI preview
+        const [artistCount, trackCount] = await Promise.all([
+            db.musicianProfile.count({ where: { status: 'active', deletedAt: null } }),
+            db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
+        ]);
+        res.json({ ...settings, liveArtistCount: artistCount, liveTrackCount: trackCount });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to get voice stat settings', detail: err?.message });
+    }
+});
+
+// POST save settings
+app.post('/api/voice-stats/settings/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const allowed = [
+            'memberChannelId', 'memberChannelEnabled', 'memberLabel',
+            'boostChannelId', 'boostChannelEnabled', 'boostLabel',
+            'artistChannelId', 'artistChannelEnabled', 'artistLabel',
+            'trackChannelId', 'trackChannelEnabled', 'trackLabel',
+        ];
+        const data: Record<string, any> = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) data[key] = req.body[key];
+        }
+        await db.guild.upsert({ where: { id: guildId }, create: { id: guildId, name: 'Unknown' }, update: {} });
+        const settings = await db.voiceStatSettings.upsert({
+            where: { guildId },
+            create: { guildId, ...data },
+            update: data,
+        });
+        res.json(settings);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to save voice stat settings', detail: err?.message });
+    }
+});
+
+// POST trigger immediate stat refresh
+app.post('/api/voice-stats/refresh/:guildId', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        // Find the plugin instance via the bot's inter-process communication (bot IPC or direct module)
+        // Since the API and bot run in the same process in this setup, we can call the plugin directly.
+        // We emit a custom IPC event picked up by the bot.
+        process.emit('voiceStatRefresh' as any, guildId);
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to trigger refresh', detail: err?.message });
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Get Ticket Settings
 app.get('/api/tickets/settings/:guildId', async (req, res) => {

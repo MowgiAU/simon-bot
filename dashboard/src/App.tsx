@@ -73,6 +73,7 @@ const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m 
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
+const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
@@ -131,7 +132,8 @@ type Section =
   | "automation"
   | "progression"
   | "reports"
-  | "articles";
+  | "articles"
+  | "voice-stats";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -437,6 +439,8 @@ const AdminDashboard: React.FC = () => {
           return <PausePage />;
         case "server-boost":
           return <ServerBoostPage />;
+        case "voice-stats":
+          return <VoiceStatsPage />;
         case "booster-color":
           return <BoosterColorPage />;
         case "boost":

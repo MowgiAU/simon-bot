@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import { 
   MessageSquare, Shield, ShieldAlert, DollarSign, UserPlus, Settings,
-  Users, Mic, Bot, Globe, type LucideIcon
+  Users, Mic, Bot, Globe, Music, Headphones, type LucideIcon
 } from 'lucide-react';
 import { colors } from '../theme/theme';
 import './Dashboard.css';
@@ -18,6 +18,8 @@ interface DashboardProps {
 interface DashboardStats {
   activeMembers: number;
   totalMembers: number;
+  artistCount?: number;
+  trackCount?: number;
   totals: {
     messages: number;
     voiceMinutes: number;
@@ -123,6 +125,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
             <StatCard icon={Mic} iconColor={colors.success} iconBg="rgba(16, 185, 129, 0.1)" label="Voice Today" value={`${Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h`} />
             <StatCard icon={Users} iconColor={colors.primary} iconBg="rgba(16, 185, 129, 0.1)" label="Online Now" value={stats ? formatNumber(stats.activeMembers) : '-'} />
             <StatCard icon={UserPlus} iconColor={colors.info} iconBg="rgba(59, 130, 246, 0.1)" label="Total Members" value={stats ? formatNumber(stats.totalMembers) : '-'} />
+            {stats?.artistCount !== undefined && (
+              <StatCard icon={Music} iconColor="#a78bfa" iconBg="rgba(167, 139, 250, 0.1)" label="Artists" value={formatNumber(stats.artistCount)} />
+            )}
+            {stats?.trackCount !== undefined && (
+              <StatCard icon={Headphones} iconColor="#f472b6" iconBg="rgba(244, 114, 182, 0.1)" label="Tracks" value={formatNumber(stats.trackCount)} />
+            )}
           </div>
 
           {/* Main Content: Chart + Recent Activity */}

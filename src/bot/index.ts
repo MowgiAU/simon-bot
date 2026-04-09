@@ -39,6 +39,7 @@ import { AutoMessagesPlugin } from './plugins/AutoMessagesPlugin';
 import { AutoResponderPlugin } from './plugins/AutoResponderPlugin';
 import { ServerBoostPlugin } from './plugins/ServerBoostPlugin';
 import { PausePlugin } from './plugins/PausePlugin';
+import { VoiceStatChannelsPlugin } from './plugins/VoiceStatChannelsPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -139,6 +140,7 @@ export class SimonBot {
       this.pluginManager.register(new AutoResponderPlugin());
       this.pluginManager.register(new ServerBoostPlugin());
       this.pluginManager.register(new PausePlugin());
+      this.pluginManager.register(new VoiceStatChannelsPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

@@ -121,6 +121,7 @@ model Guild {
   serverBoostSettings  ServerBoostSettings?
   reactionRoles        ReactionRole[]
   articles             Article[]
+  voiceStatSettings    VoiceStatSettings?
 
   @@map("guilds")
 }
@@ -2101,4 +2102,32 @@ model Article {
   @@index([isFeatured])
   @@index([guildId])
   @@map("articles")
+}
+
+// Voice Stat Channels — auto-updating stat voice channels
+model VoiceStatSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  memberChannelId      String?
+  memberChannelEnabled Boolean @default(false)
+  memberLabel          String  @default("👥 Members: {count}")
+
+  boostChannelId       String?
+  boostChannelEnabled  Boolean @default(false)
+  boostLabel           String  @default("✨ Boosts: {count}")
+
+  artistChannelId      String?
+  artistChannelEnabled Boolean @default(false)
+  artistLabel          String  @default("🎵 Artists: {count}")
+
+  trackChannelId       String?
+  trackChannelEnabled  Boolean @default(false)
+  trackLabel           String  @default("🎶 Tracks: {count}")
+
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("voice_stat_settings")
 }
