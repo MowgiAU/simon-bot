@@ -2,6 +2,7 @@ import {
     Client, 
     ChatInputCommandInteraction, 
     GuildMember, 
+    GuildBan,
     SlashCommandBuilder, 
     PermissionFlagsBits,
     EmbedBuilder,
@@ -10,6 +11,7 @@ import {
     Colors,
     MessageFlags,
     ChannelType,
+    AuditLogEvent,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -30,7 +32,7 @@ export class ModerationPlugin implements IPlugin {
     ];
 
     readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'modlog'];
-    readonly events = ['interactionCreate'];
+    readonly events = ['interactionCreate', 'guildBanAdd', 'guildBanRemove', 'guildMemberRemove'];
     readonly dashboardSections = ['moderation'];
     readonly defaultEnabled = true;
 
@@ -43,6 +45,9 @@ export class ModerationPlugin implements IPlugin {
     private db!: PrismaClient;
     private logger: any;
     private taskInterval?: NodeJS.Timeout;
+
+    // Track actions performed by the bot's slash commands to avoid double-logging
+    private recentBotActions = new Set<string>();
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
@@ -109,6 +114,127 @@ export class ModerationPlugin implements IPlugin {
 
     async shutdown(): Promise<void> {
         if (this.taskInterval) clearInterval(this.taskInterval);
+    }
+
+    // ─── Native Discord event handlers (bans/kicks done outside the bot) ────────
+
+    /**
+     * Fires when someone is banned via Discord's native UI or another bot.
+     * Checks the audit log to find executor + reason, skips if the bot did it.
+     */
+    async onGuildBanAdd(ban: GuildBan): Promise<void> {
+        const guildId = ban.guild.id;
+        const targetId = ban.user.id;
+
+        // Skip if the bot performed this ban via slash command
+        if (this.recentBotActions.has(`ban:${guildId}:${targetId}`)) return;
+
+        try {
+            // Small delay to let the audit log populate
+            await new Promise(r => setTimeout(r, 1500));
+
+            const auditLogs = await ban.guild.fetchAuditLogs({
+                type: AuditLogEvent.MemberBanAdd,
+                limit: 5,
+            });
+
+            const entry = auditLogs.entries.find(e =>
+                e.targetId === targetId && Date.now() - e.createdTimestamp < 15_000
+            );
+
+            const executorId = entry?.executorId || 'Unknown';
+            const reason = entry?.reason || ban.reason || 'No reason provided';
+
+            // Skip if the bot itself was the executor (slash command)
+            if (executorId === this.client.user?.id) return;
+
+            this.logger.info(`[NativeMod] Ban detected: ${ban.user.tag} by ${executorId}`);
+            await this.logAction(guildId, 'ban', executorId, targetId, {
+                reason,
+                duration: 'Permanent',
+                source: 'Discord native',
+            });
+        } catch (e) {
+            this.logger.error('Error handling native ban event', e);
+        }
+    }
+
+    /**
+     * Fires when someone is unbanned via Discord's native UI.
+     */
+    async onGuildBanRemove(ban: GuildBan): Promise<void> {
+        const guildId = ban.guild.id;
+        const targetId = ban.user.id;
+
+        try {
+            await new Promise(r => setTimeout(r, 1500));
+
+            const auditLogs = await ban.guild.fetchAuditLogs({
+                type: AuditLogEvent.MemberBanRemove,
+                limit: 5,
+            });
+
+            const entry = auditLogs.entries.find(e =>
+                e.targetId === targetId && Date.now() - e.createdTimestamp < 15_000
+            );
+
+            const executorId = entry?.executorId || 'Unknown';
+            const reason = entry?.reason || 'No reason provided';
+
+            // Skip bot auto-unbans (scheduled tasks)
+            if (executorId === this.client.user?.id) return;
+
+            this.logger.info(`[NativeMod] Unban detected: ${ban.user.tag} by ${executorId}`);
+            await this.logAction(guildId, 'unban', executorId, targetId, {
+                reason,
+                source: 'Discord native',
+            });
+        } catch (e) {
+            this.logger.error('Error handling native unban event', e);
+        }
+    }
+
+    /**
+     * Fires when a member leaves or is kicked. We check the audit log to
+     * distinguish a kick from a voluntary leave — only log if it was a kick.
+     */
+    async onGuildMemberRemove(member: GuildMember): Promise<void> {
+        const guildId = member.guild.id;
+        const targetId = member.id;
+
+        // Skip if the bot performed this kick via slash command
+        if (this.recentBotActions.has(`kick:${guildId}:${targetId}`)) return;
+
+        try {
+            // Small delay to let the audit log populate
+            await new Promise(r => setTimeout(r, 1500));
+
+            const auditLogs = await member.guild.fetchAuditLogs({
+                type: AuditLogEvent.MemberKick,
+                limit: 5,
+            });
+
+            const entry = auditLogs.entries.find(e =>
+                e.targetId === targetId && Date.now() - e.createdTimestamp < 15_000
+            );
+
+            // No recent kick audit entry = user left voluntarily, not a kick
+            if (!entry) return;
+
+            const executorId = entry.executorId || 'Unknown';
+            const reason = entry.reason || 'No reason provided';
+
+            // Skip if the bot itself did the kick
+            if (executorId === this.client.user?.id) return;
+
+            this.logger.info(`[NativeMod] Kick detected: ${member.user.tag} by ${executorId}`);
+            await this.logAction(guildId, 'kick', executorId, targetId, {
+                reason,
+                source: 'Discord native',
+            });
+        } catch (e) {
+            this.logger.error('Error handling native kick event', e);
+        }
     }
 
     // Event Handler
@@ -224,6 +350,10 @@ export class ModerationPlugin implements IPlugin {
 
             await target.kick(reason);
             
+            // Mark as bot-initiated so guildMemberRemove handler skips it
+            this.recentBotActions.add(`kick:${interaction.guildId}:${target.id}`);
+            setTimeout(() => this.recentBotActions.delete(`kick:${interaction.guildId}:${target.id}`), 10_000);
+
             // Log & Reply
             await this.logAction(interaction.guildId!, 'kick', interaction.user.id, target.id, { reason });
             
@@ -268,7 +398,11 @@ export class ModerationPlugin implements IPlugin {
              }
 
              await interaction.guild!.members.ban(user, { reason });
-             
+
+             // Mark as bot-initiated so guildBanAdd handler skips it
+             this.recentBotActions.add(`ban:${interaction.guildId}:${user.id}`);
+             setTimeout(() => this.recentBotActions.delete(`ban:${interaction.guildId}:${user.id}`), 10_000);
+
              if (unbanDate) {
                  await this.db.scheduledTask.create({
                      data: {
