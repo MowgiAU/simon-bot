@@ -365,15 +365,10 @@ export class ModerationPlugin implements IPlugin {
 
             const totalWarnings = await this.db.moderationWarning.count({ where: { guildId, userId: user.id } });
 
-            // DM the user
-            if (target) {
-                const settings = await this.db.moderationSettings.findUnique({ where: { guildId } });
-                if (settings?.dmUponAction) {
-                    await user.send({
-                        content: `⚠️ You have received a warning in **${interaction.guild!.name}**.\nReason: ${reason}\nYou now have **${totalWarnings}** warning${totalWarnings !== 1 ? 's' : ''}.`,
-                    }).catch(() => {});
-                }
-            }
+            // DM the user — always send for warns regardless of dmUponAction setting
+            await user.send({
+                content: `⚠️ You have received a warning in **${interaction.guild!.name}**.\nReason: ${reason}\nYou now have **${totalWarnings}** warning${totalWarnings !== 1 ? 's' : ''}.`,
+            }).catch(() => {}); // Silently ignore if user has DMs closed
 
             await this.logAction(guildId, 'warn', interaction.user.id, user.id, { reason, totalWarnings });
 
