@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import {
     Zap, Plus, Trash2, ToggleLeft, ToggleRight, Save, AlertCircle,
     ChevronDown, ChevronUp, Pencil, Check, X, Code, AtSign,
-    Code2, Palette, Eye, Smile, Link, FolderOpen,
+    Code2, Palette, Eye, Smile, Link, FolderOpen, GripVertical,
 } from 'lucide-react';
 
 // â”€â”€â”€ Embed types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -355,11 +355,13 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 interface CategoryCardProps {
     category: AutoResponderCategory;
     guildId: string;
+    ruleCount: number;
     onUpdated: (c: AutoResponderCategory) => void;
     onDeleted: (id: string) => void;
+    onDropRule: (ruleId: string, categoryId: string) => void;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, onUpdated, onDeleted }) => {
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCount, onUpdated, onDeleted, onDropRule }) => {
     const [draft, setDraft] = useState<AutoResponderCategory>({ ...category });
     const [isDirty, setIsDirty] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -367,6 +369,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, onUpdate
     const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [editingName, setEditingName] = useState(false);
     const [nameInput, setNameInput] = useState(category.name);
+    const [dragOver, setDragOver] = useState(false);
 
     useEffect(() => { if (msg) { const t = setTimeout(() => setMsg(null), 3500); return () => clearTimeout(t); } }, [msg]);
     useEffect(() => { setDraft({ ...category }); setNameInput(category.name); setIsDirty(false); }, [category.id]);
@@ -422,7 +425,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, onUpdate
     };
 
     return (
-        <div style={{ ...card, borderLeft: `3px solid ${colors.primary}`, marginBottom: '10px' }}>
+        <div style={{ ...card, borderLeft: `3px solid ${colors.primary}`, marginBottom: '10px', outline: dragOver ? `2px dashed ${colors.primary}` : 'none', outlineOffset: '-2px', transition: 'outline 0.15s' }}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); const ruleId = e.dataTransfer.getData('text/rule-id'); if (ruleId) onDropRule(ruleId, category.id); }}>
             <div style={{ padding: '14px 16px' }}>
                 {/* Name row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -440,6 +446,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, onUpdate
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
                             <span style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary }}>{draft.name}</span>
                             <button onClick={() => setEditingName(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: 0, display: 'flex' }}><Pencil size={11} /></button>
+                            <span style={{ fontSize: '10px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 7px' }}>{ruleCount} rule{ruleCount !== 1 ? 's' : ''}</span>
                         </div>
                     )}
                     <button onClick={handleDelete} disabled={deleting}
@@ -658,7 +665,10 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
     return (
         <div style={card}>
             {/* Header row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}>
+            <div draggable
+                onDragStart={e => { e.dataTransfer.setData('text/rule-id', rule.id); e.dataTransfer.effectAllowed = 'move'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', cursor: 'grab', userSelect: 'none' }}>
+                <GripVertical size={14} color={colors.textTertiary} style={{ flexShrink: 0, cursor: 'grab' }} />
                 <button onClick={e => { e.stopPropagation(); handleToggle(); }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, display: 'flex' }}
                     title={draft.enabled ? 'Disable' : 'Enable'}>
@@ -929,6 +939,7 @@ export const AutoResponderPage: React.FC = () => {
     const [creating, setCreating] = useState(false);
     const [creatingCategory, setCreatingCategory] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [uncatDragOver, setUncatDragOver] = useState(false);
     const [globalCooldown, setGlobalCooldown] = useState(0);
     const [globalCooldownDirty, setGlobalCooldownDirty] = useState(false);
     const [savingGlobal, setSavingGlobal] = useState(false);
@@ -1001,6 +1012,26 @@ export const AutoResponderPage: React.FC = () => {
             setCategories(prev => [...prev, c]);
         } catch (e: any) { setError(e.message); }
         finally { setCreatingCategory(false); }
+    };
+
+    const handleDropRuleOnCategory = async (ruleId: string, categoryId: string | null) => {
+        const rule = rules.find(r => r.id === ruleId);
+        if (!rule || rule.categoryId === categoryId) return;
+        // Optimistic update
+        setRules(prev => prev.map(r => r.id === ruleId ? { ...r, categoryId } : r));
+        try {
+            const res = await fetch(`/api/auto-responder/${guildId}/${ruleId}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categoryId: categoryId || null }),
+            });
+            if (!res.ok) throw new Error();
+            const updated: AutoResponderRule = await res.json();
+            setRules(prev => prev.map(r => r.id === updated.id ? updated : r));
+        } catch {
+            // Revert on failure
+            setRules(prev => prev.map(r => r.id === ruleId ? { ...r, categoryId: rule.categoryId } : r));
+        }
     };
 
     return (
@@ -1076,35 +1107,46 @@ export const AutoResponderPage: React.FC = () => {
                         ) : (
                             categories.map(c => (
                                 <CategoryCard key={c.id} category={c} guildId={guildId || ''}
+                                    ruleCount={rules.filter(r => r.categoryId === c.id).length}
                                     onUpdated={u => setCategories(prev => prev.map(x => x.id === u.id ? u : x))}
                                     onDeleted={id => {
                                         setCategories(prev => prev.filter(x => x.id !== id));
                                         // Clear categoryId on rules that belonged to deleted category
                                         setRules(prev => prev.map(r => r.categoryId === id ? { ...r, categoryId: null } : r));
                                     }}
+                                    onDropRule={handleDropRuleOnCategory}
                                 />
                             ))
                         )}
                     </div>
 
-                    {/* Rules section */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <Zap size={16} color={colors.primary} />
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Rules</span>
-                        <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{rules.length}</span>
-                    </div>
-
-                    {rules.length === 0 && !error && (
-                        <div style={{ textAlign: 'center', padding: '48px 24px', color: colors.textSecondary, fontSize: '14px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px dashed ${colors.glassBorder}`, marginBottom: '16px' }}>
-                            <Zap size={32} color={colors.textTertiary} style={{ marginBottom: '12px' }} />
-                            <div>No rules yet. Create one to get started.</div>
+                    {/* Rules section — drop here to uncategorize */}
+                    <div
+                        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setUncatDragOver(true); }}
+                        onDragLeave={() => setUncatDragOver(false)}
+                        onDrop={e => { e.preventDefault(); setUncatDragOver(false); const ruleId = e.dataTransfer.getData('text/rule-id'); if (ruleId) handleDropRuleOnCategory(ruleId, null); }}
+                        style={{ padding: uncatDragOver ? '8px' : '0', border: uncatDragOver ? `2px dashed ${colors.textTertiary}` : '2px solid transparent', borderRadius: borderRadius.md, transition: 'all 0.15s' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <Zap size={16} color={colors.primary} />
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary }}>Rules</span>
+                            <span style={{ fontSize: '11px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '1px 8px' }}>{rules.length}</span>
+                            {categories.length > 0 && (
+                                <span style={{ fontSize: '10px', color: colors.textTertiary, marginLeft: '4px' }}>Drag rules onto categories to group them</span>
+                            )}
                         </div>
-                    )}
-                    {rules.map(r => (
-                        <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
-                            onUpdated={u => setRules(prev => prev.map(x => x.id === u.id ? u : x))}
-                            onDeleted={id => setRules(prev => prev.filter(x => x.id !== id))} />
-                    ))}
+
+                        {rules.length === 0 && !error && (
+                            <div style={{ textAlign: 'center', padding: '48px 24px', color: colors.textSecondary, fontSize: '14px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px dashed ${colors.glassBorder}`, marginBottom: '16px' }}>
+                                <Zap size={32} color={colors.textTertiary} style={{ marginBottom: '12px' }} />
+                                <div>No rules yet. Create one to get started.</div>
+                            </div>
+                        )}
+                        {rules.map(r => (
+                            <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
+                                onUpdated={u => setRules(prev => prev.map(x => x.id === u.id ? u : x))}
+                                onDeleted={id => setRules(prev => prev.filter(x => x.id !== id))} />
+                        ))}
+                    </div>
                 </>
             )}
 
