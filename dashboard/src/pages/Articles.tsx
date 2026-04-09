@@ -4,9 +4,9 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { RichTextEditor } from '../components/RichTextEditor';
 import {
-    FileText, Plus, Edit3, Trash2, Eye, Star, StarOff, Send,
+    FileText, Plus, Edit3, Trash2, Eye, Send,
     ChevronLeft, Clock, CheckCircle, XCircle, AlertCircle,
-    Search, Filter, Image as ImageIcon, Save, X,
+    Search, Image as ImageIcon, Save, X, MessageSquare,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -81,13 +81,14 @@ const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
     );
 };
 
-// ── ARTICLE EDITOR ────────────────────────────────────────────────────────────
-const ArticleEditor: React.FC<{
+// ── ARTICLE EDITOR (shared by writer + review pages) ──────────────────────────
+export const ArticleEditor: React.FC<{
     article: Partial<Article> | null;
     onSave: (data: any) => Promise<void>;
     onCancel: () => void;
     saving: boolean;
-}> = ({ article, onSave, onCancel, saving }) => {
+    isAdmin?: boolean;
+}> = ({ article, onSave, onCancel, saving, isAdmin }) => {
     const [title, setTitle] = useState(article?.title || '');
     const [subtitle, setSubtitle] = useState(article?.subtitle || '');
     const [content, setContent] = useState(article?.content || '');
@@ -100,6 +101,8 @@ const ArticleEditor: React.FC<{
     const [uploadingCover, setUploadingCover] = useState(false);
     const [showSeo, setShowSeo] = useState(false);
 
+    const uploadPrefix = isAdmin ? '/api/admin' : '/api/my';
+
     const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -107,7 +110,7 @@ const ArticleEditor: React.FC<{
         try {
             const formData = new FormData();
             formData.append('articleCover', file);
-            const res = await axios.post('/api/admin/articles/upload-cover', formData, { withCredentials: true });
+            const res = await axios.post(`${uploadPrefix}/articles/upload-cover`, formData, { withCredentials: true });
             setCoverImageUrl(res.data.url);
         } catch { /* silent */ }
         setUploadingCover(false);
@@ -117,7 +120,7 @@ const ArticleEditor: React.FC<{
     const handleImageUpload = async (file: File): Promise<string> => {
         const formData = new FormData();
         formData.append('articleImage', file);
-        const res = await axios.post('/api/admin/articles/upload-image', formData, { withCredentials: true });
+        const res = await axios.post(`${uploadPrefix}/articles/upload-image`, formData, { withCredentials: true });
         return res.data.url;
     };
 
@@ -142,7 +145,6 @@ const ArticleEditor: React.FC<{
 
     return (
         <div>
-            {/* Back button */}
             <button onClick={onCancel} style={{
                 display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent',
                 border: 'none', color: colors.textSecondary, cursor: 'pointer', fontSize: '13px',
@@ -154,6 +156,25 @@ const ArticleEditor: React.FC<{
             <h2 style={{ margin: '0 0 24px', color: colors.textPrimary }}>
                 {article?.id ? 'Edit Article' : 'New Article'}
             </h2>
+
+            {/* Rejection feedback banner */}
+            {article?.status === 'rejected' && article?.reviewNote && (
+                <div style={{
+                    padding: '16px', marginBottom: '20px', borderRadius: borderRadius.md,
+                    backgroundColor: `${colors.error}10`, border: `1px solid ${colors.error}30`,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <MessageSquare size={16} color={colors.error} />
+                        <strong style={{ color: colors.error, fontSize: '13px' }}>Admin Feedback</strong>
+                        {article.reviewedByName && (
+                            <span style={{ fontSize: '11px', color: colors.textTertiary }}>from {article.reviewedByName}</span>
+                        )}
+                    </div>
+                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                        {article.reviewNote}
+                    </p>
+                </div>
+            )}
 
             {/* Cover Image */}
             <div style={{ marginBottom: '20px' }}>
@@ -267,14 +288,16 @@ const ArticleEditor: React.FC<{
                 }}>
                     <Send size={14} /> Submit for Review
                 </button>
-                <button disabled={saving || !title || !content} onClick={() => onSave(buildPayload('published'))} style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '10px 20px', background: colors.primary, border: 'none',
-                    borderRadius: borderRadius.sm, color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                    opacity: saving || !title || !content ? 0.5 : 1,
-                }}>
-                    <CheckCircle size={14} /> Publish Now
-                </button>
+                {isAdmin && (
+                    <button disabled={saving || !title || !content} onClick={() => onSave(buildPayload('published'))} style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '10px 20px', background: colors.primary, border: 'none',
+                        borderRadius: borderRadius.sm, color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                        opacity: saving || !title || !content ? 0.5 : 1,
+                    }}>
+                        <CheckCircle size={14} /> Publish Now
+                    </button>
+                )}
                 <button onClick={onCancel} style={{
                     padding: '10px 20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: borderRadius.sm, color: colors.textSecondary, cursor: 'pointer', fontSize: '13px',
@@ -285,23 +308,19 @@ const ArticleEditor: React.FC<{
     );
 };
 
-// ── MAIN PAGE ─────────────────────────────────────────────────────────────────
+// ── MAIN PAGE (Writer View — My Articles) ─────────────────────────────────────
 export const ArticlesPage: React.FC = () => {
-    const { selectedGuild } = useAuth();
+    const { user } = useAuth();
     const [articles, setArticles] = useState<Article[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [filterStatus, setFilterStatus] = useState('');
-    const [filterCategory, setFilterCategory] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Editor state
     const [editMode, setEditMode] = useState<'list' | 'create' | 'edit'>('list');
     const [editingArticle, setEditingArticle] = useState<Article | null>(null);
     const [saving, setSaving] = useState(false);
-
-    // Detail panel
     const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
 
     const fetchArticles = useCallback(async () => {
@@ -309,13 +328,12 @@ export const ArticlesPage: React.FC = () => {
         try {
             const params: any = { page, limit: 25 };
             if (filterStatus) params.status = filterStatus;
-            if (filterCategory) params.category = filterCategory;
-            const res = await axios.get('/api/admin/articles', { params, withCredentials: true });
+            const res = await axios.get('/api/my/articles', { params, withCredentials: true });
             setArticles(res.data.articles || []);
             setTotalPages(res.data.totalPages || 1);
         } catch { setArticles([]); }
         setLoading(false);
-    }, [page, filterStatus, filterCategory]);
+    }, [page, filterStatus]);
 
     useEffect(() => { fetchArticles(); }, [fetchArticles]);
 
@@ -323,9 +341,9 @@ export const ArticlesPage: React.FC = () => {
         setSaving(true);
         try {
             if (editingArticle?.id) {
-                await axios.patch(`/api/admin/articles/${editingArticle.id}`, data, { withCredentials: true });
+                await axios.patch(`/api/my/articles/${editingArticle.id}`, data, { withCredentials: true });
             } else {
-                await axios.post('/api/admin/articles', data, { withCredentials: true });
+                await axios.post('/api/my/articles', data, { withCredentials: true });
             }
             setEditMode('list');
             setEditingArticle(null);
@@ -337,35 +355,14 @@ export const ArticlesPage: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this article permanently?')) return;
+        if (!confirm('Delete this draft?')) return;
         try {
-            await axios.delete(`/api/admin/articles/${id}`, { withCredentials: true });
+            await axios.delete(`/api/my/articles/${id}`, { withCredentials: true });
             setSelectedArticle(null);
             fetchArticles();
-        } catch { alert('Failed to delete article'); }
+        } catch (e: any) { alert(e.response?.data?.error || 'Failed to delete article'); }
     };
 
-    const handleStatusChange = async (id: string, status: string) => {
-        try {
-            await axios.patch(`/api/admin/articles/${id}`, { status }, { withCredentials: true });
-            fetchArticles();
-            if (selectedArticle?.id === id) {
-                setSelectedArticle(prev => prev ? { ...prev, status } : null);
-            }
-        } catch { alert('Failed to update status'); }
-    };
-
-    const handleToggleFeature = async (id: string) => {
-        try {
-            const res = await axios.patch(`/api/admin/articles/${id}/feature`, {}, { withCredentials: true });
-            fetchArticles();
-            if (selectedArticle?.id === id) {
-                setSelectedArticle(res.data);
-            }
-        } catch { alert('Failed to toggle featured status'); }
-    };
-
-    // ── Editor mode ───────────────────────────────────────────────────────
     if (editMode !== 'list') {
         return (
             <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '960px' }}>
@@ -379,9 +376,8 @@ export const ArticlesPage: React.FC = () => {
         );
     }
 
-    // ── List mode ─────────────────────────────────────────────────────────
     const filtered = articles.filter(a =>
-        !searchQuery || a.title.toLowerCase().includes(searchQuery.toLowerCase()) || a.authorName.toLowerCase().includes(searchQuery.toLowerCase())
+        !searchQuery || a.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -390,9 +386,9 @@ export const ArticlesPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <FileText size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div style={{ flex: 1 }}>
-                    <h1 style={{ margin: 0, color: colors.textPrimary }}>Articles</h1>
+                    <h1 style={{ margin: 0, color: colors.textPrimary }}>My Articles</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>
-                        Create and manage news articles, guides, and announcements for the front page
+                        Write articles, guides, and announcements. Submit them for admin review to get published.
                     </p>
                 </div>
                 <button onClick={() => { setEditMode('create'); setEditingArticle(null); }} style={{
@@ -410,11 +406,9 @@ export const ArticlesPage: React.FC = () => {
                 backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md,
                 marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`,
             }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px' }}>
-                    Articles appear on the front page in the Featured Content section. Use the rich editor to write
-                    news, guides, tutorials' and announcements with embedded tracks, profiles, videos, and images.
-                    Articles with "Pending Review" status need admin approval before publishing. Featured articles
-                    replace the news/guide placeholder on the discover page.
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
+                    Write your article, then submit it for review. An admin will review it and either approve it for
+                    publishing or provide feedback if changes are needed. You can edit rejected articles and resubmit them.
                 </p>
             </div>
 
@@ -428,7 +422,7 @@ export const ArticlesPage: React.FC = () => {
                     <Search size={14} color={colors.textTertiary} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
                         value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Search articles..."
+                        placeholder="Search your articles..."
                         style={{
                             width: '100%', padding: '8px 10px 8px 32px', background: colors.background,
                             border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm,
@@ -443,13 +437,6 @@ export const ArticlesPage: React.FC = () => {
                     <option value="">All Statuses</option>
                     {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
-                <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} style={{
-                    padding: '8px 12px', background: colors.background, border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: '13px', outline: 'none', cursor: 'pointer',
-                }}>
-                    <option value="">All Categories</option>
-                    {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
             </div>
 
             {/* Article List */}
@@ -458,7 +445,7 @@ export const ArticlesPage: React.FC = () => {
             ) : filtered.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: colors.textTertiary }}>
                     <FileText size={40} style={{ opacity: 0.2, marginBottom: '12px' }} />
-                    <p>No articles found. Click "New Article" to create one.</p>
+                    <p>No articles yet. Click "New Article" to start writing.</p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -470,7 +457,6 @@ export const ArticlesPage: React.FC = () => {
                             border: selectedArticle?.id === article.id ? `1px solid ${colors.primary}30` : '1px solid rgba(255,255,255,0.04)',
                             transition: 'all 0.15s',
                         }}>
-                            {/* Cover thumbnail */}
                             <div style={{
                                 width: '56px', height: '56px', borderRadius: borderRadius.sm, overflow: 'hidden',
                                 background: colors.background, flexShrink: 0,
@@ -480,48 +466,41 @@ export const ArticlesPage: React.FC = () => {
                                     ? <img src={article.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     : <FileText size={20} color={colors.textTertiary} style={{ opacity: 0.3 }} />}
                             </div>
-
-                            {/* Info */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                                     <span style={{ fontWeight: 700, fontSize: '14px', color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {article.title}
                                     </span>
-                                    {article.isFeatured && (
-                                        <Star size={12} fill={colors.highlight} color={colors.highlight} />
-                                    )}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <StatusBadge status={article.status} />
                                     <CategoryBadge category={article.category} />
                                     <span style={{ fontSize: '11px', color: colors.textTertiary }}>
-                                        by {article.authorName}
-                                    </span>
-                                    <span style={{ fontSize: '11px', color: colors.textTertiary }}>
                                         {new Date(article.updatedAt).toLocaleDateString()}
                                     </span>
-                                    {!isMobile && (
-                                        <span style={{ fontSize: '11px', color: colors.textTertiary }}>
-                                            <Eye size={10} style={{ marginRight: '3px', verticalAlign: 'middle' }} />
-                                            {article.viewCount}
+                                    {article.status === 'rejected' && article.reviewNote && (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: colors.error }}>
+                                            <MessageSquare size={10} /> Has Feedback
                                         </span>
                                     )}
                                 </div>
                             </div>
-
-                            {/* Actions */}
-                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                                <button onClick={(e) => { e.stopPropagation(); setEditingArticle(article); setEditMode('edit'); }} title="Edit" style={{
-                                    width: '32px', height: '32px', borderRadius: '6px', border: 'none',
-                                    background: 'rgba(255,255,255,0.04)', color: colors.textSecondary,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}><Edit3 size={14} /></button>
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete(article.id); }} title="Delete" style={{
-                                    width: '32px', height: '32px', borderRadius: '6px', border: 'none',
-                                    background: 'rgba(255,255,255,0.04)', color: colors.error,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}><Trash2 size={14} /></button>
-                            </div>
+                            {['draft', 'rejected'].includes(article.status) && (
+                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingArticle(article); setEditMode('edit'); }} title="Edit" style={{
+                                        width: '32px', height: '32px', borderRadius: '6px', border: 'none',
+                                        background: 'rgba(255,255,255,0.04)', color: colors.textSecondary,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}><Edit3 size={14} /></button>
+                                    {article.status === 'draft' && (
+                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(article.id); }} title="Delete" style={{
+                                            width: '32px', height: '32px', borderRadius: '6px', border: 'none',
+                                            background: 'rgba(255,255,255,0.04)', color: colors.error,
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}><Trash2 size={14} /></button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -541,7 +520,7 @@ export const ArticlesPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Detail Panel (slide-in from right) */}
+            {/* Detail Panel */}
             {selectedArticle && (
                 <div style={{
                     position: 'fixed', top: 0, right: 0, bottom: 0, width: isMobile ? '100%' : '420px',
@@ -555,7 +534,6 @@ export const ArticlesPage: React.FC = () => {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: colors.textSecondary,
                     }}><X size={16} /></button>
 
-                    {/* Cover */}
                     {selectedArticle.coverImageUrl && (
                         <img src={selectedArticle.coverImageUrl} alt="" style={{
                             width: '100%', height: '160px', objectFit: 'cover', borderRadius: borderRadius.md, marginBottom: '16px',
@@ -572,25 +550,33 @@ export const ArticlesPage: React.FC = () => {
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
                         <StatusBadge status={selectedArticle.status} />
                         <CategoryBadge category={selectedArticle.category} />
-                        {selectedArticle.isFeatured && (
-                            <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
-                                background: `${colors.highlight}18`, color: colors.highlight, border: `1px solid ${colors.highlight}30`,
-                            }}>
-                                <Star size={10} fill={colors.highlight} /> Featured
-                            </span>
-                        )}
                     </div>
 
                     <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.6 }}>
-                        <div>Author: <strong style={{ color: colors.textSecondary }}>{selectedArticle.authorName}</strong></div>
                         <div>Created: {new Date(selectedArticle.createdAt).toLocaleString()}</div>
                         {selectedArticle.publishedAt && <div>Published: {new Date(selectedArticle.publishedAt).toLocaleString()}</div>}
                         {selectedArticle.reviewedByName && <div>Reviewed by: {selectedArticle.reviewedByName}</div>}
-                        <div>Views: {selectedArticle.viewCount}</div>
-                        <div>Slug: <code style={{ color: colors.primary }}>/article/{selectedArticle.slug}</code></div>
+                        {selectedArticle.status === 'published' && <div>Views: {selectedArticle.viewCount}</div>}
                     </div>
+
+                    {/* Admin review feedback */}
+                    {selectedArticle.reviewNote && (
+                        <div style={{
+                            padding: '14px', marginBottom: '16px', borderRadius: borderRadius.md,
+                            backgroundColor: selectedArticle.status === 'rejected' ? `${colors.error}10` : `${colors.primary}10`,
+                            border: `1px solid ${selectedArticle.status === 'rejected' ? colors.error : colors.primary}25`,
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                <MessageSquare size={14} color={selectedArticle.status === 'rejected' ? colors.error : colors.primary} />
+                                <strong style={{ color: selectedArticle.status === 'rejected' ? colors.error : colors.primary, fontSize: '12px' }}>
+                                    Admin Feedback
+                                </strong>
+                            </div>
+                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                                {selectedArticle.reviewNote}
+                            </p>
+                        </div>
+                    )}
 
                     {selectedArticle.excerpt && (
                         <div style={{
@@ -602,91 +588,41 @@ export const ArticlesPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Action buttons */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <button onClick={() => { setEditingArticle(selectedArticle); setEditMode('edit'); setSelectedArticle(null); }} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '10px', background: colors.primary, border: 'none',
-                            borderRadius: borderRadius.sm, color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                        }}>
-                            <Edit3 size={14} /> Edit Article
-                        </button>
-
-                        {/* Status actions */}
-                        {selectedArticle.status === 'draft' && (
-                            <button onClick={() => handleStatusChange(selectedArticle.id, 'pending')} style={{
+                        {['draft', 'rejected'].includes(selectedArticle.status) && (
+                            <button onClick={() => { setEditingArticle(selectedArticle); setEditMode('edit'); setSelectedArticle(null); }} style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: `${colors.warning}15`, border: `1px solid ${colors.warning}30`,
-                                borderRadius: borderRadius.sm, color: colors.warning, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                                padding: '10px', background: colors.primary, border: 'none',
+                                borderRadius: borderRadius.sm, color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
                             }}>
-                                <Send size={14} /> Submit for Review
-                            </button>
-                        )}
-                        {(selectedArticle.status === 'pending' || selectedArticle.status === 'draft') && (
-                            <button onClick={() => handleStatusChange(selectedArticle.id, 'published')} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: `${colors.success}15`, border: `1px solid ${colors.success}30`,
-                                borderRadius: borderRadius.sm, color: colors.success, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                            }}>
-                                <CheckCircle size={14} /> Approve & Publish
-                            </button>
-                        )}
-                        {selectedArticle.status === 'pending' && (
-                            <button onClick={() => handleStatusChange(selectedArticle.id, 'rejected')} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: `${colors.error}15`, border: `1px solid ${colors.error}30`,
-                                borderRadius: borderRadius.sm, color: colors.error, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                            }}>
-                                <XCircle size={14} /> Reject
-                            </button>
-                        )}
-                        {selectedArticle.status === 'published' && (
-                            <button onClick={() => handleStatusChange(selectedArticle.id, 'archived')} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                                borderRadius: borderRadius.sm, color: colors.textSecondary, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                            }}>
-                                <AlertCircle size={14} /> Archive
+                                <Edit3 size={14} /> Edit Article
                             </button>
                         )}
 
-                        {/* Feature toggle */}
-                        {selectedArticle.status === 'published' && (
-                            <button onClick={() => handleToggleFeature(selectedArticle.id)} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: selectedArticle.isFeatured ? `${colors.highlight}15` : 'rgba(255,255,255,0.04)',
-                                border: `1px solid ${selectedArticle.isFeatured ? colors.highlight + '30' : 'rgba(255,255,255,0.08)'}`,
-                                borderRadius: borderRadius.sm, color: selectedArticle.isFeatured ? colors.highlight : colors.textSecondary,
-                                cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                            }}>
-                                {selectedArticle.isFeatured ? <><StarOff size={14} /> Remove from Featured</> : <><Star size={14} /> Feature on Front Page</>}
-                            </button>
-                        )}
-
-                        {/* Preview link */}
                         {selectedArticle.status === 'published' && (
                             <a href={`/article/${selectedArticle.slug}`} target="_blank" rel="noopener noreferrer" style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                                borderRadius: borderRadius.sm, color: colors.textSecondary, textDecoration: 'none',
+                                padding: '10px', background: colors.primary, border: 'none',
+                                borderRadius: borderRadius.sm, color: 'white', textDecoration: 'none',
                                 fontWeight: 600, fontSize: '13px',
                             }}>
                                 <Eye size={14} /> View Published Page
                             </a>
                         )}
 
-                        <button onClick={() => handleDelete(selectedArticle.id)} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '10px', background: `${colors.error}08`, border: `1px solid ${colors.error}20`,
-                            borderRadius: borderRadius.sm, color: colors.error, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                            marginTop: '8px',
-                        }}>
-                            <Trash2 size={14} /> Delete Article
-                        </button>
+                        {selectedArticle.status === 'draft' && (
+                            <button onClick={() => handleDelete(selectedArticle.id)} style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '10px', background: `${colors.error}08`, border: `1px solid ${colors.error}20`,
+                                borderRadius: borderRadius.sm, color: colors.error, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                                marginTop: '8px',
+                            }}>
+                                <Trash2 size={14} /> Delete Draft
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
-            {/* Overlay for detail panel */}
             {selectedArticle && (
                 <div onClick={() => setSelectedArticle(null)} style={{
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999,

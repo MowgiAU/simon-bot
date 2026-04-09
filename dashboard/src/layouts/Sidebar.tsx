@@ -38,6 +38,7 @@ import {
   Flag,
   Hammer,
   BarChart2,
+  ClipboardCheck,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -397,6 +398,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
                 <span className="nav-label">Articles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('article-review') && (
+            <button
+                className={`nav-item ${activeSection === 'article-review' ? 'active' : ''}`}
+                onClick={() => onNavigate('article-review')}
+                title={collapsed ? "Article Review" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={ClipboardCheck} size={20} /></span>
+                <span className="nav-label">Article Review</span>
             </button>
           )}
         </div>

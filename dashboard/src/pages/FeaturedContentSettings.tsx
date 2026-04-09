@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { MonitorPlay, Newspaper, BookOpen, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { MonitorPlay, Newspaper, BookOpen, FileText, Save, CheckCircle, AlertCircle, Search, X } from 'lucide-react';
 
-type ContentType = 'video' | 'news' | 'guide';
+type ContentType = 'video' | 'news' | 'guide' | 'article';
+
+interface FeaturedArticle {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string | null;
+    coverImageUrl: string | null;
+    authorName: string;
+    category: string;
+    publishedAt: string | null;
+}
 
 interface FeaturedSettings {
     featuredContentType: ContentType;
@@ -13,6 +24,8 @@ interface FeaturedSettings {
     featuredTutorialThumbnail: string;
     featuredTutorialAuthor: string;
     featuredTutorialDate: string;
+    featuredArticleId: string | null;
+    featuredArticle: FeaturedArticle | null;
 }
 
 const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; description: string; accentColor: string }[] = [
@@ -37,6 +50,13 @@ const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; des
         description: 'In-depth production guides from experienced producers.',
         accentColor: '#FBBF24',
     },
+    {
+        id: 'article',
+        icon: <FileText size={20} />,
+        label: 'Featured Article',
+        description: 'Showcase a published community article on the frontpage.',
+        accentColor: '#34D399',
+    },
 ];
 
 export const FeaturedContentSettings: React.FC = () => {
@@ -48,10 +68,15 @@ export const FeaturedContentSettings: React.FC = () => {
         featuredTutorialThumbnail: '',
         featuredTutorialAuthor: '',
         featuredTutorialDate: '',
+        featuredArticleId: null,
+        featuredArticle: null,
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'ok' | 'error'>('idle');
+    const [articleSearch, setArticleSearch] = useState('');
+    const [articleResults, setArticleResults] = useState<FeaturedArticle[]>([]);
+    const [searchingArticles, setSearchingArticles] = useState(false);
 
     useEffect(() => {
         axios.get('/api/discovery/settings').then(r => {
@@ -64,6 +89,8 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialThumbnail: d.featuredTutorialThumbnail || '',
                 featuredTutorialAuthor: d.featuredTutorialAuthor || '',
                 featuredTutorialDate: d.featuredTutorialDate || '',
+                featuredArticleId: d.featuredArticleId || null,
+                featuredArticle: d.featuredArticle || null,
             });
         }).catch(() => {}).finally(() => setLoading(false));
     }, []);
@@ -80,6 +107,7 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialThumbnail: settings.featuredTutorialThumbnail || null,
                 featuredTutorialAuthor: settings.featuredTutorialAuthor || null,
                 featuredTutorialDate: settings.featuredTutorialDate || null,
+                featuredArticleId: settings.featuredArticleId || null,
             });
             setSaveStatus('ok');
             setTimeout(() => setSaveStatus('idle'), 3000);
@@ -153,7 +181,7 @@ export const FeaturedContentSettings: React.FC = () => {
             {/* Content type selector */}
             <div style={{ marginBottom: spacing.lg }}>
                 <span style={labelStyle}>Content Type</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px' }}>
                     {TYPE_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
@@ -258,6 +286,103 @@ export const FeaturedContentSettings: React.FC = () => {
                                 />
                             </div>
                         </div>
+                    </div>
+                ) : settings.featuredContentType === 'article' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Selected article preview */}
+                        {settings.featuredArticle && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                                padding: '12px', background: '#34D39910', border: '1px solid #34D39930',
+                                borderRadius: borderRadius.md,
+                            }}>
+                                {settings.featuredArticle.coverImageUrl && (
+                                    <img src={settings.featuredArticle.coverImageUrl} alt="" style={{
+                                        width: '60px', height: '60px', objectFit: 'cover', borderRadius: borderRadius.sm, flexShrink: 0,
+                                    }} />
+                                )}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {settings.featuredArticle.title}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '2px' }}>
+                                        by {settings.featuredArticle.authorName} · {settings.featuredArticle.category}
+                                    </div>
+                                </div>
+                                <button onClick={() => setSettings(s => ({ ...s, featuredArticleId: null, featuredArticle: null }))} style={{
+                                    background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%',
+                                    width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', color: colors.textSecondary, flexShrink: 0,
+                                }}><X size={14} /></button>
+                            </div>
+                        )}
+
+                        {/* Article search */}
+                        <div>
+                            <label style={labelStyle}>Search Published Articles</label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} color={colors.textTertiary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input
+                                    style={{ ...inputStyle, paddingLeft: '34px' }}
+                                    placeholder="Type to search articles by title..."
+                                    value={articleSearch}
+                                    onChange={async (e) => {
+                                        const q = e.target.value;
+                                        setArticleSearch(q);
+                                        if (q.length < 2) { setArticleResults([]); return; }
+                                        setSearchingArticles(true);
+                                        try {
+                                            const res = await axios.get('/api/discovery/articles/search', { params: { q }, withCredentials: true });
+                                            setArticleResults(res.data.articles || []);
+                                        } catch { setArticleResults([]); }
+                                        setSearchingArticles(false);
+                                    }}
+                                />
+                            </div>
+                            {searchingArticles && (
+                                <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '6px' }}>Searching...</div>
+                            )}
+                            {articleResults.length > 0 && (
+                                <div style={{
+                                    marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: borderRadius.md, overflow: 'hidden', maxHeight: '240px', overflowY: 'auto',
+                                }}>
+                                    {articleResults.map(a => (
+                                        <div key={a.id} onClick={() => {
+                                            setSettings(s => ({ ...s, featuredArticleId: a.id, featuredArticle: a }));
+                                            setArticleSearch('');
+                                            setArticleResults([]);
+                                        }} style={{
+                                            display: 'flex', alignItems: 'center', gap: '10px',
+                                            padding: '10px 12px', cursor: 'pointer',
+                                            background: settings.featuredArticleId === a.id ? `${colors.primary}10` : 'transparent',
+                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                            transition: 'background 0.1s',
+                                        }}>
+                                            {a.coverImageUrl && (
+                                                <img src={a.coverImageUrl} alt="" style={{
+                                                    width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0,
+                                                }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {a.title}
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                                    {a.authorName} · {a.category}{a.publishedAt ? ` · ${new Date(a.publishedAt).toLocaleDateString()}` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {!settings.featuredArticle && !articleSearch && (
+                            <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary, lineHeight: 1.6 }}>
+                                Search for a published article above to feature it on the frontpage.
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <div style={{

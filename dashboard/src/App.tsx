@@ -79,6 +79,7 @@ const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ d
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
+const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
@@ -133,6 +134,7 @@ type Section =
   | "progression"
   | "reports"
   | "articles"
+  | "article-review"
   | "voice-stats";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
@@ -455,6 +457,8 @@ const AdminDashboard: React.FC = () => {
           return <ReportsPage />;
         case "articles":
           return <ArticlesPage />;
+        case "article-review":
+          return <ArticleReviewPage />;
         case "genres-list":
           return <GenresPage />;
         default:

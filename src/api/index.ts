@@ -3787,7 +3787,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'pause', 'voice-stats'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats'] 
             });
         }
 
@@ -7733,6 +7733,23 @@ app.get('/api/discovery/settings', async (req, res) => {
         result.featuredTutorialAuthor = (settings as any).featuredTutorialAuthor;
         result.featuredTutorialDate = (settings as any).featuredTutorialDate;
 
+        // Featured article (for 'article' content type)
+        const featuredArticleId = (settings as any).featuredArticleId;
+        if (featuredArticleId) {
+            const featArticle = await db.article.findUnique({
+                where: { id: featuredArticleId },
+                select: {
+                    id: true, slug: true, title: true, subtitle: true, excerpt: true,
+                    coverImageUrl: true, authorName: true, authorAvatar: true,
+                    category: true, publishedAt: true, viewCount: true, status: true,
+                },
+            });
+            result.featuredArticle = (featArticle?.status === 'published') ? featArticle : null;
+        } else {
+            result.featuredArticle = null;
+        }
+        result.featuredArticleId = featuredArticleId || null;
+
         setCachedResponse('discovery-settings', result);
         res.json(result);
     } catch (e: any) {
@@ -7750,7 +7767,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredContentType,
             featuredTutorialUrl, featuredTutorialTitle, featuredTutorialDescription, featuredTutorialThumbnail,
             featuredTutorialAuthor, featuredTutorialDate,
-            featuredBattleId, featuredBattleDescription
+            featuredBattleId, featuredBattleDescription,
+            featuredArticleId
         } = req.body;
 
         const updateData: any = {};
@@ -7772,6 +7790,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredTutorialDate !== undefined) updateData.featuredTutorialDate = featuredTutorialDate;
         if (featuredBattleId !== undefined) updateData.featuredBattleId = featuredBattleId;
         if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
+        if (featuredArticleId !== undefined) updateData.featuredArticleId = featuredArticleId;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },
@@ -7783,6 +7802,29 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         res.json(settings);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Search published articles (for admin featured article picker)
+app.get('/api/discovery/articles/search', requireAdmin, async (req: any, res) => {
+    try {
+        const search = req.query.search as string;
+        const articles = await db.article.findMany({
+            where: {
+                status: 'published',
+                ...(search ? { title: { contains: search, mode: 'insensitive' as const } } : {}),
+            },
+            orderBy: { publishedAt: 'desc' },
+            take: 20,
+            select: {
+                id: true, title: true, slug: true, excerpt: true,
+                coverImageUrl: true, authorName: true, category: true, publishedAt: true,
+            },
+        });
+        res.json(articles);
+    } catch (e: any) {
+        logger.error('GET /api/discovery/articles/search error', e);
+        res.status(500).json({ error: 'Failed to search articles' });
     }
 });
 
@@ -13241,6 +13283,189 @@ app.get('/api/articles/:slug', async (req: any, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██  WRITER ARTICLE ENDPOINTS (any authenticated user)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Writer: List own articles ─────────────────────────────────────────────────
+app.get('/api/my/articles', requireAuth, async (req: any, res) => {
+    try {
+        const user = req.session.user;
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+        const status = req.query.status as string;
+        const skip = (page - 1) * limit;
+
+        const where: any = { authorUserId: user.id };
+        if (status) where.status = status;
+
+        const [articles, total] = await Promise.all([
+            db.article.findMany({ where, orderBy: { updatedAt: 'desc' }, skip, take: limit }),
+            db.article.count({ where }),
+        ]);
+
+        res.json({ articles, total, page, totalPages: Math.ceil(total / limit) });
+    } catch (e: any) {
+        logger.error('GET /api/my/articles error', e);
+        res.status(500).json({ error: 'Failed to fetch articles' });
+    }
+});
+
+// ── Writer: Get own article by ID ─────────────────────────────────────────────
+app.get('/api/my/articles/:id', requireAuth, async (req: any, res) => {
+    try {
+        const user = req.session.user;
+        const article = await db.article.findUnique({ where: { id: req.params.id } });
+        if (!article || article.authorUserId !== user.id) return res.status(404).json({ error: 'Article not found' });
+        res.json(article);
+    } catch (e: any) {
+        logger.error('GET /api/my/articles/:id error', e);
+        res.status(500).json({ error: 'Failed to fetch article' });
+    }
+});
+
+// ── Writer: Create article (draft or submit for review) ──────────────────────
+app.post('/api/my/articles', requireAuth, async (req: any, res) => {
+    try {
+        const user = req.session.user;
+        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status } = req.body;
+        if (!title || !content) return res.status(400).json({ error: 'Title and content are required' });
+
+        let baseSlug = slugify(title);
+        if (!baseSlug) baseSlug = 'article';
+        let slug = baseSlug;
+        let suffix = 1;
+        while (await db.article.findUnique({ where: { slug } })) {
+            slug = `${baseSlug}-${suffix++}`;
+        }
+
+        // Writers can only create as draft or pending — never published directly
+        const articleStatus = status === 'pending' ? 'pending' : 'draft';
+
+        // Use the first guild the bot + user share
+        const guildObj = req.session?.mutualAdminGuilds?.[0] || req.session?.mutualStaffGuilds?.[0];
+        const guildId = guildObj?.id;
+
+        // Ensure guild row exists
+        if (guildId) {
+            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: guildObj?.name || 'Unknown' } });
+        }
+
+        const article = await db.article.create({
+            data: {
+                guildId: guildId || 'default',
+                slug,
+                title: title.slice(0, 200),
+                subtitle: subtitle?.slice(0, 300) || null,
+                content,
+                excerpt: excerpt?.slice(0, 500) || null,
+                coverImageUrl: coverImageUrl || null,
+                authorUserId: user.id,
+                authorName: user.global_name || user.username || 'Writer',
+                authorAvatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
+                category: ['news', 'guide', 'announcement', 'tutorial'].includes(category) ? category : 'news',
+                tags: Array.isArray(tags) ? tags.slice(0, 10) : [],
+                metaTitle: metaTitle?.slice(0, 120) || null,
+                metaDescription: metaDescription?.slice(0, 300) || null,
+                status: articleStatus,
+            },
+        });
+
+        res.status(201).json(article);
+    } catch (e: any) {
+        logger.error('POST /api/my/articles error', e);
+        res.status(500).json({ error: 'Failed to create article' });
+    }
+});
+
+// ── Writer: Update own article (only if draft or rejected) ───────────────────
+app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
+    try {
+        const user = req.session.user;
+        const existing = await db.article.findUnique({ where: { id: req.params.id } });
+        if (!existing || existing.authorUserId !== user.id) return res.status(404).json({ error: 'Article not found' });
+
+        // Writers can only edit drafts or rejected articles
+        if (!['draft', 'rejected'].includes(existing.status)) {
+            return res.status(403).json({ error: 'You can only edit articles in draft or rejected status' });
+        }
+
+        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status } = req.body;
+        const data: any = { updatedAt: new Date() };
+
+        if (title !== undefined) data.title = title.slice(0, 200);
+        if (subtitle !== undefined) data.subtitle = subtitle?.slice(0, 300) || null;
+        if (content !== undefined) data.content = content;
+        if (excerpt !== undefined) data.excerpt = excerpt?.slice(0, 500) || null;
+        if (coverImageUrl !== undefined) data.coverImageUrl = coverImageUrl || null;
+        if (category && ['news', 'guide', 'announcement', 'tutorial'].includes(category)) data.category = category;
+        if (tags !== undefined) data.tags = Array.isArray(tags) ? tags.slice(0, 10) : existing.tags;
+        if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
+        if (metaDescription !== undefined) data.metaDescription = metaDescription?.slice(0, 300) || null;
+
+        // Writers can re-submit for review or save as draft — never publish directly
+        if (status === 'pending' || status === 'draft') {
+            data.status = status;
+            if (status === 'pending') {
+                data.reviewNote = null;
+                data.reviewedAt = null;
+                data.reviewedByUserId = null;
+                data.reviewedByName = null;
+            }
+        }
+
+        const article = await db.article.update({ where: { id: req.params.id }, data });
+        res.json(article);
+    } catch (e: any) {
+        logger.error('PATCH /api/my/articles/:id error', e);
+        res.status(500).json({ error: 'Failed to update article' });
+    }
+});
+
+// ── Writer: Delete own article (only drafts) ─────────────────────────────────
+app.delete('/api/my/articles/:id', requireAuth, async (req: any, res) => {
+    try {
+        const user = req.session.user;
+        const existing = await db.article.findUnique({ where: { id: req.params.id } });
+        if (!existing || existing.authorUserId !== user.id) return res.status(404).json({ error: 'Article not found' });
+        if (existing.status !== 'draft') return res.status(403).json({ error: 'You can only delete draft articles' });
+
+        await db.article.delete({ where: { id: req.params.id } });
+        res.json({ success: true });
+    } catch (e: any) {
+        logger.error('DELETE /api/my/articles/:id error', e);
+        res.status(500).json({ error: 'Failed to delete article' });
+    }
+});
+
+// ── Writer: Upload article inline image ───────────────────────────────────────
+app.post('/api/my/articles/upload-image', requireAuth, upload.single('articleImage'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+        const imageUrl = `/uploads/articles/${req.file.filename}`;
+        res.json({ url: imageUrl });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-image error', e);
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
+
+// ── Writer: Upload article cover image ────────────────────────────────────────
+app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCover'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+        const imageUrl = `/uploads/articles/${req.file.filename}`;
+        res.json({ url: imageUrl });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-cover error', e);
+        res.status(500).json({ error: 'Failed to upload cover image' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ██  ADMIN ARTICLE REVIEW ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // ── Admin: List all articles (any status) ─────────────────────────────────────
 app.get('/api/admin/articles', requireAdmin, async (req: any, res) => {
     try {
@@ -13351,7 +13576,7 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
         if (!existing) return res.status(404).json({ error: 'Article not found' });
 
-        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status, slug: newSlug } = req.body;
+        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status, slug: newSlug, reviewNote } = req.body;
 
         const data: any = { updatedAt: new Date() };
         if (title !== undefined) data.title = title.slice(0, 200);
@@ -13363,6 +13588,9 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
         if (tags !== undefined) data.tags = Array.isArray(tags) ? tags.slice(0, 10) : existing.tags;
         if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
         if (metaDescription !== undefined) data.metaDescription = metaDescription?.slice(0, 300) || null;
+
+        // Review note (admin feedback on rejection / suggestions)
+        if (reviewNote !== undefined) data.reviewNote = reviewNote?.slice(0, 2000) || null;
 
         // Slug change
         if (newSlug && newSlug !== existing.slug) {
