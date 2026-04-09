@@ -37,6 +37,7 @@ import {
   Gift,
   Flag,
   Hammer,
+  BarChart2,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -281,6 +282,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Sparkles} size={20} /></span>
                 <span className="nav-label">Boost</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('voice-stats') && (
+            <button
+                className={`nav-item ${activeSection === 'voice-stats' ? 'active' : ''}`}
+                onClick={() => onNavigate('voice-stats')}
+                title={collapsed ? "Voice Stats" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={BarChart2} size={20} /></span>
+                <span className="nav-label">Voice Stats</span>
             </button>
           )}
 
