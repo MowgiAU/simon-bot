@@ -1,5 +1,6 @@
 import { 
     Client, 
+    Guild,
     GuildMember, 
     PermissionFlagsBits,
     EmbedBuilder,
@@ -19,6 +20,7 @@ import {
     Message,
     VoiceState,
     MessageFlags,
+    User,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -278,6 +280,9 @@ export class WelcomeGatePlugin implements IPlugin {
                 if (message.deletable) {
                     await message.delete();
                     
+                    // Log to configured channel
+                    await this.logBlockedAction(message.guild, settings.logChannelId, message.author, 'message', message.channel, message.content);
+
                     // DM User
                     try {
                         const embed = new EmbedBuilder()
@@ -313,6 +318,9 @@ export class WelcomeGatePlugin implements IPlugin {
                  // Disconnect
                  await newState.disconnect('User not verified');
                  
+                 // Log to configured channel
+                 await this.logBlockedAction(newState.guild, settings.logChannelId, newState.member.user, 'voice', newState.channel);
+
                  // DM User
                  try {
                      const embed = new EmbedBuilder()
@@ -324,6 +332,50 @@ export class WelcomeGatePlugin implements IPlugin {
             }
         } catch (error) {
             this.logger.error('Error in voice gate handler', error);
+        }
+    }
+
+    // ─── Log blocked action to configured channel ────────────────────────────────
+
+    private async logBlockedAction(
+        guild: Guild,
+        logChannelId: string | null | undefined,
+        user: User,
+        type: 'message' | 'voice',
+        channel: any,
+        content?: string,
+    ): Promise<void> {
+        if (!logChannelId) return;
+        try {
+            const logChannel = guild.channels.cache.get(logChannelId) as TextChannel | undefined;
+            if (!logChannel || !logChannel.isTextBased()) return;
+
+            const embed = new EmbedBuilder()
+                .setColor(Colors.Yellow)
+                .setTimestamp();
+
+            if (type === 'message') {
+                embed.setTitle('🚫 Unverified Message Blocked');
+                embed.addFields(
+                    { name: 'User', value: `<@${user.id}> (${user.tag})`, inline: true },
+                    { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                );
+                if (content) {
+                    embed.addFields({ name: 'Message Content', value: content.substring(0, 1024) || '*(empty)*' });
+                }
+            } else {
+                embed.setTitle('🔇 Unverified Voice Join Blocked');
+                embed.addFields(
+                    { name: 'User', value: `<@${user.id}> (${user.tag})`, inline: true },
+                    { name: 'Voice Channel', value: channel ? `<#${channel.id}>` : 'Unknown', inline: true },
+                );
+            }
+
+            embed.setFooter({ text: `User ID: ${user.id}` });
+
+            await logChannel.send({ embeds: [embed] });
+        } catch (err: any) {
+            this.logger.warn(`Failed to log blocked action: ${err.message}`);
         }
     }
 }
