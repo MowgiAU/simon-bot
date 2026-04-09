@@ -356,12 +356,14 @@ interface CategoryCardProps {
     category: AutoResponderCategory;
     guildId: string;
     ruleCount: number;
+    isCollapsed: boolean;
+    onToggleCollapse: () => void;
     onUpdated: (c: AutoResponderCategory) => void;
     onDeleted: (id: string) => void;
     onDropRule: (ruleId: string, categoryId: string) => void;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCount, onUpdated, onDeleted, onDropRule }) => {
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCount, isCollapsed, onToggleCollapse, onUpdated, onDeleted, onDropRule }) => {
     const [draft, setDraft] = useState<AutoResponderCategory>({ ...category });
     const [isDirty, setIsDirty] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -431,7 +433,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
             onDrop={e => { e.preventDefault(); setDragOver(false); const ruleId = e.dataTransfer.getData('text/rule-id'); if (ruleId) onDropRule(ruleId, category.id); }}>
             <div style={{ padding: '14px 16px' }}>
                 {/* Name row */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: isCollapsed ? '0' : '14px' }}>
+                    <button onClick={onToggleCollapse} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: 0, display: 'flex', flexShrink: 0 }}>
+                        {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
                     <FolderOpen size={16} color={colors.primary} style={{ flexShrink: 0 }} />
                     {editingName ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
@@ -461,6 +466,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                     </div>
                 )}
 
+                {isCollapsed ? null : (<>
                 {/* Channel filters */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                     <div>
@@ -506,6 +512,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                         </button>
                     )}
                 </div>
+                </>)}
             </div>
         </div>
     );
@@ -940,6 +947,7 @@ export const AutoResponderPage: React.FC = () => {
     const [creatingCategory, setCreatingCategory] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [uncatDragOver, setUncatDragOver] = useState(false);
+    const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>({});
     const [globalCooldown, setGlobalCooldown] = useState(0);
     const [globalCooldownDirty, setGlobalCooldownDirty] = useState(false);
     const [savingGlobal, setSavingGlobal] = useState(false);
@@ -1103,10 +1111,13 @@ export const AutoResponderPage: React.FC = () => {
                             </div>
                             {categories.map(c => {
                                 const catRules = rules.filter(r => r.categoryId === c.id);
+                                const collapsed = !!collapsedCats[c.id];
                                 return (
                                     <div key={c.id} style={{ marginBottom: '16px' }}>
                                         <CategoryCard category={c} guildId={guildId || ''}
                                             ruleCount={catRules.length}
+                                            isCollapsed={collapsed}
+                                            onToggleCollapse={() => setCollapsedCats(prev => ({ ...prev, [c.id]: !prev[c.id] }))}
                                             onUpdated={u => setCategories(prev => prev.map(x => x.id === u.id ? u : x))}
                                             onDeleted={id => {
                                                 setCategories(prev => prev.filter(x => x.id !== id));
@@ -1114,7 +1125,7 @@ export const AutoResponderPage: React.FC = () => {
                                             }}
                                             onDropRule={handleDropRuleOnCategory}
                                         />
-                                        {catRules.length > 0 && (
+                                        {!collapsed && catRules.length > 0 && (
                                             <div style={{ marginLeft: '18px', borderLeft: `2px solid ${colors.primary}33`, paddingLeft: '12px' }}>
                                                 {catRules.map(r => (
                                                     <RuleCard key={r.id} rule={r} guildId={guildId || ''} categories={categories}
