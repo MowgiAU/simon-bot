@@ -192,6 +192,19 @@ export const WelcomeGatePluginPage: React.FC = () => {
                     <small style={{ display: 'block', marginTop: '4px', color: colors.textSecondary }}>When set, blocked messages and voice joins from unverified users are logged here.</small>
                 </div>
 
+                <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Departure Channel</label>
+                    <select 
+                        value={settings.departureChannelId || ''} 
+                        onChange={e => setSettings({...settings, departureChannelId: e.target.value || null})}
+                        style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                    >
+                        <option value="">None (departures disabled)</option>
+                        {channels.filter(c => c.type === 0).map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                    </select>
+                    <small style={{ display: 'block', marginTop: '4px', color: colors.textSecondary }}>Announces when a member leaves the server.</small>
+                </div>
+
                 {/* Modal Config */}
                 <div>
                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Modal Title</label>

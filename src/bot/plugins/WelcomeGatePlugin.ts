@@ -41,7 +41,7 @@ export class WelcomeGatePlugin implements IPlugin {
     ];
 
     readonly commands = ['setup-welcome'];
-    readonly events = ['interactionCreate', 'guildMemberAdd', 'messageCreate', 'voiceStateUpdate'];
+    readonly events = ['interactionCreate', 'guildMemberAdd', 'guildMemberRemove', 'messageCreate', 'voiceStateUpdate'];
     readonly dashboardSections = ['welcome-gate']; // Future dashboard page
     readonly defaultEnabled = true;
 
@@ -108,6 +108,54 @@ export class WelcomeGatePlugin implements IPlugin {
         } catch (e) {
             this.logger.error('Error assigning unverified role', e);
         }
+    }
+
+    // 1b. Announce member departures
+    async onGuildMemberRemove(member: GuildMember) {
+        try {
+            const settings = await this.db.welcomeGateSettings.findUnique({
+                where: { guildId: member.guild.id }
+            });
+
+            if (!settings || !settings.departureChannelId) return;
+
+            const channel = member.guild.channels.cache.get(settings.departureChannelId) as TextChannel | undefined;
+            if (!channel || !channel.isTextBased()) return;
+
+            const joinedAt = member.joinedAt;
+            const duration = joinedAt
+                ? this.formatMemberDuration(Date.now() - joinedAt.getTime())
+                : 'Unknown';
+
+            const embed = new EmbedBuilder()
+                .setTitle('👋 Member Left')
+                .setDescription(`**${member.user.tag}** has left the server.`)
+                .addFields(
+                    { name: 'Member', value: `<@${member.user.id}>`, inline: true },
+                    { name: 'Time in Server', value: duration, inline: true },
+                )
+                .setThumbnail(member.user.displayAvatarURL({ size: 64 }))
+                .setColor(0xF87171)
+                .setFooter({ text: `ID: ${member.user.id}` })
+                .setTimestamp();
+
+            await channel.send({ embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Error sending departure announcement', e);
+        }
+    }
+
+    private formatMemberDuration(ms: number): string {
+        const days = Math.floor(ms / 86400000);
+        if (days >= 365) {
+            const years = Math.floor(days / 365);
+            const rem = days % 365;
+            return rem > 0 ? `${years}y ${rem}d` : `${years}y`;
+        }
+        if (days > 0) return `${days}d`;
+        const hours = Math.floor(ms / 3600000);
+        if (hours > 0) return `${hours}h`;
+        return '<1h';
     }
 
     // 2. Handle Interactions

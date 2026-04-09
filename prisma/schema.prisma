@@ -644,6 +644,7 @@ model WelcomeGateSettings {
   questions        String[] // Array of questions
   modalTitle       String   @default("Server Verification")
   logChannelId     String?  // Channel to log blocked unverified messages
+  departureChannelId String? // Channel to announce member departures
   
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

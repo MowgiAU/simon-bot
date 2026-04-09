@@ -4388,7 +4388,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
-        const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions, logChannelId } = req.body;
+        const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions, logChannelId, departureChannelId } = req.body;
         
         const settings = await db.welcomeGateSettings.upsert({
             where: { guildId },
@@ -4400,7 +4400,8 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
                 verifiedRoleId,
                 modalTitle,
                 questions,
-                logChannelId
+                logChannelId,
+                departureChannelId
             },
             update: {
                 enabled,
@@ -4409,7 +4410,8 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
                 verifiedRoleId,
                 modalTitle,
                 questions,
-                logChannelId
+                logChannelId,
+                departureChannelId
             }
         });
         
