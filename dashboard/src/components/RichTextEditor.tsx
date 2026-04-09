@@ -5,6 +5,7 @@ import {
     Heading2, Heading3, Quote, Code, Link as LinkIcon, Image,
     Youtube, Music, User, AlignLeft, AlignCenter, AlignRight,
     Undo2, Redo2, Minus, Type, Twitter, FileAudio, FolderDown, Sliders,
+    Pencil, Trash2, X,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -123,6 +124,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     const [embedModal, setEmbedModal] = useState<null | 'link' | 'image' | 'video' | 'track' | 'profile' | 'social'>(null);
     const isInternalUpdate = useRef(false);
     const savedRange = useRef<Range | null>(null);
+    const [selectedEmbed, setSelectedEmbed] = useState<HTMLElement | null>(null);
+    const [editingEmbed, setEditingEmbed] = useState<{ el: HTMLElement; type: string; url: string } | null>(null);
 
     const saveSelection = useCallback(() => {
         const sel = window.getSelection();
@@ -146,6 +149,44 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
         }
     }, []);
 
+    // Click handler: select embed elements on click
+    const handleEditorClick = useCallback((e: React.MouseEvent) => {
+        const target = (e.target as HTMLElement).closest('.article-embed') as HTMLElement | null;
+        if (target && editorRef.current?.contains(target)) {
+            e.preventDefault();
+            setSelectedEmbed(target);
+        } else {
+            setSelectedEmbed(null);
+        }
+    }, []);
+
+    // Open edit modal for an embed
+    const startEditEmbed = useCallback((el: HTMLElement) => {
+        const type = el.getAttribute('data-embed-type') || '';
+        const url = el.getAttribute('data-embed-url') || el.getAttribute('data-filename') || '';
+        setEditingEmbed({ el, type, url });
+        setSelectedEmbed(null);
+    }, []);
+
+    // Dismiss selected embed on click outside
+    useEffect(() => {
+        if (!selectedEmbed) return;
+        const handler = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.embed-toolbar') && !target.closest('.article-embed')) {
+                setSelectedEmbed(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [selectedEmbed]);
+
+    // Toggle CSS class on selected embed
+    useEffect(() => {
+        if (selectedEmbed) selectedEmbed.classList.add('embed-selected');
+        return () => { selectedEmbed?.classList.remove('embed-selected'); };
+    }, [selectedEmbed]);
+
     // Sync external value into editor
     useEffect(() => {
         if (editorRef.current && !isInternalUpdate.current) {
@@ -168,6 +209,47 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             onChange(editorRef.current.innerHTML);
         }
     }, [onChange]);
+
+    // Remove an embed element
+    const removeEmbed = useCallback((el: HTMLElement) => {
+        el.remove();
+        setSelectedEmbed(null);
+        handleInput();
+    }, [handleInput]);
+
+    // Apply edit to an embed
+    const applyEmbedEdit = useCallback((newUrl: string) => {
+        if (!editingEmbed) return;
+        const { el, type } = editingEmbed;
+        el.setAttribute('data-embed-url', newUrl);
+
+        // Update visible label text depending on type
+        if (type === 'track') {
+            let normalized = newUrl;
+            try { normalized = new URL(newUrl).pathname; } catch { /* path */ }
+            if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+            const parts = normalized.replace(/^\/track\//, '').split('/');
+            const artist = parts[0] || 'artist';
+            const trackName = (parts[1] || 'track').replace(/-/g, ' ');
+            const nameEl = el.querySelector('div[style*="text-transform"]') as HTMLElement;
+            const subEl = el.querySelector('div[style*="font-size:12px"]') as HTMLElement;
+            if (nameEl) nameEl.textContent = trackName;
+            if (subEl) subEl.innerHTML = `by ${artist} &middot; Interactive player on publish`;
+        } else if (type === 'profile') {
+            let normalized = newUrl;
+            try { normalized = new URL(newUrl).pathname; } catch { /* path */ }
+            if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+            const username = normalized.replace(/^\/profile\//, '').split('/')[0] || 'user';
+            const nameEl = el.querySelector('div[style*="font-weight:700"]') as HTMLElement;
+            if (nameEl) nameEl.textContent = `@${username}`;
+        } else if (type === 'social') {
+            const urlEl = el.querySelector('div[style*="font-size:12px"]') as HTMLElement;
+            if (urlEl) urlEl.textContent = newUrl;
+        }
+
+        setEditingEmbed(null);
+        handleInput();
+    }, [editingEmbed, handleInput]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.ctrlKey || e.metaKey) {
@@ -292,7 +374,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     }, [onImageUpload, handleImageUpload, handleInput]);
 
     return (
-        <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, overflow: 'hidden', background: colors.background }}>
+        <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, overflow: 'hidden', background: colors.background, position: 'relative' }}>
             {/* Toolbar */}
             <div style={{
                 display: 'flex', flexWrap: 'wrap', gap: '2px', padding: '8px 10px',
@@ -342,6 +424,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
+                onClick={handleEditorClick}
                 data-placeholder={placeholder || 'Start writing your article...'}
                 style={{
                     minHeight: '400px', maxHeight: '70vh', overflowY: 'auto',
@@ -411,6 +494,92 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 />
             )}
 
+            {/* Embed toolbar overlay (shown when an embed is selected) */}
+            {selectedEmbed && editorRef.current && (() => {
+                const editorRect = editorRef.current!.getBoundingClientRect();
+                const embedRect = selectedEmbed.getBoundingClientRect();
+                const top = embedRect.top - editorRect.top + editorRef.current!.scrollTop - 40;
+                const left = embedRect.left - editorRect.left + embedRect.width / 2;
+                return (
+                    <div className="embed-toolbar" style={{
+                        position: 'absolute', top: `${top}px`, left: `${left}px`, transform: 'translateX(-50%)',
+                        display: 'flex', gap: '4px', padding: '4px 8px', zIndex: 100,
+                        background: colors.surface, border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    }}>
+                        <button type="button" title="Edit embed" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startEditEmbed(selectedEmbed); }} style={{
+                            display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '6px', color: colors.textPrimary, cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                        }}>
+                            <Pencil size={12} /> Edit
+                        </button>
+                        <button type="button" title="Remove embed" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeEmbed(selectedEmbed); }} style={{
+                            display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
+                            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                            borderRadius: '6px', color: '#EF4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                        }}>
+                            <Trash2 size={12} /> Remove
+                        </button>
+                    </div>
+                );
+            })()}
+
+            {/* Edit embed modal */}
+            {editingEmbed && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000,
+                }} onClick={() => setEditingEmbed(null)}>
+                    <div style={{
+                        background: colors.surface, borderRadius: borderRadius.lg, padding: '24px',
+                        width: '420px', maxWidth: '90vw', border: '1px solid rgba(255,255,255,0.08)',
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ margin: 0, color: colors.textPrimary, fontSize: '16px' }}>Edit Embed URL</h3>
+                            <button type="button" onClick={() => setEditingEmbed(null)} style={{
+                                background: 'transparent', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: '4px',
+                            }}><X size={16} /></button>
+                        </div>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '12px' }}>
+                            Type: <strong style={{ color: colors.textPrimary, textTransform: 'capitalize' }}>{editingEmbed.type.replace('-', ' ')}</strong>
+                        </p>
+                        <input
+                            autoFocus
+                            defaultValue={editingEmbed.url}
+                            placeholder="Enter new URL..."
+                            style={{
+                                width: '100%', padding: '10px 12px', background: colors.background,
+                                border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm,
+                                color: colors.textPrimary, fontSize: '14px', outline: 'none', boxSizing: 'border-box',
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const val = (e.target as HTMLInputElement).value.trim();
+                                    if (val) applyEmbedEdit(val);
+                                }
+                                if (e.key === 'Escape') setEditingEmbed(null);
+                            }}
+                            id="embed-edit-input"
+                        />
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                            <button type="button" onClick={() => setEditingEmbed(null)} style={{
+                                padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: borderRadius.sm, color: colors.textSecondary, cursor: 'pointer', fontSize: '13px',
+                            }}>Cancel</button>
+                            <button type="button" onClick={() => {
+                                const input = document.getElementById('embed-edit-input') as HTMLInputElement;
+                                const val = input?.value.trim();
+                                if (val) applyEmbedEdit(val);
+                            }} style={{
+                                padding: '8px 16px', background: colors.primary, border: 'none',
+                                borderRadius: borderRadius.sm, color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                            }}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Editor styles */}
             <style>{`
                 [data-placeholder]:empty:before {
@@ -440,6 +609,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 [contenteditable] li { margin: 4px 0; }
                 [contenteditable] .article-embed { user-select: none; }
                 [contenteditable] .article-embed:hover { border-color: ${colors.primary} !important; }
+                [contenteditable] .article-embed.embed-selected {
+                    outline: 2px solid ${colors.primary};
+                    outline-offset: 2px;
+                }
             `}</style>
         </div>
     );
