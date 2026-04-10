@@ -14,7 +14,7 @@ import {
     Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
     SkipBack, SkipForward, Scale
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
@@ -120,6 +120,7 @@ const getLicenseUrl = (license: string): string | null => {
 
 export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
+    const navigate = useNavigate();
     const { user, mutualAdminGuilds } = useAuth();
     const [track, setTrackData] = useState<Track | null>(null);
     const [loading, setLoading] = useState(true);
@@ -280,7 +281,7 @@ export const TrackPage: React.FC = () => {
                 : `/api/admin/tracks/${track.id}`;
             await axios.delete(endpoint, { withCredentials: true });
             showToast('Track deleted', 'success');
-            window.location.href = `/profile/${track.profile.username}`;
+            navigate(`/profile/${track.profile.username}`);
         } catch (e: any) {
             showToast(e.response?.data?.error || 'Failed to delete track', 'error');
             setDeleting(false);
@@ -453,7 +454,7 @@ export const TrackPage: React.FC = () => {
                     <div style={{ position: 'relative', padding: isMobile ? '20px' : '40px' }}>
                         {/* Back link */}
                         <button 
-                            onClick={() => window.location.href = `/profile/${track.profile.username}`}
+                            onClick={() => navigate(`/profile/${track.profile.username}`)}
                             style={{ background: 'none', border: 'none', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: 0, marginBottom: '24px', fontSize: '13px' }}
                         >
                             <ArrowLeft size={14} /> {track.profile.displayName || track.profile.username}
