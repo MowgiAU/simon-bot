@@ -11931,6 +11931,7 @@ app.post('/api/radio/settings/:guildId', async (req, res) => {
       'listenerCoinEnabled', 'listenerCoinsPerMinute',
       'tipEnabled', 'minTipAmount', 'defaultVolume', 'duckVolume',
       'startRoleIds', 'stopRoleIds', 'skipRoleIds', 'hostRoleIds',
+      'stationStatus',
     ];
 
     const data: Record<string, any> = {};
@@ -12007,26 +12008,25 @@ app.get('/api/radio/state/:guildId', async (req, res) => {
 
     const settings = await db.radioSettings.findUnique({ where: { guildId } });
 
-    // Derive "now playing" from most recent unfinished history entry (played in last 15 min)
-    const recentPlay = await db.radioHistory.findFirst({
-      where: { guildId, isAd: false, playedAt: { gte: new Date(Date.now() - 15 * 60 * 1000) } },
-      orderBy: { playedAt: 'desc' },
-    });
-
     // Queue count
     const queueCount = await db.radioQueue.count({ where: { guildId, playedAt: null } });
 
+    // Use live state fields written by the bot process
+    const online = settings?.isOnline ?? false;
+    const nowPlaying = (online && settings?.currentTrackTitle) ? {
+      trackTitle: settings.currentTrackTitle,
+      artistName: settings.currentArtistName ?? 'Unknown',
+      coverUrl: settings.currentCoverUrl ?? null,
+      duration: settings.currentDuration ?? 0,
+      playedAt: settings.currentStartedAt ?? new Date(),
+      listenCount: settings.currentListeners ?? 0,
+    } : null;
+
     res.json({
-      online: !!recentPlay,
-      nowPlaying: recentPlay ? {
-        trackTitle: recentPlay.trackTitle,
-        artistName: recentPlay.artistName,
-        coverUrl: recentPlay.coverUrl,
-        duration: recentPlay.duration,
-        playedAt: recentPlay.playedAt,
-        listenCount: recentPlay.listenCount,
-      } : null,
+      online,
+      nowPlaying,
       queueCount,
+      stationStatus: settings?.stationStatus ?? '',
       settings: settings || null,
     });
   } catch (error) {

@@ -784,6 +784,9 @@ export class FujiRadioPlugin implements IPlugin {
 
             state.player.play(resource);
 
+            // Sync live state to DB for dashboard
+            await this.syncLiveState(guildId);
+
             // Update voice channel status with now-playing info
             if (settings.voiceChannelId) {
                 void this.setVoiceChannelStatus(settings.voiceChannelId, `🎵 ${next.title} — ${next.artist}`);
@@ -1051,6 +1054,12 @@ export class FujiRadioPlugin implements IPlugin {
 
     private async tickListenerXp(): Promise<void> {
         for (const [guildId, state] of this.radioStates) {
+            // Sync listener count to DB for dashboard
+            await this.db.radioSettings.updateMany({
+                where: { guildId },
+                data: { currentListeners: state.listeners.size },
+            }).catch(() => {});
+
             if (!state.connection || state.listeners.size === 0) continue;
 
             const settings = await this.getSettings(guildId);
@@ -1319,6 +1328,7 @@ export class FujiRadioPlugin implements IPlugin {
                         case 'start': {
                             const existing = this.radioStates.get(cmd.guildId);
                             if (existing?.connection) {
+                                status = 'failed';
                                 result = 'Radio is already running';
                             } else {
                                 const started = await this.startAuto(cmd.guildId);
@@ -1517,6 +1527,49 @@ export class FujiRadioPlugin implements IPlugin {
             state.connection?.destroy();
         }
         this.radioStates.delete(guildId);
+        // Clear live state in DB so dashboard shows offline
+        this.clearLiveState(guildId).catch(() => {});
+    }
+
+    /** Write current now-playing + online state to DB for the dashboard/API */
+    private async syncLiveState(guildId: string): Promise<void> {
+        const state = this.radioStates.get(guildId);
+        const np = state?.nowPlaying;
+        try {
+            await this.db.radioSettings.upsert({
+                where: { guildId },
+                update: {
+                    isOnline: true,
+                    currentTrackTitle: np?.title ?? null,
+                    currentArtistName: np?.artist ?? null,
+                    currentCoverUrl: np?.coverUrl ?? null,
+                    currentDuration: np?.duration ?? null,
+                    currentStartedAt: np?.startedAt ? new Date(np.startedAt) : null,
+                    currentListeners: state?.listeners.size ?? 0,
+                },
+                create: { guildId },
+            });
+        } catch (err) {
+            this.logger.error(`[FujiRadio] Failed to sync live state: ${err}`);
+        }
+    }
+
+    /** Clear live state when radio goes offline */
+    private async clearLiveState(guildId: string): Promise<void> {
+        try {
+            await this.db.radioSettings.updateMany({
+                where: { guildId },
+                data: {
+                    isOnline: false,
+                    currentTrackTitle: null,
+                    currentArtistName: null,
+                    currentCoverUrl: null,
+                    currentDuration: null,
+                    currentStartedAt: null,
+                    currentListeners: 0,
+                },
+            });
+        } catch { /* ignore */ }
     }
 
     private formatDuration(secs: number): string {

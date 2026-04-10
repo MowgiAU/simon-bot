@@ -92,6 +92,7 @@ interface AdSlot {
 
 interface LiveState {
   online: boolean;
+  stationStatus: string;
   nowPlaying: {
     trackTitle: string;
     artistName: string;
@@ -130,6 +131,8 @@ export const FujiRadioPage: React.FC = () => {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
   const [controlMessage, setControlMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [statusInput, setStatusInput] = useState('');
+  const [statusSaving, setStatusSaving] = useState(false);
   const saveQueueRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -255,7 +258,13 @@ export const FujiRadioPage: React.FC = () => {
         fetch(`${API}/api/radio/state/${guildId}`, { headers: headers() }).then(r => r.json()),
         fetch(`${API}/api/radio/queue/${guildId}`, { headers: headers() }).then(r => r.json()),
       ]);
-      setLiveState(stateRes);
+      setLiveState(prev => {
+        // Only update statusInput when it wasn't being edited (first load or changed externally)
+        if (!prev || prev.stationStatus !== stateRes.stationStatus) {
+          setStatusInput(stateRes.stationStatus || '');
+        }
+        return stateRes;
+      });
       if (Array.isArray(queueRes)) setQueue(queueRes);
     } catch (e) { console.error(e); }
   }, [guildId, headers]);
@@ -295,6 +304,19 @@ export const FujiRadioPage: React.FC = () => {
     setControlLoading(null);
     // Clear message after 4s
     setTimeout(() => setControlMessage(null), 4000);
+  };
+
+  const saveStationStatus = async () => {
+    if (!guildId) return;
+    setStatusSaving(true);
+    try {
+      await fetch(`${API}/api/radio/settings/${guildId}`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ stationStatus: statusInput }),
+      });
+    } catch (e) { console.error(e); }
+    setStatusSaving(false);
   };
 
   // ── Approve/Toggle ad ──
@@ -472,7 +494,7 @@ export const FujiRadioPage: React.FC = () => {
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
                   <Radio size={32} color={colors.textTertiary} style={{ marginBottom: 8, opacity: 0.5 }} />
                   <p style={{ color: colors.textTertiary, fontSize: 14, margin: 0 }}>
-                    Radio is offline. Use <code style={{ color: colors.primary }}>/radio start</code> in Discord to begin broadcasting.
+                    Radio is offline. Press Start below to begin broadcasting.
                   </p>
                 </div>
               )}
@@ -488,6 +510,46 @@ export const FujiRadioPage: React.FC = () => {
             }}>
               <h4 style={{ margin: 0, color: colors.textPrimary, fontSize: 14, fontWeight: 600 }}>Station Status</h4>
               
+              {/* Station Status Input */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  placeholder="e.g. Live DJ Set, On Break..."
+                  value={statusInput}
+                  onChange={e => setStatusInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveStationStatus(); }}
+                  maxLength={100}
+                  style={{
+                    flex: 1,
+                    padding: '7px 10px',
+                    background: colors.surfaceLight,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: borderRadius.sm,
+                    color: colors.textPrimary,
+                    fontSize: 12,
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={saveStationStatus}
+                  disabled={statusSaving}
+                  style={{
+                    padding: '7px 12px',
+                    background: colors.primary,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: borderRadius.sm,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: statusSaving ? 'not-allowed' : 'pointer',
+                    opacity: statusSaving ? 0.6 : 1,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {statusSaving ? '...' : 'Set'}
+                </button>
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
                   <span style={{ color: colors.textSecondary, fontSize: 12 }}>Mode</span>
@@ -538,16 +600,16 @@ export const FujiRadioPage: React.FC = () => {
                 {/* Start */}
                 <button
                   onClick={() => sendControl('start')}
-                  disabled={!!controlLoading || liveState?.online === true}
+                  disabled={!!controlLoading}
                   title="Start broadcasting"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 16px',
-                    background: liveState?.online ? colors.surfaceLight : colors.primary,
-                    color: liveState?.online ? colors.textTertiary : '#fff',
-                    border: `1px solid ${liveState?.online ? colors.border : colors.primary}`,
+                    background: colors.primary,
+                    color: '#fff',
+                    border: `1px solid ${colors.primary}`,
                     borderRadius: borderRadius.sm,
-                    cursor: liveState?.online ? 'not-allowed' : 'pointer',
+                    cursor: controlLoading ? 'not-allowed' : 'pointer',
                     fontSize: 13, fontWeight: 600,
                     opacity: controlLoading === 'start' ? 0.6 : 1,
                   }}
@@ -557,37 +619,57 @@ export const FujiRadioPage: React.FC = () => {
 
                 {/* Pause / Resume */}
                 <button
-                  onClick={() => sendControl(liveState?.online ? 'pause' : 'resume')}
-                  disabled={!!controlLoading || !liveState?.online}
-                  title={liveState?.online ? 'Pause playback' : 'Resume playback'}
+                  onClick={() => sendControl('pause')}
+                  disabled={!!controlLoading}
+                  title="Pause playback"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 16px',
                     background: 'transparent',
-                    color: liveState?.online ? colors.textPrimary : colors.textTertiary,
-                    border: `1px solid ${liveState?.online ? colors.border : 'rgba(255,255,255,0.05)'}`,
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: borderRadius.sm,
-                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    cursor: controlLoading ? 'not-allowed' : 'pointer',
                     fontSize: 13, fontWeight: 500,
-                    opacity: controlLoading === 'pause' || controlLoading === 'resume' ? 0.6 : 1,
+                    opacity: controlLoading === 'pause' ? 0.6 : 1,
                   }}
                 >
-                  <Pause size={15} /> {controlLoading === 'pause' || controlLoading === 'resume' ? '...' : 'Pause'}
+                  <Pause size={15} /> {controlLoading === 'pause' ? 'Pausing...' : 'Pause'}
+                </button>
+
+                {/* Resume */}
+                <button
+                  onClick={() => sendControl('resume')}
+                  disabled={!!controlLoading}
+                  title="Resume playback"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: borderRadius.sm,
+                    cursor: controlLoading ? 'not-allowed' : 'pointer',
+                    fontSize: 13, fontWeight: 500,
+                    opacity: controlLoading === 'resume' ? 0.6 : 1,
+                  }}
+                >
+                  <Play size={15} /> {controlLoading === 'resume' ? 'Resuming...' : 'Resume'}
                 </button>
 
                 {/* Skip */}
                 <button
                   onClick={() => sendControl('skip')}
-                  disabled={!!controlLoading || !liveState?.online}
+                  disabled={!!controlLoading}
                   title="Skip to next track"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 16px',
                     background: 'transparent',
-                    color: liveState?.online ? colors.textPrimary : colors.textTertiary,
-                    border: `1px solid ${liveState?.online ? colors.border : 'rgba(255,255,255,0.05)'}`,
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: borderRadius.sm,
-                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    cursor: controlLoading ? 'not-allowed' : 'pointer',
                     fontSize: 13, fontWeight: 500,
                     opacity: controlLoading === 'skip' ? 0.6 : 1,
                   }}
@@ -598,16 +680,16 @@ export const FujiRadioPage: React.FC = () => {
                 {/* Stop */}
                 <button
                   onClick={() => sendControl('stop')}
-                  disabled={!!controlLoading || !liveState?.online}
+                  disabled={!!controlLoading}
                   title="Stop broadcasting"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 16px',
-                    background: liveState?.online ? 'rgba(239,68,68,0.1)' : 'transparent',
-                    color: liveState?.online ? '#EF4444' : colors.textTertiary,
-                    border: `1px solid ${liveState?.online ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                    background: 'rgba(239,68,68,0.1)',
+                    color: '#EF4444',
+                    border: '1px solid rgba(239,68,68,0.3)',
                     borderRadius: borderRadius.sm,
-                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    cursor: controlLoading ? 'not-allowed' : 'pointer',
                     fontSize: 13, fontWeight: 500,
                     opacity: controlLoading === 'stop' ? 0.6 : 1,
                   }}

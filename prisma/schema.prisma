@@ -1743,6 +1743,16 @@ model RadioSettings {
   skipRoleIds         String[] @default([])      // Roles that can /radio skip
   hostRoleIds         String[] @default([])      // Roles that can /radio host
 
+  // Live state (written by bot, read by API/dashboard)
+  isOnline            Boolean  @default(false)
+  stationStatus       String   @default("")      // Custom status text (e.g. "Live DJ Set", "On Break")
+  currentTrackTitle   String?
+  currentArtistName   String?
+  currentCoverUrl     String?
+  currentDuration     Int?                        // seconds
+  currentStartedAt    DateTime?
+  currentListeners    Int      @default(0)
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
