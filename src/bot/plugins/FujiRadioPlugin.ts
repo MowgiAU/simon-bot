@@ -1274,6 +1274,8 @@ export class FujiRadioPlugin implements IPlugin {
                 let result = '';
 
                 try {
+                    this.logger.info(`[FujiRadio] Processing dashboard command: ${cmd.action} for guild ${cmd.guildId}`);
+
                     switch (cmd.action) {
                         case 'skip': {
                             const state = this.radioStates.get(cmd.guildId);
@@ -1281,6 +1283,12 @@ export class FujiRadioPlugin implements IPlugin {
                                 status = 'failed';
                                 result = 'Radio is not currently playing';
                             } else {
+                                // Record skip in history before stopping
+                                if (state.nowPlaying) {
+                                    await this.recordHistory(cmd.guildId, state.nowPlaying, state.listeners.size, true);
+                                }
+                                // Clear paused flag so Idle handler will trigger playNextTrack
+                                state.paused = false;
                                 state.player.stop(); // triggers Idle -> playNextTrack
                                 result = 'Skipped current track';
                             }
