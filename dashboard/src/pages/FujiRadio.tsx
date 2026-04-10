@@ -128,6 +128,8 @@ export const FujiRadioPage: React.FC = () => {
   const [liveState, setLiveState] = useState<LiveState | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [controlLoading, setControlLoading] = useState<string | null>(null);
+  const [controlMessage, setControlMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const saveQueueRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -267,6 +269,33 @@ export const FujiRadioPage: React.FC = () => {
       if (pollRef.current) clearInterval(pollRef.current);
     }
   }, [tab, guildId, fetchLiveData]);
+
+  // ── Send radio control command ──
+  const sendControl = async (action: string) => {
+    if (!guildId || controlLoading) return;
+    setControlLoading(action);
+    setControlMessage(null);
+    try {
+      const res = await fetch(`${API}/api/radio/control/${guildId}`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setControlMessage({ text: data.result || `${action} sent`, type: 'success' });
+        // Refresh live state immediately
+        fetchLiveData();
+      } else {
+        setControlMessage({ text: data.result || data.error || `${action} failed`, type: 'error' });
+      }
+    } catch (e) {
+      setControlMessage({ text: 'Failed to send command', type: 'error' });
+    }
+    setControlLoading(null);
+    // Clear message after 4s
+    setTimeout(() => setControlMessage(null), 4000);
+  };
 
   // ── Approve/Toggle ad ──
   const toggleAdApproval = async (adId: string) => {
@@ -494,41 +523,111 @@ export const FujiRadioPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Host Controls Bar ── */}
+          {/* ── Transport Controls Bar ── */}
           <div style={{
             background: colors.cardBg,
             border: `1px solid ${colors.border}`,
             borderRadius: borderRadius.lg,
-            padding: '12px 20px',
+            padding: '16px 20px',
             marginBottom: spacing.lg,
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           }}>
-            <span style={{ color: colors.textSecondary, fontSize: 13, fontWeight: 600, marginRight: 4 }}>Discord Controls:</span>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[
-                { cmd: '/radio start', icon: Play, desc: 'Start broadcasting' },
-                { cmd: '/radio stop', icon: Square, desc: 'Stop radio' },
-                { cmd: '/radio skip', icon: SkipForward, desc: 'Skip current track' },
-                { cmd: '/radio host', icon: Mic, desc: 'Go live as DJ host' },
-                { cmd: '/radio unhost', icon: MicOff, desc: 'End host mode' },
-              ].map(c => (
-                <div
-                  key={c.cmd}
-                  title={c.desc}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ color: colors.textSecondary, fontSize: 13, fontWeight: 600, marginRight: 4 }}>Controls</span>
+              
+              <div style={{ display: 'flex', gap: 8 }}>
+                {/* Start */}
+                <button
+                  onClick={() => sendControl('start')}
+                  disabled={!!controlLoading || liveState?.online === true}
+                  title="Start broadcasting"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '6px 12px',
-                    background: colors.surfaceLight,
-                    border: `1px solid ${colors.border}`,
+                    padding: '8px 16px',
+                    background: liveState?.online ? colors.surfaceLight : colors.primary,
+                    color: liveState?.online ? colors.textTertiary : '#fff',
+                    border: `1px solid ${liveState?.online ? colors.border : colors.primary}`,
                     borderRadius: borderRadius.sm,
-                    color: colors.textSecondary,
-                    fontSize: 12,
+                    cursor: liveState?.online ? 'not-allowed' : 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                    opacity: controlLoading === 'start' ? 0.6 : 1,
                   }}
                 >
-                  <c.icon size={13} />
-                  <code style={{ color: colors.primary, fontSize: 11 }}>{c.cmd}</code>
-                </div>
-              ))}
+                  <Play size={15} /> {controlLoading === 'start' ? 'Starting...' : 'Start'}
+                </button>
+
+                {/* Pause / Resume */}
+                <button
+                  onClick={() => sendControl(liveState?.online ? 'pause' : 'resume')}
+                  disabled={!!controlLoading || !liveState?.online}
+                  title={liveState?.online ? 'Pause playback' : 'Resume playback'}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    color: liveState?.online ? colors.textPrimary : colors.textTertiary,
+                    border: `1px solid ${liveState?.online ? colors.border : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: borderRadius.sm,
+                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    fontSize: 13, fontWeight: 500,
+                    opacity: controlLoading === 'pause' || controlLoading === 'resume' ? 0.6 : 1,
+                  }}
+                >
+                  <Pause size={15} /> {controlLoading === 'pause' || controlLoading === 'resume' ? '...' : 'Pause'}
+                </button>
+
+                {/* Skip */}
+                <button
+                  onClick={() => sendControl('skip')}
+                  disabled={!!controlLoading || !liveState?.online}
+                  title="Skip to next track"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    color: liveState?.online ? colors.textPrimary : colors.textTertiary,
+                    border: `1px solid ${liveState?.online ? colors.border : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: borderRadius.sm,
+                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    fontSize: 13, fontWeight: 500,
+                    opacity: controlLoading === 'skip' ? 0.6 : 1,
+                  }}
+                >
+                  <SkipForward size={15} /> {controlLoading === 'skip' ? 'Skipping...' : 'Skip'}
+                </button>
+
+                {/* Stop */}
+                <button
+                  onClick={() => sendControl('stop')}
+                  disabled={!!controlLoading || !liveState?.online}
+                  title="Stop broadcasting"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px',
+                    background: liveState?.online ? 'rgba(239,68,68,0.1)' : 'transparent',
+                    color: liveState?.online ? '#EF4444' : colors.textTertiary,
+                    border: `1px solid ${liveState?.online ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                    borderRadius: borderRadius.sm,
+                    cursor: liveState?.online ? 'pointer' : 'not-allowed',
+                    fontSize: 13, fontWeight: 500,
+                    opacity: controlLoading === 'stop' ? 0.6 : 1,
+                  }}
+                >
+                  <Square size={15} /> {controlLoading === 'stop' ? 'Stopping...' : 'Stop'}
+                </button>
+              </div>
+
+              {/* Control feedback message */}
+              {controlMessage && (
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: 12, fontWeight: 500,
+                  color: controlMessage.type === 'success' ? colors.primary : '#EF4444',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  {controlMessage.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
+                  {controlMessage.text}
+                </span>
+              )}
             </div>
           </div>
 

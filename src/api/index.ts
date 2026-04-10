@@ -11962,6 +11962,43 @@ app.post('/api/radio/settings/:guildId', async (req, res) => {
   }
 });
 
+// POST radio control command (skip, stop, pause, resume, start)
+app.post('/api/radio/control/:guildId', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { action } = req.body;
+    const validActions = ['skip', 'stop', 'pause', 'resume', 'start'];
+    if (!action || !validActions.includes(action)) {
+      return res.status(400).json({ error: `action must be one of: ${validActions.join(', ')}` });
+    }
+
+    const command = await db.radioCommand.create({
+      data: {
+        guildId,
+        action,
+        payload: req.body.payload || undefined,
+      },
+    });
+
+    // Poll for completion (bot processes commands every 2s) — wait up to 6s
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const updated = await db.radioCommand.findUnique({ where: { id: command.id } });
+      if (updated && updated.status !== 'pending') {
+        return res.json({ success: updated.status === 'done', result: updated.result, status: updated.status });
+      }
+    }
+
+    res.json({ success: true, status: 'queued', message: 'Command queued, bot will process shortly' });
+  } catch (error) {
+    logger.error('Failed to send radio control command', error);
+    res.status(500).json({ error: 'Failed to send command' });
+  }
+});
+
 // GET radio state (what's playing, queue, listeners)
 app.get('/api/radio/state/:guildId', async (req, res) => {
   try {

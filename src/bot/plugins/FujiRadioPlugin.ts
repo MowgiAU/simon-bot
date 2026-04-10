@@ -108,6 +108,7 @@ export class FujiRadioPlugin implements IPlugin {
     // XP tick interval
     private xpInterval: ReturnType<typeof setInterval> | null = null;
     private watchdogInterval: ReturnType<typeof setInterval> | null = null;
+    private commandPollInterval: ReturnType<typeof setInterval> | null = null;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
@@ -121,6 +122,9 @@ export class FujiRadioPlugin implements IPlugin {
 
         // Watchdog: every 60s check if any radio is stuck and kick it back
         this.watchdogInterval = setInterval(() => this.watchdogTick(), 60_000);
+
+        // Poll for dashboard control commands every 2s
+        this.commandPollInterval = setInterval(() => this.processDashboardCommands(), 2_000);
 
         // Login dedicated radio bot if token is configured
         const radioToken = process.env.RADIO_BOT_TOKEN;
@@ -154,6 +158,7 @@ export class FujiRadioPlugin implements IPlugin {
     async shutdown(): Promise<void> {
         if (this.xpInterval) clearInterval(this.xpInterval);
         if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+        if (this.commandPollInterval) clearInterval(this.commandPollInterval);
 
         // Disconnect all radio sessions
         for (const [guildId, state] of this.radioStates) {
@@ -1243,6 +1248,114 @@ export class FujiRadioPlugin implements IPlugin {
         }
 
         return true;
+    }
+
+    // ─── Dashboard Command Processor ────────────────────────────────────
+
+    private async processDashboardCommands(): Promise<void> {
+        try {
+            const commands = await this.db.radioCommand.findMany({
+                where: { status: 'pending' },
+                orderBy: { createdAt: 'asc' },
+                take: 10,
+            });
+
+            for (const cmd of commands) {
+                let status = 'done';
+                let result = '';
+
+                try {
+                    switch (cmd.action) {
+                        case 'skip': {
+                            const state = this.radioStates.get(cmd.guildId);
+                            if (!state?.player) {
+                                status = 'failed';
+                                result = 'Radio is not currently playing';
+                            } else {
+                                state.player.stop(); // triggers Idle -> playNextTrack
+                                result = 'Skipped current track';
+                            }
+                            break;
+                        }
+                        case 'stop': {
+                            const state = this.radioStates.get(cmd.guildId);
+                            if (!state) {
+                                status = 'failed';
+                                result = 'Radio is not running';
+                            } else {
+                                this.stopRadio(cmd.guildId);
+                                result = 'Radio stopped';
+                            }
+                            break;
+                        }
+                        case 'pause': {
+                            const state = this.radioStates.get(cmd.guildId);
+                            if (!state?.player) {
+                                status = 'failed';
+                                result = 'Radio is not currently playing';
+                            } else if (state.paused) {
+                                result = 'Radio is already paused';
+                            } else {
+                                state.player.pause();
+                                state.paused = true;
+                                result = 'Radio paused';
+                            }
+                            break;
+                        }
+                        case 'resume': {
+                            const state = this.radioStates.get(cmd.guildId);
+                            if (!state?.player) {
+                                status = 'failed';
+                                result = 'Radio is not currently playing';
+                            } else if (!state.paused) {
+                                result = 'Radio is not paused';
+                            } else {
+                                state.player.unpause();
+                                state.paused = false;
+                                result = 'Radio resumed';
+                            }
+                            break;
+                        }
+                        case 'start': {
+                            const existing = this.radioStates.get(cmd.guildId);
+                            if (existing?.connection) {
+                                result = 'Radio is already running';
+                            } else {
+                                const started = await this.startAuto(cmd.guildId);
+                                if (started) {
+                                    result = 'Radio started';
+                                } else {
+                                    status = 'failed';
+                                    result = 'Failed to start radio — check voice channel is configured';
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                            status = 'failed';
+                            result = `Unknown action: ${cmd.action}`;
+                    }
+                } catch (err: any) {
+                    status = 'failed';
+                    result = err.message || 'Unknown error';
+                }
+
+                await this.db.radioCommand.update({
+                    where: { id: cmd.id },
+                    data: { status, result },
+                });
+            }
+
+            // Clean up old processed commands (older than 1 hour)
+            await this.db.radioCommand.deleteMany({
+                where: {
+                    status: { not: 'pending' },
+                    createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) },
+                },
+            });
+        } catch (err) {
+            // Silently fail — will retry on next tick
+        }
     }
 
     stopRadio(guildId: string): void {

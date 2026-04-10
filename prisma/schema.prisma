@@ -1807,6 +1807,19 @@ model RadioAdSlot {
   @@map("radio_ad_slots")
 }
 
+model RadioCommand {
+  id        String   @id @default(cuid())
+  guildId   String
+  action    String               // skip | stop | pause | resume | start
+  payload   Json?
+  status    String   @default("pending") // pending | done | failed
+  result    String?
+  createdAt DateTime @default(now())
+
+  @@index([guildId, status])
+  @@map("radio_commands")
+}
+
 // ─── Studio Guide ─────────────────────────────────────────────────────────────
 
 model StudioGuideSettings {
