@@ -110,9 +110,10 @@ export const ComingSoonPage: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <button
-                        onClick={login}
+                    <a
+                        href="/login"
                         style={{
+                            display: 'block',
                             background: 'linear-gradient(135deg, #10B981, #059669)',
                             color: 'white',
                             border: 'none',
@@ -123,10 +124,13 @@ export const ComingSoonPage: React.FC = () => {
                             cursor: 'pointer',
                             width: '100%',
                             boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)',
+                            textDecoration: 'none',
+                            boxSizing: 'border-box',
+                            textAlign: 'center' as const,
                         }}
                     >
-                        Sign In with Discord
-                    </button>
+                        Sign In
+                    </a>
                 )}
             </div>
         </div>
