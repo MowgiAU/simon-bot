@@ -751,10 +751,41 @@ export class FujiRadioPlugin implements IPlugin {
             }
         }
 
-        // Get next track from queue
-        let next = state.queue.shift();
+        // 1. Check dashboard DB queue first (user-curated tracks take priority)
+        let next: NowPlaying | undefined;
+        const dbQueueItem = await this.db.radioQueue.findFirst({
+            where: { guildId, playedAt: null, skipped: false, track: { deletedAt: null } },
+            orderBy: { position: 'asc' },
+            include: { track: { include: { profile: true } } },
+        });
 
-        // If queue is empty and in auto mode, repopulate
+        if (dbQueueItem?.track) {
+            const track = dbQueueItem.track;
+            next = {
+                trackId: track.id,
+                title: await this.censor.clean(guildId, track.title),
+                artist: await this.censor.clean(guildId, track.profile?.displayName || track.profile?.username || 'Unknown'),
+                coverUrl: track.coverUrl,
+                url: track.url,
+                duration: track.duration,
+                startedAt: 0,
+                profileId: track.profileId,
+                artistUserId: track.profile?.userId,
+            };
+            // Mark as played immediately so it won't be picked again
+            await this.db.radioQueue.update({
+                where: { id: dbQueueItem.id },
+                data: { playedAt: new Date() },
+            });
+            this.logger.info(`[FujiRadio] Playing from dashboard queue: "${next.title}" by ${next.artist}`);
+        }
+
+        // 2. Fall back to in-memory auto queue
+        if (!next) {
+            next = state.queue.shift();
+        }
+
+        // 3. If still empty and in auto mode, repopulate
         if (!next && state.mode === 'auto') {
             await this.populateAutoQueue(guildId, settings);
             next = state.queue.shift();
@@ -1286,6 +1317,15 @@ export class FujiRadioPlugin implements IPlugin {
                                 // Record skip in history before stopping
                                 if (state.nowPlaying) {
                                     await this.recordHistory(cmd.guildId, state.nowPlaying, state.listeners.size, true);
+                                }
+                                // Check if dashboard has queued tracks — if so, clear the auto queue
+                                // so playNextTrack will pick from the DB queue
+                                const dbQueueCount = await this.db.radioQueue.count({
+                                    where: { guildId: cmd.guildId, playedAt: null, skipped: false },
+                                });
+                                if (dbQueueCount > 0) {
+                                    state.queue = [];
+                                    this.logger.info(`[FujiRadio] Dashboard queue has ${dbQueueCount} tracks — clearing auto queue`);
                                 }
                                 // Clear paused flag so Idle handler will trigger playNextTrack
                                 state.paused = false;
