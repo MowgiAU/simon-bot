@@ -1744,14 +1744,14 @@ model RadioSettings {
   hostRoleIds         String[] @default([])      // Roles that can /radio host
 
   // Live state (written by bot, read by API/dashboard)
-  isOnline            Boolean  @default(false)
-  stationStatus       String   @default("")      // Custom status text (e.g. "Live DJ Set", "On Break")
-  currentTrackTitle   String?
-  currentArtistName   String?
-  currentCoverUrl     String?
-  currentDuration     Int?                        // seconds
-  currentStartedAt    DateTime?
-  currentListeners    Int      @default(0)
+  isOnline            Boolean  @default(false)    @map("is_online")
+  stationStatus       String   @default("")       @map("station_status")
+  currentTrackTitle   String?                     @map("current_track_title")
+  currentArtistName   String?                     @map("current_artist_name")
+  currentCoverUrl     String?                     @map("current_cover_url")
+  currentDuration     Int?                        @map("current_duration")
+  currentStartedAt    DateTime?                   @map("current_started_at")
+  currentListeners    Int      @default(0)        @map("current_listeners")
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
