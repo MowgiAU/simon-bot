@@ -11968,11 +11968,28 @@ app.get('/api/radio/state/:guildId', async (req, res) => {
     const { guildId } = req.params;
     if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
 
-    // We expose a snapshot; the plugin stores live state in memory
-    // If plugin not running, return offline state
     const settings = await db.radioSettings.findUnique({ where: { guildId } });
+
+    // Derive "now playing" from most recent unfinished history entry (played in last 15 min)
+    const recentPlay = await db.radioHistory.findFirst({
+      where: { guildId, isAd: false, playedAt: { gte: new Date(Date.now() - 15 * 60 * 1000) } },
+      orderBy: { playedAt: 'desc' },
+    });
+
+    // Queue count
+    const queueCount = await db.radioQueue.count({ where: { guildId, playedAt: null } });
+
     res.json({
-      online: false, // Real state comes from WebSocket; this is fallback
+      online: !!recentPlay,
+      nowPlaying: recentPlay ? {
+        trackTitle: recentPlay.trackTitle,
+        artistName: recentPlay.artistName,
+        coverUrl: recentPlay.coverUrl,
+        duration: recentPlay.duration,
+        playedAt: recentPlay.playedAt,
+        listenCount: recentPlay.listenCount,
+      } : null,
+      queueCount,
       settings: settings || null,
     });
   } catch (error) {
@@ -12054,6 +12071,47 @@ app.delete('/api/radio/queue/:guildId/:queueId', async (req, res) => {
   } catch (error) {
     logger.error('Failed to remove from radio queue', error);
     res.status(500).json({ error: 'Failed to remove from queue' });
+  }
+});
+
+// PUT reorder radio queue
+app.put('/api/radio/queue/:guildId/reorder', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!await checkPluginAccess(guildId, req, 'fuji-radio')) return res.status(403).json({ error: 'Forbidden' });
+
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ error: 'orderedIds array required' });
+    }
+
+    // Validate all IDs belong to this guild and are unplayed
+    const existing = await db.radioQueue.findMany({
+      where: { guildId, playedAt: null, id: { in: orderedIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existing.map((e: any) => e.id));
+    const valid = orderedIds.every((id: string) => existingIds.has(id));
+    if (!valid) return res.status(400).json({ error: 'Invalid queue IDs' });
+
+    // Update positions in a transaction
+    await db.$transaction(
+      orderedIds.map((id: string, index: number) =>
+        db.radioQueue.update({ where: { id }, data: { position: index + 1 } })
+      )
+    );
+
+    // Return updated queue
+    const queue = await db.radioQueue.findMany({
+      where: { guildId, playedAt: null, track: { deletedAt: null } },
+      orderBy: { position: 'asc' },
+      include: { track: { include: { profile: true } } },
+      take: 50,
+    });
+    res.json(queue);
+  } catch (error) {
+    logger.error('Failed to reorder radio queue', error);
+    res.status(500).json({ error: 'Failed to reorder queue' });
   }
 });
 

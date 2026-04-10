@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { Radio, Play, Square, SkipForward, Volume2, Settings, History, Search, Plus, Trash2, Check, X, Megaphone, Music, Users, Clock, Disc3 } from 'lucide-react';
+import {
+  Radio, Play, Square, SkipForward, Volume2, Settings, History, Search, Plus, Trash2,
+  Check, X, Megaphone, Music, Users, Clock, Disc3, GripVertical, Pause, Mic, MicOff,
+  AlertCircle, Zap, ArrowUp, ArrowDown, RotateCcw,
+} from 'lucide-react';
 import { ChannelSelect } from '../components/ChannelSelect';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -86,6 +90,20 @@ interface AdSlot {
   createdAt: string;
 }
 
+interface LiveState {
+  online: boolean;
+  nowPlaying: {
+    trackTitle: string;
+    artistName: string;
+    coverUrl: string | null;
+    duration: number;
+    playedAt: string;
+    listenCount: number;
+  } | null;
+  queueCount: number;
+  settings: RadioSettings | null;
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 type Tab = 'deck' | 'settings' | 'history' | 'ads';
@@ -107,7 +125,11 @@ export const FujiRadioPage: React.FC = () => {
   const [defaultVolumeLocal, setDefaultVolumeLocal] = useState<number | null>(null);
   const [duckVolumeLocal, setDuckVolumeLocal] = useState<number | null>(null);
   const [guildRoles, setGuildRoles] = useState<GuildRole[]>([]);
+  const [liveState, setLiveState] = useState<LiveState | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const saveQueueRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const headers = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -194,6 +216,57 @@ export const FujiRadioPage: React.FC = () => {
       setQueue(prev => prev.filter(q => q.id !== queueId));
     } catch (e) { console.error(e); }
   };
+
+  // ── Reorder queue via drag ──
+  const reorderQueue = async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || !guildId) return;
+    const newQueue = [...queue];
+    const [moved] = newQueue.splice(fromIndex, 1);
+    newQueue.splice(toIndex, 0, moved);
+    setQueue(newQueue);
+
+    try {
+      const res = await fetch(`${API}/api/radio/queue/${guildId}/reorder`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ orderedIds: newQueue.map(q => q.id) }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        if (Array.isArray(updated)) setQueue(updated);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  // ── Move queue item up/down ──
+  const moveQueueItem = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= queue.length) return;
+    reorderQueue(index, targetIndex);
+  };
+
+  // ── Poll live state + queue when on deck tab ──
+  const fetchLiveData = useCallback(async () => {
+    if (!guildId) return;
+    try {
+      const [stateRes, queueRes] = await Promise.all([
+        fetch(`${API}/api/radio/state/${guildId}`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/api/radio/queue/${guildId}`, { headers: headers() }).then(r => r.json()),
+      ]);
+      setLiveState(stateRes);
+      if (Array.isArray(queueRes)) setQueue(queueRes);
+    } catch (e) { console.error(e); }
+  }, [guildId, headers]);
+
+  useEffect(() => {
+    if (tab === 'deck' && guildId) {
+      fetchLiveData();
+      pollRef.current = setInterval(fetchLiveData, 5000);
+      return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+  }, [tab, guildId, fetchLiveData]);
 
   // ── Approve/Toggle ad ──
   const toggleAdApproval = async (adId: string) => {
@@ -284,39 +357,191 @@ export const FujiRadioPage: React.FC = () => {
       {/* ── DJ Deck tab ── */}
       {tab === 'deck' && (
         <div>
-          {/* Status card */}
+          {/* ── Now Playing + Status Row ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: spacing.lg, marginBottom: spacing.lg }}>
+            {/* Now Playing Card */}
+            <div style={{
+              background: liveState?.online
+                ? `linear-gradient(135deg, ${colors.cardBg} 0%, rgba(16,185,129,0.08) 100%)`
+                : colors.cardBg,
+              border: `1px solid ${liveState?.online ? 'rgba(16,185,129,0.3)' : colors.border}`,
+              borderRadius: borderRadius.lg,
+              padding: spacing.lg,
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {liveState?.online && (
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                  background: `linear-gradient(90deg, ${colors.primary}, #34D399)`,
+                }} />
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: liveState?.online ? '#10B981' : colors.tertiary,
+                  boxShadow: liveState?.online ? '0 0 8px rgba(16,185,129,0.6)' : 'none',
+                  animation: liveState?.online ? 'pulse 2s ease-in-out infinite' : 'none',
+                }} />
+                <span style={{ color: liveState?.online ? colors.primary : colors.textTertiary, fontWeight: 600, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {liveState?.online ? 'On Air' : 'Off Air'}
+                </span>
+                {liveState?.nowPlaying && (
+                  <span style={{ marginLeft: 'auto', color: colors.textTertiary, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Users size={12} /> {liveState.nowPlaying.listenCount} listening
+                  </span>
+                )}
+              </div>
+
+              {liveState?.nowPlaying ? (
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  {liveState.nowPlaying.coverUrl ? (
+                    <img
+                      src={liveState.nowPlaying.coverUrl}
+                      alt=""
+                      style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 80, height: 80, borderRadius: 8,
+                      background: colors.surfaceLight,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <Music size={28} color={colors.textTertiary} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                      {liveState.nowPlaying.trackTitle}
+                    </div>
+                    <div style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 12 }}>
+                      {liveState.nowPlaying.artistName}
+                    </div>
+                    {/* Progress bar */}
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          background: `linear-gradient(90deg, ${colors.primary}, #34D399)`,
+                          borderRadius: 2,
+                          width: `${Math.min(100, ((Date.now() - new Date(liveState.nowPlaying.playedAt).getTime()) / 1000) / liveState.nowPlaying.duration * 100)}%`,
+                          transition: 'width 1s linear',
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                        <span style={{ color: colors.textTertiary, fontSize: 11 }}>
+                          {formatDuration(Math.min(Math.floor((Date.now() - new Date(liveState.nowPlaying.playedAt).getTime()) / 1000), liveState.nowPlaying.duration))}
+                        </span>
+                        <span style={{ color: colors.textTertiary, fontSize: 11 }}>
+                          {formatDuration(liveState.nowPlaying.duration)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <Radio size={32} color={colors.textTertiary} style={{ marginBottom: 8, opacity: 0.5 }} />
+                  <p style={{ color: colors.textTertiary, fontSize: 14, margin: 0 }}>
+                    Radio is offline. Use <code style={{ color: colors.primary }}>/radio start</code> in Discord to begin broadcasting.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Station Status Panel */}
+            <div style={{
+              background: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: borderRadius.lg,
+              padding: spacing.md,
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}>
+              <h4 style={{ margin: 0, color: colors.textPrimary, fontSize: 14, fontWeight: 600 }}>Station Status</h4>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
+                  <span style={{ color: colors.textSecondary, fontSize: 12 }}>Mode</span>
+                  <span style={{ color: colors.primary, fontSize: 12, fontWeight: 600 }}>
+                    {settings?.autoEnabled ? 'Auto-Pilot' : 'Manual'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
+                  <span style={{ color: colors.textSecondary, fontSize: 12 }}>Queue</span>
+                  <span style={{ color: colors.textPrimary, fontSize: 12, fontWeight: 600 }}>{queue.length} tracks</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
+                  <span style={{ color: colors.textSecondary, fontSize: 12 }}>Volume</span>
+                  <span style={{ color: colors.textPrimary, fontSize: 12, fontWeight: 600 }}>{Math.round((settings?.defaultVolume ?? 0.5) * 100)}%</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
+                  <span style={{ color: colors.textSecondary, fontSize: 12 }}>Source</span>
+                  <span style={{ color: colors.textPrimary, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{settings?.autoSource ?? 'trending'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: colors.surfaceLight, borderRadius: borderRadius.sm }}>
+                  <span style={{ color: colors.textSecondary, fontSize: 12 }}>Ads</span>
+                  <span style={{ color: settings?.adsEnabled ? colors.primary : colors.textTertiary, fontSize: 12, fontWeight: 600 }}>
+                    {settings?.adsEnabled ? `Every ${settings.adFrequency} songs` : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 'auto', padding: '8px 0 0', borderTop: `1px solid ${colors.border}` }}>
+                <div style={{ color: colors.textTertiary, fontSize: 11, textAlign: 'center' }}>
+                  Auto-refreshing every 5s
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Host Controls Bar ── */}
           <div style={{
             background: colors.cardBg,
             border: `1px solid ${colors.border}`,
             borderRadius: borderRadius.lg,
-            padding: spacing.lg,
+            padding: '12px 20px',
             marginBottom: spacing.lg,
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{
-                width: 12, height: 12, borderRadius: '50%',
-                background: settings?.voiceChannelId ? colors.primary : colors.tertiary,
-                boxShadow: settings?.voiceChannelId ? `0 0 8px ${colors.primary}` : 'none',
-              }} />
-              <span style={{ color: colors.textPrimary, fontWeight: 600, fontSize: 16 }}>
-                {settings?.voiceChannelId ? 'Radio Configured' : 'Not Configured'}
-              </span>
+            <span style={{ color: colors.textSecondary, fontSize: 13, fontWeight: 600, marginRight: 4 }}>Discord Controls:</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { cmd: '/radio start', icon: Play, desc: 'Start broadcasting' },
+                { cmd: '/radio stop', icon: Square, desc: 'Stop radio' },
+                { cmd: '/radio skip', icon: SkipForward, desc: 'Skip current track' },
+                { cmd: '/radio host', icon: Mic, desc: 'Go live as DJ host' },
+                { cmd: '/radio unhost', icon: MicOff, desc: 'End host mode' },
+              ].map(c => (
+                <div
+                  key={c.cmd}
+                  title={c.desc}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px',
+                    background: colors.surfaceLight,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: borderRadius.sm,
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                  }}
+                >
+                  <c.icon size={13} />
+                  <code style={{ color: colors.primary, fontSize: 11 }}>{c.cmd}</code>
+                </div>
+              ))}
             </div>
-            <p style={{ color: colors.textSecondary, margin: 0, fontSize: 13 }}>
-              Use <code>/radio start</code> in Discord to begin broadcasting. The dashboard will show live state once WebSocket support is enabled.
-            </p>
           </div>
 
-          {/* ── Search + Queue ── */}
+          {/* ── Search + Queue Grid ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.lg }}>
-            {/* Search */}
+            {/* Search Panel */}
             <div style={{
               background: colors.cardBg,
               border: `1px solid ${colors.border}`,
               borderRadius: borderRadius.lg,
               padding: spacing.md,
             }}>
-              <h3 style={{ margin: '0 0 12px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h3 style={{ margin: '0 0 12px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8, fontSize: 15 }}>
                 <Search size={18} /> Search Tracks
               </h3>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -348,7 +573,7 @@ export const FujiRadioPage: React.FC = () => {
                 </button>
               </div>
 
-              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                 {searchResults.map(track => (
                   <div key={track.id} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
@@ -394,49 +619,140 @@ export const FujiRadioPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Queue */}
+            {/* Queue Panel with Drag-to-Reorder */}
             <div style={{
               background: colors.cardBg,
               border: `1px solid ${colors.border}`,
               borderRadius: borderRadius.lg,
               padding: spacing.md,
             }}>
-              <h3 style={{ margin: '0 0 12px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Music size={18} /> Queue ({queue.length})
+              <h3 style={{ margin: '0 0 12px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8, fontSize: 15 }}>
+                <Music size={18} /> Queue
+                <span style={{
+                  marginLeft: 'auto', background: colors.surfaceLight,
+                  padding: '2px 10px', borderRadius: 12, fontSize: 12, color: colors.textSecondary,
+                }}>
+                  {queue.length} track{queue.length !== 1 ? 's' : ''}
+                </span>
               </h3>
 
-              <div style={{ maxHeight: 350, overflowY: 'auto' }}>
+              <div style={{ maxHeight: 450, overflowY: 'auto' }}>
                 {queue.length === 0 ? (
-                  <p style={{ color: colors.textTertiary, fontSize: 12, textAlign: 'center', margin: '24px 0' }}>
-                    Queue is empty. Search and add tracks, or use auto-pilot mode.
-                  </p>
+                  <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+                    <Music size={28} color={colors.textTertiary} style={{ marginBottom: 8, opacity: 0.4 }} />
+                    <p style={{ color: colors.textTertiary, fontSize: 13, margin: 0 }}>
+                      Queue is empty. Search and add tracks, or let auto-pilot fill it.
+                    </p>
+                  </div>
                 ) : queue.map((entry, i) => (
-                  <div key={entry.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px', borderRadius: borderRadius.sm,
-                    borderBottom: `1px solid ${colors.border}`,
-                  }}>
-                    <span style={{ color: colors.textTertiary, fontSize: 12, width: 20, textAlign: 'center' }}>{i + 1}</span>
+                  <div
+                    key={entry.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(i);
+                      e.dataTransfer.effectAllowed = 'move';
+                      // Make drag image slightly transparent
+                      if (e.currentTarget instanceof HTMLElement) {
+                        e.dataTransfer.setDragImage(e.currentTarget, 20, 20);
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      setDragOverIndex(i);
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverIndex === i) setDragOverIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null && dragIndex !== i) {
+                        reorderQueue(dragIndex, i);
+                      }
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 6px', borderRadius: borderRadius.sm,
+                      borderBottom: `1px solid ${colors.border}`,
+                      background: dragOverIndex === i ? 'rgba(16,185,129,0.1)' : dragIndex === i ? 'rgba(255,255,255,0.03)' : 'transparent',
+                      opacity: dragIndex === i ? 0.5 : 1,
+                      cursor: 'grab',
+                      transition: 'background 0.15s ease',
+                      borderTop: dragOverIndex === i ? `2px solid ${colors.primary}` : '2px solid transparent',
+                    }}
+                  >
+                    {/* Drag handle */}
+                    <GripVertical size={14} color={colors.textTertiary} style={{ cursor: 'grab', flexShrink: 0 }} />
+
+                    {/* Position */}
+                    <span style={{
+                      color: i === 0 ? colors.primary : colors.textTertiary,
+                      fontSize: 12, width: 20, textAlign: 'center', fontWeight: i === 0 ? 700 : 400, flexShrink: 0,
+                    }}>{i + 1}</span>
+
+                    {/* Cover */}
                     {entry.track?.coverUrl ? (
-                      <img src={entry.track.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover' }} />
+                      <img src={entry.track.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
                     ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: 4, background: colors.surfaceLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 4, background: colors.surfaceLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Music size={16} color={colors.textTertiary} />
                       </div>
                     )}
+
+                    {/* Track info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: colors.textPrimary, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{
+                        color: i === 0 ? colors.textPrimary : colors.textPrimary,
+                        fontSize: 13, fontWeight: i === 0 ? 600 : 500,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {i === 0 && <span style={{ color: colors.primary, marginRight: 4, fontSize: 11 }}>UP NEXT</span>}
                         {entry.track?.title || 'Unknown'}
                       </div>
                       <div style={{ color: colors.textSecondary, fontSize: 11 }}>
                         {entry.track?.profile?.displayName || entry.track?.profile?.username || ''}
+                        {entry.track?.duration ? ` • ${formatDuration(entry.track.duration)}` : ''}
                       </div>
                     </div>
+
+                    {/* Reorder buttons */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveQueueItem(i, 'up'); }}
+                        disabled={i === 0}
+                        style={{
+                          padding: 2, background: 'transparent', border: 'none',
+                          color: i === 0 ? 'transparent' : colors.textTertiary,
+                          cursor: i === 0 ? 'default' : 'pointer', lineHeight: 0,
+                        }}
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveQueueItem(i, 'down'); }}
+                        disabled={i === queue.length - 1}
+                        style={{
+                          padding: 2, background: 'transparent', border: 'none',
+                          color: i === queue.length - 1 ? 'transparent' : colors.textTertiary,
+                          cursor: i === queue.length - 1 ? 'default' : 'pointer', lineHeight: 0,
+                        }}
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                    </div>
+
+                    {/* Delete */}
                     <button
-                      onClick={() => removeFromQueue(entry.id)}
+                      onClick={(e) => { e.stopPropagation(); removeFromQueue(entry.id); }}
                       style={{
                         padding: 4, background: 'transparent', border: 'none',
-                        color: colors.tertiary, cursor: 'pointer',
+                        color: colors.tertiary, cursor: 'pointer', flexShrink: 0,
                       }}
                     >
                       <Trash2 size={14} />
@@ -446,6 +762,14 @@ export const FujiRadioPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Pulse animation for on-air indicator */}
+          <style>{`
+            @keyframes pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.4; }
+            }
+          `}</style>
         </div>
       )}
 
@@ -889,7 +1213,8 @@ export const FujiRadioPage: React.FC = () => {
       {/* Responsive adjustment */}
       <style>{`
         @media (max-width: 768px) {
-          div[style*="gridTemplateColumns: 1fr 1fr"] {
+          div[style*="gridTemplateColumns: 1fr 1fr"],
+          div[style*="gridTemplateColumns: 1fr 320px"] {
             grid-template-columns: 1fr !important;
           }
         }
