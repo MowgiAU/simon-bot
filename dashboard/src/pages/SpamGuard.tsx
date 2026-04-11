@@ -4,7 +4,7 @@ import { ChannelSelect } from '../components/ChannelSelect';
 import { useAuth } from '../components/AuthProvider';
 import {
     ShieldCheck, Trash2, AlertTriangle, RefreshCw, Save, Plus, X,
-    Clock, Zap, Hash, ImageOff, Eye, EyeOff,
+    Clock, Zap, Hash, ImageOff, Eye, EyeOff, Link, Loader,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL ?? '';
@@ -76,6 +76,32 @@ export const SpamGuardPage: React.FC = () => {
     const [newHash, setNewHash] = useState('');
     const [newHashDesc, setNewHashDesc] = useState('');
     const [addingHash, setAddingHash] = useState(false);
+
+    // Compute hash from URL
+    const [hashUrl, setHashUrl] = useState('');
+    const [computing, setComputing] = useState(false);
+
+    const computeHashFromUrl = async () => {
+        if (!guildId || !hashUrl.trim()) return;
+        setComputing(true);
+        try {
+            const res = await fetch(`${API}/api/spam-guard/compute-hash/${guildId}`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: hashUrl.trim() }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            setNewHash(data.hash);
+            setHashUrl('');
+            showMsg('success', `Hash computed: ${data.hash}`);
+        } catch (e: any) {
+            showMsg('error', e.message || 'Failed to compute hash');
+        } finally {
+            setComputing(false);
+        }
+    };
 
     const showMsg = (type: 'success' | 'error', text: string) => {
         setMsg({ type, text });
@@ -173,6 +199,7 @@ export const SpamGuardPage: React.FC = () => {
 
     return (
         <div style={{ padding: spacing.xxl, maxWidth: '860px' }}>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <ShieldCheck size={32} color={colors.primary} style={{ marginRight: '16px', flexShrink: 0 }} />
@@ -448,40 +475,90 @@ export const SpamGuardPage: React.FC = () => {
                             Paste a 16-character perceptual hash (dHash) of a known spam image. The bot will block
                             any image with a similar visual fingerprint even if uploaded to a new URL.
                         </p>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <input
-                                placeholder="16-char hex hash (e.g. a3f2c1...)"
-                                value={newHash}
-                                onChange={e => setNewHash(e.target.value.toLowerCase().replace(/[^0-9a-f]/g, ''))}
-                                maxLength={16}
-                                style={{ ...inputStyle, flex: '1 1 220px', fontFamily: 'monospace' }}
-                            />
-                            <input
-                                placeholder="Description (optional)"
-                                value={newHashDesc}
-                                onChange={e => setNewHashDesc(e.target.value)}
-                                style={{ ...inputStyle, flex: '2 1 280px' }}
-                            />
-                            <button
-                                onClick={addHash}
-                                disabled={addingHash || newHash.length !== 16}
-                                style={{
-                                    padding: '9px 18px',
-                                    borderRadius: borderRadius.md,
-                                    border: 'none',
-                                    backgroundColor: newHash.length === 16 ? colors.primary : colors.border,
-                                    color: '#fff',
-                                    cursor: newHash.length === 16 ? 'pointer' : 'not-allowed',
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                }}
-                            >
-                                <Plus size={14} />
-                                Add
-                            </button>
+
+                        {/* Step 1: Compute from URL */}
+                        <div style={{
+                            backgroundColor: colors.background,
+                            borderRadius: borderRadius.md,
+                            padding: '14px',
+                            marginBottom: '14px',
+                            border: `1px solid ${colors.border}`,
+                        }}>
+                            <p style={{ margin: '0 0 10px', color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Step 1 — Compute hash from image URL
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <input
+                                    placeholder="Paste image URL (right-click image → Copy image link)"
+                                    value={hashUrl}
+                                    onChange={e => setHashUrl(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && computeHashFromUrl()}
+                                    style={{ ...inputStyle, flex: '1 1 300px' }}
+                                />
+                                <button
+                                    onClick={computeHashFromUrl}
+                                    disabled={computing || !hashUrl.trim()}
+                                    style={{
+                                        padding: '9px 16px',
+                                        borderRadius: borderRadius.md,
+                                        border: 'none',
+                                        backgroundColor: hashUrl.trim() ? colors.accent : colors.border,
+                                        color: '#fff',
+                                        cursor: hashUrl.trim() && !computing ? 'pointer' : 'not-allowed',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {computing ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Link size={13} />}
+                                    {computing ? 'Computing…' : 'Compute Hash'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Step 2: Add the hash */}
+                        <div>
+                            <p style={{ margin: '0 0 10px', color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Step 2 — Add to blocklist
+                            </p>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <input
+                                    placeholder="16-char hex hash (auto-filled from URL above)"
+                                    value={newHash}
+                                    onChange={e => setNewHash(e.target.value.toLowerCase().replace(/[^0-9a-f]/g, ''))}
+                                    maxLength={16}
+                                    style={{ ...inputStyle, flex: '1 1 220px', fontFamily: 'monospace', color: newHash.length === 16 ? colors.accent : colors.textPrimary }}
+                                />
+                                <input
+                                    placeholder="Description (optional, e.g. 'Crypto scam Apr 2026')"
+                                    value={newHashDesc}
+                                    onChange={e => setNewHashDesc(e.target.value)}
+                                    style={{ ...inputStyle, flex: '2 1 280px' }}
+                                />
+                                <button
+                                    onClick={addHash}
+                                    disabled={addingHash || newHash.length !== 16}
+                                    style={{
+                                        padding: '9px 18px',
+                                        borderRadius: borderRadius.md,
+                                        border: 'none',
+                                        backgroundColor: newHash.length === 16 ? colors.primary : colors.border,
+                                        color: '#fff',
+                                        cursor: newHash.length === 16 ? 'pointer' : 'not-allowed',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                    }}
+                                >
+                                    <Plus size={14} />
+                                    Add to Blocklist
+                                </button>
+                            </div>
                         </div>
                     </div>
 

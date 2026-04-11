@@ -13952,6 +13952,49 @@ app.post('/api/spam-guard/settings/:guildId', async (req, res) => {
     }
 });
 
+app.post('/api/spam-guard/compute-hash/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { url } = req.body;
+        if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url is required' });
+
+        const parsedUrl = new URL(url); // throws if invalid
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return res.status(400).json({ error: 'Only http/https URLs are allowed' });
+        }
+
+        const axios = (await import('axios')).default;
+        const sharp = (await import('sharp')).default;
+
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 8000,
+            maxContentLength: 8 * 1024 * 1024,
+        });
+        const buf = Buffer.from(response.data);
+
+        // dHash: 9x8 grayscale → compare adjacent pixels → 64 bits → 16 hex chars
+        const raw = await sharp(buf).resize(9, 8, { fit: 'fill' }).grayscale().raw().toBuffer();
+        let bits = '';
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                bits += raw[row * 9 + col] < raw[row * 9 + col + 1] ? '1' : '0';
+            }
+        }
+        let hex = '';
+        for (let i = 0; i < 64; i += 4) {
+            hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
+        }
+
+        res.json({ hash: hex });
+    } catch (e: any) {
+        logger.error('Failed to compute image hash', e);
+        res.status(500).json({ error: 'Failed to compute hash: ' + (e.message ?? 'unknown error') });
+    }
+});
+
 app.get('/api/spam-guard/hashes/:guildId', async (req, res) => {
     try {
         const { guildId } = req.params;
