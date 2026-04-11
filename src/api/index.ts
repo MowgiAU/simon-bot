@@ -3816,7 +3816,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard'] 
             });
         }
 
@@ -13898,6 +13898,132 @@ app.get('/api/articles/featured/current', async (req: any, res) => {
     } catch (e: any) {
         logger.error('GET /api/articles/featured/current error', e);
         res.status(500).json({ error: 'Failed to fetch featured article' });
+    }
+});
+
+// ─── SpamGuard Plugin Routes ──────────────────────────────────────────────────
+
+app.get('/api/spam-guard/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        let settings = await db.spamGuardSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+            settings = await db.spamGuardSettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to get spam-guard settings', e);
+        res.status(500).json({ error: 'Failed to get settings' });
+    }
+});
+
+app.post('/api/spam-guard/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const allowed = [
+            'enabled', 'attachmentLimit', 'attachmentWindowSec',
+            'channelSpreadLimit', 'channelSpreadWindowSec',
+            'action', 'timeoutMinutes', 'alertChannelId', 'exemptRoles',
+        ];
+        const data: Record<string, any> = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) data[key] = req.body[key];
+        }
+
+        if (data.action && !['timeout', 'ban', 'kick', 'delete_only'].includes(data.action)) {
+            return res.status(400).json({ error: 'Invalid action' });
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const settings = await db.spamGuardSettings.upsert({
+            where: { guildId },
+            update: data,
+            create: { guildId, ...data },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update spam-guard settings', e);
+        res.status(500).json({ error: 'Failed to save settings' });
+    }
+});
+
+app.get('/api/spam-guard/hashes/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const hashes = await db.spamImageHash.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(hashes);
+    } catch (e) {
+        logger.error('Failed to get spam hashes', e);
+        res.status(500).json({ error: 'Failed to get hashes' });
+    }
+});
+
+app.post('/api/spam-guard/hashes/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { hash, description } = req.body;
+        if (!hash || typeof hash !== 'string' || hash.length !== 16) {
+            return res.status(400).json({ error: 'Invalid hash — must be 16-char hex string' });
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const entry = await db.spamImageHash.upsert({
+            where: { guildId_hash: { guildId, hash } },
+            update: { description: description || null, addedByMod: (req as any).session?.user?.id },
+            create: {
+                guildId,
+                hash,
+                description: description || null,
+                addedByMod: (req as any).session?.user?.id,
+            },
+        });
+        res.json(entry);
+    } catch (e) {
+        logger.error('Failed to add spam hash', e);
+        res.status(500).json({ error: 'Failed to add hash' });
+    }
+});
+
+app.delete('/api/spam-guard/hashes/:guildId/:hashId', async (req, res) => {
+    try {
+        const { guildId, hashId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        await db.spamImageHash.deleteMany({ where: { id: hashId, guildId } });
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Failed to delete spam hash', e);
+        res.status(500).json({ error: 'Failed to delete hash' });
+    }
+});
+
+app.get('/api/spam-guard/incidents/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+        const incidents = await db.spamGuardIncident.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        res.json(incidents);
+    } catch (e) {
+        logger.error('Failed to get spam incidents', e);
+        res.status(500).json({ error: 'Failed to get incidents' });
     }
 });
 

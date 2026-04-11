@@ -122,6 +122,8 @@ model Guild {
   reactionRoles        ReactionRole[]
   articles             Article[]
   voiceStatSettings    VoiceStatSettings?
+  spamGuardSettings    SpamGuardSettings?
+  spamGuardIncidents   SpamGuardIncident[]
 
   @@map("guilds")
 }
@@ -2176,4 +2178,74 @@ model VoiceStatSettings {
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("voice_stat_settings")
+}
+
+// ──────────────────── SpamGuard Plugin ────────────────────
+
+model SpamGuardSettings {
+  id                   String   @id @default(cuid())
+  guildId              String   @unique
+
+  enabled              Boolean  @default(true)
+
+  // Behavioral tripwire
+  attachmentLimit      Int      @default(3)   // Max attachments in window
+  attachmentWindowSec  Int      @default(15)  // Time window for attachment limit
+  channelSpreadLimit   Int      @default(3)   // Max channels in window
+  channelSpreadWindowSec Int    @default(30)  // Time window for channel spread
+
+  // Action to take
+  action               String   @default("timeout") // "timeout" | "ban" | "kick" | "delete_only"
+  timeoutMinutes       Int      @default(10)
+
+  // Alert channel for mod notifications
+  alertChannelId       String?
+
+  // Roles exempt from spam checks
+  exemptRoles          String[] @default([])
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  guild                Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  imageHashes          SpamImageHash[]
+
+  @@map("spam_guard_settings")
+}
+
+model SpamImageHash {
+  id          String   @id @default(cuid())
+  guildId     String
+  hash        String               // 64-char hex perceptual hash
+  description String?              // Optional label e.g. "Crypto scam Jan 2026"
+  addedByMod  String?              // Discord user ID of mod who added it
+  hitCount    Int      @default(0) // How many times this hash blocked a message
+
+  createdAt   DateTime @default(now())
+
+  settings    SpamGuardSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@unique([guildId, hash])
+  @@index([guildId])
+  @@map("spam_image_hashes")
+}
+
+model SpamGuardIncident {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  username    String
+  triggerType String               // "attachment_flood" | "channel_spread" | "known_hash"
+  action      String               // what was done
+  channelId   String?
+  messageIds  String[] @default([])
+  details     String?
+
+  createdAt   DateTime @default(now())
+
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, createdAt])
+  @@index([userId])
+  @@map("spam_guard_incidents")
 }
