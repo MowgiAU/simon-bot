@@ -4542,11 +4542,87 @@ app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
             await new Promise(r => setTimeout(r, 150));
         }
 
-        logger.info(`Apply-permissions for guild ${guildId}: ${applied} channels updated, ${skipped} skipped`);
-        res.json({ success: true, applied, skipped });
+        // Post-apply verification: read back overwrites on whitelisted channels
+        const verifyIds = [...(settings.whitelistedChannelIds ?? [])].slice(0, 5);
+        const verified: string[] = [];
+        const failed: string[] = [];
+        for (const vId of verifyIds) {
+            try {
+                const { data: ch } = await axios.get(`${discordBase}/channels/${vId}`, { headers });
+                const ow = (ch.permission_overwrites || []).find((o: any) => o.id === settings.unverifiedRoleId);
+                if (ow && (BigInt(ow.allow) & 1024n)) {
+                    verified.push(ch.name);
+                } else {
+                    failed.push(ch.name || vId);
+                }
+            } catch { failed.push(vId); }
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        logger.info(`Apply-permissions for guild ${guildId}: ${applied} channels updated, ${skipped} skipped. Verified: ${verified.length}/${verifyIds.length} (${verified.join(', ')}). Failed: ${failed.join(', ') || 'none'}`);
+        res.json({ success: true, applied, skipped, verified, failed });
     } catch (e: any) {
         logger.error('Failed to apply channel permissions', e);
         res.status(500).json({ error: 'Failed to apply permissions' });
+    }
+});
+
+// Diagnostic: show which channels the unverified role can/cannot see
+app.get('/api/guilds/:guildId/welcome/permission-diagnostic', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const settings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
+    if (!settings || !settings.unverifiedRoleId) {
+        return res.status(400).json({ error: 'Unverified role must be configured first.' });
+    }
+
+    const botToken = process.env.DISCORD_TOKEN;
+    const discordBase = 'https://discord.com/api/v10';
+    const hdrs = { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' };
+
+    try {
+        const [{ data: channels }, { data: guild }] = await Promise.all([
+            axios.get(`${discordBase}/guilds/${guildId}/channels`, { headers: hdrs }),
+            axios.get(`${discordBase}/guilds/${guildId}`, { headers: hdrs }),
+        ]);
+
+        const everyonePerms = BigInt(guild.roles.find((r: any) => r.id === guildId)?.permissions || '0');
+        const unvPerms = BigInt(guild.roles.find((r: any) => r.id === settings.unverifiedRoleId)?.permissions || '0');
+        const basePerms = everyonePerms | unvPerms;
+
+        const visible: { id: string; name: string; type: number; category: string | null }[] = [];
+        const hidden: { id: string; name: string; type: number; category: string | null }[] = [];
+
+        for (const ch of channels) {
+            if (![0, 2, 5, 13, 15, 16].includes(ch.type)) continue;
+
+            const overwrites = ch.permission_overwrites || [];
+            let perms = basePerms;
+
+            // @everyone channel overwrite
+            const evOW = overwrites.find((o: any) => o.id === guildId);
+            if (evOW) perms = (perms & ~BigInt(evOW.deny)) | BigInt(evOW.allow);
+
+            // Unverified role overwrite
+            const unvOW = overwrites.find((o: any) => o.id === settings.unverifiedRoleId);
+            if (unvOW) perms = (perms & ~BigInt(unvOW.deny)) | BigInt(unvOW.allow);
+
+            const parentCh = channels.find((c: any) => c.id === ch.parent_id);
+            const entry = { id: ch.id, name: ch.name, type: ch.type, category: parentCh?.name || null };
+
+            if (perms & 1024n) {
+                visible.push(entry);
+            } else {
+                hidden.push(entry);
+            }
+        }
+
+        res.json({ visible, hidden: hidden.length, whitelisted: settings.whitelistedChannelIds?.length || 0 });
+    } catch (e: any) {
+        logger.error('Permission diagnostic failed', e);
+        res.status(500).json({ error: 'Failed to run diagnostic' });
     }
 });
 

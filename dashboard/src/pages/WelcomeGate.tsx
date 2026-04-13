@@ -19,6 +19,8 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const [verifying, setVerifying] = useState(false);
     const [verifyProgress, setVerifyProgress] = useState<{ verified: number; total: number } | null>(null);
     const [applyingPerms, setApplyingPerms] = useState(false);
+    const [diagnostic, setDiagnostic] = useState<{ visible: { id: string; name: string; category: string | null }[]; hidden: number } | null>(null);
+    const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -138,11 +140,28 @@ export const WelcomeGatePluginPage: React.FC = () => {
         setApplyingPerms(true);
         try {
             const { data } = await axios.post(`/api/guilds/${selectedGuild.id}/welcome/apply-permissions`, {}, { withCredentials: true });
-            showToast(`Done! Updated ${data.applied} channels${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}.`, 'success');
+            const verifiedMsg = data.verified?.length ? ` Verified: ${data.verified.join(', ')}.` : '';
+            const failedMsg = data.failed?.length ? ` Failed: ${data.failed.join(', ')}.` : '';
+            showToast(`Done! Updated ${data.applied} channels${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}.${verifiedMsg}${failedMsg}`, data.failed?.length ? 'error' : 'success');
+            // Auto-run diagnostic after apply
+            handleDiagnostic();
         } catch (e: any) {
             showToast(e.response?.data?.error || 'Failed to apply permissions', 'error');
         } finally {
             setApplyingPerms(false);
+        }
+    };
+
+    const handleDiagnostic = async () => {
+        if (!selectedGuild) return;
+        setLoadingDiagnostic(true);
+        try {
+            const { data } = await axios.get(`/api/guilds/${selectedGuild.id}/welcome/permission-diagnostic`, { withCredentials: true });
+            setDiagnostic(data);
+        } catch {
+            showToast('Failed to load diagnostic', 'error');
+        } finally {
+            setLoadingDiagnostic(false);
         }
     };
 
@@ -346,6 +365,40 @@ export const WelcomeGatePluginPage: React.FC = () => {
                     >
                         {applyingPerms ? 'Applying...' : 'Apply Permissions'}
                     </button>
+
+                    {/* Permission Diagnostic */}
+                    {diagnostic && (
+                        <div style={{ marginTop: '16px', padding: '12px 16px', background: colors.surface, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <strong style={{ fontSize: '14px' }}>Unverified Role Can See ({diagnostic.visible.length} channels):</strong>
+                                <span style={{ fontSize: '12px', color: colors.textSecondary }}>{diagnostic.hidden} channels hidden</span>
+                            </div>
+                            {diagnostic.visible.length === 0 ? (
+                                <p style={{ margin: 0, fontSize: '13px', color: colors.warning }}>No channels visible — unverified users won't see anything!</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {diagnostic.visible.map(ch => (
+                                        <span key={ch.id} style={{ padding: '3px 8px', fontSize: '12px', borderRadius: '4px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary }}>
+                                            #{ch.name}{ch.category ? <span style={{ color: colors.textSecondary }}> ({ch.category})</span> : null}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {!diagnostic && !applyingPerms && settings.unverifiedRoleId && (
+                        <button
+                            onClick={handleDiagnostic}
+                            disabled={loadingDiagnostic}
+                            style={{
+                                marginTop: '10px', padding: '6px 14px', borderRadius: borderRadius.md, border: `1px solid ${colors.border}`,
+                                cursor: loadingDiagnostic ? 'not-allowed' : 'pointer', background: 'transparent', color: colors.textSecondary,
+                                fontSize: '13px',
+                            }}
+                        >
+                            {loadingDiagnostic ? 'Checking...' : 'Check what unverified users can see'}
+                        </button>
+                    )}
                 </div>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
