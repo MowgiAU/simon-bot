@@ -4428,7 +4428,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
     try {
-        const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions, logChannelId, departureChannelId, arrivalChannelId } = req.body;
+        const { enabled, welcomeChannelId, unverifiedRoleId, verifiedRoleId, modalTitle, questions, logChannelId, departureChannelId, arrivalChannelId, whitelistedChannelIds } = req.body;
         
         const settings = await db.welcomeGateSettings.upsert({
             where: { guildId },
@@ -4443,6 +4443,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
                 logChannelId,
                 departureChannelId,
                 arrivalChannelId,
+                whitelistedChannelIds: whitelistedChannelIds ?? [],
             },
             update: {
                 enabled,
@@ -4454,6 +4455,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
                 logChannelId,
                 departureChannelId,
                 arrivalChannelId,
+                whitelistedChannelIds: whitelistedChannelIds ?? [],
             }
         });
         
@@ -4461,6 +4463,83 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     } catch (e) {
         logger.error('Failed to update welcome settings', e);
         res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// Apply channel permissions — deny ViewChannel for unverified role on all channels except whitelist
+app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const settings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
+    if (!settings || !settings.unverifiedRoleId) {
+        return res.status(400).json({ error: 'Unverified role must be configured first.' });
+    }
+
+    const botToken = process.env.DISCORD_TOKEN;
+    const discordBase = 'https://discord.com/api/v10';
+    const headers = { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' };
+
+    // Build the set of channels unverified users are allowed to see
+    const allowed = new Set<string>([
+        ...(settings.whitelistedChannelIds ?? []),
+        ...(settings.welcomeChannelId ? [settings.welcomeChannelId] : []),
+        ...(settings.arrivalChannelId ? [settings.arrivalChannelId] : []),
+        ...(settings.departureChannelId ? [settings.departureChannelId] : []),
+    ]);
+
+    try {
+        const { data: channels } = await axios.get(`${discordBase}/guilds/${guildId}/channels`, { headers });
+
+        let applied = 0;
+        let skipped = 0;
+
+        for (const channel of channels) {
+            // Only process text-based channel types (0=text, 5=announcement, 15=forum, 16=media)
+            if (![0, 5, 15, 16].includes(channel.type)) continue;
+
+            const VIEW_CHANNEL = '1024';
+
+            try {
+                if (allowed.has(channel.id)) {
+                    await axios.put(
+                        `${discordBase}/channels/${channel.id}/permissions/${settings.unverifiedRoleId}`,
+                        { allow: VIEW_CHANNEL, deny: '0', type: 0 },
+                        { headers }
+                    );
+                } else {
+                    await axios.put(
+                        `${discordBase}/channels/${channel.id}/permissions/${settings.unverifiedRoleId}`,
+                        { allow: '0', deny: VIEW_CHANNEL, type: 0 },
+                        { headers }
+                    );
+                }
+                applied++;
+            } catch (e: any) {
+                if (e.response?.status === 429) {
+                    const retryAfter = (e.response.data?.retry_after ?? 1) * 1000;
+                    await new Promise(r => setTimeout(r, retryAfter + 100));
+                    try {
+                        if (allowed.has(channel.id)) {
+                            await axios.put(`${discordBase}/channels/${channel.id}/permissions/${settings.unverifiedRoleId}`, { allow: VIEW_CHANNEL, deny: '0', type: 0 }, { headers });
+                        } else {
+                            await axios.put(`${discordBase}/channels/${channel.id}/permissions/${settings.unverifiedRoleId}`, { allow: '0', deny: VIEW_CHANNEL, type: 0 }, { headers });
+                        }
+                        applied++;
+                    } catch { skipped++; }
+                } else {
+                    skipped++;
+                }
+            }
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        logger.info(`Apply-permissions for guild ${guildId}: ${applied} channels updated, ${skipped} skipped`);
+        res.json({ success: true, applied, skipped });
+    } catch (e: any) {
+        logger.error('Failed to apply channel permissions', e);
+        res.status(500).json({ error: 'Failed to apply permissions' });
     }
 });
 

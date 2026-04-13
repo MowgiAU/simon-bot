@@ -17,6 +17,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [verifying, setVerifying] = useState(false);
     const [verifyProgress, setVerifyProgress] = useState<{ verified: number; total: number } | null>(null);
+    const [applyingPerms, setApplyingPerms] = useState(false);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -131,8 +132,20 @@ export const WelcomeGatePluginPage: React.FC = () => {
         }
     };
 
-    const addQuestion = () => {
-        setSettings({ ...settings, questions: [...(settings.questions || []), ''] });
+    const handleApplyPermissions = async () => {
+        if (!selectedGuild) return;
+        setApplyingPerms(true);
+        try {
+            const { data } = await axios.post(`/api/guilds/${selectedGuild.id}/welcome/apply-permissions`, {}, { withCredentials: true });
+            showToast(`Done! Updated ${data.applied} channels${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}.`, 'success');
+        } catch (e: any) {
+            showToast(e.response?.data?.error || 'Failed to apply permissions', 'error');
+        } finally {
+            setApplyingPerms(false);
+        }
+    };
+
+    const addQuestion = () => {        setSettings({ ...settings, questions: [...(settings.questions || []), ''] });
     };
 
     const updateQuestion = (index: number, val: string) => {
@@ -303,6 +316,54 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         onChange={e => setSettings({...settings, modalTitle: e.target.value})}
                         style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
                      />
+                </div>
+
+                <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px' }}>Channel Visibility (Unverified Role)</h3>
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', color: colors.textSecondary }}>
+                        Click <strong>Apply Permissions</strong> to hide all channels from the Unverified role, except the ones selected below (plus welcome/arrival/departure channels which are always visible). Your <code>@everyone</code> permissions are untouched — this only adds a role override on the Unverified role, keeping your server discoverable.
+                    </p>
+                    <div style={{ marginBottom: '12px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Visible Channels for Unverified Members</label>
+                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: '8px', background: colors.background, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {channels.filter(c => c.type === 0).map(c => {
+                                const selected = (settings.whitelistedChannelIds || []).includes(c.id);
+                                return (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => {
+                                            const current: string[] = settings.whitelistedChannelIds || [];
+                                            setSettings({
+                                                ...settings,
+                                                whitelistedChannelIds: selected
+                                                    ? current.filter((id: string) => id !== c.id)
+                                                    : [...current, c.id],
+                                            });
+                                        }}
+                                        style={{
+                                            padding: '4px 10px', borderRadius: borderRadius.md, border: `1px solid ${selected ? colors.primary : colors.border}`,
+                                            background: selected ? `${colors.primary}22` : 'transparent', color: selected ? colors.primary : colors.textSecondary,
+                                            cursor: 'pointer', fontSize: '13px', fontWeight: selected ? 600 : 400,
+                                        }}
+                                    >
+                                        #{c.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <small style={{ display: 'block', marginTop: '6px', color: colors.textSecondary }}>Click channels to toggle. Save settings first, then click Apply.</small>
+                    </div>
+                    <button
+                        onClick={handleApplyPermissions}
+                        disabled={applyingPerms || !settings.unverifiedRoleId}
+                        style={{
+                            padding: '10px 20px', borderRadius: borderRadius.md, border: 'none', cursor: applyingPerms ? 'not-allowed' : 'pointer',
+                            background: colors.primary, color: '#fff', fontWeight: 600, fontSize: '14px',
+                            display: 'flex', alignItems: 'center', gap: '8px', opacity: (applyingPerms || !settings.unverifiedRoleId) ? 0.6 : 1,
+                        }}
+                    >
+                        {applyingPerms ? 'Applying...' : 'Apply Permissions'}
+                    </button>
                 </div>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>

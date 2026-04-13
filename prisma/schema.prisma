@@ -648,6 +648,7 @@ model WelcomeGateSettings {
   logChannelId     String?  // Channel to log blocked unverified messages
   departureChannelId String? // Channel to announce member departures
   arrivalChannelId String?  // Channel to announce member arrivals
+  whitelistedChannelIds String[] // Channels unverified users can still see
   
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
