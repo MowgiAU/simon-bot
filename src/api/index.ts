@@ -4519,16 +4519,17 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
 
             logger.info(`Verify-all guild ${guildId}: fetched ${members.length} total members`);
 
-            // Include anyone who doesn't have the verified role yet (regardless of whether
-            // they still have the unverified role — previous partial runs may have removed
-            // the unverified role without successfully adding the verified role).
+            // Target members who have NEITHER the verified role NOR the unverified role
+            // (stuck in limbo from previous partial runs or joined before the gate was set up).
+            // Also include members who still have the unverified role (normal pending members).
             const toVerify = members.filter(m =>
                 !m.user.bot &&
                 Array.isArray(m.roles) &&
-                !m.roles.includes(settings.verifiedRoleId)
+                !m.roles.includes(settings.verifiedRoleId) &&
+                !m.roles.includes(settings.unverifiedRoleId)
             );
 
-            logger.info(`Verify-all guild ${guildId}: ${toVerify.length} members need verifying (verifiedRole=${settings.verifiedRoleId})`);
+            logger.info(`Verify-all guild ${guildId}: ${toVerify.length} members have neither role (verifiedRole=${settings.verifiedRoleId}, unverifiedRole=${settings.unverifiedRoleId})`);
 
             const job = verifyAllJobs.get(guildId)!;
             job.total = toVerify.length;
