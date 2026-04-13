@@ -290,6 +290,16 @@ function setCachedResponse(key: string, data: any): void {
     apiResponseCache.set(key, { data, timestamp: Date.now() });
 }
 
+// --- Cloudflare Edge Cache Middleware ---
+// Adds Cache-Control headers to public GET endpoints so Cloudflare caches them at edge.
+// Only applied to unauthenticated, read-only routes.
+function publicCache(maxAgeSeconds: number) {
+    return (_req: any, res: any, next: any) => {
+        res.set('Cache-Control', `public, s-maxage=${maxAgeSeconds}, stale-while-revalidate=60`);
+        next();
+    };
+}
+
 /**
  * Downsample a waveformPeaks array to targetLength points by averaging buckets.
  * Used to reduce the profile track listing payload (~200pts â†’ 60pts) while
@@ -7310,7 +7320,7 @@ app.get('/api/admin/tracks', requireAdmin, async (req: any, res) => {
 });
 
 // Leaderboard: Top Tracks
-app.get('/api/musician/leaderboards/tracks', async (req, res) => {
+app.get('/api/musician/leaderboards/tracks', publicCache(120), async (req, res) => {
     try {
         const cached = getCachedResponse('leaderboards-tracks');
         if (cached) return res.json(cached);
@@ -7331,7 +7341,7 @@ app.get('/api/musician/leaderboards/tracks', async (req, res) => {
 });
 
 // Discovery: Filtered Tracks (Genre/Search/Sort)
-app.get('/api/discovery/tracks', async (req, res) => {
+app.get('/api/discovery/tracks', publicCache(120), async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
 
@@ -7456,7 +7466,7 @@ app.get('/api/discovery/tracks', async (req, res) => {
 });
 
 // Leaderboard: Top Artists
-app.get('/api/musician/leaderboards/artists', async (req, res) => {
+app.get('/api/musician/leaderboards/artists', publicCache(120), async (req, res) => {
     try {
         const cached = getCachedResponse('leaderboards-artists');
         if (cached) return res.json(cached);
@@ -7601,7 +7611,7 @@ app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
 });
 
 // Discovery (List all profiles)
-app.get('/api/musician/profiles', async (req, res) => {
+app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
   try {
       const { search, genre, sort = 'newest', limit = 50 } = req.query;
       
@@ -7697,7 +7707,7 @@ app.get('/api/musician/profiles', async (req, res) => {
 });
 
 // Public Profile Retrieval
-app.get('/api/musician/profile/:userId', async (req, res) => {
+app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
     try {
         const { userId } = req.params;
 
@@ -7763,7 +7773,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
     }
 });
 
-app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
+app.get('/api/musician/tracks/:username/:trackSlug', publicCache(120), async (req, res) => {
     try {
         const { username, trackSlug } = req.params;
         
@@ -7891,7 +7901,7 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 });
 
 // Genre Library for Picker
-app.get('/api/musician/genres', async (req, res) => {
+app.get('/api/musician/genres', publicCache(300), async (req, res) => {
     try {
         const cached = getCachedResponse('genres');
         if (cached) return res.json(cached);
@@ -7951,7 +7961,7 @@ app.delete('/api/musician/genres/:id', requireAdmin, async (req, res) => {
 // ===== Discovery Settings (Admin) =====
 
 // Get discovery settings
-app.get('/api/discovery/settings', async (req, res) => {
+app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
     try {
         // Check response cache first
         const cached = getCachedResponse('discovery-settings');
@@ -8145,7 +8155,7 @@ app.get('/api/discovery/articles/search', requireAdmin, async (req: any, res) =>
 });
 
 // Search all tracks (for admin featured track picker)
-app.get('/api/discovery/tracks/search', async (req, res) => {
+app.get('/api/discovery/tracks/search', publicCache(60), async (req, res) => {
     try {
         const search = req.query.search as string;
         const tracks = await db.track.findMany({
@@ -8399,7 +8409,7 @@ app.post('/api/musician/validate-name', async (req, res) => {
 });
 
 // ===== Genres used in discovery (from actual user profiles) =====
-app.get('/api/discovery/genres', async (req, res) => {
+app.get('/api/discovery/genres', publicCache(300), async (req, res) => {
     try {
         // Get genres that are actually used by at least one profile, sorted by popularity
         const usedGenres = await db.genre.findMany({
@@ -9405,7 +9415,7 @@ app.get('/api/oembed', async (req: any, res) => {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // --- Public: List battles (with filtering) ---
-app.get('/api/beat-battle/battles', async (req: any, res) => {
+app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
     try {
         const guildId = req.query.guildId as string | undefined;
         const status = req.query.status as string | undefined;
@@ -9463,7 +9473,7 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
 });
 
 // --- Public: Get single battle with entries ---
-app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
+app.get('/api/beat-battle/battles/:id', publicCache(60), async (req: any, res) => {
     try {
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
@@ -9496,7 +9506,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
 });
 
 // --- Public: Get archive (completed battles) ---
-app.get('/api/beat-battle/archive', async (req: any, res) => {
+app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
     try {
         const guildId = req.query.guildId as string | undefined;
         const archiveWhere: any = { status: 'completed' };
@@ -9521,7 +9531,7 @@ app.get('/api/beat-battle/archive', async (req: any, res) => {
 });
 
 // --- Public: Get single entry with battle context ---
-app.get('/api/beat-battle/entries/:entryId', async (req: any, res) => {
+app.get('/api/beat-battle/entries/:entryId', publicCache(60), async (req: any, res) => {
     try {
         const entry = await db.battleEntry.findUnique({
             where: { id: req.params.entryId },
@@ -10053,7 +10063,7 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
 });
 
 // --- Public: Get battle submissions for a user (profile) ---
-app.get('/api/beat-battle/user/:userId/entries', async (req: any, res) => {
+app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: any, res) => {
     try {
         const entries = await db.battleEntry.findMany({
             where: { userId: req.params.userId },
@@ -10229,7 +10239,7 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
 
 // --- Admin: CRUD Sponsors ---
 // --- Public: Get battle page settings (featured battle, sponsor title) ---
-app.get('/api/beat-battle/page-settings', async (req: any, res) => {
+app.get('/api/beat-battle/page-settings', publicCache(120), async (req: any, res) => {
     try {
         const guildId = (req.query.guildId as string) || 'default-guild';
         const settings = await db.beatBattleSettings.findFirst({ where: { guildId } });
@@ -10243,7 +10253,7 @@ app.get('/api/beat-battle/page-settings', async (req: any, res) => {
 });
 
 // --- Public: Get sponsors shown on page ---
-app.get('/api/beat-battle/sponsors', async (req: any, res) => {
+app.get('/api/beat-battle/sponsors', publicCache(300), async (req: any, res) => {
     try {
         const guildId = (req.query.guildId as string) || 'default-guild';
         const sponsors = await db.battleSponsor.findMany({
@@ -10849,7 +10859,7 @@ setInterval(runBeatBattleLifecycle, 60_000);
 // â”€â”€â”€ Charts System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Get the latest chart for a period
-app.get('/api/charts/:period', async (req: any, res) => {
+app.get('/api/charts/:period', publicCache(120), async (req: any, res) => {
     try {
         const period = req.params.period;
         if (!['daily', 'weekly', 'alltime'].includes(period)) {
@@ -10874,7 +10884,7 @@ app.get('/api/charts/:period', async (req: any, res) => {
 });
 
 // Get chart history for a specific track
-app.get('/api/charts/:period/track/:trackId', async (req: any, res) => {
+app.get('/api/charts/:period/track/:trackId', publicCache(120), async (req: any, res) => {
     try {
         const { period, trackId } = req.params;
         if (!['daily', 'weekly', 'alltime'].includes(period)) {
@@ -11763,7 +11773,7 @@ function generatePlaylistSlug(name: string): string {
 }
 
 // Get popular public playlists
-app.get('/api/playlists/popular', async (_req: any, res) => {
+app.get('/api/playlists/popular', publicCache(120), async (_req: any, res) => {
     try {
         const cached = getCachedResponse('popular-playlists');
         if (cached) return res.json(cached);
