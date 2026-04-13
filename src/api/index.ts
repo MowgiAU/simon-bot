@@ -4509,12 +4509,15 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
             let after = '0';
             while (true) {
                 const resp = await axios.get(`${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`, { headers });
-                const batch: any[] = resp.data;
-                if (!batch.length) break;
+                const batch = resp.data;
+                // Guard: Discord returns an error object (not array) if permissions are missing
+                if (!Array.isArray(batch) || batch.length === 0) break;
                 members = members.concat(batch);
                 if (batch.length < 1000) break;
                 after = batch[batch.length - 1].user.id;
             }
+
+            logger.info(`Verify-all guild ${guildId}: fetched ${members.length} total members`);
 
             const toVerify = members.filter(m =>
                 !m.user.bot &&
@@ -4522,6 +4525,8 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
                 m.roles.includes(settings.unverifiedRoleId) &&
                 !m.roles.includes(settings.verifiedRoleId)
             );
+
+            logger.info(`Verify-all guild ${guildId}: ${toVerify.length} members need verifying (unverifiedRole=${settings.unverifiedRoleId}, verifiedRole=${settings.verifiedRoleId})`);
 
             const job = verifyAllJobs.get(guildId)!;
             job.total = toVerify.length;
@@ -4534,7 +4539,8 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
                 try {
                     await patchMemberRoles(m.user.id, updatedRoles);
                     job.verified++;
-                } catch {
+                } catch (e: any) {
+                    logger.warn(`Verify-all: failed to patch ${m.user.id}: ${e.response?.status} ${e.message}`);
                     job.failed++;
                 }
                 // Pace requests — Discord allows ~10 role changes/10s per guild

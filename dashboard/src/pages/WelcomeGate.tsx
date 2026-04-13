@@ -72,7 +72,14 @@ export const WelcomeGatePluginPage: React.FC = () => {
                         clearInterval(poll);
                         setVerifying(false);
                         setVerifyProgress(null);
-                        showToast(`Done! Verified ${data.verified} member(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}.`, 'success');
+                        const verified = data.verified ?? 0;
+                        const failed = data.failed ?? 0;
+                        const total = data.total ?? 0;
+                        if (total === 0) {
+                            showToast('No unverified members found — everyone already has the Verified role.', 'success');
+                        } else {
+                            showToast(`Done! Verified ${verified} member(s)${failed > 0 ? `, ${failed} failed` : ''}.`, 'success');
+                        }
                     } else if (data.status === 'error') {
                         clearInterval(poll);
                         setVerifying(false);
