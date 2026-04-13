@@ -4499,6 +4499,33 @@ app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
 
         logger.info(`[Apply-Perms] Guild ${guildId}: allowed set (${allowed.size}): ${JSON.stringify([...allowed])}`);
 
+        // Sync whitelisted channels into Discord Onboarding default_channel_ids
+        // so new members can see them even before completing onboarding
+        try {
+            const { data: onboarding } = await axios.get(`${discordBase}/guilds/${guildId}/onboarding`, { headers });
+            if (onboarding.enabled) {
+                const currentDefaults = new Set<string>(onboarding.default_channel_ids || []);
+                let changed = false;
+                for (const chId of allowed) {
+                    // Only add non-category channels to onboarding defaults
+                    const ch = channels.find((c: any) => c.id === chId);
+                    if (ch && ch.type !== 4 && !currentDefaults.has(chId)) {
+                        currentDefaults.add(chId);
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    await axios.put(`${discordBase}/guilds/${guildId}/onboarding`, {
+                        ...onboarding,
+                        default_channel_ids: [...currentDefaults],
+                    }, { headers });
+                    logger.info(`[Apply-Perms] Updated onboarding default_channel_ids (+${[...allowed].filter(id => !onboarding.default_channel_ids?.includes(id)).length} channels)`);
+                }
+            }
+        } catch (e: any) {
+            logger.warn(`[Apply-Perms] Could not sync onboarding defaults: ${e.response?.status || e.message}`);
+        }
+
         let applied = 0;
         let skipped = 0;
 
