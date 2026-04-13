@@ -4462,6 +4462,64 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     }
 });
 
+// Immediately verify all unverified members in the guild
+app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+        const settings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
+        if (!settings || !settings.unverifiedRoleId || !settings.verifiedRoleId) {
+            return res.status(400).json({ error: 'Unverified and Verified roles must be configured first.' });
+        }
+
+        const botToken = process.env.DISCORD_TOKEN;
+        const discordBase = 'https://discord.com/api/v10';
+        const headers = { Authorization: `Bot ${botToken}` };
+
+        // Fetch all guild members (paginate up to 1000 at a time)
+        let members: any[] = [];
+        let after = '0';
+        while (true) {
+            const resp = await axios.get(`${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`, { headers });
+            const batch: any[] = resp.data;
+            if (!batch.length) break;
+            members = members.concat(batch);
+            if (batch.length < 1000) break;
+            after = batch[batch.length - 1].user.id;
+        }
+
+        const toVerify = members.filter(m =>
+            !m.user.bot &&
+            Array.isArray(m.roles) &&
+            m.roles.includes(settings.unverifiedRoleId) &&
+            !m.roles.includes(settings.verifiedRoleId)
+        );
+
+        let verified = 0;
+        let failed = 0;
+        for (const m of toVerify) {
+            const userId = m.user.id;
+            try {
+                // Add verified role
+                await axios.put(`${discordBase}/guilds/${guildId}/members/${userId}/roles/${settings.verifiedRoleId}`, {}, { headers });
+                // Remove unverified role
+                await axios.delete(`${discordBase}/guilds/${guildId}/members/${userId}/roles/${settings.unverifiedRoleId}`, { headers });
+                verified++;
+            } catch {
+                failed++;
+            }
+        }
+
+        logger.info(`Verify-all for guild ${guildId}: verified ${verified}, failed ${failed}`);
+        res.json({ verified, failed, total: toVerify.length });
+    } catch (e) {
+        logger.error('Failed to verify-all members', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // --- Bot Identity Routes ---
 app.get('/api/bot/identity', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
 import { useResources } from '../components/ResourceProvider';
 import { colors, borderRadius, spacing } from '../theme/theme';
-import { Shield, Save, Plus, Trash2 } from 'lucide-react';
+import { Shield, Save, Plus, Trash2, UserCheck } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import { showToast } from '../components/Toast';
@@ -15,6 +15,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const [settings, setSettings] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [verifying, setVerifying] = useState(false);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -51,6 +52,19 @@ export const WelcomeGatePluginPage: React.FC = () => {
             showToast('Settings saved!', 'success');
         } catch (e) {
             showToast('Failed to save settings', 'error');
+        }
+    };
+
+    const handleVerifyAll = async () => {
+        if (!selectedGuild) return;
+        setVerifying(true);
+        try {
+            const { data } = await axios.post(`/api/guilds/${selectedGuild.id}/welcome/verify-all`, {}, { withCredentials: true });
+            showToast(`Done! Verified ${data.verified} member(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}.`, 'success');
+        } catch (e: any) {
+            showToast(e.response?.data?.error || 'Failed to verify members', 'error');
+        } finally {
+            setVerifying(false);
         }
     };
 
@@ -216,45 +230,25 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 </div>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
-                            <h3 style={{ margin: 0 }}>Auto Verification</h3>
-                            <p style={{ margin: '4px 0 0', fontSize: '14px', color: colors.textSecondary }}>Automatically verify unverified members after a set time period.</p>
+                            <h3 style={{ margin: 0 }}>Verify All Unverified Members</h3>
+                            <p style={{ margin: '4px 0 0', fontSize: '14px', color: colors.textSecondary }}>Immediately grant the Verified role to every member currently holding the Unverified role.</p>
                         </div>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px', flexShrink: 0 }}>
-                            <input
-                                type="checkbox"
-                                checked={settings.autoVerifyEnabled ?? false}
-                                onChange={e => setSettings({ ...settings, autoVerifyEnabled: e.target.checked })}
-                                style={{ opacity: 0, width: 0, height: 0 }}
-                            />
-                            <span style={{
-                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                                backgroundColor: (settings.autoVerifyEnabled ?? false) ? colors.primary : colors.textTertiary,
-                                transition: '.4s', borderRadius: '34px'
-                            }}>
-                                <span style={{
-                                    position: 'absolute', height: '16px', width: '16px', left: '4px', bottom: '4px',
-                                    backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
-                                    transform: (settings.autoVerifyEnabled ?? false) ? 'translateX(26px)' : 'translateX(0)'
-                                }} />
-                            </span>
-                        </label>
+                        <button
+                            onClick={handleVerifyAll}
+                            disabled={verifying || !settings.unverifiedRoleId || !settings.verifiedRoleId}
+                            style={{
+                                padding: '10px 20px', borderRadius: borderRadius.md, border: 'none', cursor: verifying ? 'not-allowed' : 'pointer',
+                                background: colors.primary, color: '#fff', fontWeight: 600, fontSize: '14px',
+                                display: 'flex', alignItems: 'center', gap: '8px', opacity: (verifying || !settings.unverifiedRoleId || !settings.verifiedRoleId) ? 0.6 : 1,
+                                flexShrink: 0,
+                            }}
+                        >
+                            <UserCheck size={16} />
+                            {verifying ? 'Verifying...' : 'Verify All Now'}
+                        </button>
                     </div>
-                    {(settings.autoVerifyEnabled ?? false) && (
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Hours Before Auto-Verify</label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={720}
-                                value={settings.autoVerifyAfterHours ?? 24}
-                                onChange={e => setSettings({ ...settings, autoVerifyAfterHours: Math.max(1, parseInt(e.target.value) || 24) })}
-                                style={{ width: '120px', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
-                            />
-                            <small style={{ display: 'block', marginTop: '4px', color: colors.textSecondary }}>Members who still haven't verified after this many hours will be automatically verified and given the Verified role.</small>
-                        </div>
-                    )}
                 </div>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>

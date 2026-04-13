@@ -58,7 +58,6 @@ export class WelcomeGatePlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
-    private autoVerifyInterval: NodeJS.Timeout | null = null;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
@@ -68,16 +67,9 @@ export class WelcomeGatePlugin implements IPlugin {
         
         // Ensure settings exist for all guilds
         await this.initializeSettings();
-
-        // Start auto-verify sweep every 10 minutes
-        this.autoVerifyInterval = setInterval(() => this.runAutoVerifySweep(), 10 * 60 * 1000);
     }
 
     async shutdown(): Promise<void> {
-        if (this.autoVerifyInterval) {
-            clearInterval(this.autoVerifyInterval);
-            this.autoVerifyInterval = null;
-        }
         this.logger.info('Welcome Gate Plugin shutting down');
     }
 
@@ -93,71 +85,6 @@ export class WelcomeGatePlugin implements IPlugin {
                 }
             } catch (e) {
                 this.logger.error(`Failed to init welcome settings for ${id}`, e);
-            }
-        }
-    }
-
-    // ─── Auto-verify sweep ────────────────────────────────────────────────────
-
-    private async runAutoVerifySweep(): Promise<void> {
-        for (const [guildId, guild] of this.client.guilds.cache) {
-            try {
-                const settings = await this.db.welcomeGateSettings.findUnique({
-                    where: { guildId }
-                });
-
-                if (!settings || !settings.enabled || !settings.autoVerifyEnabled) continue;
-                if (!settings.unverifiedRoleId || !settings.verifiedRoleId) continue;
-
-                const cutoff = Date.now() - settings.autoVerifyAfterHours * 60 * 60 * 1000;
-
-                // Fetch members with unverified role (may require manual fetch if cache incomplete)
-                await guild.members.fetch();
-
-                const toVerify = guild.members.cache.filter(m =>
-                    !m.user.bot &&
-                    m.roles.cache.has(settings.unverifiedRoleId!) &&
-                    m.joinedTimestamp !== null &&
-                    m.joinedTimestamp < cutoff
-                );
-
-                for (const [, member] of toVerify) {
-                    try {
-                        await member.roles.remove(settings.unverifiedRoleId!);
-                        await member.roles.add(settings.verifiedRoleId!);
-
-                        this.logger.info(`Auto-verified ${member.user.tag} in ${guild.name} after ${settings.autoVerifyAfterHours}h`);
-
-                        // Log to log channel
-                        if (settings.logChannelId) {
-                            const logChannel = guild.channels.cache.get(settings.logChannelId) as TextChannel | undefined;
-                            if (logChannel?.isTextBased()) {
-                                const embed = new EmbedBuilder()
-                                    .setColor(Colors.Green)
-                                    .setTitle('✅ Member Auto-Verified')
-                                    .setDescription(`**${member.user.tag}** was automatically verified after ${settings.autoVerifyAfterHours} hour(s).`)
-                                    .addFields({ name: 'Member', value: `<@${member.user.id}>`, inline: true })
-                                    .setFooter({ text: `User ID: ${member.user.id}` })
-                                    .setTimestamp();
-                                await logChannel.send({ embeds: [embed] });
-                            }
-                        }
-
-                        // DM the member
-                        try {
-                            const embed = new EmbedBuilder()
-                                .setTitle('You\'ve been verified!')
-                                .setDescription(`You have been automatically verified in **${guild.name}** and now have full access to the server.`)
-                                .setColor(Colors.Green);
-                            await member.send({ embeds: [embed] });
-                        } catch { /* DMs closed */ }
-
-                    } catch (e) {
-                        this.logger.error(`Failed to auto-verify ${member.user.tag} in ${guild.name}`, e);
-                    }
-                }
-            } catch (e) {
-                this.logger.error(`Auto-verify sweep failed for guild ${guildId}`, e);
             }
         }
     }
