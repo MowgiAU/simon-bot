@@ -270,6 +270,19 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 </div>
 
                 <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Arrival Channel</label>
+                    <select 
+                        value={settings.arrivalChannelId || ''} 
+                        onChange={e => setSettings({...settings, arrivalChannelId: e.target.value || null})}
+                        style={{ width: '100%', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                    >
+                        <option value="">None (arrivals disabled)</option>
+                        {channels.filter(c => c.type === 0).map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                    </select>
+                    <small style={{ display: 'block', marginTop: '4px', color: colors.textSecondary }}>Announces when a new member joins the server.</small>
+                </div>
+
+                <div>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Departure Channel</label>
                     <select 
                         value={settings.departureChannelId || ''} 

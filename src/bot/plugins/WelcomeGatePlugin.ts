@@ -98,15 +98,38 @@ export class WelcomeGatePlugin implements IPlugin {
                 where: { guildId: member.guild.id }
             });
 
-            if (!settings || !settings.enabled || !settings.unverifiedRoleId) return;
+            if (!settings || !settings.enabled) return;
 
-            const role = member.guild.roles.cache.get(settings.unverifiedRoleId);
-            if (role) {
-                await member.roles.add(role);
-                this.logger.info(`Assigned unverified role to ${member.user.tag} in ${member.guild.name}`);
+            // Assign unverified role
+            if (settings.unverifiedRoleId) {
+                const role = member.guild.roles.cache.get(settings.unverifiedRoleId);
+                if (role) {
+                    await member.roles.add(role);
+                    this.logger.info(`Assigned unverified role to ${member.user.tag} in ${member.guild.name}`);
+                }
+            }
+
+            // Send arrival announcement
+            if (settings.arrivalChannelId) {
+                const channel = member.guild.channels.cache.get(settings.arrivalChannelId) as TextChannel | undefined;
+                if (channel && channel.isTextBased()) {
+                    const memberCount = member.guild.memberCount;
+                    const embed = new EmbedBuilder()
+                        .setTitle('👋 Welcome!')
+                        .setDescription(`**${member.user.tag}** just joined the server.`)
+                        .addFields(
+                            { name: 'Member', value: `<@${member.user.id}>`, inline: true },
+                            { name: 'Member Count', value: `${memberCount.toLocaleString()}`, inline: true },
+                        )
+                        .setThumbnail(member.user.displayAvatarURL({ size: 64 }))
+                        .setColor(0x4ADE80)
+                        .setFooter({ text: `ID: ${member.user.id}` })
+                        .setTimestamp();
+                    await channel.send({ embeds: [embed] });
+                }
             }
         } catch (e) {
-            this.logger.error('Error assigning unverified role', e);
+            this.logger.error('Error handling member join', e);
         }
     }
 
