@@ -224,7 +224,8 @@ export class WelcomeGatePlugin implements IPlugin {
             const input = new TextInputBuilder()
                 .setCustomId(`q_${index}`)
                 .setLabel(q.substring(0, 45)) // Label max length is 45
-                .setStyle(TextInputStyle.Paragraph)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Type YES to confirm')
                 .setRequired(true);
             
             return new ActionRowBuilder<TextInputBuilder>().addComponents(input);
