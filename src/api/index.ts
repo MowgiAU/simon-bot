@@ -4487,10 +4487,17 @@ app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
         ...(settings.welcomeChannelId ? [settings.welcomeChannelId] : []),
     ]);
 
-    logger.info(`[Apply-Perms] Guild ${guildId}: whitelistedChannelIds=${JSON.stringify(settings.whitelistedChannelIds)}, allowed set size=${allowed.size}, allowed=${JSON.stringify([...allowed])}`);
-
     try {
         const { data: channels } = await axios.get(`${discordBase}/guilds/${guildId}/channels`, { headers });
+
+        // Auto-whitelist parent categories of allowed channels so children remain visible
+        for (const ch of channels) {
+            if (allowed.has(ch.id) && ch.parent_id) {
+                allowed.add(ch.parent_id);
+            }
+        }
+
+        logger.info(`[Apply-Perms] Guild ${guildId}: allowed set (${allowed.size}): ${JSON.stringify([...allowed])}`);
 
         let applied = 0;
         let skipped = 0;
