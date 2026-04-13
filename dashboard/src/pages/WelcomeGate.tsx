@@ -16,6 +16,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [verifying, setVerifying] = useState(false);
+    const [verifyProgress, setVerifyProgress] = useState<{ verified: number; total: number } | null>(null);
 
     useEffect(() => {
         if (!selectedGuild) return;
@@ -58,13 +59,32 @@ export const WelcomeGatePluginPage: React.FC = () => {
     const handleVerifyAll = async () => {
         if (!selectedGuild) return;
         setVerifying(true);
+        setVerifyProgress(null);
         try {
-            const { data } = await axios.post(`/api/guilds/${selectedGuild.id}/welcome/verify-all`, {}, { withCredentials: true });
-            showToast(`Done! Verified ${data.verified} member(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}.`, 'success');
+            await axios.post(`/api/guilds/${selectedGuild.id}/welcome/verify-all`, {}, { withCredentials: true });
+
+            // Poll for progress every 3 seconds
+            const poll = setInterval(async () => {
+                try {
+                    const { data } = await axios.get(`/api/guilds/${selectedGuild.id}/welcome/verify-all/status`, { withCredentials: true });
+                    setVerifyProgress({ verified: data.verified, total: data.total });
+                    if (data.status === 'done') {
+                        clearInterval(poll);
+                        setVerifying(false);
+                        setVerifyProgress(null);
+                        showToast(`Done! Verified ${data.verified} member(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}.`, 'success');
+                    } else if (data.status === 'error') {
+                        clearInterval(poll);
+                        setVerifying(false);
+                        setVerifyProgress(null);
+                        showToast(data.error || 'Verification job failed', 'error');
+                    }
+                } catch { /* ignore poll errors */ }
+            }, 3000);
         } catch (e: any) {
-            showToast(e.response?.data?.error || 'Failed to verify members', 'error');
-        } finally {
+            showToast(e.response?.data?.error || 'Failed to start verification', 'error');
             setVerifying(false);
+            setVerifyProgress(null);
         }
     };
 
@@ -246,7 +266,11 @@ export const WelcomeGatePluginPage: React.FC = () => {
                             }}
                         >
                             <UserCheck size={16} />
-                            {verifying ? 'Verifying...' : 'Verify All Now'}
+                            {verifying
+                                ? verifyProgress && verifyProgress.total > 0
+                                    ? `Verifying... ${verifyProgress.verified}/${verifyProgress.total}`
+                                    : 'Starting...'
+                                : 'Verify All Now'}
                         </button>
                     </div>
                 </div>

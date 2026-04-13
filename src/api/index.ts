@@ -4377,6 +4377,10 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 });
 
 
+// In-memory store for verify-all background jobs
+type VerifyJobStatus = { status: 'running' | 'done' | 'error'; verified: number; failed: number; total: number; error?: string };
+const verifyAllJobs = new Map<string, VerifyJobStatus>();
+
 // --- Welcome Gate Routes ---
 app.get('/api/guilds/:guildId/welcome', async (req, res) => {
     const { guildId } = req.params;
@@ -4464,31 +4468,35 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    try {
-        const settings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
-        if (!settings || !settings.unverifiedRoleId || !settings.verifiedRoleId) {
-            return res.status(400).json({ error: 'Unverified and Verified roles must be configured first.' });
-        }
+    // If a job is already running for this guild, return its id
+    if (verifyAllJobs.get(guildId)?.status === 'running') {
+        return res.json({ jobId: guildId, status: 'running' });
+    }
 
+    const settings = await db.welcomeGateSettings.findUnique({ where: { guildId } });
+    if (!settings || !settings.unverifiedRoleId || !settings.verifiedRoleId) {
+        return res.status(400).json({ error: 'Unverified and Verified roles must be configured first.' });
+    }
+
+    // Kick off background job
+    verifyAllJobs.set(guildId, { status: 'running', verified: 0, failed: 0, total: 0 });
+    res.json({ jobId: guildId, status: 'running' });
+
+    // Run asynchronously — don't await
+    (async () => {
         const botToken = process.env.DISCORD_TOKEN;
         const discordBase = 'https://discord.com/api/v10';
         const headers = { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' };
 
-        // Helper: PATCH a member's roles with automatic 429 retry
         const patchMemberRoles = async (userId: string, roles: string[]): Promise<void> => {
             while (true) {
                 try {
-                    await axios.patch(
-                        `${discordBase}/guilds/${guildId}/members/${userId}`,
-                        { roles },
-                        { headers }
-                    );
+                    await axios.patch(`${discordBase}/guilds/${guildId}/members/${userId}`, { roles }, { headers });
                     return;
                 } catch (err: any) {
                     if (err.response?.status === 429) {
                         const retryAfter = (err.response.data?.retry_after ?? 1) * 1000;
-                        await new Promise(r => setTimeout(r, retryAfter + 100));
-                        // continue loop and retry
+                        await new Promise(r => setTimeout(r, retryAfter + 200));
                     } else {
                         throw err;
                     }
@@ -4496,50 +4504,61 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
             }
         };
 
-        // Fetch all guild members (paginate up to 1000 at a time)
-        let members: any[] = [];
-        let after = '0';
-        while (true) {
-            const resp = await axios.get(`${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`, { headers });
-            const batch: any[] = resp.data;
-            if (!batch.length) break;
-            members = members.concat(batch);
-            if (batch.length < 1000) break;
-            after = batch[batch.length - 1].user.id;
-        }
-
-        const toVerify = members.filter(m =>
-            !m.user.bot &&
-            Array.isArray(m.roles) &&
-            m.roles.includes(settings.unverifiedRoleId) &&
-            !m.roles.includes(settings.verifiedRoleId)
-        );
-
-        let verified = 0;
-        let failed = 0;
-        for (const m of toVerify) {
-            const userId = m.user.id;
-            // Build updated roles: remove unverified, add verified
-            const updatedRoles = [
-                ...m.roles.filter((r: string) => r !== settings.unverifiedRoleId),
-                settings.verifiedRoleId,
-            ];
-            try {
-                await patchMemberRoles(userId, updatedRoles);
-                verified++;
-            } catch {
-                failed++;
+        try {
+            let members: any[] = [];
+            let after = '0';
+            while (true) {
+                const resp = await axios.get(`${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`, { headers });
+                const batch: any[] = resp.data;
+                if (!batch.length) break;
+                members = members.concat(batch);
+                if (batch.length < 1000) break;
+                after = batch[batch.length - 1].user.id;
             }
-            // Small delay between members to stay well under rate limits
-            await new Promise(r => setTimeout(r, 100));
-        }
 
-        logger.info(`Verify-all for guild ${guildId}: verified ${verified}, failed ${failed}`);
-        res.json({ verified, failed, total: toVerify.length });
-    } catch (e) {
-        logger.error('Failed to verify-all members', e);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+            const toVerify = members.filter(m =>
+                !m.user.bot &&
+                Array.isArray(m.roles) &&
+                m.roles.includes(settings.unverifiedRoleId) &&
+                !m.roles.includes(settings.verifiedRoleId)
+            );
+
+            const job = verifyAllJobs.get(guildId)!;
+            job.total = toVerify.length;
+
+            for (const m of toVerify) {
+                const updatedRoles = [
+                    ...m.roles.filter((r: string) => r !== settings.unverifiedRoleId),
+                    settings.verifiedRoleId,
+                ];
+                try {
+                    await patchMemberRoles(m.user.id, updatedRoles);
+                    job.verified++;
+                } catch {
+                    job.failed++;
+                }
+                // Pace requests — Discord allows ~10 role changes/10s per guild
+                await new Promise(r => setTimeout(r, 1100));
+            }
+
+            job.status = 'done';
+            logger.info(`Verify-all for guild ${guildId}: verified ${job.verified}, failed ${job.failed}`);
+        } catch (e: any) {
+            const job = verifyAllJobs.get(guildId);
+            if (job) { job.status = 'error'; job.error = e.message; }
+            logger.error('Verify-all background job failed', e);
+        }
+    })();
+});
+
+// Poll verify-all job status
+app.get('/api/guilds/:guildId/welcome/verify-all/status', async (req, res) => {
+    const { guildId } = req.params;
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    const job = verifyAllJobs.get(guildId);
+    if (!job) return res.json({ status: 'idle' });
+    res.json(job);
 });
 
 // --- Bot Identity Routes ---
