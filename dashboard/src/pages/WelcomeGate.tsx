@@ -233,7 +233,7 @@ export const WelcomeGatePluginPage: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
                             <h3 style={{ margin: 0 }}>Verify All Unverified Members</h3>
-                            <p style={{ margin: '4px 0 0', fontSize: '14px', color: colors.textSecondary }}>Immediately grant the Verified role to every member currently holding the Unverified role.</p>
+                            <p style={{ margin: '4px 0 0', fontSize: '14px', color: colors.textSecondary }}>Immediately grant the Verified role to every member currently holding the Unverified role. This may take a minute for large servers.</p>
                         </div>
                         <button
                             onClick={handleVerifyAll}

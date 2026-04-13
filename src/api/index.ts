@@ -4472,7 +4472,29 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
 
         const botToken = process.env.DISCORD_TOKEN;
         const discordBase = 'https://discord.com/api/v10';
-        const headers = { Authorization: `Bot ${botToken}` };
+        const headers = { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' };
+
+        // Helper: PATCH a member's roles with automatic 429 retry
+        const patchMemberRoles = async (userId: string, roles: string[]): Promise<void> => {
+            while (true) {
+                try {
+                    await axios.patch(
+                        `${discordBase}/guilds/${guildId}/members/${userId}`,
+                        { roles },
+                        { headers }
+                    );
+                    return;
+                } catch (err: any) {
+                    if (err.response?.status === 429) {
+                        const retryAfter = (err.response.data?.retry_after ?? 1) * 1000;
+                        await new Promise(r => setTimeout(r, retryAfter + 100));
+                        // continue loop and retry
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+        };
 
         // Fetch all guild members (paginate up to 1000 at a time)
         let members: any[] = [];
@@ -4497,15 +4519,19 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
         let failed = 0;
         for (const m of toVerify) {
             const userId = m.user.id;
+            // Build updated roles: remove unverified, add verified
+            const updatedRoles = [
+                ...m.roles.filter((r: string) => r !== settings.unverifiedRoleId),
+                settings.verifiedRoleId,
+            ];
             try {
-                // Add verified role
-                await axios.put(`${discordBase}/guilds/${guildId}/members/${userId}/roles/${settings.verifiedRoleId}`, {}, { headers });
-                // Remove unverified role
-                await axios.delete(`${discordBase}/guilds/${guildId}/members/${userId}/roles/${settings.unverifiedRoleId}`, { headers });
+                await patchMemberRoles(userId, updatedRoles);
                 verified++;
             } catch {
                 failed++;
             }
+            // Small delay between members to stay well under rate limits
+            await new Promise(r => setTimeout(r, 100));
         }
 
         logger.info(`Verify-all for guild ${guildId}: verified ${verified}, failed ${failed}`);
