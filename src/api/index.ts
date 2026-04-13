@@ -4496,8 +4496,8 @@ app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
         let skipped = 0;
 
         for (const channel of channels) {
-            // Only process text-based channel types (0=text, 5=announcement, 15=forum, 16=media)
-            if (![0, 5, 15, 16].includes(channel.type)) continue;
+            // Process text, voice, announcement, stage, forum, media channels and categories
+            if (![0, 2, 4, 5, 13, 15, 16].includes(channel.type)) continue;
 
             const VIEW_CHANNEL = '1024';
 
