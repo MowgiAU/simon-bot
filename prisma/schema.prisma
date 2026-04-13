@@ -647,9 +647,6 @@ model WelcomeGateSettings {
   modalTitle       String   @default("Server Verification")
   logChannelId     String?  // Channel to log blocked unverified messages
   departureChannelId String? // Channel to announce member departures
-
-  autoVerifyEnabled   Boolean @default(false)  // Auto-verify unverified members after N hours
-  autoVerifyAfterHours Int    @default(24)     // Hours to wait before auto-verifying
   
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
