@@ -338,6 +338,14 @@ export class WelcomeGatePlugin implements IPlugin {
                     return; 
                 }
 
+                // Allow messages in the arrival/departure channels (Discord join system messages appear here)
+                if (settings.arrivalChannelId && message.channelId === settings.arrivalChannelId) {
+                    return;
+                }
+                if (settings.departureChannelId && message.channelId === settings.departureChannelId) {
+                    return;
+                }
+
                 // Allow messages in ticket channels
                 const ticket = await this.db.ticket.findUnique({
                     where: { channelId: message.channelId },
