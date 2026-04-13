@@ -3826,7 +3826,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'anti-external-forward'] 
             });
         }
 
@@ -10855,6 +10855,38 @@ async function runBeatBattleLifecycle(): Promise<void> {
 // Run lifecycle immediately on start, then every 60 seconds
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
+
+// ─── Anti-External Forward ──────────────────────────────────────────────────
+
+app.get('/api/anti-external-forward/:guildId', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        let settings = await db.antiExternalForwardSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.antiExternalForwardSettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e: any) {
+        logger.error(`AEF get settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/anti-external-forward/:guildId', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        const { enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId } = req.body;
+        const settings = await db.antiExternalForwardSettings.upsert({
+            where: { guildId },
+            create: { guildId, enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId: logChannelId || null },
+            update: { enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId: logChannelId || null },
+        });
+        res.json(settings);
+    } catch (e: any) {
+        logger.error(`AEF save settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 // â”€â”€â”€ Charts System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

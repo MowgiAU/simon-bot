@@ -75,6 +75,7 @@ const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ d
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
 const SpamGuardPage          = lazy(() => import("./pages/SpamGuard").then(m => ({ default: m.SpamGuardPage })));
+const AntiExternalForwardPage = lazy(() => import("./pages/AntiExternalForward").then(m => ({ default: m.AntiExternalForwardPage })));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
@@ -447,6 +448,8 @@ const AdminDashboard: React.FC = () => {
           return <VoiceStatsPage />;
         case "spam-guard":
           return <SpamGuardPage />;
+        case "anti-external-forward":
+          return <AntiExternalForwardPage />;
         case "booster-color":
           return <BoosterColorPage />;
         case "boost":

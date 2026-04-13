@@ -124,6 +124,7 @@ model Guild {
   voiceStatSettings    VoiceStatSettings?
   spamGuardSettings    SpamGuardSettings?
   spamGuardIncidents   SpamGuardIncident[]
+  antiExternalForwardSettings AntiExternalForwardSettings?
 
   @@map("guilds")
 }
@@ -2230,6 +2231,26 @@ model SpamImageHash {
   @@unique([guildId, hash])
   @@index([guildId])
   @@map("spam_image_hashes")
+}
+
+model AntiExternalForwardSettings {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+
+  enabled          Boolean  @default(true)
+  deleteMessage    Boolean  @default(true)
+  warnUser         Boolean  @default(true)
+
+  exemptRoleIds    String[] @default([])
+  exemptChannelIds String[] @default([])
+  logChannelId     String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("anti_external_forward_settings")
 }
 
 model SpamGuardIncident {
