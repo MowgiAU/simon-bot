@@ -4485,8 +4485,6 @@ app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
     const allowed = new Set<string>([
         ...(settings.whitelistedChannelIds ?? []),
         ...(settings.welcomeChannelId ? [settings.welcomeChannelId] : []),
-        ...(settings.arrivalChannelId ? [settings.arrivalChannelId] : []),
-        ...(settings.departureChannelId ? [settings.departureChannelId] : []),
     ]);
 
     try {
