@@ -6,7 +6,8 @@ import { AutoMessagesPage } from './AutoMessages';
 import { AutoResponderPage } from './AutoResponder';
 import { ChannelRules } from './ChannelRules';
 import { AntiPiracySettings } from './AntiPiracySettings';
-import { Shield, Clock, Zap, FileText, ShieldOff } from 'lucide-react';
+import { SpamGuardPage } from './SpamGuard';
+import { Shield, Clock, Zap, FileText, ShieldOff, ShieldCheck } from 'lucide-react';
 
 const TABS = [
     { key: 'welcome-gate', label: 'Welcome Gate', icon: Shield },
@@ -14,6 +15,7 @@ const TABS = [
     { key: 'auto-responder', label: 'Auto Responder', icon: Zap },
     { key: 'channel-rules', label: 'Channel Rules', icon: FileText },
     { key: 'anti-piracy', label: 'Anti-Piracy', icon: ShieldOff },
+    { key: 'spam-guard', label: 'Spam Guard', icon: ShieldCheck },
 ] as const;
 
 type Tab = typeof TABS[number]['key'];
@@ -53,6 +55,7 @@ export function AutomationPage() {
             {tab === 'auto-responder' && <AutoResponderPage />}
             {tab === 'channel-rules' && <ChannelRules guildId={selectedGuild.id} />}
             {tab === 'anti-piracy' && <AntiPiracySettings guildId={selectedGuild.id} />}
+            {tab === 'spam-guard' && <SpamGuardPage />}
         </div>
     );
 }

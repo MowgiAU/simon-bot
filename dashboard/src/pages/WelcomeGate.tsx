@@ -216,6 +216,48 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 </div>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: 0 }}>Auto Verification</h3>
+                            <p style={{ margin: '4px 0 0', fontSize: '14px', color: colors.textSecondary }}>Automatically verify unverified members after a set time period.</p>
+                        </div>
+                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px', flexShrink: 0 }}>
+                            <input
+                                type="checkbox"
+                                checked={settings.autoVerifyEnabled ?? false}
+                                onChange={e => setSettings({ ...settings, autoVerifyEnabled: e.target.checked })}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                            />
+                            <span style={{
+                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                backgroundColor: (settings.autoVerifyEnabled ?? false) ? colors.primary : colors.textTertiary,
+                                transition: '.4s', borderRadius: '34px'
+                            }}>
+                                <span style={{
+                                    position: 'absolute', height: '16px', width: '16px', left: '4px', bottom: '4px',
+                                    backgroundColor: colors.textPrimary, transition: '.4s', borderRadius: '50%',
+                                    transform: (settings.autoVerifyEnabled ?? false) ? 'translateX(26px)' : 'translateX(0)'
+                                }} />
+                            </span>
+                        </label>
+                    </div>
+                    {(settings.autoVerifyEnabled ?? false) && (
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Hours Before Auto-Verify</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={720}
+                                value={settings.autoVerifyAfterHours ?? 24}
+                                onChange={e => setSettings({ ...settings, autoVerifyAfterHours: Math.max(1, parseInt(e.target.value) || 24) })}
+                                style={{ width: '120px', padding: '10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}
+                            />
+                            <small style={{ display: 'block', marginTop: '4px', color: colors.textSecondary }}>Members who still haven't verified after this many hours will be automatically verified and given the Verified role.</small>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0 }}>Verification Questions</h3>
                         <button onClick={addQuestion} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>

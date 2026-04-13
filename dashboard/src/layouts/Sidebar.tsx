@@ -39,7 +39,6 @@ import {
   Hammer,
   BarChart2,
   ClipboardCheck,
-  ShieldCheck,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -198,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
             <button
                 className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`}
                 onClick={() => onNavigate('automation')}
@@ -295,17 +294,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={BarChart2} size={20} /></span>
                 <span className="nav-label">Voice Stats</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('spam-guard') && (
-            <button
-                className={`nav-item ${activeSection === 'spam-guard' ? 'active' : ''}`}
-                onClick={() => onNavigate('spam-guard')}
-                title={collapsed ? "Spam Guard" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={ShieldCheck} size={20} /></span>
-                <span className="nav-label">Spam Guard</span>
             </button>
           )}
 
