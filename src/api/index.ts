@@ -4484,6 +4484,7 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
 
     // Run asynchronously — don't await
     (async () => {
+        logger.info(`Verify-all job started for guild ${guildId}`);
         const botToken = process.env.DISCORD_TOKEN;
         const discordBase = 'https://discord.com/api/v10';
         const headers = { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' };
@@ -4546,8 +4547,8 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
                     logger.warn(`Verify-all: failed to patch ${m.user.id}: ${e.response?.status} ${e.message}`);
                     job.failed++;
                 }
-                // Pace requests — Discord allows ~10 role changes/10s per guild
-                await new Promise(r => setTimeout(r, 1100));
+                // 300ms base pace — 429 retry handler will back off if needed
+                await new Promise(r => setTimeout(r, 300));
             }
 
             job.status = 'done';
