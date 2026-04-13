@@ -6,6 +6,7 @@ import { colors, borderRadius, spacing } from '../theme/theme';
 import { Shield, Save, Plus, Trash2, UserCheck } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
+import { ChannelSelect } from '../components/ChannelSelect';
 import { showToast } from '../components/Toast';
 
 export const WelcomeGatePluginPage: React.FC = () => {
@@ -321,37 +322,18 @@ export const WelcomeGatePluginPage: React.FC = () => {
                 <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
                     <h3 style={{ margin: '0 0 8px' }}>Channel Visibility (Unverified Role)</h3>
                     <p style={{ margin: '0 0 16px', fontSize: '14px', color: colors.textSecondary }}>
-                        Click <strong>Apply Permissions</strong> to hide all channels from the Unverified role, except the ones selected below (plus welcome/arrival/departure channels which are always visible). Your <code>@everyone</code> permissions are untouched — this only adds a role override on the Unverified role, keeping your server discoverable.
+                        Click <strong>Apply Permissions</strong> to hide all channels from the Unverified role, except the ones selected below (plus the Welcome channel). Your <code>@everyone</code> permissions are untouched — this only adds a role override on the Unverified role, keeping your server discoverable.
                     </p>
                     <div style={{ marginBottom: '12px' }}>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Visible Channels for Unverified Members</label>
-                        <div style={{ maxHeight: '200px', overflowY: 'auto', border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: '8px', background: colors.background, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {channels.filter(c => c.type === 0).map(c => {
-                                const selected = (settings.whitelistedChannelIds || []).includes(c.id);
-                                return (
-                                    <button
-                                        key={c.id}
-                                        onClick={() => {
-                                            const current: string[] = settings.whitelistedChannelIds || [];
-                                            setSettings({
-                                                ...settings,
-                                                whitelistedChannelIds: selected
-                                                    ? current.filter((id: string) => id !== c.id)
-                                                    : [...current, c.id],
-                                            });
-                                        }}
-                                        style={{
-                                            padding: '4px 10px', borderRadius: borderRadius.md, border: `1px solid ${selected ? colors.primary : colors.border}`,
-                                            background: selected ? `${colors.primary}22` : 'transparent', color: selected ? colors.primary : colors.textSecondary,
-                                            cursor: 'pointer', fontSize: '13px', fontWeight: selected ? 600 : 400,
-                                        }}
-                                    >
-                                        #{c.name}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <small style={{ display: 'block', marginTop: '6px', color: colors.textSecondary }}>Click channels to toggle. Save settings first, then click Apply.</small>
+                        <ChannelSelect
+                            guildId={selectedGuild!.id}
+                            value={settings.whitelistedChannelIds || []}
+                            onChange={v => setSettings({ ...settings, whitelistedChannelIds: Array.isArray(v) ? v : [v] })}
+                            multiple
+                            placeholder="Select visible channels..."
+                        />
+                        <small style={{ display: 'block', marginTop: '6px', color: colors.textSecondary }}>Save settings first, then click Apply Permissions.</small>
                     </div>
                     <button
                         onClick={handleApplyPermissions}
