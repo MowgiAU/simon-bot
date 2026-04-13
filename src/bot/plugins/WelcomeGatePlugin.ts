@@ -98,10 +98,10 @@ export class WelcomeGatePlugin implements IPlugin {
                 where: { guildId: member.guild.id }
             });
 
-            if (!settings || !settings.enabled) return;
+            if (!settings) return;
 
-            // Assign unverified role
-            if (settings.unverifiedRoleId) {
+            // Assign unverified role only when the gate is enabled
+            if (settings.enabled && settings.unverifiedRoleId) {
                 const role = member.guild.roles.cache.get(settings.unverifiedRoleId);
                 if (role) {
                     await member.roles.add(role);
@@ -109,7 +109,7 @@ export class WelcomeGatePlugin implements IPlugin {
                 }
             }
 
-            // Send arrival announcement
+            // Send arrival announcement regardless of gate enabled state
             if (settings.arrivalChannelId) {
                 const channel = member.guild.channels.cache.get(settings.arrivalChannelId) as TextChannel | undefined;
                 if (channel && channel.isTextBased()) {
