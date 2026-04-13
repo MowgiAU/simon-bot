@@ -265,7 +265,10 @@ export class AutoResponderPlugin implements IPlugin {
                         if (validLinks.length > 0) {
                             e.addFields({
                                 name: '🔗 Links',
-                                value: validLinks.map((l: any) => `• [${resolvePlaceholders(l.title)}](${l.url})`).join('\n'),
+                                value: validLinks.map((l: any) => {
+                                    const desc = l.description ? `\n  ${resolvePlaceholders(l.description)}` : '';
+                                    return `• [${resolvePlaceholders(l.title)}](${l.url})${desc}`;
+                                }).join('\n'),
                                 inline: false,
                             });
                         }
@@ -277,7 +280,10 @@ export class AutoResponderPlugin implements IPlugin {
                             if (validLinks.length === 0) continue;
                             e.addFields({
                                 name: `🔗 ${resolvePlaceholders(cat.category)}`,
-                                value: validLinks.map((l: any) => `• [${resolvePlaceholders(l.title)}](${l.url})`).join('\n'),
+                                value: validLinks.map((l: any) => {
+                                    const desc = l.description ? `\n  ${resolvePlaceholders(l.description)}` : '';
+                                    return `• [${resolvePlaceholders(l.title)}](${l.url})${desc}`;
+                                }).join('\n'),
                                 inline: false,
                             });
                         }

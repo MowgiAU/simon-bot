@@ -11,7 +11,7 @@ import {
 // â”€â”€â”€ Embed types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface EmbedField { name: string; value: string; inline: boolean; }
-interface EmbedLink { title: string; url: string; }
+interface EmbedLink { title: string; url: string; description?: string; }
 interface EmbedLinkCategory { category: string; links: EmbedLink[]; }
 interface EmbedData {
     title: string; description: string; url: string; color: string;
@@ -240,12 +240,16 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                         <button onClick={() => removeCategory(ci)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={14} /></button>
                     </div>
                     {cat.links.map((link, li) => (
-                        <div key={li} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
-                            <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.title}
-                                onChange={e => updateCatLink(ci, li, { title: e.target.value })} placeholder="Link title" />
-                            <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.url}
-                                onChange={e => updateCatLink(ci, li, { url: e.target.value })} placeholder="URL (https://...)" />
-                            <button onClick={() => removeCatLink(ci, li)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={12} /></button>
+                        <div key={li} style={{ marginBottom: '8px', padding: '6px', background: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+                                <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.title}
+                                    onChange={e => updateCatLink(ci, li, { title: e.target.value })} placeholder="Link title" />
+                                <input style={{ ...inputBase, marginBottom: 0, flex: 1 }} value={link.url}
+                                    onChange={e => updateCatLink(ci, li, { url: e.target.value })} placeholder="URL (https://...)" />
+                                <button onClick={() => removeCatLink(ci, li)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, display: 'flex', flexShrink: 0 }}><Trash2 size={12} /></button>
+                            </div>
+                            <input style={{ ...inputBase, marginBottom: 0, fontSize: '11px' }} value={link.description || ''}
+                                onChange={e => updateCatLink(ci, li, { description: e.target.value })} placeholder="Description (optional)" />
                         </div>
                     ))}
                     {cat.links.length < 25 && (
@@ -318,12 +322,15 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
             {cats.filter(c => c.category && c.links.some(l => l.title && l.url)).map((cat, ci) => (
                 <div key={ci} style={{ marginTop: '10px' }}>
                     <div style={{ fontSize: '12px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>{cat.category}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {cat.links.filter(l => l.title && l.url).map((l, li) => (
-                            <a key={li} href={l.url} target="_blank" rel="noopener noreferrer"
-                                style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <span style={{ color: colors.textSecondary }}>•</span> {l.title}
-                            </a>
+                            <div key={li}>
+                                <a href={l.url} target="_blank" rel="noopener noreferrer"
+                                    style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <span style={{ color: colors.textSecondary }}>•</span> {l.title}
+                                </a>
+                                {l.description && <div style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '13px', marginTop: '1px' }}>{l.description}</div>}
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -332,10 +339,13 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
             {links.filter(l => l.title && l.url).length > 0 && (
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {links.filter(l => l.title && l.url).map((l, i) => (
-                        <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span style={{ color: colors.textSecondary }}>•</span> {l.title}
-                        </a>
+                        <div key={i}>
+                            <a href={l.url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span style={{ color: colors.textSecondary }}>•</span> {l.title}
+                            </a>
+                            {l.description && <div style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '13px', marginTop: '1px' }}>{l.description}</div>}
+                        </div>
                     ))}
                 </div>
             )}

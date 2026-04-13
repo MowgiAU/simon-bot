@@ -87,12 +87,17 @@ interface EmbedField {
     inline: boolean;
 }
 
+interface EmbedLink { title: string; url: string; description?: string; }
+interface EmbedLinkCategory { category: string; links: EmbedLink[]; }
+
 interface EmbedData {
     title: string;
     description: string;
     url: string;
     color: string;
     fields: EmbedField[];
+    links: EmbedLink[];
+    linkCategories: EmbedLinkCategory[];
     authorName: string;
     authorIconUrl: string;
     authorUrl: string;
@@ -109,6 +114,8 @@ const defaultEmbed: EmbedData = {
     url: '',
     color: '#10B981',
     fields: [],
+    links: [],
+    linkCategories: [],
     authorName: '',
     authorIconUrl: '',
     authorUrl: '',
@@ -683,6 +690,23 @@ const EmbedBuilder: React.FC<{
         update({ fields });
     };
 
+    // Link categories
+    const cats = embed.linkCategories || [];
+    const addCategory = () => update({ linkCategories: [...cats, { category: '', links: [{ title: '', url: '' }] }] });
+    const removeCategory = (ci: number) => update({ linkCategories: cats.filter((_, idx) => idx !== ci) });
+    const updateCategory = (ci: number, p: Partial<EmbedLinkCategory>) => {
+        const c = [...cats]; c[ci] = { ...c[ci], ...p }; update({ linkCategories: c });
+    };
+    const addCatLink = (ci: number) => {
+        const c = [...cats]; c[ci] = { ...c[ci], links: [...c[ci].links, { title: '', url: '' }] }; update({ linkCategories: c });
+    };
+    const removeCatLink = (ci: number, li: number) => {
+        const c = [...cats]; c[ci] = { ...c[ci], links: c[ci].links.filter((_, idx) => idx !== li) }; update({ linkCategories: c });
+    };
+    const updateCatLink = (ci: number, li: number, p: Partial<EmbedLink>) => {
+        const c = [...cats]; const lnks = [...c[ci].links]; lnks[li] = { ...lnks[li], ...p }; c[ci] = { ...c[ci], links: lnks }; update({ linkCategories: c });
+    };
+
     const sectionTitle = (title: string) => (
         <div style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: spacing.lg, marginBottom: spacing.sm }}>{title}</div>
     );
@@ -760,6 +784,43 @@ const EmbedBuilder: React.FC<{
             ))}
             {embed.fields.length < 25 && (
                 <button onClick={addField} style={{ ...btnSecondary, alignSelf: 'flex-start' }}><Plus size={14} /> Add Field</button>
+            )}
+
+            {/* Links */}
+            {sectionTitle('Links')}
+            <p style={{ fontSize: '12px', color: colors.textTertiary, margin: `0 0 ${spacing.sm} 0` }}>
+                Group links under categories — each category becomes a field in the embed.
+            </p>
+            {cats.map((cat, ci) => (
+                <div key={ci} style={{ background: colors.background, borderRadius: borderRadius.md, padding: spacing.md, border: `1px solid ${colors.border}`, marginBottom: spacing.sm }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                        <input style={{ ...inputStyle, flex: 1, marginRight: spacing.sm }}
+                            value={cat.category} onChange={e => updateCategory(ci, { category: e.target.value })}
+                            placeholder="Category title (e.g. Samples, Tutorials)" />
+                        <button onClick={() => removeCategory(ci)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px', flexShrink: 0 }}><Trash2 size={14} /></button>
+                    </div>
+                    {cat.links.map((link, li) => (
+                        <div key={li} style={{ marginBottom: spacing.sm, padding: spacing.sm, background: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }}>
+                            <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center', marginBottom: '6px' }}>
+                                <input style={{ ...inputStyle, flex: 1 }} value={link.title}
+                                    onChange={e => updateCatLink(ci, li, { title: e.target.value })} placeholder="Link title" />
+                                <input style={{ ...inputStyle, flex: 1 }} value={link.url}
+                                    onChange={e => updateCatLink(ci, li, { url: e.target.value })} placeholder="URL (https://...)" />
+                                <button onClick={() => removeCatLink(ci, li)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px', flexShrink: 0 }}><Trash2 size={12} /></button>
+                            </div>
+                            <input style={{ ...inputStyle, fontSize: '12px' }} value={link.description || ''}
+                                onChange={e => updateCatLink(ci, li, { description: e.target.value })} placeholder="Description (optional)" />
+                        </div>
+                    ))}
+                    {cat.links.length < 25 && (
+                        <button onClick={() => addCatLink(ci)} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                            <Plus size={12} /> Add Link
+                        </button>
+                    )}
+                </div>
+            ))}
+            {cats.length < 25 && (
+                <button onClick={addCategory} style={{ ...btnSecondary, alignSelf: 'flex-start' }}><Plus size={14} /> Add Link Category</button>
             )}
 
             {/* Images */}
@@ -852,7 +913,8 @@ const EmbedBuilder: React.FC<{
 // Embed Preview
 // ---------------------------------------------------------------------------
 const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
-    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl;
+    const cats = embed.linkCategories || [];
+    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl || cats.some(c => c.links.some(l => l.title && l.url));
     if (!hasContent) return <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>Embed preview will appear here</div>;
 
     return (
@@ -900,6 +962,22 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 
             {/* Image */}
             {embed.imageUrl && <img src={embed.imageUrl} alt="" style={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: '4px', marginTop: '8px' }} />}
+
+            {/* Link categories */}
+            {cats.filter(c => c.category && c.links.some(l => l.title && l.url)).map((cat, ci) => (
+                <div key={ci} style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>{cat.category}</div>
+                    {cat.links.filter(l => l.title && l.url).map((l, li) => (
+                        <div key={li} style={{ marginBottom: '3px' }}>
+                            <a href={l.url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span style={{ color: colors.textSecondary }}>•</span> {l.title}
+                            </a>
+                            {l.description && <div style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '13px', marginTop: '1px' }}>{l.description}</div>}
+                        </div>
+                    ))}
+                </div>
+            ))}
 
             {/* Footer */}
             {(embed.footerText || embed.timestamp) && (
@@ -1212,6 +1290,25 @@ export function BotMessengerPage() {
             if (embed.imageUrl) embedPayload.image = { url: embed.imageUrl };
             if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
             if (embed.fields.length > 0) embedPayload.fields = embed.fields.filter(f => f.name || f.value);
+
+            // Convert link categories to embed fields
+            const linkFields: any[] = [];
+            for (const cat of (embed.linkCategories || [])) {
+                if (!cat.category) continue;
+                const validLinks = cat.links.filter(l => l.title && l.url);
+                if (validLinks.length === 0) continue;
+                linkFields.push({
+                    name: `🔗 ${cat.category}`,
+                    value: validLinks.map(l => {
+                        const desc = l.description ? `\n  ${l.description}` : '';
+                        return `• [${l.title}](${l.url})${desc}`;
+                    }).join('\n'),
+                    inline: false,
+                });
+            }
+            if (linkFields.length > 0) {
+                embedPayload.fields = [...(embedPayload.fields || []), ...linkFields];
+            }
 
             await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
                 channelId: embedChannelId,
