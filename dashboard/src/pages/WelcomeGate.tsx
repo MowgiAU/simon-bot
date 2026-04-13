@@ -41,7 +41,43 @@ export const WelcomeGatePluginPage: React.FC = () => {
             }
         };
 
+        // Resume polling if a verify-all job is already running on the server
+        const resumePollingIfRunning = async () => {
+            try {
+                const { data } = await axios.get(`/api/guilds/${selectedGuild.id}/welcome/verify-all/status`, { withCredentials: true });
+                if (data.status === 'running') {
+                    setVerifying(true);
+                    setVerifyProgress({ verified: data.verified, total: data.total });
+                    const poll = setInterval(async () => {
+                        try {
+                            const { data: d } = await axios.get(`/api/guilds/${selectedGuild.id}/welcome/verify-all/status`, { withCredentials: true });
+                            setVerifyProgress({ verified: d.verified, total: d.total });
+                            if (d.status === 'done') {
+                                clearInterval(poll);
+                                setVerifying(false);
+                                setVerifyProgress(null);
+                                const verified = d.verified ?? 0;
+                                const failed = d.failed ?? 0;
+                                const total = d.total ?? 0;
+                                if (total === 0) {
+                                    showToast('No unverified members found — everyone already has the Verified role.', 'success');
+                                } else {
+                                    showToast(`Done! Verified ${verified} member(s)${failed > 0 ? `, ${failed} failed` : ''}.`, 'success');
+                                }
+                            } else if (d.status === 'error') {
+                                clearInterval(poll);
+                                setVerifying(false);
+                                setVerifyProgress(null);
+                                showToast(d.error || 'Verification job failed', 'error');
+                            }
+                        } catch { /* ignore */ }
+                    }, 3000);
+                }
+            } catch { /* ignore */ }
+        };
+
         fetchData(controller.signal);
+        resumePollingIfRunning();
         return () => {
             controller.abort();
         };
