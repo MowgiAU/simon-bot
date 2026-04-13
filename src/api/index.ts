@@ -4508,14 +4508,24 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
         try {
             let members: any[] = [];
             let after = '0';
+            let pageCount = 0;
             while (true) {
-                const resp = await axios.get(`${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`, { headers });
+                const resp = await axios.get(
+                    `${discordBase}/guilds/${guildId}/members?limit=1000&after=${after}`,
+                    { headers, timeout: 15000 }
+                );
                 const batch = resp.data;
+                logger.info(`Verify-all guild ${guildId}: page ${++pageCount}, got ${Array.isArray(batch) ? batch.length : 'non-array'}`);
                 // Guard: Discord returns an error object (not array) if permissions are missing
                 if (!Array.isArray(batch) || batch.length === 0) break;
                 members = members.concat(batch);
                 if (batch.length < 1000) break;
-                after = batch[batch.length - 1].user.id;
+                const lastId = batch[batch.length - 1]?.user?.id;
+                if (!lastId || lastId === after) {
+                    logger.warn(`Verify-all guild ${guildId}: pagination stalled at after=${after}, stopping`);
+                    break;
+                }
+                after = lastId;
             }
 
             logger.info(`Verify-all guild ${guildId}: fetched ${members.length} total members`);
