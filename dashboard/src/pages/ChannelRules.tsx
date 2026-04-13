@@ -24,6 +24,7 @@ import { useMobile } from '../hooks/useMobile';
 interface Rule {
     id: string;
     name: string;
+    reason?: string;
     targetChannelId: string;
     type: string;
     action: string;
@@ -47,7 +48,10 @@ const RULE_TYPES = [
     { value: 'MAX_LENGTH', label: 'Maximum Length', icon: <FileText size={16}/> },
     { value: 'REGEX_MATCH', label: 'Regex Pattern', icon: <Copy size={16}/> },
     { value: 'CAPS_LIMIT', label: 'Caps Lock Limit', icon: <AlertTriangle size={16}/> },
-    { value: 'BLOCK_DOMAINS', label: 'Block Domains', icon: <Shield size={16}/> }
+    { value: 'BLOCK_DOMAINS', label: 'Block Domains', icon: <Shield size={16}/> },
+    { value: 'BLOCK_EXTERNAL_FORWARDS', label: 'Block External Forwards', icon: <Shield size={16}/> },
+    { value: 'BLOCK_ALL_FORWARDS', label: 'Block All Forwards', icon: <Shield size={16}/> },
+    { value: 'BLOCK_FORWARDED_FROM', label: 'Block Forwards From Channel', icon: <Shield size={16}/> },
 ];
 
 export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
@@ -209,6 +213,21 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                         />
                     </div>
                 );
+            case 'BLOCK_FORWARDED_FROM':
+                return (
+                    <div style={{ marginTop: spacing.sm }}>
+                        <label style={{ color: colors.textSecondary, fontSize: '12px' }}>Source Channel (forwards of messages from this channel will be blocked)</label>
+                        <ChannelSelect
+                            guildId={guildId}
+                            value={(config.channelIds || [])[0] || ''}
+                            onChange={id => updateConfig('channelIds', id ? [id] : [])}
+                            placeholder="Select source channel..."
+                        />
+                    </div>
+                );
+            case 'BLOCK_EXTERNAL_FORWARDS':
+            case 'BLOCK_ALL_FORWARDS':
+                return <p style={{ margin: `${spacing.sm} 0 0`, fontSize: '12px', color: colors.textSecondary }}>No additional configuration needed.</p>;
             default:
                 return null;
         }
@@ -231,7 +250,7 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
             {isMobile && <p style={{ margin: '0 0 16px', color: colors.textSecondary }}>Configure automated moderation rules per channel.</p>}
 
             <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Set up per-channel rules to automatically moderate content — block file types, enforce message length, restrict domains, and more. Rules can be configured with exempt roles.</p>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>Set up per-channel rules to automatically moderate content — block file types, enforce message length, restrict domains, block forwarded messages, and more. Rules can be configured with exempt roles.</p>
             </div>
 
             {/* Tab Navigation */}
@@ -359,6 +378,16 @@ export const ChannelRules: React.FC<{ guildId: string }> = ({ guildId }) => {
                                     value={editingRule.name || ''} 
                                     onChange={e => setEditingRule(prev => ({ ...prev!, name: e.target.value }))}
                                     placeholder="e.g. No EXE In General"
+                                />
+                            </div>
+
+                            <div>
+                                <label style={styles.label}>Custom Violation Reason <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(shown to user when blocked)</span></label>
+                                <input 
+                                    style={styles.input} 
+                                    value={editingRule.reason || ''} 
+                                    onChange={e => setEditingRule(prev => ({ ...prev!, reason: e.target.value || undefined }))}
+                                    placeholder="e.g. Only project files (.flp, .zip) are allowed here."
                                 />
                             </div>
 

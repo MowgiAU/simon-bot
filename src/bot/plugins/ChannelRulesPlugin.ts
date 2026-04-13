@@ -195,6 +195,29 @@ export class ChannelRulesPlugin implements IPlugin {
                 return domains.some((domain: string) => message.content.toLowerCase().includes(domain));
             }
 
+            case 'BLOCK_EXTERNAL_FORWARDS': {
+                const snapshots = (message as any).messageSnapshots;
+                if (!snapshots || snapshots.size === 0) return false;
+                return snapshots.some((snapshot: any) =>
+                    !snapshot.guildId || snapshot.guildId !== message.guild!.id
+                );
+            }
+
+            case 'BLOCK_ALL_FORWARDS': {
+                const snapshots = (message as any).messageSnapshots;
+                return !!(snapshots && snapshots.size > 0);
+            }
+
+            case 'BLOCK_FORWARDED_FROM': {
+                const snapshots = (message as any).messageSnapshots;
+                if (!snapshots || snapshots.size === 0) return false;
+                const blockedChannels = (config.channelIds || []) as string[];
+                if (blockedChannels.length === 0) return false;
+                return snapshots.some((snapshot: any) =>
+                    snapshot.channelId && blockedChannels.includes(snapshot.channelId)
+                );
+            }
+
             default:
                 return false;
         }
@@ -246,7 +269,7 @@ export class ChannelRulesPlugin implements IPlugin {
                  await this.logAction(message, rule, 'Auto-Deleted');
                  
                  const reply = await (message.channel as any).send({ 
-                     content: `❌ **Message Blocked**\nYour message violated the rule: **${rule.name}**`
+                     content: `❌ **Message Blocked**\n${rule.reason || rule.name}`
                     });
                     setTimeout(() => (reply as any).delete().catch(() => {}), 5000);
             }
