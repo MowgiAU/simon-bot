@@ -724,6 +724,7 @@ model ChannelRule {
   settingsId     String
   
   name           String   // Friendly name (e.g. "No EXE files")
+  reason         String?  // Custom reason shown to user when blocked (falls back to name)
   targetChannelId String  // The channel this rule applies to
   
   type           String   // BLOCK_FILE_TYPES, MAX_LENGTH, REGEX_MATCH, etc.
@@ -2241,8 +2242,13 @@ model AntiExternalForwardSettings {
   deleteMessage    Boolean  @default(true)
   warnUser         Boolean  @default(true)
 
-  exemptRoleIds    String[] @default([])
-  exemptChannelIds String[] @default([])
+  blockInternalForwards   Boolean  @default(false)
+
+  exemptRoleIds           String[] @default([])
+  exemptChannelIds        String[] @default([])   // Target channels where external forwarding is allowed
+  blockedSourceChannelIds String[] @default([])   // Source channels whose content can never be forwarded
+  blockedTargetChannelIds String[] @default([])   // Channels where ALL forwards (internal + external) are blocked
+
   logChannelId     String?
 
   createdAt        DateTime @default(now())

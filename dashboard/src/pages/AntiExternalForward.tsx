@@ -8,8 +8,11 @@ interface AEFSettings {
     enabled: boolean;
     deleteMessage: boolean;
     warnUser: boolean;
+    blockInternalForwards: boolean;
     exemptRoleIds: string[];
     exemptChannelIds: string[];
+    blockedSourceChannelIds: string[];
+    blockedTargetChannelIds: string[];
     logChannelId: string;
 }
 
@@ -23,8 +26,11 @@ const defaultSettings: AEFSettings = {
     enabled: true,
     deleteMessage: true,
     warnUser: true,
+    blockInternalForwards: false,
     exemptRoleIds: [],
     exemptChannelIds: [],
+    blockedSourceChannelIds: [],
+    blockedTargetChannelIds: [],
     logChannelId: '',
 };
 
@@ -163,8 +169,8 @@ export const AntiExternalForwardPage: React.FC = () => {
                 marginBottom: spacing.xxl, borderLeft: `4px solid ${colors.primary}`,
             }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
-                    When enabled, any message forwarded from another server (or a DM) is automatically deleted.
-                    Internal forwards (within this server) are always allowed.
+                    Intercepts forwarded messages based on their origin. External forwards (from other servers or DMs) are blocked by default.
+                    You can also block internal forwards globally or restrict specific source/destination channels.
                 </p>
             </div>
 
@@ -177,6 +183,17 @@ export const AntiExternalForwardPage: React.FC = () => {
                     </div>
                     <Toggle checked={settings.enabled} onChange={v => patch({ enabled: v })} />
                 </div>
+            </div>
+
+            {/* Internal forward toggle */}
+            <div style={card}>
+                {sectionTitle('Scope')}
+                <ToggleRow
+                    label="Block Internal Forwards"
+                    description="Also block messages forwarded from channels within this server (not just external servers)."
+                    checked={settings.blockInternalForwards}
+                    onChange={v => patch({ blockInternalForwards: v })}
+                />
             </div>
 
             {/* Enforcement */}
@@ -237,26 +254,42 @@ export const AntiExternalForwardPage: React.FC = () => {
             {/* Exempt Channels */}
             <div style={card}>
                 {sectionTitle('Exempt Channels')}
-                <p style={{ margin: `0 0 ${spacing.lg} 0`, fontSize: '13px', color: colors.textSecondary }}>
-                    External forwarding is allowed in these channels.
+                <p style={{ margin: `0 0 ${spacing.md} 0`, fontSize: '13px', color: colors.textSecondary }}>
+                    Forwarding (external or internal) is <strong>allowed</strong> in these destination channels.
                 </p>
-                <ChannelSelect
-                    guildId={guildId || ''}
-                    value={settings.exemptChannelIds[0] || ''}
-                    onChange={() => {}}
-                    placeholder="Select channels..."
-                />
-                <p style={{ margin: `${spacing.sm} 0 ${spacing.md} 0`, fontSize: '12px', color: colors.textTertiary }}>
-                    Click channels below to toggle exemption:
-                </p>
-                <div id="aef-exempt-channels-pills" style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm }}>
-                    {/* Channel pills rendered via ChannelToggle below */}
-                </div>
                 <AEFChannelPills
                     guildId={guildId || ''}
                     selected={settings.exemptChannelIds}
                     onToggle={toggleChannel}
                     onClear={() => patch({ exemptChannelIds: [] })}
+                />
+            </div>
+
+            {/* Blocked Source Channels */}
+            <div style={card}>
+                {sectionTitle('Blocked Source Channels')}
+                <p style={{ margin: `0 0 ${spacing.md} 0`, fontSize: '13px', color: colors.textSecondary }}>
+                    Content originally posted in these channels can <strong>never</strong> be forwarded, regardless of other settings.
+                </p>
+                <AEFChannelPills
+                    guildId={guildId || ''}
+                    selected={settings.blockedSourceChannelIds}
+                    onToggle={id => patch({ blockedSourceChannelIds: settings.blockedSourceChannelIds.includes(id) ? settings.blockedSourceChannelIds.filter(c => c !== id) : [...settings.blockedSourceChannelIds, id] })}
+                    onClear={() => patch({ blockedSourceChannelIds: [] })}
+                />
+            </div>
+
+            {/* Blocked Target Channels */}
+            <div style={card}>
+                {sectionTitle('Blocked Destination Channels')}
+                <p style={{ margin: `0 0 ${spacing.md} 0`, fontSize: '13px', color: colors.textSecondary }}>
+                    <strong>No forwards</strong> (internal or external) are allowed to be posted in these channels.
+                </p>
+                <AEFChannelPills
+                    guildId={guildId || ''}
+                    selected={settings.blockedTargetChannelIds}
+                    onToggle={id => patch({ blockedTargetChannelIds: settings.blockedTargetChannelIds.includes(id) ? settings.blockedTargetChannelIds.filter(c => c !== id) : [...settings.blockedTargetChannelIds, id] })}
+                    onClear={() => patch({ blockedTargetChannelIds: [] })}
                 />
             </div>
 

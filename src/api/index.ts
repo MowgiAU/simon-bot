@@ -6189,7 +6189,7 @@ app.put('/api/guilds/:guildId/channel-rules/settings', async (req, res) => {
 app.post('/api/guilds/:guildId/channel-rules', async (req, res) => {
     try {
         const { guildId } = req.params;
-        const { name, targetChannelId, type, config, action, exemptRoles, requiredRoles, enabled } = req.body;
+        const { name, reason, targetChannelId, type, config, action, exemptRoles, requiredRoles, enabled } = req.body;
         
         if (!await checkPluginAccess(guildId, req, 'channel-rules') && !isTrueAdmin(guildId, req)) {
             return res.status(403).json({ error: 'Access denied' });
@@ -6206,6 +6206,7 @@ app.post('/api/guilds/:guildId/channel-rules', async (req, res) => {
                 guildId,
                 settingsId: settings.id,
                 name,
+                reason: reason || null,
                 targetChannelId,
                 type,
                 config: config || {},
@@ -6239,6 +6240,7 @@ app.put('/api/guilds/:guildId/channel-rules/:ruleId', async (req, res) => {
             where: { id: ruleId },
             data: {
                 name: data.name,
+                reason: data.reason || null,
                 targetChannelId: data.targetChannelId,
                 type: data.type, // Usually type doesn't change, but ok
                 config: data.config,
@@ -10875,11 +10877,20 @@ app.get('/api/anti-external-forward/:guildId', requireAuth, async (req: any, res
 app.post('/api/anti-external-forward/:guildId', requireAuth, async (req: any, res) => {
     try {
         const { guildId } = req.params;
-        const { enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId } = req.body;
+        const { enabled, deleteMessage, warnUser, blockInternalForwards, exemptRoleIds, exemptChannelIds, blockedSourceChannelIds, blockedTargetChannelIds, logChannelId } = req.body;
+        const data = {
+            enabled, deleteMessage, warnUser,
+            blockInternalForwards: blockInternalForwards ?? false,
+            exemptRoleIds: exemptRoleIds ?? [],
+            exemptChannelIds: exemptChannelIds ?? [],
+            blockedSourceChannelIds: blockedSourceChannelIds ?? [],
+            blockedTargetChannelIds: blockedTargetChannelIds ?? [],
+            logChannelId: logChannelId || null,
+        };
         const settings = await db.antiExternalForwardSettings.upsert({
             where: { guildId },
-            create: { guildId, enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId: logChannelId || null },
-            update: { enabled, deleteMessage, warnUser, exemptRoleIds, exemptChannelIds, logChannelId: logChannelId || null },
+            create: { guildId, ...data },
+            update: data,
         });
         res.json(settings);
     } catch (e: any) {
