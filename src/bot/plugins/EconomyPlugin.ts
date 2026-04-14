@@ -41,7 +41,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay'];
 
     private client: any;
     private db: any;
@@ -110,6 +110,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'market') await this.handleMarket(interaction);
         else if (commandName === 'buy') await this.handleBuy(interaction);
         else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
+        else if (commandName === 'pay') await this.handlePay(interaction);
     }
 
     /**
@@ -452,6 +453,67 @@ export class EconomyPlugin implements IPlugin {
         }
     }
 
+
+    /**
+     * Command: /pay — Transfer currency to another user
+     */
+    private async handlePay(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+
+        const recipient = interaction.options.getUser('user', true);
+        const amount = interaction.options.getInteger('amount', true);
+
+        if (recipient.id === interaction.user.id) {
+            return interaction.reply({ content: 'You cannot pay yourself.', flags: MessageFlags.Ephemeral });
+        }
+        if (recipient.bot) {
+            return interaction.reply({ content: 'You cannot pay a bot.', flags: MessageFlags.Ephemeral });
+        }
+        if (amount <= 0) {
+            return interaction.reply({ content: 'Amount must be greater than zero.', flags: MessageFlags.Ephemeral });
+        }
+
+        await interaction.deferReply();
+
+        const settings = await this.getSettings(interaction.guildId);
+        const senderAccount = await this.getAccount(interaction.guildId, interaction.user.id);
+
+        if (senderAccount.balance < amount) {
+            return interaction.editReply({
+                content: `You only have ${settings.currencyEmoji} ${senderAccount.balance.toLocaleString()} and cannot pay ${settings.currencyEmoji} ${amount.toLocaleString()}.`,
+            });
+        }
+
+        const success = await this.transfer(
+            interaction.guildId,
+            interaction.user.id,
+            recipient.id,
+            amount,
+            'PAY',
+            `Transfer from ${interaction.user.username} to ${recipient.username}`
+        );
+
+        if (!success) {
+            return interaction.editReply({
+                content: 'Transfer failed. You may not have enough funds.',
+            });
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#57F287')
+            .setTitle('Payment Sent')
+            .setDescription(`<@${interaction.user.id}> paid <@${recipient.id}> ${settings.currencyEmoji} **${amount.toLocaleString()}**`)
+            .setTimestamp();
+
+        await interaction.editReply({ embeds: [embed] });
+
+        await this.logAction({
+            guildId: interaction.guildId,
+            actionType: 'economy_pay',
+            executorId: interaction.user.id,
+            details: { recipient: recipient.id, amount },
+        });
+    }
 
     // --- Helpers ---
 

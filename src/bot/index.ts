@@ -780,6 +780,13 @@ export class SimonBot {
         .setDescription('Toggle auto-nickname balance display on/off');
     commands.push(nickOptoutCommand.toJSON());
 
+    const payCommand = new SlashCommandBuilder()
+        .setName('pay')
+        .setDescription('Send currency to another user')
+        .addUserOption(opt => opt.setName('user').setRequired(true).setDescription('The user to pay'))
+        .addIntegerOption(opt => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to send'));
+    commands.push(payCommand.toJSON());
+
     // 4. Welcome Gate
     const setupWelcomeCommand = new SlashCommandBuilder()
         .setName('setup-welcome')
