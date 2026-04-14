@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay, Newspaper, BookOpen, FileText
+    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -506,7 +506,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
                     {/* Trending Artist */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
                         {artists[0] ? (
                             <>
                                 {/* Full-bleed blurred background */}
@@ -514,99 +514,89 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                     position: 'absolute', inset: 0,
                                     backgroundImage: `url(${getAvatarUrl(artists[0].avatar, artists[0].userId)})`,
                                     backgroundSize: 'cover', backgroundPosition: 'center',
-                                    filter: 'blur(32px) brightness(0.25) saturate(1.4)',
-                                    transform: 'scale(1.25)', pointerEvents: 'none',
+                                    filter: 'blur(40px) brightness(0.2) saturate(1.6)',
+                                    transform: 'scale(1.3)', pointerEvents: 'none',
                                 }} />
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.5) 0%, rgba(14,18,26,0.88) 100%)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.35) 0%, rgba(14,18,26,0.85) 70%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                {/* Accent glow */}
+                                <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
-                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: '18px', boxSizing: 'border-box', gap: '18px', alignItems: 'stretch' }}>
+                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: isMobile ? '20px' : '24px 28px', boxSizing: 'border-box', gap: isMobile ? '16px' : '24px', alignItems: 'center' }}>
 
-                                    {/* Left: avatar */}
+                                    {/* Left: avatar with glowing ring */}
                                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                                         <div style={{ position: 'relative' }}>
-                                            <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', background: `conic-gradient(${colors.primary}, #a78bfa, #FBBF24, ${colors.primary})`, opacity: 0.8 }} />
-                                            <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(14,18,26,0.7)' }} />
-                                            <div style={{ width: '120px', height: '120px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                                            <div style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
+                                            <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
+                                            <div style={{ width: isMobile ? '110px' : '140px', height: isMobile ? '110px' : '140px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
                                                 <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
                                             </div>
                                             {/* #1 badge */}
-                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', zIndex: 2, width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 900, color: 'white', border: '2px solid rgba(14,18,26,0.8)', boxShadow: '0 2px 8px rgba(245,158,11,0.5)' }}>#1</div>
+                                            <div style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 2, width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900, color: 'white', border: '3px solid rgba(14,18,26,0.9)', boxShadow: '0 3px 12px rgba(245,158,11,0.6)' }}>#1</div>
                                         </div>
                                     </div>
 
-                                    {/* Right: all info */}
-                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                                        {/* Top: header + name + genres */}
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-                                                <TrendingUp size={11} color="#FBBF24" />
-                                                <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Trending Artist</span>
-                                            </div>
-                                            <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
-                                                <div style={{ fontWeight: 800, fontSize: '18px', color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {artists[0].displayName || artists[0].username}
-                                                </div>
-                                            </Link>
-                                            {(artists[0].primaryGenre || artists[0].genres?.length > 0) && (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
-                                                    {/* Primary genre — accented */}
-                                                    {artists[0].primaryGenre && (
-                                                        <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '20px', background: `${colors.primary}20`, border: `1px solid ${colors.primary}50`, color: colors.primary }}>
-                                                            {artists[0].primaryGenre.name}
-                                                        </span>
-                                                    )}
-                                                    {/* Secondary genres — muted */}
-                                                    {artists[0].genres?.filter(g => g.genre && (!artists[0].primaryGenre || g.genre.name !== artists[0].primaryGenre!.name)).slice(0, 3).map((g, i) => (
-                                                        <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '3px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary }}>
-                                                            {g.genre.name}
-                                                        </span>
-                                                    ))}
-                                                    {/* Fallback: no primary set, show all genres uniformly */}
-                                                    {!artists[0].primaryGenre && artists[0].genres?.slice(0, 4).map((g, i) => (
-                                                        <span key={`fb-${i}`} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '3px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary }}>
-                                                            {g.genre.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {artists[0].bio && (
-                                                <p style={{ fontSize: '11px', color: 'rgba(180,190,200,0.8)', lineHeight: 1.5, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                    {artists[0].bio}
-                                                </p>
-                                            )}
+                                    {/* Right: info */}
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {/* Label */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <TrendingUp size={12} color="#FBBF24" />
+                                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Trending Artist</span>
                                         </div>
-
-                                        {/* Middle: hardware pills */}
-                                        {artists[0].hardware?.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                                {artists[0].hardware.slice(0, 3).map((hw, i) => {
-                                                    let label = hw;
-                                                    try { const parsed = JSON.parse(hw); label = parsed.name ?? hw; } catch {}
-                                                    return (
-                                                    <span key={i} style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '6px', background: `${colors.primary}14`, border: `1px solid ${colors.primary}28`, color: colors.primary, fontWeight: 600 }}>
-                                                        {label}
+                                        {/* Name */}
+                                        <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
+                                            <div style={{ fontWeight: 900, fontSize: isMobile ? '20px' : '26px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {artists[0].displayName || artists[0].username}
+                                            </div>
+                                        </Link>
+                                        {/* Genre pills */}
+                                        {(artists[0].primaryGenre || artists[0].genres?.length > 0) && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                {artists[0].primaryGenre && (
+                                                    <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '4px 10px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>
+                                                        {artists[0].primaryGenre.name}
                                                     </span>
-                                                    );
-                                                })}
+                                                )}
+                                                {artists[0].genres?.filter(g => g.genre && (!artists[0].primaryGenre || g.genre.name !== artists[0].primaryGenre!.name)).slice(0, 2).map((g, i) => (
+                                                    <span key={i} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
+                                                        {g.genre.name}
+                                                    </span>
+                                                ))}
+                                                {!artists[0].primaryGenre && artists[0].genres?.slice(0, 3).map((g, i) => (
+                                                    <span key={`fb-${i}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
+                                                        {g.genre.name}
+                                                    </span>
+                                                ))}
                                             </div>
                                         )}
-
-                                        {/* Bottom: plays + CTA */}
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div>
-                                                <div style={{ fontSize: '20px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                                        {/* Bio */}
+                                        {artists[0].bio && (
+                                            <p style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                {artists[0].bio}
+                                            </p>
+                                        )}
+                                        {/* Stats + CTA row */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                                                <span style={{ fontSize: '22px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
                                                     {artists[0].totalPlays >= 1000 ? `${(artists[0].totalPlays / 1000).toFixed(1)}k` : (artists[0].totalPlays || 0).toLocaleString()}
-                                                </div>
-                                                <div style={{ fontSize: '9px', color: colors.textSecondary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '1px' }}>Total Plays</div>
+                                                </span>
+                                                <span style={{ fontSize: '10px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>plays</span>
                                             </div>
                                             <Link to={`/profile/${artists[0].username}`} style={{
-                                                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                                padding: '8px 16px', borderRadius: '9px', textDecoration: 'none',
-                                                background: `${colors.primary}22`, border: `1px solid ${colors.primary}44`,
-                                                color: colors.primary, fontSize: '11px', fontWeight: 700,
-                                            }}>
-                                                View Profile →
+                                                marginLeft: 'auto',
+                                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
+                                                background: colors.primary, color: 'white',
+                                                fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
+                                                boxShadow: `0 4px 16px ${colors.primary}44`,
+                                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                            }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
+                                            >
+                                                View Profile
                                             </Link>
                                         </div>
                                     </div>
@@ -631,173 +621,210 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '280px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '320px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
                                         position: 'absolute', inset: 0,
                                         backgroundImage: `url(${featured?.featuredTutorialThumbnail || getTutorialThumbnail()})`,
                                         backgroundSize: 'cover', backgroundPosition: 'center',
-                                        filter: 'blur(28px) brightness(0.25) saturate(1.2)',
-                                        transform: 'scale(1.15)',
+                                        filter: 'blur(40px) brightness(0.2) saturate(1.5)',
+                                        transform: 'scale(1.3)',
                                         pointerEvents: 'none',
                                     }} />
                                 )}
-                                {contentType !== 'video' && (
+                                {contentType !== 'video' && featuredArticle?.coverImageUrl && (
                                     <div style={{
                                         position: 'absolute', inset: 0,
-                                        background: `radial-gradient(ellipse at 20% 50%, ${tc.accentColor}12 0%, transparent 60%)`,
+                                        backgroundImage: `url(${featuredArticle.coverImageUrl})`,
+                                        backgroundSize: 'cover', backgroundPosition: 'center',
+                                        filter: 'blur(40px) brightness(0.18) saturate(1.4)',
+                                        transform: 'scale(1.3)',
                                         pointerEvents: 'none',
                                     }} />
                                 )}
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(14,18,26,0.6) 0%, rgba(14,18,26,0.82) 50%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                {contentType !== 'video' && !featuredArticle?.coverImageUrl && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%)`,
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.4) 0%, rgba(14,18,26,0.8) 60%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                {/* Accent glow */}
+                                <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '50%', height: '70%', background: `radial-gradient(ellipse, ${tc.accentColor}10 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
-                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: '18px 20px 18px 20px', boxSizing: 'border-box' }}>
+                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: isMobile ? '20px' : '24px 28px', boxSizing: 'border-box' }}>
+                                    {/* Type label */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+                                        <span style={{ color: tc.accentColor, display: 'flex', alignItems: 'center' }}>{tc.icon}</span>
+                                        <span style={{ fontSize: '10px', fontWeight: 800, color: tc.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{tc.label}</span>
+                                    </div>
+
                                     {/* Content body */}
                                     {contentType === 'video' ? (
                                         featured?.featuredTutorialUrl ? (
-                                            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, overflow: 'hidden', alignItems: 'flex-start' }}>
-                                                {/* Left col: thumbnail + button */}
-                                                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '10px', width: isMobile ? '110px' : '200px' }}>
+                                            <div style={{ flex: 1, display: 'flex', gap: isMobile ? '16px' : '24px', minHeight: 0, overflow: 'hidden', alignItems: 'center' }}>
+                                                {/* Left: thumbnail with play overlay */}
+                                                <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, display: 'block', width: isMobile ? '140px' : '220px', textDecoration: 'none' }}>
                                                     <div style={{
                                                         width: '100%', aspectRatio: '16/9',
-                                                        borderRadius: '10px', overflow: 'hidden', position: 'relative',
-                                                        background: '#1f2937', border: '1px solid rgba(255,255,255,0.07)',
+                                                        borderRadius: '12px', overflow: 'hidden', position: 'relative',
+                                                        background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
+                                                        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                                                        cursor: 'pointer',
                                                     }}>
                                                         {getTutorialThumbnail() && (
-                                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, transition: 'transform 0.3s' }} />
                                                         )}
                                                         <div style={{
-                                                            position: 'absolute', width: '46px', height: '46px',
-                                                            background: 'rgba(0,0,0,0.7)', borderRadius: '50%',
+                                                            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            border: '1px solid rgba(255,255,255,0.15)',
-                                                            backdropFilter: 'blur(4px)',
+                                                            transition: 'background 0.2s',
                                                         }}>
-                                                            <Play size={20} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                            <div style={{
+                                                                width: '52px', height: '52px',
+                                                                background: `${colors.primary}dd`, borderRadius: '50%',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                boxShadow: `0 6px 24px ${colors.primary}55`,
+                                                                transition: 'transform 0.2s',
+                                                            }}>
+                                                                <Play size={22} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                </a>
+                                                {/* Right: text + CTA */}
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+                                                    <div style={{ fontWeight: 900, fontSize: isMobile ? '16px' : '22px', lineHeight: 1.2, color: colors.textPrimary, letterSpacing: '-0.02em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                                    </div>
+                                                    {featured.featuredTutorialDescription && (
+                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
+                                                            {featured.featuredTutorialDescription}
+                                                        </div>
+                                                    )}
+                                                    {/* Author + date */}
+                                                    {(featured.featuredTutorialAuthor || featured.featuredTutorialDate) && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                            {featured.featuredTutorialAuthor && (
+                                                                <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
+                                                                    {featured.featuredTutorialAuthor}
+                                                                </span>
+                                                            )}
+                                                            {featured.featuredTutorialAuthor && featured.featuredTutorialDate && (
+                                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                            )}
+                                                            {featured.featuredTutorialDate && (
+                                                                <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                                                    {featured.featuredTutorialDate}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     <a
                                                         href={featured.featuredTutorialUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                            padding: '8px 0', width: '100%',
-                                                            background: `${colors.primary}20`, color: colors.primary,
-                                                            border: `1px solid ${colors.primary}40`, borderRadius: '8px',
+                                                            display: 'inline-flex', alignItems: 'center', gap: '7px',
+                                                            padding: '9px 20px', borderRadius: '999px', width: 'fit-content',
+                                                            background: colors.primary, color: 'white',
                                                             fontWeight: 700, fontSize: '12px', textDecoration: 'none',
                                                             letterSpacing: '0.03em',
+                                                            boxShadow: `0 4px 16px ${colors.primary}44`,
+                                                            transition: 'transform 0.15s, box-shadow 0.15s',
                                                         }}
+                                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
                                                     >
-                                                        <Play size={13} fill={colors.primary} color={colors.primary} /> Watch Now
+                                                        <ExternalLink size={13} /> Watch Now
                                                     </a>
-                                                    {/* Author + date */}
-                                                    {(featured.featuredTutorialAuthor || featured.featuredTutorialDate) && (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
-                                                            {featured.featuredTutorialAuthor && (
-                                                                <div style={{ fontSize: '10px', color: colors.textPrimary, fontWeight: 700, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {featured.featuredTutorialAuthor}
-                                                                </div>
-                                                            )}
-                                                            {featured.featuredTutorialDate && (
-                                                                <div style={{ fontSize: '10px', color: colors.textSecondary, textAlign: 'center' }}>
-                                                                    {featured.featuredTutorialDate}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {/* Right col: text fills height */}
-                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingBottom: '2px' }}>
-                                                    <div style={{ fontWeight: 800, fontSize: '16px', lineHeight: 1.3, color: colors.textPrimary, letterSpacing: '-0.01em', marginBottom: '10px' }}>
-                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
-                                                    </div>
-                                                    {featured.featuredTutorialDescription && (
-                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, overflow: 'hidden' }}>
-                                                            {featured.featuredTutorialDescription}
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                         ) : (
                                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                                                <MonitorPlay size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
-                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No video tutorial set</p>
+                                                <MonitorPlay size={40} color={colors.textSecondary} style={{ opacity: 0.12 }} />
+                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No video set</p>
                                             </div>
                                         )
                                     ) : (
-                                        /* News / Guide — show featured article or fallback */
+                                        /* News / Guide / Article — show featured article or fallback */
                                         featuredArticle ? (
-                                            <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '14px' : '20px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
+                                            <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
                                                 {featuredArticle.coverImageUrl ? (
                                                     <div style={{
-                                                        width: isMobile ? '80px' : '120px', height: isMobile ? '80px' : '120px', flexShrink: 0, borderRadius: '14px',
-                                                        overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)',
+                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
+                                                        overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
                                                     }}>
                                                         <img src={featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                 ) : (
                                                     <div style={{
-                                                        width: isMobile ? '80px' : '120px', height: isMobile ? '80px' : '120px', flexShrink: 0, borderRadius: '14px',
+                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
                                                         background: `${tc.accentColor}12`, border: `1px solid ${tc.accentColor}30`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
                                                     }}>
                                                         {contentType === 'news'
-                                                            ? <Newspaper size={32} color={tc.accentColor} style={{ opacity: 0.6 }} />
-                                                            : <BookOpen size={32} color={tc.accentColor} style={{ opacity: 0.6 }} />}
+                                                            ? <Newspaper size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
+                                                            : contentType === 'article'
+                                                            ? <FileText size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
+                                                            : <BookOpen size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />}
                                                     </div>
                                                 )}
-                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                                                    <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+                                                    <div style={{ fontSize: isMobile ? '16px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
                                                         {featuredArticle.title}
                                                     </div>
                                                     {featuredArticle.excerpt && (
-                                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
                                                             {featuredArticle.excerpt}
                                                         </div>
                                                     )}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <span style={{
-                                                            display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                                            padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-                                                            background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
-                                                            color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                        }}>Read Article</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         {featuredArticle.authorName && (
-                                                            <span style={{ fontSize: '10px', color: colors.textTertiary }}>
-                                                                by {featuredArticle.authorName}
+                                                            <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
+                                                                {featuredArticle.authorName}
                                                             </span>
                                                         )}
+                                                        {featuredArticle.authorName && featuredArticle.publishedAt && (
+                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                        )}
                                                         {featuredArticle.publishedAt && (
-                                                            <span style={{ fontSize: '10px', color: colors.textTertiary }}>
-                                                                {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                                                {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                                             </span>
                                                         )}
                                                     </div>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                                        padding: '9px 20px', borderRadius: '999px', fontSize: '12px', fontWeight: 700,
+                                                        background: tc.accentColor, color: 'white',
+                                                        letterSpacing: '0.03em',
+                                                        boxShadow: `0 4px 16px ${tc.accentColor}44`,
+                                                    }}>Read Article</span>
                                                 </div>
                                             </a>
                                         ) : (
-                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
+                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', justifyContent: 'center' }}>
                                                 <div style={{
-                                                    width: '90px', height: '90px', flexShrink: 0, borderRadius: '18px',
-                                                    background: `${tc.accentColor}12`,
-                                                    border: `1px solid ${tc.accentColor}30`,
+                                                    width: '100px', height: '100px', flexShrink: 0, borderRadius: '20px',
+                                                    background: `${tc.accentColor}10`,
+                                                    border: `1px solid ${tc.accentColor}25`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 }}>
                                                     {contentType === 'news'
-                                                        ? <Newspaper size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
+                                                        ? <Newspaper size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
                                                         : contentType === 'article'
-                                                        ? <FileText size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />
-                                                        : <BookOpen size={38} color={tc.accentColor} style={{ opacity: 0.6 }} />}
+                                                        ? <FileText size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
+                                                        : <BookOpen size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />}
                                                 </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '16px', fontWeight: 800, color: colors.textPrimary, marginBottom: '8px' }}>
+                                                <div style={{ flex: 1, maxWidth: '300px' }}>
+                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, marginBottom: '8px', letterSpacing: '-0.02em' }}>
                                                         {contentType === 'news' ? 'Community News' : contentType === 'article' ? 'Featured Article' : 'Community Guides'}
                                                     </div>
-                                                    <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.6, marginBottom: '12px' }}>
+                                                    <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.6)', lineHeight: 1.7, marginBottom: '14px' }}>
                                                         {contentType === 'news'
                                                             ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
                                                             : contentType === 'article'
@@ -806,10 +833,10 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                                     </div>
                                                     <span style={{
                                                         display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                                        padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-                                                        background: `${tc.accentColor}18`, border: `1px solid ${tc.accentColor}35`,
+                                                        padding: '6px 14px', borderRadius: '999px', fontSize: '10px', fontWeight: 700,
+                                                        background: `${tc.accentColor}15`, border: `1px solid ${tc.accentColor}30`,
                                                         color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                    }}>No articles yet</span>
+                                                    }}>No content yet</span>
                                                 </div>
                                             </div>
                                         )
