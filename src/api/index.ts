@@ -10780,10 +10780,17 @@ if (fs.existsSync(distPath)) {
                     where: { username: { equals: username, mode: 'insensitive' } }
                 });
                 if (profile) {
-                    const track = await db.track.findFirst({
+                    // Try slug first, fall back to ID (tracks without a slug use track.id in the URL)
+                    let track = await db.track.findFirst({
                         where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
                         include: { profile: true }
                     }) as any;
+                    if (!track) {
+                        track = await db.track.findFirst({
+                            where: { profileId: profile.id, isPublic: true, id: slug },
+                            include: { profile: true }
+                        }) as any;
+                    }
                     if (track) {
                         const baseUrl = `${req.protocol}://${req.get('host')}`;
                         const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
