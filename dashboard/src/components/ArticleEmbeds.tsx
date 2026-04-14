@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
 import { usePlayer } from './PlayerProvider';
-import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink } from 'lucide-react';
+import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // ── Track Embed ───────────────────────────────────────────────────────────────
@@ -250,10 +250,17 @@ interface ProfileData {
     bio: string | null;
     location: string | null;
     primaryGenre: string | null;
+    totalPlays?: number;
     tracks: { id: string; title: string; coverUrl: string | null }[];
     _count?: { tracks?: number; followers?: number };
     followerCount?: number;
     genres?: { genre: { name: string } }[];
+}
+
+function getProfileAvatarUrl(avatar: string | null, userId: string): string {
+    if (!avatar) return `https://cdn.discordapp.com/embed/avatars/${parseInt(userId.slice(-1)) % 5}.png`;
+    if (avatar.startsWith('http') || avatar.startsWith('/uploads/')) return avatar;
+    return `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=256`;
 }
 
 export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath }) => {
@@ -307,7 +314,8 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
 
     const trackCount = profile._count?.tracks ?? profile.tracks?.length ?? 0;
     const genre = profile.primaryGenre || profile.genres?.[0]?.genre?.name;
-    const recentTracks = (profile.tracks || []).slice(0, 4);
+    const secondaryGenres = profile.genres?.filter(g => g.genre.name !== genre).slice(0, 2) || [];
+    const avatarUrl = getProfileAvatarUrl(profile.avatar, profile.userId);
 
     return (
         <Link to={profilePath} style={{ textDecoration: 'none', display: 'block' }}>
@@ -315,132 +323,108 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
                 onMouseEnter={() => setHover(true)}
                 onMouseLeave={() => setHover(false)}
                 style={{
-                    background: colors.surface,
+                    position: 'relative', overflow: 'hidden',
+                    borderRadius: '14px', margin: '20px 0',
                     border: `1px solid ${hover ? colors.primary + '40' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '14px', overflow: 'hidden', margin: '20px 0',
                     transition: 'border-color 0.2s, box-shadow 0.2s',
-                    boxShadow: hover ? `0 4px 20px rgba(16,185,129,0.08)` : 'none',
+                    boxShadow: hover ? `0 6px 24px rgba(16,185,129,0.1)` : 'none',
+                    background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)',
                 }}
             >
-                {/* Banner */}
+                {/* Blurred avatar backdrop */}
                 <div style={{
-                    height: '72px', width: '100%',
-                    background: profile.bannerUrl
-                        ? `url(${profile.bannerUrl}) center/cover`
-                        : `linear-gradient(135deg, ${colors.primary}25, ${colors.primary}08)`,
+                    position: 'absolute', inset: 0,
+                    backgroundImage: `url(${avatarUrl})`,
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    filter: 'blur(40px) brightness(0.2) saturate(1.5)',
+                    transform: 'scale(1.3)', pointerEvents: 'none',
                 }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.4) 0%, rgba(14,18,26,0.85) 70%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                {/* Accent glow */}
+                <div style={{ position: 'absolute', top: '-20%', left: '-10%', width: '50%', height: '70%', background: `radial-gradient(ellipse, ${colors.primary}12 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
-                {/* Content */}
-                <div style={{ padding: '0 20px 18px', marginTop: '-28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '14px', marginBottom: '10px' }}>
-                        {/* Avatar */}
-                        {profile.avatar ? (
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', padding: '20px 24px', gap: '20px', alignItems: 'center' }}>
+                    {/* Avatar with conic gradient ring */}
+                    <div style={{ flexShrink: 0, position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.6, filter: 'blur(1px)' }} />
+                        <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 8px 28px rgba(0,0,0,0.5)' }}>
                             <img
-                                src={profile.avatar}
+                                src={avatarUrl}
                                 alt=""
-                                style={{
-                                    width: 56, height: 56, borderRadius: '50%',
-                                    border: `3px solid ${colors.surface}`, objectFit: 'cover',
-                                }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }}
                             />
-                        ) : (
-                            <div style={{
-                                width: 56, height: 56, borderRadius: '50%',
-                                border: `3px solid ${colors.surface}`,
-                                background: `linear-gradient(135deg, ${colors.primary}30, ${colors.primary}10)`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <UserIcon size={24} color={colors.primary} />
-                            </div>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0, paddingBottom: '2px' }}>
-                            <div style={{
-                                color: colors.textPrimary, fontWeight: 700, fontSize: '16px',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
+                        </div>
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {/* Name + username */}
+                        <div>
+                            <div style={{ fontWeight: 900, fontSize: '18px', color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {profile.displayName || profile.username}
                             </div>
-                            <div style={{ color: colors.textTertiary, fontSize: '12px' }}>
-                                @{profile.username}
+                            <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '2px' }}>@{profile.username}</div>
+                        </div>
+
+                        {/* Genre pills */}
+                        {(genre || secondaryGenres.length > 0) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {genre && (
+                                    <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 9px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}50`, color: colors.primary }}>
+                                        {genre}
+                                    </span>
+                                )}
+                                {secondaryGenres.map((g, i) => (
+                                    <span key={i} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: colors.textSecondary }}>
+                                        {g.genre.name}
+                                    </span>
+                                ))}
                             </div>
-                        </div>
-                        {/* Visit button */}
-                        <div style={{
-                            padding: '6px 14px', borderRadius: '8px',
-                            background: hover ? colors.primary : 'rgba(255,255,255,0.06)',
-                            color: hover ? 'white' : colors.textSecondary,
-                            fontSize: '12px', fontWeight: 600, transition: 'all 0.2s',
-                            whiteSpace: 'nowrap',
-                        }}>
-                            View Profile
-                        </div>
-                    </div>
-
-                    {/* Bio */}
-                    {profile.bio && (
-                        <p style={{
-                            margin: '0 0 10px', fontSize: '13px', color: colors.textSecondary,
-                            lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                            {profile.bio}
-                        </p>
-                    )}
-
-                    {/* Meta row */}
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {genre && (
-                            <span style={{ ...pillStyle, background: `${colors.primary}15`, color: colors.primary }}>
-                                {genre}
-                            </span>
                         )}
-                        {profile.location && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: colors.textTertiary }}>
-                                <MapPin size={11} /> {profile.location}
-                            </span>
-                        )}
-                        {trackCount > 0 && (
-                            <span style={{ fontSize: '11px', color: colors.textTertiary }}>
-                                {trackCount} track{trackCount !== 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
 
-                    {/* Recent tracks preview */}
-                    {recentTracks.length > 0 && (
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
-                            {recentTracks.map(t => (
-                                <div key={t.id} style={{ position: 'relative' }}>
-                                    {t.coverUrl ? (
-                                        <img src={t.coverUrl} alt="" style={{
-                                            width: 36, height: 36, borderRadius: '6px', objectFit: 'cover',
-                                            border: '1px solid rgba(255,255,255,0.06)',
-                                        }} />
-                                    ) : (
-                                        <div style={{
-                                            width: 36, height: 36, borderRadius: '6px',
-                                            background: 'rgba(255,255,255,0.04)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            border: '1px solid rgba(255,255,255,0.06)',
-                                        }}>
-                                            <Music size={14} color={colors.textTertiary} />
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            {trackCount > 4 && (
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: '6px',
-                                    background: 'rgba(255,255,255,0.04)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '11px', color: colors.textTertiary, fontWeight: 600,
-                                    border: '1px solid rgba(255,255,255,0.06)',
-                                }}>
-                                    +{trackCount - 4}
+                        {/* Bio */}
+                        {profile.bio && (
+                            <p style={{ fontSize: '12px', color: 'rgba(185,195,210,0.65)', lineHeight: 1.5, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                {profile.bio}
+                            </p>
+                        )}
+
+                        {/* Stats + CTA */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '2px' }}>
+                            {typeof profile.totalPlays === 'number' && profile.totalPlays > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                                    <span style={{ fontSize: '16px', fontWeight: 900, color: colors.primary, lineHeight: 1 }}>
+                                        {profile.totalPlays >= 1000 ? `${(profile.totalPlays / 1000).toFixed(1)}k` : profile.totalPlays.toLocaleString()}
+                                    </span>
+                                    <span style={{ fontSize: '9px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>plays</span>
                                 </div>
                             )}
+                            {trackCount > 0 && (
+                                <span style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                    {trackCount} track{trackCount !== 1 ? 's' : ''}
+                                </span>
+                            )}
+                            {profile.location && (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', color: colors.textTertiary }}>
+                                    <MapPin size={10} /> {profile.location}
+                                </span>
+                            )}
+                            <div style={{
+                                marginLeft: 'auto',
+                                padding: '7px 16px', borderRadius: '999px',
+                                background: hover ? colors.primary : `${colors.primary}22`,
+                                border: hover ? 'none' : `1px solid ${colors.primary}44`,
+                                color: hover ? 'white' : colors.primary,
+                                fontSize: '11px', fontWeight: 700, letterSpacing: '0.03em',
+                                transition: 'all 0.2s', whiteSpace: 'nowrap',
+                                boxShadow: hover ? `0 4px 14px ${colors.primary}44` : 'none',
+                            }}>
+                                View Profile
+                            </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </Link>

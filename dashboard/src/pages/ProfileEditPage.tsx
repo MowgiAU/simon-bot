@@ -262,7 +262,6 @@ export const ProfileEditPage: React.FC = () => {
             soundcloudUrl: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud' },
             youtubeUrl:    { pattern: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, label: 'YouTube' },
             instagramUrl:  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i,   label: 'Instagram' },
-            discordUrl:    { pattern: /^https?:\/\/(discord\.gg|discord\.com\/)/i, label: 'Discord' },
         };
         for (const [field, rule] of Object.entries(socialRules)) {
             const url = (profile as any)[field];
@@ -399,7 +398,6 @@ export const ProfileEditPage: React.FC = () => {
         { key: 'soundcloudUrl', label: 'SoundCloud', icon: <Music size={16}/>, placeholder: 'https://soundcloud.com/...' },
         { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/>, placeholder: 'https://youtube.com/@...' },
         { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, placeholder: 'https://instagram.com/...' },
-        { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, placeholder: 'username or user#1234' },
     ];
 
     if (loading) return (
@@ -437,7 +435,6 @@ export const ProfileEditPage: React.FC = () => {
         { key: 'soundcloudUrl', label: 'SoundCloud', color: '#FF5500', placeholder: 'https://soundcloud.com/...' },
         { key: 'youtubeUrl', label: 'YouTube', color: '#FF0000', placeholder: 'https://youtube.com/@...' },
         { key: 'instagramUrl', label: 'Instagram', color: '#E1306C', placeholder: 'https://instagram.com/...' },
-        { key: 'discordUrl', label: 'Discord', color: '#5865F2', placeholder: 'username or user#1234' },
     ];
 
     const gearCategoryColors: Record<string, string> = {

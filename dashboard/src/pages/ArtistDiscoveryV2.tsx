@@ -369,7 +369,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         const battle = featured?.featuredBattle;
                         const battleDesc = featured?.featuredBattleDescription;
                         return (
-                    <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '320px', minHeight: isMobile ? '280px' : undefined, position: 'relative', overflow: 'hidden' }}>
                         {/* Banner image — blurred background */}
                         {battle?.bannerUrl && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
@@ -382,7 +382,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         }} />
 
                         {/* Content */}
-                        <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', height: '100%', gap: '11px', boxSizing: 'border-box' }}>
+                        <div style={{ position: 'relative', zIndex: 1, padding: '14px 18px 16px', display: 'flex', flexDirection: 'column', height: '100%', gap: '8px', boxSizing: 'border-box' }}>
                             {/* Top row: header + status badge */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Link to="/battles" style={{ textDecoration: 'none' }}>

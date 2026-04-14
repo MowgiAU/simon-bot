@@ -290,7 +290,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, color: '#1DB954', isHandle: false },
         { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/>, color: '#FF0000', isHandle: false },
         { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, color: '#E1306C', isHandle: false },
-        { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, color: '#5865F2', isHandle: true },
     ];
 
     const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username } : null;

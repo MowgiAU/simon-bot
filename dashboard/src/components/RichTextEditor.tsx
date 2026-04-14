@@ -5,7 +5,7 @@ import {
     Heading2, Heading3, Quote, Code, Link as LinkIcon, Image,
     Youtube, Music, User, AlignLeft, AlignCenter, AlignRight,
     Undo2, Redo2, Minus, Type, Twitter, FileAudio, FolderDown, Sliders,
-    Pencil, Trash2, X,
+    Pencil, Trash2, X, ChevronUp, ChevronDown, GripVertical,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -215,6 +215,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
         el.remove();
         setSelectedEmbed(null);
         handleInput();
+    }, [handleInput]);
+
+    // Move embed up (swap with previous sibling)
+    const moveEmbedUp = useCallback((el: HTMLElement) => {
+        const prev = el.previousElementSibling as HTMLElement | null;
+        if (prev && el.parentNode) {
+            el.parentNode.insertBefore(el, prev);
+            handleInput();
+        }
+    }, [handleInput]);
+
+    // Move embed down (swap with next sibling)
+    const moveEmbedDown = useCallback((el: HTMLElement) => {
+        const next = el.nextElementSibling as HTMLElement | null;
+        if (next && el.parentNode) {
+            el.parentNode.insertBefore(next, el);
+            handleInput();
+        }
     }, [handleInput]);
 
     // Apply edit to an embed
@@ -498,26 +516,76 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             {selectedEmbed && editorRef.current && (() => {
                 const editorRect = editorRef.current!.getBoundingClientRect();
                 const embedRect = selectedEmbed.getBoundingClientRect();
-                const top = embedRect.top - editorRect.top + editorRef.current!.scrollTop - 40;
+                const top = embedRect.top - editorRect.top + editorRef.current!.scrollTop - 44;
                 const left = embedRect.left - editorRect.left + embedRect.width / 2;
+                const embedType = selectedEmbed.getAttribute('data-embed-type') || 'embed';
+                const typeLabels: Record<string, string> = {
+                    track: 'Track', profile: 'Profile', social: 'Social Post',
+                    'audio-file': 'Audio', 'project-file': 'Project', 'preset-file': 'Preset',
+                    video: 'Video', link: 'Link', image: 'Image',
+                };
+                const typeLabel = typeLabels[embedType] || 'Embed';
+                const hasPrev = !!selectedEmbed.previousElementSibling;
+                const hasNext = !!selectedEmbed.nextElementSibling;
+                const btnBase: React.CSSProperties = {
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px',
+                    padding: '5px 8px', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                    transition: 'background 0.15s',
+                };
                 return (
                     <div className="embed-toolbar" style={{
                         position: 'absolute', top: `${top}px`, left: `${left}px`, transform: 'translateX(-50%)',
-                        display: 'flex', gap: '4px', padding: '4px 8px', zIndex: 100,
-                        background: colors.surface, border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                        display: 'flex', alignItems: 'center', gap: '3px', padding: '4px 6px', zIndex: 100,
+                        background: colors.surface, border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '10px', boxShadow: '0 6px 24px rgba(0,0,0,0.5)',
                     }}>
+                        {/* Type label */}
+                        <span style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '4px 8px', fontSize: '10px', fontWeight: 800,
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            color: colors.primary, background: `${colors.primary}18`,
+                            borderRadius: '5px', whiteSpace: 'nowrap', userSelect: 'none',
+                        }}>
+                            <GripVertical size={10} /> {typeLabel}
+                        </span>
+                        {/* Divider */}
+                        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 2px' }} />
+                        {/* Move up */}
+                        <button type="button" title="Move up" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); moveEmbedUp(selectedEmbed); }} style={{
+                            ...btnBase,
+                            background: hasPrev ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
+                            color: hasPrev ? colors.textPrimary : colors.textTertiary,
+                            opacity: hasPrev ? 1 : 0.4,
+                        }}>
+                            <ChevronUp size={13} />
+                        </button>
+                        {/* Move down */}
+                        <button type="button" title="Move down" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); moveEmbedDown(selectedEmbed); }} style={{
+                            ...btnBase,
+                            background: hasNext ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
+                            color: hasNext ? colors.textPrimary : colors.textTertiary,
+                            opacity: hasNext ? 1 : 0.4,
+                        }}>
+                            <ChevronDown size={13} />
+                        </button>
+                        {/* Divider */}
+                        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 2px' }} />
+                        {/* Edit */}
                         <button type="button" title="Edit embed" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startEditEmbed(selectedEmbed); }} style={{
-                            display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: '6px', color: colors.textPrimary, cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            ...btnBase,
+                            background: 'rgba(255,255,255,0.06)',
+                            color: colors.textPrimary,
                         }}>
                             <Pencil size={12} /> Edit
                         </button>
+                        {/* Remove */}
                         <button type="button" title="Remove embed" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeEmbed(selectedEmbed); }} style={{
-                            display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
-                            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
-                            borderRadius: '6px', color: '#EF4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            ...btnBase,
+                            background: 'rgba(239,68,68,0.1)',
+                            border: '1px solid rgba(239,68,68,0.2)',
+                            color: '#EF4444',
                         }}>
                             <Trash2 size={12} /> Remove
                         </button>
@@ -607,11 +675,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 [contenteditable] hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0; }
                 [contenteditable] ul, [contenteditable] ol { padding-left: 24px; margin: 8px 0; }
                 [contenteditable] li { margin: 4px 0; }
-                [contenteditable] .article-embed { user-select: none; }
+                [contenteditable] .article-embed { user-select: none; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
                 [contenteditable] .article-embed:hover { border-color: ${colors.primary} !important; }
                 [contenteditable] .article-embed.embed-selected {
                     outline: 2px solid ${colors.primary};
                     outline-offset: 2px;
+                    box-shadow: 0 0 0 6px ${colors.primary}15;
                 }
             `}</style>
         </div>
