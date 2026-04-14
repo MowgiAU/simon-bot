@@ -115,11 +115,6 @@ export const MyTracksPage: React.FC = () => {
     const artworkInputRef = useRef<HTMLInputElement>(null);
     const cropImgRef = useRef<HTMLImageElement>(null);
 
-    // Revoke object URL when artwork preview changes or component unmounts
-    useEffect(() => {
-        return () => { if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl); };
-    }, [artworkPreviewUrl]);
-
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
 
@@ -373,7 +368,9 @@ export const MyTracksPage: React.FC = () => {
     /* ─── Artwork helpers ─── */
     const handleArtworkSelect = (file: File) => {
         setArtworkFile(file);
-        setArtworkPreviewUrl(URL.createObjectURL(file));
+        const reader = new FileReader();
+        reader.onload = (e) => setArtworkPreviewUrl((e.target?.result as string) ?? null);
+        reader.readAsDataURL(file);
     };
 
     const initCropRect = () => {
@@ -397,12 +394,12 @@ export const MyTracksPage: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         ctx.drawImage(img, cropRect.x * scale, cropRect.y * scale, cropRect.size * scale, cropRect.size * scale, 0, 0, 512, 512);
+        // Use data URL for preview (avoids blob: CSP issues)
+        setArtworkPreviewUrl(canvas.toDataURL('image/jpeg', 0.92));
+        setShowCropModal(false);
         canvas.toBlob(blob => {
             if (!blob) return;
-            const file = new File([blob], 'artwork.jpg', { type: 'image/jpeg' });
-            setArtworkFile(file);
-            setArtworkPreviewUrl(URL.createObjectURL(file));
-            setShowCropModal(false);
+            setArtworkFile(new File([blob], 'artwork.jpg', { type: 'image/jpeg' }));
         }, 'image/jpeg', 0.92);
     };
 
