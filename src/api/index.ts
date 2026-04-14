@@ -10772,8 +10772,8 @@ if (fs.existsSync(distPath)) {
         // Bot request on a track URL â†’ inject OG meta tags
         const ua = req.headers['user-agent'] || '';
         const trackMatch = req.path.match(TRACK_PATH);
-        logger.info(`[SPA] path=${req.path} ua="${ua.slice(0,80)}" isBot=${BOT_UA.test(ua)} trackMatch=${!!trackMatch}`);
         if (BOT_UA.test(ua) && trackMatch) {
+            logger.info(`[OG] Bot crawl: path=${req.path} ua="${ua.slice(0, 60)}"`);
             try {
                 const [, , username, slug] = trackMatch;
                 const profile = await db.musicianProfile.findFirst({
@@ -10787,14 +10787,17 @@ if (fs.existsSync(distPath)) {
                     if (track) {
                         const baseUrl = `${req.protocol}://${req.get('host')}`;
                         const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
-                        const audioUrl = track.url ? `${baseUrl}${track.url}` : '';
-                        const imageUrl = track.coverUrl ? `${baseUrl}${track.coverUrl}` : `${baseUrl}/og-default.png`;
+                        // coverUrl / url may be absolute CDN URLs or relative /uploads/... paths
+                        const toAbsolute = (u: string | null | undefined): string | null =>
+                            u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
+                        const imageUrl = toAbsolute(track.coverUrl) ?? `${baseUrl}/og-default.png`;
+                        const audioUrl = toAbsolute(track.url) ?? '';
                         const artistName: string = track.profile.displayName || track.profile.username || username;
                         const description: string = track.description
                             ? track.description.slice(0, 200)
                             : `Listen to ${track.title} by ${artistName} on Fuji Studio`;
-                        const playerUrl = `${baseUrl}/player/${username}/${slug}`;
                         const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
+                        logger.info(`[OG] Serving embed for "${track.title}" — image: ${imageUrl}`);
 
                         const metaTags = [
                             `<meta charset="utf-8">`,
@@ -10804,20 +10807,21 @@ if (fs.existsSync(distPath)) {
                             `<meta property="og:type" content="music.song">`,
                             `<meta property="og:url" content="${trackUrl}">`,
                             `<meta property="og:image" content="${imageUrl}">`,
+                            `<meta property="og:image:secure_url" content="${imageUrl}">`,
                             `<meta property="og:image:width" content="500">`,
                             `<meta property="og:image:height" content="500">`,
+                            `<meta property="og:image:type" content="image/webp">`,
                             `<meta property="og:site_name" content="Fuji Studio">`,
-                            `<meta name="theme-color" content="#5865F2">`,
+                            `<meta name="theme-color" content="#10B981">`,
                             audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
                             audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
-                            audioUrl ? `<meta property="og:audio:type" content="audio/mpeg">` : '',
-                            `<meta name="twitter:card" content="player">`,
+                            audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
+                            `<meta name="twitter:card" content="summary_large_image">`,
                             `<meta name="twitter:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
                             `<meta name="twitter:description" content="${escapeHtml(description)}">`,
                             `<meta name="twitter:image" content="${imageUrl}">`,
-                            `<meta name="twitter:player" content="${playerUrl}">`,
-                            `<meta name="twitter:player:width" content="480">`,
-                            `<meta name="twitter:player:height" content="80">`,
+                            `<meta name="twitter:site" content="@fujistudio">`,
+                            `<meta name="twitter:creator" content="@fujistudio">`,
                             `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
                         ].filter(Boolean).join('\n');
 
