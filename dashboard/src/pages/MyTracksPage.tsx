@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
@@ -108,6 +108,18 @@ export const MyTracksPage: React.FC = () => {
     // Drag-and-drop state
     const [dragOver, setDragOver] = useState<'audio' | 'art' | 'project' | null>(null);
 
+    // Artwork preview & crop state
+    const [artworkPreviewUrl, setArtworkPreviewUrl] = useState<string | null>(null);
+    const [showCropModal, setShowCropModal] = useState(false);
+    const [cropRect, setCropRect] = useState({ x: 0, y: 0, size: 200 });
+    const artworkInputRef = useRef<HTMLInputElement>(null);
+    const cropImgRef = useRef<HTMLImageElement>(null);
+
+    // Revoke object URL when artwork preview changes or component unmounts
+    useEffect(() => {
+        return () => { if (artworkPreviewUrl) URL.revokeObjectURL(artworkPreviewUrl); };
+    }, [artworkPreviewUrl]);
+
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
 
@@ -198,7 +210,7 @@ export const MyTracksPage: React.FC = () => {
             setTracks([...tracks, res.data]);
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
-            setAudioFile(null); setArtworkFile(null); setProjectFile(null);
+            setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics('');
             setMessage({ type: 'success', text: 'Track uploaded successfully!' });
         } catch (e: any) {
@@ -255,7 +267,7 @@ export const MyTracksPage: React.FC = () => {
             await axios.put(`/api/musician/tracks/${editingTrack.id}/lyrics`, { lyrics: editingTrackLyrics.trim() || null, lyricsSync: null }, { withCredentials: true }).catch(() => {});
             setTracks(tracks.map(t => t.id === editingTrack.id ? res.data : t));
             setEditingTrack(null);
-            setAudioFile(null); setArtworkFile(null); setProjectFile(null);
+            setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setEditingTrackLyrics('');
             setMessage({ type: 'success', text: 'Track updated successfully!' });
         } catch (e: any) {
@@ -358,6 +370,90 @@ export const MyTracksPage: React.FC = () => {
         );
     };
 
+    /* ─── Artwork helpers ─── */
+    const handleArtworkSelect = (file: File) => {
+        setArtworkFile(file);
+        setArtworkPreviewUrl(URL.createObjectURL(file));
+    };
+
+    const initCropRect = () => {
+        requestAnimationFrame(() => {
+            const img = cropImgRef.current;
+            if (!img || img.clientWidth === 0) return;
+            const w = img.clientWidth;
+            const h = img.clientHeight;
+            const size = Math.min(w, h);
+            setCropRect({ x: (w - size) / 2, y: (h - size) / 2, size });
+        });
+    };
+
+    const applyCrop = () => {
+        const img = cropImgRef.current;
+        if (!img || !artworkPreviewUrl) return;
+        const scale = img.naturalWidth / img.clientWidth;
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, cropRect.x * scale, cropRect.y * scale, cropRect.size * scale, cropRect.size * scale, 0, 0, 512, 512);
+        canvas.toBlob(blob => {
+            if (!blob) return;
+            const file = new File([blob], 'artwork.jpg', { type: 'image/jpeg' });
+            setArtworkFile(file);
+            setArtworkPreviewUrl(URL.createObjectURL(file));
+            setShowCropModal(false);
+        }, 'image/jpeg', 0.92);
+    };
+
+    const handleCropMouseDown = (e: React.MouseEvent, corner: 'move' | 'nw' | 'ne' | 'sw' | 'se') => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startRect = { ...cropRect };
+        const startX = e.clientX;
+        const startY = e.clientY;
+
+        const onMouseMove = (me: MouseEvent) => {
+            const img = cropImgRef.current;
+            if (!img) return;
+            const dx = me.clientX - startX;
+            const dy = me.clientY - startY;
+            const imgW = img.clientWidth;
+            const imgH = img.clientHeight;
+
+            if (corner === 'move') {
+                setCropRect({
+                    size: startRect.size,
+                    x: Math.max(0, Math.min(imgW - startRect.size, startRect.x + dx)),
+                    y: Math.max(0, Math.min(imgH - startRect.size, startRect.y + dy)),
+                });
+            } else if (corner === 'se') {
+                const newSize = Math.max(50, Math.min(startRect.size + (dx + dy) / 2, Math.min(imgW - startRect.x, imgH - startRect.y)));
+                setCropRect({ ...startRect, size: newSize });
+            } else if (corner === 'nw') {
+                const delta = -(dx + dy) / 2;
+                const newSize = Math.max(50, Math.min(startRect.size + delta, Math.min(startRect.x + startRect.size, startRect.y + startRect.size)));
+                setCropRect({ size: newSize, x: startRect.x + startRect.size - newSize, y: startRect.y + startRect.size - newSize });
+            } else if (corner === 'ne') {
+                const delta = (dx - dy) / 2;
+                const newSize = Math.max(50, Math.min(startRect.size + delta, Math.min(imgW - startRect.x, startRect.y + startRect.size)));
+                setCropRect({ size: newSize, x: startRect.x, y: startRect.y + startRect.size - newSize });
+            } else if (corner === 'sw') {
+                const delta = (-dx + dy) / 2;
+                const newSize = Math.max(50, Math.min(startRect.size + delta, Math.min(startRect.x + startRect.size, imgH - startRect.y)));
+                setCropRect({ size: newSize, x: startRect.x + startRect.size - newSize, y: startRect.y });
+            }
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    };
+
     /* ─── Upload / Edit form (shared layout) ─── */
     const renderTrackForm = (isEdit: boolean) => {
         const track = isEdit ? editingTrack : newTrack;
@@ -416,29 +512,62 @@ export const MyTracksPage: React.FC = () => {
                     </label>
 
                     {/* Artwork */}
-                    <label
-                        style={dragOver === 'art' ? fileZoneDragging : artworkFile ? fileZoneActive : fileZone}
-                        onDragOver={e => { e.preventDefault(); setDragOver('art'); }}
-                        onDragLeave={() => setDragOver(null)}
-                        onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setArtworkFile(f); }}
-                    >
-                        <div style={{
-                            width: '40px', height: '40px', borderRadius: borderRadius.md,
-                            backgroundColor: artworkFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        }}>
-                            <ImageIcon size={20} color={artworkFile || dragOver === 'art' ? colors.primary : colors.textTertiary} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
-                                {isEdit ? 'Replace Art' : 'Artwork'}
+                    {artworkPreviewUrl ? (
+                        <div style={{ ...fileZoneActive, alignItems: 'center' }}>
+                            <img
+                                src={artworkPreviewUrl}
+                                alt="Artwork preview"
+                                style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: borderRadius.sm, flexShrink: 0 }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.primary, marginBottom: '2px' }}>
+                                    {isEdit ? 'Artwork ready' : 'Artwork selected'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {artworkFile?.name}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '11px', color: artworkFile ? colors.primary : dragOver === 'art' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {artworkFile ? artworkFile.name : dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, WEBP')}
+                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                <button type="button" onClick={() => setShowCropModal(true)}
+                                    style={{ padding: '5px 10px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}`, color: colors.primary, backgroundColor: 'rgba(16,185,129,0.08)', cursor: 'pointer' }}>
+                                    Crop
+                                </button>
+                                <button type="button" onClick={() => artworkInputRef.current?.click()}
+                                    style={{ padding: '5px 10px', fontSize: '12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, color: colors.textSecondary, backgroundColor: 'transparent', cursor: 'pointer' }}>
+                                    Change
+                                </button>
+                                <button type="button" onClick={() => { setArtworkFile(null); setArtworkPreviewUrl(null); }}
+                                    style={{ padding: '5px 8px', fontSize: '12px', borderRadius: borderRadius.sm, border: `1px solid rgba(239,68,68,0.2)`, color: colors.error, backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                    <X size={12} />
+                                </button>
                             </div>
+                            <input ref={artworkInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkSelect(f); e.target.value = ''; }} style={{ display: 'none' }} />
                         </div>
-                        <input type="file" accept="image/*" onChange={e => setArtworkFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    </label>
+                    ) : (
+                        <label
+                            style={dragOver === 'art' ? fileZoneDragging : fileZone}
+                            onDragOver={e => { e.preventDefault(); setDragOver('art'); }}
+                            onDragLeave={() => setDragOver(null)}
+                            onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) handleArtworkSelect(f); }}
+                        >
+                            <div style={{
+                                width: '40px', height: '40px', borderRadius: borderRadius.md,
+                                backgroundColor: 'rgba(255,255,255,0.04)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            }}>
+                                <ImageIcon size={20} color={dragOver === 'art' ? colors.primary : colors.textTertiary} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
+                                    {isEdit ? 'Replace Art' : 'Artwork'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: dragOver === 'art' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, WEBP')}
+                                </div>
+                            </div>
+                            <input ref={artworkInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkSelect(f); }} style={{ display: 'none' }} />
+                        </label>
+                    )}
 
                     {/* Project file */}
                     <label
@@ -855,6 +984,95 @@ export const MyTracksPage: React.FC = () => {
             )}
         </div>
         </DiscoveryLayout>
+        {/* ── Artwork Crop Modal ── */}
+        {showCropModal && artworkPreviewUrl && (
+            <div
+                style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+                onClick={() => setShowCropModal(false)}
+            >
+                <div
+                    style={{ backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.glassBorder}`, padding: '24px', maxWidth: '580px', width: '100%' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: colors.textPrimary }}>Crop Album Artwork</h3>
+                        <button onClick={() => setShowCropModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, display: 'flex', padding: '4px' }}>
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <p style={{ margin: '0 0 16px', fontSize: '13px', color: colors.textSecondary }}>
+                        Drag to reposition · Drag a corner handle to resize. Output will be saved at 512×512.
+                    </p>
+                    {/* Image + interactive crop overlay */}
+                    <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', userSelect: 'none', overflow: 'hidden', borderRadius: borderRadius.md, lineHeight: 0 }}>
+                        <img
+                            ref={cropImgRef}
+                            src={artworkPreviewUrl}
+                            alt="Artwork"
+                            onLoad={initCropRect}
+                            style={{ display: 'block', maxWidth: '100%', maxHeight: '400px' }}
+                            draggable={false}
+                        />
+                        {/* Crop box — box-shadow darkens area outside crop */}
+                        <div
+                            style={{
+                                position: 'absolute',
+                                left: cropRect.x,
+                                top: cropRect.y,
+                                width: cropRect.size,
+                                height: cropRect.size,
+                                border: '2px solid rgba(255,255,255,0.9)',
+                                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                                boxSizing: 'border-box',
+                                cursor: 'move',
+                            }}
+                            onMouseDown={e => handleCropMouseDown(e, 'move')}
+                        >
+                            {/* Rule-of-thirds grid lines */}
+                            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                                {[33.33, 66.66].map(p => (
+                                    <React.Fragment key={p}>
+                                        <div style={{ position: 'absolute', left: `${p}%`, top: 0, bottom: 0, borderLeft: '1px solid rgba(255,255,255,0.25)' }} />
+                                        <div style={{ position: 'absolute', top: `${p}%`, left: 0, right: 0, borderTop: '1px solid rgba(255,255,255,0.25)' }} />
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            {/* Corner resize handles */}
+                            {(['nw', 'ne', 'sw', 'se'] as const).map(corner => (
+                                <div
+                                    key={corner}
+                                    onMouseDown={e => handleCropMouseDown(e, corner)}
+                                    style={{
+                                        position: 'absolute', width: 10, height: 10,
+                                        backgroundColor: 'white', borderRadius: '2px',
+                                        cursor: `${corner}-resize`,
+                                        ...(corner === 'nw' && { left: -5, top: -5 }),
+                                        ...(corner === 'ne' && { right: -5, top: -5 }),
+                                        ...(corner === 'sw' && { left: -5, bottom: -5 }),
+                                        ...(corner === 'se' && { right: -5, bottom: -5 }),
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                        <button
+                            onClick={() => setShowCropModal(false)}
+                            style={{ padding: '9px 18px', fontSize: '14px', borderRadius: borderRadius.md, border: `1px solid ${colors.glassBorder}`, color: colors.textSecondary, backgroundColor: 'transparent', cursor: 'pointer' }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={applyCrop}
+                            style={{ padding: '9px 18px', fontSize: '14px', fontWeight: 700, borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: 'white', cursor: 'pointer', boxShadow: shadows.glow }}
+                        >
+                            Apply Crop
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         <ConfirmModal
             open={!!deleteConfirm}
             title="Delete Track"
