@@ -84,8 +84,13 @@ export const MusicianProfilePage: React.FC = () => {
         );
     }
 
-    const identifier = urlIdentifier || user?.username || user?.id || '';
-    const isOwn = !!user && (identifier === user.id || identifier === user.username);
+    const identifier = urlIdentifier || user?.profileUsername || user?.username || user?.id || '';
+    const isOwn = !!user && (
+        identifier === user.id ||
+        identifier === user.username ||
+        (!!user.profileUsername && identifier === user.profileUsername) ||
+        (!!profile && (profile as any).userId === user.id)
+    );
 
     return (
         <DiscoveryLayout activeTab="profile">
