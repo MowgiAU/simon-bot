@@ -10965,7 +10965,7 @@ app.get('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => {
         }
         res.json(settings);
     } catch (e: any) {
-        logger.error(Track announcer get settings error: );
+        logger.error(`Track announcer get settings error: ${e.message}`);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -10983,7 +10983,7 @@ app.post('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => 
         });
         res.json(settings);
     } catch (e: any) {
-        logger.error(Track announcer save settings error: );
+        logger.error(`Track announcer save settings error: ${e.message}`);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
