@@ -10783,12 +10783,12 @@ if (fs.existsSync(distPath)) {
                     // Try slug first, fall back to ID (tracks without a slug use track.id in the URL)
                     let track = await db.track.findFirst({
                         where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
-                        include: { profile: true }
+                        include: { profile: true, genres: { include: { genre: true } } }
                     }) as any;
                     if (!track) {
                         track = await db.track.findFirst({
                             where: { profileId: profile.id, isPublic: true, id: slug },
-                            include: { profile: true }
+                            include: { profile: true, genres: { include: { genre: true } } }
                         }) as any;
                     }
                     if (track) {
@@ -10800,9 +10800,15 @@ if (fs.existsSync(distPath)) {
                         const imageUrl = toAbsolute(track.coverUrl) ?? `${baseUrl}/og-default.png`;
                         const audioUrl = toAbsolute(track.url) ?? '';
                         const artistName: string = track.profile.displayName || track.profile.username || username;
-                        const description: string = track.description
-                            ? track.description.slice(0, 200)
-                            : `Listen to ${track.title} by ${artistName} on Fuji Studio`;
+                        const genreNames: string[] = (track.genres ?? []).map((g: any) => g.genre?.name).filter(Boolean);
+                        // Build a rich description matching the auto-post embed style
+                        const metaLine = [
+                            `By ${artistName}`,
+                            genreNames.length > 0 ? genreNames.join(', ') : null,
+                            typeof track.playCount === 'number' ? `${track.playCount.toLocaleString()} plays` : null,
+                        ].filter(Boolean).join(' · ');
+                        const bodyText = track.description ? track.description.slice(0, 160) : '';
+                        const description: string = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
                         const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
                         logger.info(`[OG] Serving embed for "${track.title}" — image: ${imageUrl}`);
 
@@ -10819,7 +10825,7 @@ if (fs.existsSync(distPath)) {
                             `<meta property="og:image:height" content="500">`,
                             `<meta property="og:image:type" content="image/webp">`,
                             `<meta property="og:site_name" content="Fuji Studio">`,
-                            `<meta name="theme-color" content="#10B981">`,
+                            `<meta name="theme-color" content="#2B8C71">`,
                             audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
                             audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
                             audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
