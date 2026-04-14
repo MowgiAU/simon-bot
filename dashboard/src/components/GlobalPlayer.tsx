@@ -8,13 +8,29 @@ import { usePlayer } from './PlayerProvider';
 import { colors } from '../theme/theme';
 import axios from 'axios';
 
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 export const GlobalPlayer: React.FC = () => {
-    const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode, removeFromQueue, jumpToIndex } = usePlayer();
+    const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode, removeFromQueue, jumpToIndex, setPlaybackRate } = usePlayer();
     const [isFavourited, setIsFavourited] = React.useState(false);
     const [isReposted, setIsReposted] = React.useState(false);
     const [showQueue, setShowQueue] = React.useState(false);
+    const [showSpeedMenu, setShowSpeedMenu] = React.useState(false);
     const lastCheckedTrackId = React.useRef<string | null>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
+    const speedMenuRef = React.useRef<HTMLDivElement>(null);
+
+    // Close speed menu on outside click
+    React.useEffect(() => {
+        if (!showSpeedMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (speedMenuRef.current && !speedMenuRef.current.contains(e.target as Node)) {
+                setShowSpeedMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showSpeedMenu]);
 
     React.useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -203,6 +219,23 @@ export const GlobalPlayer: React.FC = () => {
                             <button onClick={() => setShowQueue(q => !q)} aria-label="Toggle queue" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
                                 <List size={18} />
                             </button>
+                            {/* Mobile speed */}
+                            <div ref={speedMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
+                                <button onClick={() => setShowSpeedMenu(s => !s)} aria-label="Playback speed"
+                                    style={{ background: 'none', border: `1px solid ${player.playbackRate !== 1 ? colors.primary + '66' : 'rgba(255,255,255,0.12)'}`, borderRadius: '4px', cursor: 'pointer', color: player.playbackRate !== 1 ? colors.primary : '#B9C3CE', padding: '2px 5px', fontSize: '10px', fontWeight: 700, minWidth: '32px', textAlign: 'center' }}>
+                                    {player.playbackRate === 1 ? '1×' : `${player.playbackRate}×`}
+                                </button>
+                                {showSpeedMenu && (
+                                    <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', right: 0, backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 1010, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '80px' }}>
+                                        {SPEED_OPTIONS.map(rate => (
+                                            <button key={rate} onClick={() => { setPlaybackRate(rate); setShowSpeedMenu(false); }}
+                                                style={{ background: player.playbackRate === rate ? `${colors.primary}22` : 'none', border: 'none', cursor: 'pointer', color: player.playbackRate === rate ? colors.primary : '#E2E8F0', padding: '6px 10px', borderRadius: '6px', fontSize: '13px', fontWeight: player.playbackRate === rate ? 700 : 400, textAlign: 'left' }}>
+                                                {rate === 1 ? '1× Normal' : `${rate}×`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         {/* Row 2: Prev / Play / Next + seek + duration */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 10px 16px' }}>
@@ -318,13 +351,33 @@ export const GlobalPlayer: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Right: Volume + Queue */}
+                        {/* Right: Volume + Speed + Queue */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px', width: '30%' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Volume2 size={18} color="#B9C3CE" aria-hidden="true" />
                                 <input type="range" min="0" max="1" step="0.01" value={player.volume} onChange={handleVolumeChange}
                                     aria-label="Volume" aria-valuetext={`${Math.round(player.volume * 100)}%`}
                                     style={{ width: '96px', height: '4px', cursor: 'pointer', accentColor: colors.primary }} />
+                            </div>
+                            {/* Speed control */}
+                            <div ref={speedMenuRef} style={{ position: 'relative' }}>
+                                <button onClick={() => setShowSpeedMenu(s => !s)} aria-label="Playback speed"
+                                    style={{ background: 'none', border: `1px solid ${player.playbackRate !== 1 ? colors.primary + '66' : 'rgba(255,255,255,0.12)'}`, borderRadius: '4px', cursor: 'pointer', color: player.playbackRate !== 1 ? colors.primary : '#B9C3CE', padding: '2px 6px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.02em', transition: 'all 0.15s', minWidth: '36px', textAlign: 'center' }}>
+                                    {player.playbackRate === 1 ? '1×' : `${player.playbackRate}×`}
+                                </button>
+                                {showSpeedMenu && (
+                                    <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', right: 0, backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', zIndex: 1010, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '80px' }}>
+                                        <p style={{ margin: '0 0 4px', padding: '0 8px', fontSize: '10px', fontWeight: 600, color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Speed</p>
+                                        {SPEED_OPTIONS.map(rate => (
+                                            <button key={rate} onClick={() => { setPlaybackRate(rate); setShowSpeedMenu(false); }}
+                                                style={{ background: player.playbackRate === rate ? `${colors.primary}22` : 'none', border: 'none', cursor: 'pointer', color: player.playbackRate === rate ? colors.primary : '#E2E8F0', padding: '6px 10px', borderRadius: '6px', fontSize: '13px', fontWeight: player.playbackRate === rate ? 700 : 400, textAlign: 'left', transition: 'background 0.1s' }}
+                                                onMouseEnter={e => { if (player.playbackRate !== rate) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                                                onMouseLeave={e => { if (player.playbackRate !== rate) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}>
+                                                {rate === 1 ? '1× Normal' : `${rate}×`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <button onClick={() => setShowQueue(q => !q)} aria-label="Toggle queue" aria-pressed={showQueue}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '4px', transition: 'color 0.2s' }}>

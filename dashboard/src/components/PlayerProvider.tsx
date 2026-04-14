@@ -19,6 +19,7 @@ interface PlayerState {
   currentIndex: number;
   isShuffle: boolean;
   repeatMode: 'none' | 'one' | 'all';
+  playbackRate: number;
 }
 
 interface PlayerContextType {
@@ -34,6 +35,7 @@ interface PlayerContextType {
   addToQueue: (track: any) => void;
   removeFromQueue: (index: number) => void;
   jumpToIndex: (index: number) => void;
+  setPlaybackRate: (rate: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     currentIndex: -1,
     isShuffle: false,
     repeatMode: 'none',
+    playbackRate: 1,
   });
 
   const [audio] = useState(new Audio());
@@ -284,11 +287,16 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPlayer(prev => ({ ...prev, currentTime: time }));
   };
 
+  const setPlaybackRate = (rate: number) => {
+    audio.playbackRate = rate;
+    setPlayer(prev => ({ ...prev, playbackRate: rate }));
+  };
+
   return (
     <PlayerContext.Provider value={{ 
-      player, setTrack, togglePlay, setVolume, seek, 
+      player, setTrack, togglePlay, setVolume, seek,
       nextTrack, prevTrack, toggleShuffle, setRepeatMode,
-      addToQueue, removeFromQueue, jumpToIndex,
+      addToQueue, removeFromQueue, jumpToIndex, setPlaybackRate,
     }}>
       {children}
     </PlayerContext.Provider>
