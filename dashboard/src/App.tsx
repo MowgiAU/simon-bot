@@ -76,6 +76,7 @@ const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m =
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
 const SpamGuardPage          = lazy(() => import("./pages/SpamGuard").then(m => ({ default: m.SpamGuardPage })));
 const AntiExternalForwardPage = lazy(() => import("./pages/AntiExternalForward").then(m => ({ default: m.AntiExternalForwardPage })));
+const TrackAnnouncerPage     = lazy(() => import("./pages/TrackAnnouncer"));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
@@ -138,7 +139,8 @@ type Section =
   | "articles"
   | "article-review"
   | "voice-stats"
-  | "spam-guard";
+  | "spam-guard"
+  | "track-announcer";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -448,6 +450,8 @@ const AdminDashboard: React.FC = () => {
           return <VoiceStatsPage />;
         case "spam-guard":
           return <SpamGuardPage />;
+        case "track-announcer":
+          return <TrackAnnouncerPage />;
         case "anti-external-forward":
           return <AntiExternalForwardPage />;
         case "booster-color":

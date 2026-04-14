@@ -125,6 +125,7 @@ model Guild {
   spamGuardSettings    SpamGuardSettings?
   spamGuardIncidents   SpamGuardIncident[]
   antiExternalForwardSettings AntiExternalForwardSettings?
+  trackAnnouncerSettings      TrackAnnouncerSettings?
 
   @@map("guilds")
 }
@@ -2257,6 +2258,41 @@ model AntiExternalForwardSettings {
   guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("anti_external_forward_settings")
+}
+
+// ── Track Announcer ────────────────────────────────────────────────────────────
+
+model TrackAnnouncerSettings {
+  id               String   @id @default(cuid())
+  guildId          String   @unique
+  enabled          Boolean  @default(true)
+  channelId        String?  // Discord channel ID to post announcements in
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("track_announcer_settings")
+}
+
+/// Pending track announcement written by the API, consumed by the bot plugin.
+model TrackAnnouncement {
+  id               String   @id @default(cuid())
+  guildId          String
+  trackId          String
+  trackTitle       String
+  artistName       String
+  profileUsername  String    // used to build the track URL slug
+  trackSlug        String?
+  coverUrl         String?
+  genres           String[] @default([])
+  postedAt         DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([postedAt])
+  @@index([createdAt])
+  @@map("track_announcements")
 }
 
 model SpamGuardIncident {

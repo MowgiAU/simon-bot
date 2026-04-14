@@ -39,6 +39,7 @@ import {
   Hammer,
   BarChart2,
   ClipboardCheck,
+  Megaphone,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -239,6 +240,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Radio} size={20} /></span>
                 <span className="nav-label">Fuji FM</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('track-announcer') && (
+            <button
+                className={`nav-item ${activeSection === 'track-announcer' ? 'active' : ''}`}
+                onClick={() => onNavigate('track-announcer')}
+                title={collapsed ? "Track Announcer" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Megaphone} size={20} /></span>
+                <span className="nav-label">Track Announcer</span>
             </button>
           )}
 

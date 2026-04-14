@@ -3826,7 +3826,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer'] 
             });
         }
 
@@ -6701,6 +6701,24 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         });
 
         res.json(fullTrack);
+
+        // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
+        const _annGuildId = process.env.GUILD_ID;
+        if (_annGuildId && uploaderProfile) {
+            const genreNames = (fullTrack?.genres ?? []).map((tg: any) => tg.genre?.name).filter(Boolean);
+            db.trackAnnouncement.create({
+                data: {
+                    guildId: _annGuildId,
+                    trackId: track.id,
+                    trackTitle: track.title,
+                    artistName: uploaderProfile.displayName || uploaderProfile.username,
+                    profileUsername: uploaderProfile.username,
+                    trackSlug: track.slug ?? null,
+                    coverUrl: coverUrl ?? null,
+                    genres: genreNames,
+                },
+            }).catch((err: any) => logger.warn(`[TrackAnnouncer] Failed to queue announcement: ${err.message}`));
+        }
 
         // Background: encode audio â†’ optimise artwork â†’ extract waveform â†’ push to R2.
         // This runs after res.json() so it never blocks the HTTP response.
@@ -10931,6 +10949,41 @@ app.post('/api/anti-external-forward/:guildId', requireAuth, async (req: any, re
         res.json(settings);
     } catch (e: any) {
         logger.error(`AEF save settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── Track Announcer Settings ────────────────────────────
+
+app.get('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        let settings = await db.trackAnnouncerSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.trackAnnouncerSettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e: any) {
+        logger.error(Track announcer get settings error: );
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        const { enabled, channelId } = req.body;
+        const data = { enabled: enabled ?? true, channelId: channelId || null };
+        const settings = await db.trackAnnouncerSettings.upsert({
+            where: { guildId },
+            create: { guildId, ...data },
+            update: data,
+        });
+        res.json(settings);
+    } catch (e: any) {
+        logger.error(Track announcer save settings error: );
         res.status(500).json({ error: 'Internal server error' });
     }
 });
