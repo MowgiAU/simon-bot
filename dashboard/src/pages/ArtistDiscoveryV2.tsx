@@ -369,7 +369,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         const battle = featured?.featuredBattle;
                         const battleDesc = featured?.featuredBattleDescription;
                         return (
-                    <div style={{ ...panel, padding: 0, height: isMobile ? 'auto' : '320px', minHeight: isMobile ? '280px' : undefined, position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ ...panel, padding: 0, height: 'auto', minHeight: isMobile ? '200px' : '200px', position: 'relative', overflow: 'hidden' }}>
                         {/* Banner image — blurred background */}
                         {battle?.bannerUrl && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
@@ -416,7 +416,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                             <img
                                                 src={battle.cardImageUrl}
                                                 alt={battle.title}
-                                                style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px', display: 'block' }}
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px', marginBottom: '6px', display: 'block' }}
                                             />
                                         )}
                                         {battleDesc && (
@@ -506,7 +506,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
                     {/* Trending Artist */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '320px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
                         {artists[0] ? (
                             <>
                                 {/* Full-bleed blurred background */}
@@ -521,14 +521,14 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                 {/* Accent glow */}
                                 <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
-                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: isMobile ? '20px' : '24px 28px', boxSizing: 'border-box', gap: isMobile ? '16px' : '24px', alignItems: 'center' }}>
+                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: isMobile ? '16px' : '20px 24px', boxSizing: 'border-box', gap: isMobile ? '14px' : '20px', alignItems: 'center' }}>
 
                                     {/* Left: avatar with glowing ring */}
                                     <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                                         <div style={{ position: 'relative' }}>
                                             <div style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
                                             <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
-                                            <div style={{ width: isMobile ? '110px' : '140px', height: isMobile ? '110px' : '140px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
+                                            <div style={{ width: isMobile ? '90px' : '110px', height: isMobile ? '90px' : '110px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
                                                 <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
                                             </div>
@@ -546,7 +546,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         </div>
                                         {/* Name */}
                                         <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
-                                            <div style={{ fontWeight: 900, fontSize: isMobile ? '20px' : '26px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            <div style={{ fontWeight: 900, fontSize: isMobile ? '18px' : '22px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {artists[0].displayName || artists[0].username}
                                             </div>
                                         </Link>
@@ -621,7 +621,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '320px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
