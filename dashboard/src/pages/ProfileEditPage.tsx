@@ -255,6 +255,22 @@ export const ProfileEditPage: React.FC = () => {
             setMessage({ type: 'error', text: 'Please fix the artist name before saving.' });
             return;
         }
+
+        // Validate social link domains before submitting
+        const socialRules: Record<string, { pattern: RegExp; label: string }> = {
+            spotifyUrl:    { pattern: /^https?:\/\/(open\.)?spotify\.com\//i,    label: 'Spotify' },
+            soundcloudUrl: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud' },
+            youtubeUrl:    { pattern: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, label: 'YouTube' },
+            instagramUrl:  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i,   label: 'Instagram' },
+            discordUrl:    { pattern: /^https?:\/\/(discord\.gg|discord\.com\/)/i, label: 'Discord' },
+        };
+        for (const [field, rule] of Object.entries(socialRules)) {
+            const url = (profile as any)[field];
+            if (url && url.trim() !== '' && !rule.pattern.test(url.trim())) {
+                setMessage({ type: 'error', text: `Invalid ${rule.label} link. Please enter a valid ${rule.label} URL.` });
+                return;
+            }
+        }
         setSaving(true);
         try {
             const payload = { 

@@ -7821,6 +7821,34 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(120), async (re
     }
 });
 
+// ── Social link domain validation ─────────────────────────────────────────────
+const SOCIAL_DOMAIN_RULES: Record<string, { pattern: RegExp; label: string }> = {
+    spotify:    { pattern: /^https?:\/\/(open\.)?spotify\.com\//i,    label: 'Spotify (open.spotify.com)' },
+    soundcloud: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud (soundcloud.com)' },
+    youtube:    { pattern: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, label: 'YouTube (youtube.com or youtu.be)' },
+    instagram:  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i,   label: 'Instagram (instagram.com)' },
+    discord:    { pattern: /^https?:\/\/(discord\.gg|discord\.com\/)/i, label: 'Discord (discord.gg or discord.com)' },
+};
+
+function validateSocialUrls(data: any): string | null {
+    const fields: Record<string, string> = {
+        spotifyUrl:    'spotify',
+        soundcloudUrl: 'soundcloud',
+        youtubeUrl:    'youtube',
+        instagramUrl:  'instagram',
+        discordUrl:    'discord',
+    };
+    for (const [field, platform] of Object.entries(fields)) {
+        const url: string | undefined = data[field];
+        if (!url || url.trim() === '') continue;
+        const rule = SOCIAL_DOMAIN_RULES[platform];
+        if (!rule.pattern.test(url.trim())) {
+            return `Invalid URL for ${platform}. Must be a valid ${rule.label} link.`;
+        }
+    }
+    return null;
+}
+
 // Update Profile
 app.post('/api/musician/profile/:userId', async (req: any, res) => {
     try {
@@ -7865,6 +7893,10 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         if (user && user.avatar && !data.avatar) {
             data.avatar = user.avatar;
         }
+
+        // Validate social link domains
+        const socialUrlError = validateSocialUrls(data);
+        if (socialUrlError) return res.status(400).json({ error: socialUrlError });
 
         // Map frontend social fields to ProfileService format
         const socials = [
@@ -8630,6 +8662,10 @@ app.post('/api/admin/musician/profile/:userId', requireAdmin, async (req: any, r
         if (!data.username) {
             data.username = user ? user.username : 'Unknown Musician';
         }
+
+        // Validate social link domains
+        const socialUrlError2 = validateSocialUrls(data);
+        if (socialUrlError2) return res.status(400).json({ error: socialUrlError2 });
 
         const socials = [
             { platform: 'spotify', url: data.spotifyUrl },
