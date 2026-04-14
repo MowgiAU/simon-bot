@@ -945,13 +945,11 @@ export const MyTracksPage: React.FC = () => {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                        {track.slug && (
-                            <a href={`/profile/${username || user?.username}/${track.slug}`} target="_blank" rel="noopener noreferrer"
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, color: colors.textTertiary, textDecoration: 'none', border: `1px solid ${colors.glassBorder}` }}
-                                title="View page">
-                                <ExternalLink size={15} />
-                            </a>
-                        )}
+                        <a href={`/profile/${username || user?.username}/${track.slug || track.id}`} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, color: colors.textTertiary, textDecoration: 'none', border: `1px solid ${colors.glassBorder}` }}
+                            title="View page">
+                            <ExternalLink size={15} />
+                        </a>
                         <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); setEditingTrackLyrics(track.lyrics || ''); }}
                             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: colors.primary, cursor: 'pointer' }}
                             title="Edit track">

@@ -164,6 +164,16 @@ const logger = new Logger('API');
 
 const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
 
+/**
+ * Generate a URL-safe slug from a track title.
+ * Falls back to a short timestamp-based ID when the title is entirely
+ * non-ASCII (e.g. CJK, symbol-only) so slugs are never empty strings.
+ */
+function safeTrackSlug(title: string): string {
+    const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return base || `track-${Date.now()}`;
+}
+
 // â”€â”€ Virus scanning (ClamAV via clamdscan daemon) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _clamScanner: any = null;
 let _clamAvailable = true; // set false after first failed init so we stop retrying
@@ -6642,8 +6652,8 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
-        // Create slug from title
-        const slug = metadata.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        // Create slug from title — fall back to cuid when Unicode title produces empty string
+        const slug = safeTrackSlug(metadata.title);
 
         // 3. Save to database
         const track = await audioService.addTrack(userId, {
@@ -7017,7 +7027,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
-            updateData.slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            updateData.slug = safeTrackSlug(cleanTitle);
         }
         if (description !== undefined) updateData.description = description || null;
         if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;
@@ -7191,7 +7201,7 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
-            updateData.slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            updateData.slug = safeTrackSlug(cleanTitle);
         }
         if (description !== undefined) updateData.description = description || null;
         if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;

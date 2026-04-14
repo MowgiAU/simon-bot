@@ -82,7 +82,8 @@ export const GlobalPlayer: React.FC = () => {
     const bottomOffset = isMobile ? 60 : 0;
 
     const t = player.currentTrack as any;
-    const titleTo = (t.username && t.slug) ? `/track/${t.username}/${t.slug}` : (t.entryRoute || null);
+    const trackSlugOrId = t.slug || t.id || null;
+    const titleTo = (t.username && trackSlugOrId) ? `/track/${t.username}/${trackSlugOrId}` : (t.entryRoute || null);
     const artistTo = `/profile/${t.username || t.artist}`;
 
     return (
