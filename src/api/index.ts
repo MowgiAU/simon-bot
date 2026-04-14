@@ -8042,7 +8042,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
         if (settings.featuredType === 'track' && settings.featuredTrackId) {
             queries.push(db.track.findUnique({
                 where: { id: settings.featuredTrackId },
-                include: { profile: true }
+                include: { profile: true, genres: { include: { genre: true } }, _count: { select: { favourites: true, comments: true } } }
             }).then((featuredTrack: any) => {
                 if (featuredTrack) {
                     if (featuredTrack.allowAudioDownload === undefined) featuredTrack.allowAudioDownload = true;

@@ -9,7 +9,7 @@ import { ReportButton } from '../components/ReportButton';
 import { 
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
-    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic
+    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic, Clock, Star
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 import { FujiLogo } from '../components/FujiLogo';
@@ -37,9 +37,15 @@ interface MusicianProfile {
     featuredTrack?: {
         id: string;
         title: string;
+        slug?: string | null;
         url: string;
         coverUrl: string | null;
         description: string | null;
+        duration?: number | null;
+        playCount?: number;
+        createdAt?: string;
+        genres?: { genre: { name: string; slug: string } }[];
+        _count?: { favourites: number; comments: number };
     };
     featuredPlaylistId?: string | null;
     featuredPlaylist?: {
@@ -483,48 +489,108 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 </div>
                 )}
 
-                {/* Featured Track — Compact Player Bar */}
+                {/* Featured Track — Hero Card */}
                 {featuredTrack && (
                 <div style={{
-                    display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px',
-                    padding: isMobile ? '14px' : '16px 20px',
-                    borderRadius: '12px', backgroundColor: '#242C3D',
+                    borderRadius: '12px', overflow: 'hidden',
                     border: '1px solid rgba(255,255,255,0.06)',
                     marginBottom: '20px',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s'
-                }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#2A3347'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#242C3D'}
-                    onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
-                >
-                    {/* Cover */}
-                    <div style={{ width: isMobile ? '48px' : '56px', height: isMobile ? '48px' : '56px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', flexShrink: 0 }}>
-                        {trackCoverUrl ? (
-                            <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={20} color={colors.primary} /></div>
-                        )}
-                    </div>
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#F27B13', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Featured Track</span>
-                        <p style={{ margin: '2px 0 0', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: player.currentTrack?.id === featuredTrack.id ? colors.primary : 'white' }}>
-                            {featuredTrack.title}
-                        </p>
-                        {featuredTrack.description && <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#B9C3CE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{featuredTrack.description}</p>}
-                    </div>
-                    {/* Play / Progress */}
-                    {player.currentTrack?.id === featuredTrack.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                            <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary }}>{Math.floor(player.currentTime/60)}:{(Math.floor(player.currentTime%60)).toString().padStart(2, '0')}</span>
-                            <div style={{ width: isMobile ? '60px' : '100px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px', position: 'relative' }}>
-                                <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime/player.duration)*100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px' }} />
+                    position: 'relative',
+                    background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)'
+                }}>
+                    {/* Blurred artwork backdrop */}
+                    {trackCoverUrl && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18, filter: 'blur(50px) saturate(1.6)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
+                    )}
+                    <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '28px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? '16px' : '24px' }}>
+                        {/* Cover art with play overlay */}
+                        <div
+                            style={{ flexShrink: 0, width: isMobile ? '140px' : '160px', height: isMobile ? '140px' : '160px', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.5)', cursor: 'pointer', position: 'relative' }}
+                            onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
+                        >
+                            {trackCoverUrl ? (
+                                <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={48} color={colors.primary} /></div>
+                            )}
+                            {/* Play overlay */}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: player.currentTrack?.id === featuredTrack.id && player.isPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.15)', transition: 'background 0.2s', opacity: player.currentTrack?.id === featuredTrack.id ? 1 : 0 }}
+                                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                onMouseLeave={e => { if (player.currentTrack?.id !== featuredTrack.id || !player.isPlaying) e.currentTarget.style.opacity = '0'; }}
+                            >
+                                <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${colors.primary}66` }}>
+                                    {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <Pause size={22} fill="white" color="white" /> : <Play size={22} fill="white" color="white" style={{ marginLeft: '2px' }} />}
+                                </div>
                             </div>
                         </div>
-                    ) : null}
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 4px 12px ${colors.primary}44` }}>
-                        {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />}
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0, textAlign: isMobile ? 'center' : 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <Star size={12} color="#F27B13" fill="#F27B13" />
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#F27B13', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
+                            </div>
+                            <h3 style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: player.currentTrack?.id === featuredTrack.id ? colors.primary : 'white', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {featuredTrack.title}
+                            </h3>
+                            {featuredTrack.description && (
+                                <p style={{ color: 'rgba(185,195,206,0.7)', fontSize: '12px', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{featuredTrack.description}</p>
+                            )}
+                            {/* Genre pills */}
+                            {featuredTrack.genres && featuredTrack.genres.length > 0 && (
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginTop: '2px' }}>
+                                    {featuredTrack.genres.slice(0, 3).map((g, i) => (
+                                        <Link key={i} to={`/category/${g.genre.slug}`} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}33`, color: colors.primary, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textDecoration: 'none', transition: 'background 0.15s' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = `${colors.primary}33`}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = `${colors.primary}1A`}
+                                        >{g.genre.name}</Link>
+                                    ))}
+                                </div>
+                            )}
+                            {/* Stats row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '4px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                {typeof featuredTrack.playCount === 'number' && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'rgba(185,195,206,0.6)' }}>
+                                        <Play size={11} /> {featuredTrack.playCount.toLocaleString()} plays
+                                    </span>
+                                )}
+                                {featuredTrack._count?.favourites != null && featuredTrack._count.favourites > 0 && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'rgba(185,195,206,0.6)' }}>
+                                        <Heart size={11} /> {featuredTrack._count.favourites}
+                                    </span>
+                                )}
+                                {featuredTrack._count?.comments != null && featuredTrack._count.comments > 0 && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'rgba(185,195,206,0.6)' }}>
+                                        <MessageCircle size={11} /> {featuredTrack._count.comments}
+                                    </span>
+                                )}
+                                {featuredTrack.duration != null && featuredTrack.duration > 0 && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'rgba(185,195,206,0.6)' }}>
+                                        <Clock size={11} /> {Math.floor(featuredTrack.duration / 60)}:{(featuredTrack.duration % 60).toString().padStart(2, '0')}
+                                    </span>
+                                )}
+                            </div>
+                            {/* Progress bar when playing */}
+                            {player.currentTrack?.id === featuredTrack.id && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', maxWidth: isMobile ? '100%' : '320px' }}>
+                                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary, minWidth: '32px' }}>{Math.floor(player.currentTime / 60)}:{(Math.floor(player.currentTime % 60)).toString().padStart(2, '0')}</span>
+                                    <div style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px', position: 'relative' }}>
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime / player.duration) * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px', transition: 'width 0.3s linear' }} />
+                                    </div>
+                                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(185,195,206,0.5)', minWidth: '32px', textAlign: 'right' }}>{Math.floor(player.duration / 60)}:{(Math.floor(player.duration % 60)).toString().padStart(2, '0')}</span>
+                                </div>
+                            )}
+                        </div>
+                        {/* Play button (desktop only — mobile taps the cover) */}
+                        {!isMobile && (
+                            <button
+                                onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
+                                style={{ padding: '12px 28px', borderRadius: '999px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 15px ${colors.primary}44`, flexShrink: 0, alignSelf: 'center', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = `0 4px 15px ${colors.primary}44`; }}
+                            >
+                                {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <><Pause size={16} fill="currentColor" /> Pause</> : <><Play size={16} fill="currentColor" /> Play</>}
+                            </button>
+                        )}
                     </div>
                 </div>
                 )}
