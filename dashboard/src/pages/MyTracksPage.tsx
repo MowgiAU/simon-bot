@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
-    BarChart3, AlertCircle, Check, Save, AlignLeft, Scale
+    BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -118,6 +118,11 @@ export const MyTracksPage: React.FC = () => {
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
 
+    // Bulk selection state
+    const [bulkMode, setBulkMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkSaving, setBulkSaving] = useState(false);
+
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', onResize);
@@ -225,6 +230,10 @@ export const MyTracksPage: React.FC = () => {
 
     const confirmDeleteTrack = async (trackId: string) => {
         setDeleteConfirm(null);
+        if (trackId === '__bulk__') {
+            await bulkDelete();
+            return;
+        }
         try {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
@@ -278,6 +287,162 @@ export const MyTracksPage: React.FC = () => {
             setTracks(tracks.map(t => t.id === track.id ? res.data : t));
         } catch {
             setMessage({ type: 'error', text: 'Failed to update track visibility' });
+        }
+    };
+
+    /* ─── Bulk helpers ─── */
+    const toggleSelectAll = () => {
+        if (selectedIds.size === tracks.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(tracks.map(t => t.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const bulkSetVisibility = async (isPublic: boolean) => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id =>
+                axios.patch(`/api/musician/tracks/${id}`, { isPublic }, { withCredentials: true })
+            ));
+            setTracks(tracks.map(t => ids.includes(t.id) ? { ...t, isPublic } : t));
+            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} set to ${isPublic ? 'public' : 'private'}` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to update' });
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const bulkSetDownload = async (allowAudioDownload: boolean) => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id => {
+                const track = tracks.find(t => t.id === id);
+                const formData = new FormData();
+                formData.append('allowAudioDownload', String(allowAudioDownload));
+                formData.append('allowProjectDownload', String(track?.allowProjectDownload ?? true));
+                formData.append('title', track?.title || '');
+                formData.append('license', track?.license || 'all-rights-reserved');
+                formData.append('genreIds', JSON.stringify(track?.genres?.map((g: any) => g.genreId) || []));
+                return axios.put(`/api/musician/tracks/${id}`, formData, { withCredentials: true });
+            }));
+            setTracks(tracks.map(t => ids.includes(t.id) ? { ...t, allowAudioDownload } : t));
+            setMessage({ type: 'success', text: `Audio download ${allowAudioDownload ? 'enabled' : 'disabled'} for ${ids.length} track${ids.length !== 1 ? 's' : ''}` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to update' });
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const bulkDelete = async () => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id =>
+                axios.delete(`/api/musician/tracks/${id}`, { withCredentials: true })
+            ));
+            setTracks(tracks.filter(t => !ids.includes(t.id)));
+            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to delete' });
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    /* ─── Bulk helpers ─── */
+    const toggleSelectAll = () => {
+        if (selectedIds.size === tracks.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(tracks.map(t => t.id)));
+        }
+    };
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const bulkSetVisibility = async (isPublic: boolean) => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id =>
+                axios.patch(`/api/musician/tracks/${id}`, { isPublic }, { withCredentials: true })
+            ));
+            setTracks(tracks.map(t => ids.includes(t.id) ? { ...t, isPublic } : t));
+            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} set to ${isPublic ? 'public' : 'private'}` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to update' });
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const bulkSetDownload = async (allowAudioDownload: boolean) => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id => {
+                const track = tracks.find(t => t.id === id);
+                const formData = new FormData();
+                formData.append('allowAudioDownload', String(allowAudioDownload));
+                formData.append('allowProjectDownload', String(track?.allowProjectDownload ?? true));
+                formData.append('title', track?.title || '');
+                formData.append('license', track?.license || 'all-rights-reserved');
+                formData.append('genreIds', JSON.stringify(track?.genres?.map((g: any) => g.genreId) || []));
+                return axios.put(`/api/musician/tracks/${id}`, formData, { withCredentials: true });
+            }));
+            setTracks(tracks.map(t => ids.includes(t.id) ? { ...t, allowAudioDownload } : t));
+            setMessage({ type: 'success', text: `Audio download ${allowAudioDownload ? 'enabled' : 'disabled'} for ${ids.length} track${ids.length !== 1 ? 's' : ''}` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to update' });
+        } finally {
+            setBulkSaving(false);
+        }
+    };
+
+    const bulkDelete = async () => {
+        setBulkSaving(true);
+        const ids = [...selectedIds];
+        try {
+            await Promise.all(ids.map(id =>
+                axios.delete(`/api/musician/tracks/${id}`, { withCredentials: true })
+            ));
+            setTracks(tracks.filter(t => !ids.includes(t.id)));
+            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            setSelectedIds(new Set());
+            setBulkMode(false);
+        } catch {
+            setMessage({ type: 'error', text: 'Some tracks failed to delete' });
+        } finally {
+            setBulkSaving(false);
         }
     };
 
@@ -899,7 +1064,18 @@ export const MyTracksPage: React.FC = () => {
                     <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.02em' }}>My Tracks</h1>
                     <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textTertiary }}>{tracks.length} track{tracks.length !== 1 ? 's' : ''} uploaded</p>
                 </div>
-                {isGuildMember && !isAddingTrack && !editingTrack && (
+                {!isAddingTrack && !editingTrack && tracks.length > 0 && (
+                    <button onClick={() => { setBulkMode(m => !m); setSelectedIds(new Set()); }} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px',
+                        backgroundColor: bulkMode ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)',
+                        color: bulkMode ? colors.primary : colors.textSecondary,
+                        border: `1px solid ${bulkMode ? colors.primary + '66' : colors.glassBorder}`,
+                        borderRadius: borderRadius.md, cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                    }}>
+                        <CheckSquare size={15} /> {bulkMode ? 'Exit Select' : 'Select'}
+                    </button>
+                )}
+                {isGuildMember && !isAddingTrack && !editingTrack && !bulkMode && (
                     <button onClick={() => setIsAddingTrack(true)} style={{
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
                         backgroundColor: colors.primary, color: 'white', border: 'none',
@@ -975,9 +1151,82 @@ export const MyTracksPage: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {tracks.map(track => renderTrackCard(track))}
-                </div>
+                <>
+                    {/* ── Bulk toolbar ── */}
+                    {bulkMode && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
+                            padding: '12px 16px', marginBottom: '12px',
+                            backgroundColor: 'rgba(16,185,129,0.05)',
+                            border: `1px solid ${colors.primary}33`,
+                            borderRadius: borderRadius.md,
+                        }}>
+                            {/* Select all */}
+                            <button onClick={toggleSelectAll} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: 'transparent', color: colors.textSecondary, cursor: 'pointer' }}>
+                                {selectedIds.size === tracks.length ? <CheckSquare size={14} color={colors.primary} /> : <Square size={14} />}
+                                {selectedIds.size === tracks.length ? 'Deselect All' : 'Select All'}
+                            </button>
+
+                            <span style={{ fontSize: '12px', color: colors.textTertiary, marginRight: '4px' }}>
+                                {selectedIds.size} selected
+                            </span>
+
+                            {selectedIds.size > 0 && (
+                                <>
+                                    <div style={{ width: '1px', height: '20px', backgroundColor: colors.glassBorder, margin: '0 4px' }} />
+                                    {/* Visibility */}
+                                    <button onClick={() => bulkSetVisibility(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(16,185,129,0.3)`, backgroundColor: 'rgba(16,185,129,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                        <Eye size={13} /> Make Public
+                                    </button>
+                                    <button onClick={() => bulkSetVisibility(false)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: 'rgba(255,255,255,0.03)', color: colors.textSecondary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                        <EyeOff size={13} /> Make Private
+                                    </button>
+                                    <div style={{ width: '1px', height: '20px', backgroundColor: colors.glassBorder, margin: '0 4px' }} />
+                                    {/* Downloads */}
+                                    <button onClick={() => bulkSetDownload(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(16,185,129,0.3)`, backgroundColor: 'rgba(16,185,129,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                        <Download size={13} /> Enable Downloads
+                                    </button>
+                                    <button onClick={() => bulkSetDownload(false)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: 'rgba(255,255,255,0.03)', color: colors.textSecondary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                        <Download size={13} /> Disable Downloads
+                                    </button>
+                                    <div style={{ width: '1px', height: '20px', backgroundColor: colors.glassBorder, margin: '0 4px' }} />
+                                    {/* Delete */}
+                                    <button
+                                        onClick={() => setDeleteConfirm({ trackId: '__bulk__', title: `${selectedIds.size} track${selectedIds.size !== 1 ? 's' : ''}` })}
+                                        disabled={bulkSaving}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(239,68,68,0.3)`, backgroundColor: 'rgba(239,68,68,0.06)', color: colors.error, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                        <Trash2 size={13} /> Delete
+                                    </button>
+                                </>
+                            )}
+                            {bulkSaving && <span style={{ fontSize: '12px', color: colors.textTertiary, marginLeft: '4px' }}>Saving…</span>}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {tracks.map(track => {
+                            const isSelected = selectedIds.has(track.id);
+                            return (
+                                <div key={track.id} style={{ position: 'relative' }} onClick={bulkMode ? () => toggleSelect(track.id) : undefined}>
+                                    {bulkMode && (
+                                        <div style={{
+                                            position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+                                            zIndex: 2, pointerEvents: 'none',
+                                        }}>
+                                            {isSelected
+                                                ? <CheckSquare size={18} color={colors.primary} />
+                                                : <Square size={18} color={colors.textTertiary} />
+                                            }
+                                        </div>
+                                    )}
+                                    <div style={{ opacity: bulkMode && !isSelected ? 0.55 : 1, transition: 'opacity 0.15s', paddingLeft: bulkMode ? '40px' : '0', cursor: bulkMode ? 'pointer' : 'default', outline: isSelected ? `2px solid ${colors.primary}` : '2px solid transparent', borderRadius: borderRadius.lg }}>
+                                        {renderTrackCard(track)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
             )}
         </div>
         </DiscoveryLayout>

@@ -9,7 +9,7 @@ import { ReportButton } from '../components/ReportButton';
 import { 
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
-    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2
+    Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 import { FujiLogo } from '../components/FujiLogo';
@@ -383,6 +383,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${colors.primary}4D`}`, backgroundColor: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${colors.primary}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : colors.primary, transition: 'all 0.2s' }}
                                     >
                                         <Edit3 size={13} /> {isAdmin && !isOwnProfile ? 'Edit Profile (Admin)' : 'Edit Profile'}
+                                    </button>
+                                )}
+                                {isOwnProfile && (
+                                    <button
+                                        onClick={() => navigate('/my-tracks')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${colors.primary}4D`, backgroundColor: `${colors.primary}1A`, color: colors.primary, transition: 'all 0.2s' }}
+                                    >
+                                        <ListMusic size={13} /> Manage Tracks
                                     </button>
                                 )}
                                 <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)', color: copied ? '#4caf50' : '#B9C3CE', transition: 'all 0.2s' }}>
