@@ -36,12 +36,6 @@ export const MusicianProfilePage: React.FC = () => {
                 const res = await axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true });
                 const data = res.data;
 
-                // Own profile with no username in URL → redirect to edit
-                if (!urlIdentifier && user) {
-                    navigate('/profile/edit', { replace: true });
-                    return;
-                }
-
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
                         if (s.platform === 'spotify') data.spotifyUrl = s.url;
