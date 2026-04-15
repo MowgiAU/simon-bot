@@ -1161,7 +1161,6 @@ export const ProfileEditPage: React.FC = () => {
                     </button>
                 </div>
             </div>
-        </div>
         </DiscoveryLayout>
     );
 };
