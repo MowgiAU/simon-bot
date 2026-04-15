@@ -980,7 +980,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                 )}
                                                 <div style={{ minWidth: 0 }}>
                                                     <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
-                                                    <p style={{ margin: '2px 0 0', color: entry.isWinner ? 'rgba(255,215,0,0.6)' : colors.textSecondary, fontSize: '11px' }}>{entry.battle.title}</p>
+                                                    <Link to={`/battles/${entry.battle.slug || entry.battle.id}`} style={{ margin: '2px 0 0', color: entry.isWinner ? 'rgba(255,215,0,0.55)' : colors.textSecondary, fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                        <ExternalLink size={9} />{entry.battle.title}
+                                                    </Link>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
@@ -997,7 +999,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                     <span>{entry.voteCount}</span>
                                                 </div>
                                                 <button
-                                                    onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}` }); }}
+                                                    onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` }); }}
                                                     style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.05)', color: player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? accent : colors.textSecondary, cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.color = accent; }}
                                                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = colors.textSecondary; }}

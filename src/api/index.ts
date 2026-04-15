@@ -10183,7 +10183,7 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
             where: { userId: req.params.userId },
             include: {
                 battle: {
-                    select: { id: true, title: true, status: true },
+                    select: { id: true, title: true, status: true, slug: true },
                 },
             },
             orderBy: { createdAt: 'desc' },
