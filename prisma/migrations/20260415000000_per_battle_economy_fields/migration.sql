@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "beat_battles" ADD COLUMN "entryFeeEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "beat_battles" ADD COLUMN "entryFee" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "beat_battles" ADD COLUMN "prizePoolEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "beat_battles" ADD COLUMN "prizeFirst" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "beat_battles" ADD COLUMN "prizeSecond" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "beat_battles" ADD COLUMN "prizeThird" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "beat_battles" ADD COLUMN "voterReward" INTEGER NOT NULL DEFAULT 0;

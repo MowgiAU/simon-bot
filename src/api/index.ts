@@ -9693,21 +9693,20 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             return updatedEntry;
         });
 
-        // Economy: voter reward
+        // Economy: voter reward (per-battle setting)
         try {
-            const battleSettings = await db.beatBattleSettings.findUnique({ where: { guildId: entry.battle.guildId } });
-            if (battleSettings?.voterReward && battleSettings.voterReward > 0) {
+            if (entry.battle.voterReward && entry.battle.voterReward > 0) {
                 await db.economyAccount.upsert({
                     where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
                     update: {
-                        balance: { increment: battleSettings.voterReward },
-                        totalEarned: { increment: battleSettings.voterReward },
+                        balance: { increment: entry.battle.voterReward },
+                        totalEarned: { increment: entry.battle.voterReward },
                     },
                     create: {
                         guildId: entry.battle.guildId,
                         userId,
-                        balance: battleSettings.voterReward,
-                        totalEarned: battleSettings.voterReward,
+                        balance: entry.battle.voterReward,
+                        totalEarned: entry.battle.voterReward,
                     },
                 });
             }
@@ -9787,26 +9786,26 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
 
-        // Economy: charge entry fee if enabled
-        if (guildSettings?.entryFeeEnabled && guildSettings.entryFee > 0) {
+        // Economy: charge entry fee if enabled (per-battle setting)
+        if (battle.entryFeeEnabled && battle.entryFee > 0) {
             const account = await db.economyAccount.findUnique({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
             });
             const balance = account?.balance ?? 0;
-            if (balance < guildSettings.entryFee) {
+            if (balance < battle.entryFee) {
                 const economySettings = await db.economySettings.findUnique({ where: { guildId: battle.guildId } });
                 const emoji = economySettings?.currencyEmoji || '🪙';
-                return res.status(400).json({ error: `You need ${emoji}${guildSettings.entryFee} to enter this battle (you have ${emoji}${balance})` });
+                return res.status(400).json({ error: `You need ${emoji}${battle.entryFee} to enter this battle (you have ${emoji}${balance})` });
             }
             // Deduct entry fee
             await db.economyAccount.update({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
-                data: { balance: { decrement: guildSettings.entryFee } },
+                data: { balance: { decrement: battle.entryFee } },
             });
             await db.economyTransaction.create({
                 data: {
                     guildId: battle.guildId,
-                    amount: guildSettings.entryFee,
+                    amount: battle.entryFee,
                     type: 'BATTLE_ENTRY',
                     reason: `Entry fee for "${battle.title}"`,
                     fromUserId: userId,
@@ -9972,7 +9971,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
+        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -10004,6 +10003,13 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 announcementChannelId: announcementChannelId || null,
                 maxVotesPerUser: maxVotesPerUser != null ? Number(maxVotesPerUser) : 0,
                 requireProjectFile: requireProjectFile === true || requireProjectFile === 'true',
+                entryFeeEnabled: entryFeeEnabled === true,
+                entryFee: entryFee != null ? Number(entryFee) : 0,
+                prizePoolEnabled: prizePoolEnabled === true,
+                prizeFirst: prizeFirst != null ? Number(prizeFirst) : 0,
+                prizeSecond: prizeSecond != null ? Number(prizeSecond) : 0,
+                prizeThird: prizeThird != null ? Number(prizeThird) : 0,
+                voterReward: voterReward != null ? Number(voterReward) : 0,
                 createdBy: req.session.user.id,
             },
             include: { sponsor: { include: { links: true } } },
@@ -10030,7 +10036,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile } = req.body;
+        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -10065,6 +10071,13 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (announcementChannelId !== undefined) data.announcementChannelId = announcementChannelId;
         if (maxVotesPerUser !== undefined) data.maxVotesPerUser = Number(maxVotesPerUser);
         if (requireProjectFile !== undefined) data.requireProjectFile = requireProjectFile === true || requireProjectFile === 'true';
+        if (entryFeeEnabled !== undefined) data.entryFeeEnabled = entryFeeEnabled === true;
+        if (entryFee !== undefined) data.entryFee = Number(entryFee);
+        if (prizePoolEnabled !== undefined) data.prizePoolEnabled = prizePoolEnabled === true;
+        if (prizeFirst !== undefined) data.prizeFirst = Number(prizeFirst);
+        if (prizeSecond !== undefined) data.prizeSecond = Number(prizeSecond);
+        if (prizeThird !== undefined) data.prizeThird = Number(prizeThird);
+        if (voterReward !== undefined) data.voterReward = Number(voterReward);
 
         const battle = await db.beatBattle.update({
             where: { id: req.params.id },

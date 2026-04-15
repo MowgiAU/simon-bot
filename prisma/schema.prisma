@@ -1195,6 +1195,15 @@ model BeatBattle {
   // Submission options
   requireProjectFile  Boolean  @default(false) // Require .flp/.zip project upload
 
+  // Per-battle economy overrides
+  entryFeeEnabled     Boolean  @default(false)
+  entryFee            Int      @default(0)
+  prizePoolEnabled    Boolean  @default(false)
+  prizeFirst          Int      @default(0)
+  prizeSecond         Int      @default(0)
+  prizeThird          Int      @default(0)
+  voterReward         Int      @default(0)
+
   createdBy           String   // Admin Discord ID who created
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

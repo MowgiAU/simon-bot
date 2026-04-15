@@ -211,7 +211,7 @@ export class BeatBattlePlugin implements IPlugin {
                     data: { status: 'completed', winnerEntryId: winner?.id || null },
                 });
                 await this.postWinnerAnnouncement(battle, winner);
-                await this.awardPrizes(battle.guildId, battle.entries, battle.title);
+                await this.awardPrizes(battle, battle.entries);
                 this.logger.info(`Beat Battle: Completed "${battle.title}"`);
             }
         } catch (err) {
@@ -221,12 +221,11 @@ export class BeatBattlePlugin implements IPlugin {
 
     // ----- Economy Prize Distribution -----
 
-    private async awardPrizes(guildId: string, topEntries: { userId: string; trackTitle: string }[], battleTitle: string): Promise<void> {
+    private async awardPrizes(battle: { guildId: string; title: string; prizePoolEnabled: boolean; prizeFirst: number; prizeSecond: number; prizeThird: number }, topEntries: { userId: string; trackTitle: string }[]): Promise<void> {
         try {
-            const settings = await this.getGuildSettings(guildId) as any;
-            if (!settings?.prizePoolEnabled) return;
+            if (!battle.prizePoolEnabled) return;
 
-            const prizes = [settings.prizeFirst, settings.prizeSecond, settings.prizeThird];
+            const prizes = [battle.prizeFirst, battle.prizeSecond, battle.prizeThird];
             const labels = ['1st place', '2nd place', '3rd place'];
 
             for (let i = 0; i < Math.min(topEntries.length, 3); i++) {
@@ -235,13 +234,13 @@ export class BeatBattlePlugin implements IPlugin {
 
                 const entry = topEntries[i];
                 await this.db.economyAccount.upsert({
-                    where: { guildId_userId: { guildId, userId: entry.userId } },
+                    where: { guildId_userId: { guildId: battle.guildId, userId: entry.userId } },
                     update: {
                         balance: { increment: amount },
                         totalEarned: { increment: amount },
                     },
                     create: {
-                        guildId,
+                        guildId: battle.guildId,
                         userId: entry.userId,
                         balance: amount,
                         totalEarned: amount,
@@ -250,14 +249,14 @@ export class BeatBattlePlugin implements IPlugin {
 
                 await this.db.economyTransaction.create({
                     data: {
-                        guildId,
+                        guildId: battle.guildId,
                         amount,
                         type: 'BATTLE_PRIZE',
-                        reason: `${labels[i]} prize for "${battleTitle}"`,
+                        reason: `${labels[i]} prize for "${battle.title}"`,
                         toUserId: entry.userId,
                     },
                 });
-                this.logger.info(`Beat Battle: Awarded ${amount} coins to ${entry.userId} (${labels[i]}) for "${battleTitle}"`);
+                this.logger.info(`Beat Battle: Awarded ${amount} coins to ${entry.userId} (${labels[i]}) for "${battle.title}"`);
             }
         } catch (err) {
             this.logger.error('Beat Battle: Failed to award prizes', err);

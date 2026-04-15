@@ -119,6 +119,9 @@ export const BeatBattlePage: React.FC = () => {
         prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }] as { place: string; title: string; description: string; imageUrl: string; link: string }[],
         maxVotesPerUser: 0,
         requireProjectFile: false,
+        entryFeeEnabled: false, entryFee: 0,
+        prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0,
+        voterReward: 0,
     });
     const [uploadingPrizeIdx, setUploadingPrizeIdx] = useState<number | null>(null);
     const [uploadingRuleIdx, setUploadingRuleIdx] = useState<number | null>(null);
@@ -143,7 +146,6 @@ export const BeatBattlePage: React.FC = () => {
     // Settings state
     const [settings, setSettings] = useState({
         announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
-        entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'battle' | 'sponsor'; id: string } | null>(null);
@@ -177,13 +179,6 @@ export const BeatBattlePage: React.FC = () => {
                     featuredBattleId: data.featuredBattleId || '',
                     sponsorSectionTitle: data.sponsorSectionTitle || '',
                     requireMusicianProfile: data.requireMusicianProfile ?? false,
-                    entryFeeEnabled: data.entryFeeEnabled ?? false,
-                    entryFee: data.entryFee ?? 0,
-                    prizePoolEnabled: data.prizePoolEnabled ?? false,
-                    prizeFirst: data.prizeFirst ?? 0,
-                    prizeSecond: data.prizeSecond ?? 0,
-                    prizeThird: data.prizeThird ?? 0,
-                    voterReward: data.voterReward ?? 0,
                 });
             }
         } catch {}
@@ -210,7 +205,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false });
+    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0 });
 
     const handleCreateBattle = async () => {
         try {
@@ -233,6 +228,13 @@ export const BeatBattlePage: React.FC = () => {
                     announcementChannelId: form.announcementChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
+                    entryFeeEnabled: form.entryFeeEnabled,
+                    entryFee: form.entryFee,
+                    prizePoolEnabled: form.prizePoolEnabled,
+                    prizeFirst: form.prizeFirst,
+                    prizeSecond: form.prizeSecond,
+                    prizeThird: form.prizeThird,
+                    voterReward: form.voterReward,
                 }),
             });
             if (res.ok) {
@@ -289,6 +291,13 @@ export const BeatBattlePage: React.FC = () => {
                     announcementChannelId: form.announcementChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
+                    entryFeeEnabled: form.entryFeeEnabled,
+                    entryFee: form.entryFee,
+                    prizePoolEnabled: form.prizePoolEnabled,
+                    prizeFirst: form.prizeFirst,
+                    prizeSecond: form.prizeSecond,
+                    prizeThird: form.prizeThird,
+                    voterReward: form.voterReward,
                 }),
             });
             if (res.ok) {
@@ -507,6 +516,13 @@ export const BeatBattlePage: React.FC = () => {
                 : [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }],
             maxVotesPerUser: (b as any).maxVotesPerUser || 0,
             requireProjectFile: (b as any).requireProjectFile || false,
+            entryFeeEnabled: (b as any).entryFeeEnabled || false,
+            entryFee: (b as any).entryFee || 0,
+            prizePoolEnabled: (b as any).prizePoolEnabled || false,
+            prizeFirst: (b as any).prizeFirst || 0,
+            prizeSecond: (b as any).prizeSecond || 0,
+            prizeThird: (b as any).prizeThird || 0,
+            voterReward: (b as any).voterReward || 0,
         });
         setBannerFile(null);
         setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
@@ -840,6 +856,62 @@ export const BeatBattlePage: React.FC = () => {
                                             {form.requireProjectFile ? 'Submitters must upload .flp or .zip project file' : 'Project files optional'}
                                         </span>
                                     </div>
+                                </div>
+                            </div>
+                            {/* Economy Integration (per-battle) */}
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px', marginTop: '8px' }}>
+                                <h4 style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px' }}>Economy Integration</h4>
+                                <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>Link coins to this battle. Charge entry fees, award prizes, and reward voters.</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    {/* Entry Fee */}
+                                    <div>
+                                        <button
+                                            onClick={() => setForm({ ...form, entryFeeEnabled: !form.entryFeeEnabled })}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${form.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: form.entryFeeEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600, width: '100%' }}
+                                        >
+                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: form.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
+                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: form.entryFeeEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                            </div>
+                                            Entry Fee
+                                        </button>
+                                        {form.entryFeeEnabled && (
+                                            <input type="number" min={0} style={{ ...inputStyle, marginTop: '8px', width: '120px' }} value={form.entryFee} onChange={e => setForm({ ...form, entryFee: parseInt(e.target.value) || 0 })} placeholder="Fee amount" />
+                                        )}
+                                    </div>
+                                    {/* Voter Reward */}
+                                    <div>
+                                        <label style={labelStyle}>Voter Reward (coins per vote)</label>
+                                        <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Coins awarded for each vote cast</p>
+                                        <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={form.voterReward} onChange={e => setForm({ ...form, voterReward: parseInt(e.target.value) || 0 })} placeholder="0 = disabled" />
+                                    </div>
+                                    {/* Prize Pool */}
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <button
+                                            onClick={() => setForm({ ...form, prizePoolEnabled: !form.prizePoolEnabled })}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${form.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: form.prizePoolEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                                        >
+                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: form.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
+                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: form.prizePoolEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
+                                            </div>
+                                            Prize Pool (auto-award on completion)
+                                        </button>
+                                    </div>
+                                    {form.prizePoolEnabled && (
+                                        <>
+                                            <div>
+                                                <label style={labelStyle}>1st Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={form.prizeFirst} onChange={e => setForm({ ...form, prizeFirst: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>2nd Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={form.prizeSecond} onChange={e => setForm({ ...form, prizeSecond: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                            <div>
+                                                <label style={labelStyle}>3rd Place Prize</label>
+                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={form.prizeThird} onChange={e => setForm({ ...form, prizeThird: parseInt(e.target.value) || 0 })} />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
@@ -1234,63 +1306,6 @@ export const BeatBattlePage: React.FC = () => {
                                             placeholder="Official Partners"
                                         />
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Economy Integration */}
-                            <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px', marginTop: '4px' }}>
-                                <h4 style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px' }}>Economy Integration</h4>
-                                <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>Link coins to beat battles. Charge entry fees, award prizes, and reward voters.</p>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    {/* Entry Fee */}
-                                    <div>
-                                        <button
-                                            onClick={() => setSettings({ ...settings, entryFeeEnabled: !settings.entryFeeEnabled })}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.entryFeeEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600, width: '100%' }}
-                                        >
-                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.entryFeeEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
-                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: settings.entryFeeEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
-                                            </div>
-                                            Entry Fee
-                                        </button>
-                                        {settings.entryFeeEnabled && (
-                                            <input type="number" min={0} style={{ ...inputStyle, marginTop: '8px', width: '120px' }} value={settings.entryFee} onChange={e => setSettings({ ...settings, entryFee: parseInt(e.target.value) || 0 })} placeholder="Fee amount" />
-                                        )}
-                                    </div>
-                                    {/* Voter Reward */}
-                                    <div>
-                                        <label style={labelStyle}>Voter Reward (coins per vote)</label>
-                                        <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Coins awarded for each vote cast</p>
-                                        <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.voterReward} onChange={e => setSettings({ ...settings, voterReward: parseInt(e.target.value) || 0 })} placeholder="0 = disabled" />
-                                    </div>
-                                    {/* Prize Pool */}
-                                    <div style={{ gridColumn: '1 / -1' }}>
-                                        <button
-                                            onClick={() => setSettings({ ...settings, prizePoolEnabled: !settings.prizePoolEnabled })}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.md, border: `1px solid ${settings.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.1)'}`, backgroundColor: settings.prizePoolEnabled ? 'rgba(43,140,113,0.15)' : 'rgba(255,255,255,0.04)', color: colors.textPrimary, cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
-                                        >
-                                            <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: settings.prizePoolEnabled ? colors.primary : 'rgba(255,255,255,0.15)', position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 }}>
-                                                <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: colors.textPrimary, position: 'absolute', top: '2px', left: settings.prizePoolEnabled ? '18px' : '2px', transition: 'left 0.2s' }} />
-                                            </div>
-                                            Prize Pool (auto-award on completion)
-                                        </button>
-                                    </div>
-                                    {settings.prizePoolEnabled && (
-                                        <>
-                                            <div>
-                                                <label style={labelStyle}>1st Place Prize</label>
-                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeFirst} onChange={e => setSettings({ ...settings, prizeFirst: parseInt(e.target.value) || 0 })} />
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>2nd Place Prize</label>
-                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeSecond} onChange={e => setSettings({ ...settings, prizeSecond: parseInt(e.target.value) || 0 })} />
-                                            </div>
-                                            <div>
-                                                <label style={labelStyle}>3rd Place Prize</label>
-                                                <input type="number" min={0} style={{ ...inputStyle, width: '120px' }} value={settings.prizeThird} onChange={e => setSettings({ ...settings, prizeThird: parseInt(e.target.value) || 0 })} />
-                                            </div>
-                                        </>
-                                    )}
                                 </div>
                             </div>
                         </div>
