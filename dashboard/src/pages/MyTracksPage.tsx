@@ -212,7 +212,7 @@ export const MyTracksPage: React.FC = () => {
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics('');
-            setMessage({ type: 'success', text: 'Track uploaded successfully!' });
+            setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track.' });
         } finally {

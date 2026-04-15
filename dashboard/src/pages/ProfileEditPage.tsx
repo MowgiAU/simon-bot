@@ -285,7 +285,7 @@ export const ProfileEditPage: React.FC = () => {
                 ? `/api/admin/musician/profile/${effectiveUserId}`
                 : `/api/musician/profile/${user.id}`;
             await axios.post(endpoint, payload, { withCredentials: true });
-            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile updated successfully!' });
+            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile updated! Changes may take a minute to appear on your public profile.' });
             setIsDirty(false);
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
