@@ -531,10 +531,14 @@ export const ProfileEditPage: React.FC = () => {
             {/* ── Toast ── */}
             {message && (
                 <div style={{
-                    padding: '12px 16px', borderRadius: borderRadius.md, marginBottom: '20px',
-                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: '600px',
+                    padding: '12px 16px', borderRadius: borderRadius.md,
+                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
                     color: message.type === 'success' ? colors.success : colors.error,
-                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(8px)',
                     fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px',
                 }}>
                     {message.type === 'error' && <AlertCircle size={16} />}
