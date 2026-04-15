@@ -1089,28 +1089,6 @@ export const ProfileEditPage: React.FC = () => {
                                         }}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <input
-                                        type="color"
-                                        value={profile?.cardBgColor || '#242C3D'}
-                                        onChange={e => updateProfile(p => ({ ...p, cardBgColor: e.target.value }))}
-                                        style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={profile?.cardBgColor || ''}
-                                        onChange={e => {
-                                            const v = e.target.value;
-                                            if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, cardBgColor: v }));
-                                        }}
-                                        placeholder="#242C3D"
-                                        maxLength={7}
-                                        style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
-                                    />
-                                    {profile?.cardBgColor && (
-                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: profile.cardBgColor, border: `1px solid ${colors.glassBorder}`, flexShrink: 0 }} />
-                                    )}
-                                </div>
                             </div>
 
                             {/* Preview strip */}
