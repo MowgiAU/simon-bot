@@ -589,7 +589,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     background: `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 80%, #242C3D) 100%)`,
                     color: cardText,
                 }}>
-                    {/* Blurred artwork backdrop */
+                    {/* Blurred artwork backdrop */}
                     {trackCoverUrl && (
                         <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18, filter: 'blur(50px) saturate(1.6)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
                     )}
