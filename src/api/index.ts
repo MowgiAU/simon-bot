@@ -34,6 +34,7 @@ import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
 import { FileValidator, sanitizeFilename, sanitizeDisplayName } from '../services/FileValidator.js';
 import { MessageEncryption } from '../services/MessageEncryption.js';
+import AdmZip from 'adm-zip';
 import * as otplibAll from 'otplib';
 const generateSecret = otplibAll.generateSecret;
 const verifySync = otplibAll.verifySync;
@@ -9869,10 +9870,22 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             if (projectFile) await scanFileForViruses(projectFile.path, 'project');
 
             // Parse FLP arrangement data
-            if (projectFile && !projectFile.originalname.toLowerCase().endsWith('.zip')) {
+            if (projectFile) {
+                const isZipProject = projectFile.originalname.toLowerCase().endsWith('.zip');
                 try {
-                    const flpBuffer = fs.readFileSync(projectFile.path);
-                    arrangement = FLPParser.parse(flpBuffer);
+                    if (isZipProject) {
+                        // Extract the .flp from inside the zip and parse it
+                        const zip = new AdmZip(projectFile.path);
+                        const flpEntry = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.flp'));
+                        if (flpEntry) {
+                            arrangement = FLPParser.parse(flpEntry.getData());
+                        } else {
+                            logger.warn(`Battle entry ZIP has no .flp file: ${projectFile.originalname}`);
+                        }
+                    } else {
+                        const flpBuffer = fs.readFileSync(projectFile.path);
+                        arrangement = FLPParser.parse(flpBuffer);
+                    }
                 } catch (e) {
                     logger.warn(`Failed to parse battle entry FLP: ${e}`);
                 }
