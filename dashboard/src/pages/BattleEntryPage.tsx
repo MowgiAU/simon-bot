@@ -417,14 +417,20 @@ export const BattleEntryPage: React.FC = () => {
             }
         };
 
+        // Determine what project content is available
+        const hasArrangementContent = !!entry.arrangement && (
+            (entry.arrangement as any).tracks?.some((t: any) => t.clips?.length > 0) ||
+            !!(entry.arrangement as any).projectInfo
+        );
+        const isZip = !!entry.projectUrl && entry.projectUrl.toLowerCase().includes('.zip');
         // Synthesize a minimal Track-like object for MemoizedArrangement
-        const synthTrack = entry.arrangement ? {
+        const synthTrack = (entry.arrangement || entry.projectUrl) ? {
             id: entryPlayerId,
             title: entry.trackTitle,
             arrangement: entry.arrangement,
             duration: entry.duration,
-            projectFileUrl: entry.projectUrl || null,
-            projectZipUrl: null,
+            projectFileUrl: (!isZip && entry.projectUrl) ? entry.projectUrl : null,
+            projectZipUrl: (isZip && entry.projectUrl) ? entry.projectUrl : null,
             samples: [],
         } as unknown as Track : null;
 
@@ -549,25 +555,37 @@ export const BattleEntryPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* FL Studio Arrangement (if uploaded with .flp) */}
-                    {synthTrack && entry.arrangement && (entry.arrangement as any).tracks?.some((t: any) => t.clips?.length > 0) && (
+                    {/* FL Studio Project section — shows for .flp (with arrangement) or .zip loop pack (download only) */}
+                    {synthTrack && (hasArrangementContent || entry.projectUrl) && (
                         <div style={{ marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(242,123,19,0.2)', background: 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)' }}>
-                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `linear-gradient(135deg, ${colors.primary}, #E65100)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${colors.primary}44` }}>
-                                    <Layers size={20} color="white" />
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `linear-gradient(135deg, ${colors.primary}, #E65100)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${colors.primary}44` }}>
+                                        <Layers size={20} color="white" />
+                                    </div>
+                                    <div>
+                                        <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>{isZip ? 'Loop Package' : 'FL Studio Project'}</h2>
+                                        <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                                            {entry.arrangement && (entry.arrangement as any).bpm && `${(entry.arrangement as any).bpm} BPM`}
+                                            {entry.arrangement && (entry.arrangement as any).bpm && (entry.arrangement as any).tracks?.length > 0 && ' · '}
+                                            {entry.arrangement && `${(entry.arrangement as any).tracks?.filter((t: any) => t.clips?.length > 0).length ?? 0} tracks`}
+                                            {isZip && !entry.arrangement && 'Zipped loop package'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>FL Studio Project</h2>
-                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
-                                        {(entry.arrangement as any).bpm && `${(entry.arrangement as any).bpm} BPM`}
-                                        {(entry.arrangement as any).bpm && (entry.arrangement as any).tracks?.length > 0 && ' · '}
-                                        {(entry.arrangement as any).tracks?.filter((t: any) => t.clips?.length > 0).length} tracks
-                                    </p>
+                                {/* Download button */}
+                                {entry.projectUrl && (
+                                    <a href={entry.projectUrl} download
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}15`, color: colors.primary, fontWeight: 600, fontSize: '12px', textDecoration: 'none', cursor: 'pointer' }}>
+                                        <Download size={14} /> {isZip ? 'Download Loop Pack' : 'Download .flp'}
+                                    </a>
+                                )}
+                            </div>
+                            {hasArrangementContent && (
+                                <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
+                                    <MemoizedArrangement track={synthTrack} player={player} isPlaying={entryIsPlaying} zoom={zoom} setZoom={setZoom} />
                                 </div>
-                            </div>
-                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
-                                <MemoizedArrangement track={synthTrack} player={player} isPlaying={entryIsPlaying} zoom={zoom} setZoom={setZoom} />
-                            </div>
+                            )}
                         </div>
                     )}
 
