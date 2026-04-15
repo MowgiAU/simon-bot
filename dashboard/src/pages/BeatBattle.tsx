@@ -308,8 +308,13 @@ export const BeatBattlePage: React.FC = () => {
                 setCardImageFile(null);
                 setCardImagePreview('');
                 resetForm();
+            } else {
+                const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                alert(`Failed to save battle: ${err.error || res.status}`);
             }
-        } catch {}
+        } catch (e: any) {
+            alert(`Failed to save battle: ${e.message}`);
+        }
     };
 
     const handleDeleteBattle = async (id: string) => {
