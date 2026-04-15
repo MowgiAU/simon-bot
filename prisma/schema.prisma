@@ -2323,3 +2323,36 @@ model SpamGuardIncident {
   @@index([userId])
   @@map("spam_guard_incidents")
 }
+
+// ── Enhanced Profile Styles ──────────────────────────────────────────────────
+// Grants cosmetic visual styles to specific users on their public profile page.
+// Admins assign these via the dashboard; they are rendered client-side only.
+model ProfileStyle {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String   // Discord user ID
+
+  // Text styling (applied to display name / username)
+  gradient    String?  // CSS gradient, e.g. "linear-gradient(90deg,#FF6B6B,#FFD93D)"
+  animation   String   @default("none") // "none" | "shimmer" | "pulse" | "rainbow"
+
+  // Avatar glow
+  glowColor   String?  // CSS color, e.g. "#FF6B6B"
+  glowIntensity Int    @default(6)  // 1–10
+
+  // Optional badge shown next to name on profile
+  badgeLabel  String?  // e.g. "OG Member", "Top Producer"
+  badgeColor  String?  // CSS color for badge background
+
+  // Admin metadata
+  note        String?  // internal note
+  grantedBy   String?  // Discord user ID of granting admin
+  grantedAt   DateTime @default(now())
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, userId])
+  @@index([userId])
+  @@map("profile_styles")
+}

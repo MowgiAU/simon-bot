@@ -109,6 +109,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     // Battle submissions
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
 
+    // Enhanced profile style
+    const [profileStyle, setProfileStyle] = useState<{
+        gradient: string | null;
+        animation: string;
+        glowColor: string | null;
+        glowIntensity: number;
+        badgeLabel: string | null;
+        badgeColor: string | null;
+    } | null>(null);
+
     // Player Context
     const { player, setTrack, togglePlay, seek } = usePlayer();
 
@@ -179,6 +189,22 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         style.id = 'marquee-release-style';
         style.textContent = '@keyframes marquee-release { from { transform: translateX(0); } to { transform: translateX(-50%); } }';
         document.head.appendChild(style);
+    }, []);
+
+    // Inject animation keyframes for enhanced profile styles
+    useEffect(() => {
+        if (document.getElementById('ps-anim-css')) return;
+        const el = document.createElement('style');
+        el.id = 'ps-anim-css';
+        el.textContent = [
+            '@keyframes ps-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }',
+            '@keyframes ps-pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }',
+            '@keyframes ps-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }',
+            '.ps-anim-shimmer { background-size: 200% auto !important; animation: ps-shimmer 2.4s linear infinite !important; }',
+            '.ps-anim-pulse   { animation: ps-pulse 2s ease-in-out infinite !important; }',
+            '.ps-anim-rainbow { animation: ps-rainbow 4s linear infinite !important; }',
+        ].join('\n');
+        document.head.appendChild(el);
     }, []);
 
     useEffect(() => {
@@ -259,6 +285,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         fetchProfile();
     }, [identifier]);
 
+    // Fetch enhanced profile style separately, keyed on userId once profile is loaded
+    useEffect(() => {
+        if (!profile?.userId) return;
+        axios.get(`/api/profile-styles/${profile.userId}`).then(r => {
+            setProfileStyle(r.data || null);
+        }).catch(() => {});
+    }, [profile?.userId]);
+
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>
             Loading profile...
@@ -326,7 +360,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
                     <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-end', gap: isMobile ? '20px' : '32px' }}>
                         {/* Avatar */}
-                        <div style={{ width: isMobile ? '140px' : '180px', height: isMobile ? '140px' : '180px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '4px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+                        <div style={{
+                            width: isMobile ? '140px' : '180px', height: isMobile ? '140px' : '180px',
+                            borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                            border: profileStyle?.glowColor
+                                ? `4px solid ${profileStyle.glowColor}88`
+                                : '4px solid rgba(255,255,255,0.1)',
+                            boxShadow: profileStyle?.glowColor
+                                ? `0 0 ${profileStyle.glowIntensity * 5}px ${profileStyle.glowColor}99, 0 20px 50px rgba(0,0,0,0.5)`
+                                : '0 20px 50px rgba(0,0,0,0.5)',
+                        }}>
                             {avatarUrl ? (
                                 <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -339,9 +382,30 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         {/* Info */}
                         <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left', minWidth: 0 }}>
                             <p style={{ fontSize: '11px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
-                            <h1 style={{ fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: '0 0 8px', letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word' }}>
-                                {profile.displayName || profile.username}
-                            </h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '8px' }}>
+                                <h1
+                                    className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
+                                    style={{
+                                        fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: 0,
+                                        letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word',
+                                        ...(profileStyle?.gradient
+                                            ? { background: profileStyle.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
+                                            : {}),
+                                    }}>
+                                    {profile.displayName || profile.username}
+                                </h1>
+                                {profileStyle?.badgeLabel && (
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '9999px',
+                                        backgroundColor: `${profileStyle.badgeColor || '#FFD700'}22`,
+                                        border: `1px solid ${profileStyle.badgeColor || '#FFD700'}55`,
+                                        color: profileStyle.badgeColor || '#FFD700',
+                                        textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap',
+                                    }}>
+                                        {profileStyle.badgeLabel}
+                                    </span>
+                                )}
+                            </div>
                             {profile.bio && (
                                 <p style={{ color: 'rgba(185,195,206,0.8)', fontSize: '14px', margin: '0 0 14px', lineHeight: 1.5, maxWidth: '520px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {profile.bio}

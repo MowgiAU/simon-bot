@@ -3837,7 +3837,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles'] 
             });
         }
 
@@ -14559,6 +14559,86 @@ app.get('/api/spam-guard/incidents/:guildId', async (req, res) => {
     } catch (e) {
         logger.error('Failed to get spam incidents', e);
         res.status(500).json({ error: 'Failed to get incidents' });
+    }
+});
+
+// ── ENHANCED PROFILE STYLES ─────────────────────────────────────────────────
+
+// Public: fetch style for a single user (no guild needed – returns first match across guilds)
+app.get('/api/profile-styles/:userId', publicCache(120), async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const style = await (db as any).profileStyle.findFirst({ where: { userId } });
+        res.json(style || null);
+    } catch (e) {
+        logger.error('Failed to get profile style', e);
+        res.status(500).json({ error: 'Failed to get profile style' });
+    }
+});
+
+// Admin: list all styled users in a guild
+app.get('/api/guilds/:guildId/profile-styles', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        const styles = await (db as any).profileStyle.findMany({
+            where: { guildId },
+            orderBy: { grantedAt: 'desc' },
+        });
+        res.json(styles);
+    } catch (e) {
+        logger.error('Failed to list profile styles', e);
+        res.status(500).json({ error: 'Failed to list profile styles' });
+    }
+});
+
+// Admin: create or update style for a user
+app.post('/api/guilds/:guildId/profile-styles', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        const { userId, gradient, animation, glowColor, glowIntensity, badgeLabel, badgeColor, note } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+        const style = await (db as any).profileStyle.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            create: {
+                guildId, userId,
+                gradient: gradient || null,
+                animation: animation || 'none',
+                glowColor: glowColor || null,
+                glowIntensity: glowIntensity ?? 6,
+                badgeLabel: badgeLabel || null,
+                badgeColor: badgeColor || null,
+                note: note || null,
+                grantedBy: req.session?.user?.id || null,
+            },
+            update: {
+                gradient: gradient || null,
+                animation: animation || 'none',
+                glowColor: glowColor || null,
+                glowIntensity: glowIntensity ?? 6,
+                badgeLabel: badgeLabel || null,
+                badgeColor: badgeColor || null,
+                note: note || null,
+            },
+        });
+        res.json(style);
+    } catch (e) {
+        logger.error('Failed to save profile style', e);
+        res.status(500).json({ error: 'Failed to save profile style' });
+    }
+});
+
+// Admin: delete style for a user
+app.delete('/api/guilds/:guildId/profile-styles/:userId', async (req: any, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        await (db as any).profileStyle.deleteMany({ where: { guildId, userId } });
+        res.json({ ok: true });
+    } catch (e) {
+        logger.error('Failed to delete profile style', e);
+        res.status(500).json({ error: 'Failed to delete profile style' });
     }
 });
 

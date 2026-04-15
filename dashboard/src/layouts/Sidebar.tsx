@@ -298,6 +298,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('profile-styles') && (
+            <button
+                className={`nav-item ${activeSection === 'profile-styles' ? 'active' : ''}`}
+                onClick={() => onNavigate('profile-styles')}
+                title={collapsed ? "Profile Styles" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
+                <span className="nav-label">Profile Styles</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('voice-stats') && (
             <button
                 className={`nav-item ${activeSection === 'voice-stats' ? 'active' : ''}`}

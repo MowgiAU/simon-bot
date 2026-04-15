@@ -78,6 +78,7 @@ const SpamGuardPage          = lazy(() => import("./pages/SpamGuard").then(m => 
 const AntiExternalForwardPage = lazy(() => import("./pages/AntiExternalForward").then(m => ({ default: m.AntiExternalForwardPage })));
 const TrackAnnouncerPage     = lazy(() => import("./pages/TrackAnnouncer"));
 const BoosterColorPage       = lazy(() => import("./pages/BoosterColor").then(m => ({ default: m.BoosterColorPage })));
+const ProfileStylesPage      = lazy(() => import("./pages/ProfileStyles"));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
@@ -133,6 +134,7 @@ type Section =
   | "server-boost"
   | "booster-color"
   | "boost"
+  | "profile-styles"
   | "automation"
   | "progression"
   | "reports"
@@ -337,6 +339,7 @@ const AdminDashboard: React.FC = () => {
     'pause': 'pause',
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
+    'profile-styles': 'profile-styles',
     'account-management': 'account-management',
     'reports': 'reports',
     'articles': 'articles',
@@ -456,6 +459,8 @@ const AdminDashboard: React.FC = () => {
           return <AntiExternalForwardPage />;
         case "booster-color":
           return <BoosterColorPage />;
+        case "profile-styles":
+          return <ProfileStylesPage />;
         case "boost":
           return <BoostPage />;
         case "automation":
