@@ -9781,8 +9781,8 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
         }
 
         // Check duplicate entry
-        const existing = await db.battleEntry.findUnique({
-            where: { battleId_userId: { battleId, userId } },
+        const existing = await db.battleEntry.findFirst({
+            where: { battleId, userId, deletedAt: null },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
 
