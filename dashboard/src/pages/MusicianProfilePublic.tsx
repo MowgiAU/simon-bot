@@ -327,15 +327,19 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         return 0.2126*toL(r)+0.7152*toL(g)+0.0722*toL(b) > 0.35;
     })();
     // Card-context responsive colors — flip for light cards
-    const cardText    = isLightCard ? '#1A202C' : '#F8FAFC';
-    const cardTextSec = isLightCard ? '#4A5568' : '#B9C3CE';
-    const cardTextTer = isLightCard ? '#718096' : 'rgba(185,195,206,0.5)';
-    const cardBorder  = isLightCard ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.06)';
-    const cardSubtle  = isLightCard ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
-    const cardWave    = isLightCard ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)';
+    const cardText    = isLightCard ? '#0F172A' : '#F8FAFC';
+    const cardTextSec = isLightCard ? '#475569' : '#B9C3CE';
+    const cardTextTer = isLightCard ? '#94A3B8' : 'rgba(185,195,206,0.5)';
+    const cardBorder  = isLightCard ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+    const cardSubtle  = isLightCard ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.04)';
+    const cardWave    = isLightCard ? `${accent}30` : 'rgba(255,255,255,0.15)';
+    // Nested inner panel bg (social rows, gear items, etc)
+    const cardInner   = isLightCard ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.2)';
+    // Soft shadow for cards in light mode (depth instead of borders)
+    const cardShadow  = isLightCard ? '0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06)' : 'none';
     // Page background — blend with dark or light depending on card style
     const pageBg = profile.cardBgColor
-        ? isLightCard ? `color-mix(in srgb, ${profile.cardBgColor} 60%, #CBD5E0)` : `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)`
+        ? isLightCard ? `color-mix(in srgb, ${profile.cardBgColor} 45%, #E2E8F0)` : `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)`
         : '#0E121A';
     const stats = [
         { label: 'Followers', value: followerCount.toLocaleString() },
@@ -367,7 +371,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     return (
         <div style={{ 
-            color: '#F8FAFC',
+            color: isLightCard ? '#0F172A' : '#F8FAFC',
             fontFamily: 'Inter, system-ui, sans-serif',
             backgroundColor: pageBg,
             minHeight: '100vh',
@@ -380,7 +384,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 ) : (trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl) ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(60px) saturate(1.8)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
                 ) : null}
-                <div style={{ position: 'absolute', inset: 0, background: profile.bannerUrl ? `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.7) 50%, rgba(14,18,26,0.3) 100%)` : `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)`, pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', inset: 0, background: isLightCard
+                    ? (profile.bannerUrl
+                        ? `linear-gradient(to top, ${pageBg} 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.25) 100%)`
+                        : `linear-gradient(to top, ${pageBg} 0%, rgba(255,255,255,0.8) 40%, rgba(255,255,255,0.5) 100%)`)
+                    : (profile.bannerUrl
+                        ? `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.7) 50%, rgba(14,18,26,0.3) 100%)`
+                        : `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)`), pointerEvents: 'none' }} />
 
                 {/* Hero Content */}
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
@@ -391,10 +401,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
                             border: profileStyle?.glowColor
                                 ? `4px solid ${profileStyle.glowColor}88`
-                                : '4px solid rgba(255,255,255,0.1)',
+                                : isLightCard ? '4px solid rgba(255,255,255,0.9)' : '4px solid rgba(255,255,255,0.1)',
                             boxShadow: profileStyle?.glowColor
                                 ? `0 0 ${profileStyle.glowIntensity * 5}px ${profileStyle.glowColor}99, 0 20px 50px rgba(0,0,0,0.5)`
-                                : '0 20px 50px rgba(0,0,0,0.5)',
+                                : isLightCard ? '0 8px 30px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' : '0 20px 50px rgba(0,0,0,0.5)',
                         }}>
                             {avatarUrl ? (
                                 <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -536,7 +546,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     )}
                     <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '28px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '24px' }}>
                         {/* Cover */}
-                        <div style={{ flexShrink: 0, width: isMobile ? '100px' : '130px', height: isMobile ? '100px' : '130px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }}>
+                        <div style={{ flexShrink: 0, width: isMobile ? '100px' : '130px', height: isMobile ? '100px' : '130px', borderRadius: '8px', overflow: 'hidden', backgroundColor: isLightCard ? 'rgba(0,0,0,0.04)' : '#1e293b', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}`, boxShadow: isLightCard ? '0 4px 12px rgba(0,0,0,0.08)' : '0 12px 30px rgba(0,0,0,0.4)' }}>
                             {featuredPlaylist.coverUrl ? (
                                 <img src={featuredPlaylist.coverUrl} alt={featuredPlaylist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -583,10 +593,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 {featuredTrack && (
                 <div style={{
                     borderRadius: '12px', overflow: 'hidden',
-                    border: `1px solid ${accent}22`,
+                    border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.06)' : `${accent}22`}`,
                     marginBottom: '20px',
                     position: 'relative',
-                    background: `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 80%, #242C3D) 100%)`,
+                    background: isLightCard
+                        ? `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 85%, #ffffff) 100%)`
+                        : `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 80%, #242C3D) 100%)`,
+                    boxShadow: cardShadow,
                     color: cardText,
                 }}>
                     {/* Blurred artwork backdrop */}
@@ -596,7 +609,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     <div style={{ position: 'relative', width: '100%', padding: isMobile ? '20px' : '28px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? '16px' : '24px' }}>
                         {/* Cover art with play overlay */}
                         <div
-                            style={{ flexShrink: 0, width: isMobile ? '140px' : '160px', height: isMobile ? '140px' : '160px', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.5)', cursor: 'pointer', position: 'relative' }}
+                            style={{ flexShrink: 0, width: isMobile ? '140px' : '160px', height: isMobile ? '140px' : '160px', borderRadius: '10px', overflow: 'hidden', backgroundColor: isLightCard ? 'rgba(0,0,0,0.04)' : '#1e293b', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}`, boxShadow: isLightCard ? '0 4px 16px rgba(0,0,0,0.1)' : '0 16px 40px rgba(0,0,0,0.5)', cursor: 'pointer', position: 'relative' }}
                             onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
                         >
                             {trackCoverUrl ? (
@@ -605,7 +618,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={48} color={accent} /></div>
                             )}
                             {/* Play overlay */}
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: player.currentTrack?.id === featuredTrack.id && player.isPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.15)', transition: 'background 0.2s', opacity: player.currentTrack?.id === featuredTrack.id ? 1 : 0 }}
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: player.currentTrack?.id === featuredTrack.id && player.isPlaying ? (isLightCard ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)') : (isLightCard ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'), transition: 'background 0.2s', opacity: player.currentTrack?.id === featuredTrack.id ? 1 : 0 }}
                                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                                 onMouseLeave={e => { if (player.currentTrack?.id !== featuredTrack.id || !player.isPlaying) e.currentTarget.style.opacity = '0'; }}
                             >
@@ -699,7 +712,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', color: cardText }}>
                                     <Award size={20} color="#F27B13" /> Discography
                                 </h3>
-                                <div style={{ display: 'flex', gap: '4px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.08)' : '#1A1E2E', borderRadius: '8px', padding: '3px' }}>
+                                <div style={{ display: 'flex', gap: '4px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.05)' : '#1A1E2E', borderRadius: '8px', padding: '3px' }}>
                                     {(['all', 'tracks', 'reposts'] as const).map(tab => (
                                         <button key={tab} onClick={() => setDiscographyFilter(tab)} style={{
                                             padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
@@ -776,7 +789,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                                             return (
                                                 <div key={track.id + (track._repost ? '-repost' : '')} style={{
-                                                    backgroundColor: track._repost ? `color-mix(in srgb, ${cardBg} 80%, #2A2518)` : cardBg,
+                                                    backgroundColor: track._repost ? (isLightCard ? `color-mix(in srgb, ${cardBg} 80%, #F5E6C8)` : `color-mix(in srgb, ${cardBg} 80%, #2A2518)`) : cardBg,
                                                     borderRadius: '8px',
                                                     border: track._repost ? '1px solid rgba(218,165,32,0.15)' : `1px solid ${cardBorder}`,
                                                     color: cardText,
@@ -791,7 +804,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                             backgroundColor: 'rgba(218,165,32,0.06)',
                                                         }}>
                                                             <Repeat2 size={13} />
-                                                            <span style={{ color: colors.textSecondary }}>{profile.displayName || profile.username} reposted</span>
+                                                            <span style={{ color: cardTextSec }}>{profile.displayName || profile.username} reposted</span>
                                                         </div>
                                                     )}
 
@@ -809,7 +822,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                 minWidth: isMobile ? undefined : '130px',
                                                                 borderRadius: isMobile ? 0 : '6px',
                                                                 overflow: 'hidden', position: 'relative',
-                                                                backgroundColor: '#1A1E2E', cursor: 'pointer',
+                                                                backgroundColor: isLightCard ? 'rgba(0,0,0,0.04)' : '#1A1E2E', cursor: 'pointer',
                                                             }}
                                                             onClick={handlePlayClick}
                                                         >
@@ -822,7 +835,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                             )}
                                                             <div style={{
                                                                 position: 'absolute', inset: 0,
-                                                                backgroundColor: isPlaying ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.3)',
+                                                                backgroundColor: isPlaying ? (isLightCard ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)') : (isLightCard ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)'),
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                                 opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s',
                                                             }}
@@ -1036,7 +1049,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
 
                         {/* Comments */}
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: isMobile ? '20px' : '28px', color: cardText }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: isMobile ? '20px' : '28px', color: cardText, boxShadow: cardShadow }}>
                             <CommentSection profileId={profile.id} ownerId={profile.userId} />
                         </div>
                     </div>
@@ -1046,7 +1059,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* About Card */}
                         {(profile.bio || socials.some(s => !!(profile as any)[s.key])) && (
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec }}>About</h4>
                             {profile.bio && <p style={{ fontSize: '13px', color: cardTextSec, margin: '0 0 16px', lineHeight: 1.6 }}>{profile.bio}</p>}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1054,7 +1067,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     const url = (profile as any)[s.key];
                                     if (!url) return null;
                                     const inner = (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.2)', border: `1px solid ${cardBorder}` }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
                                             <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 {React.cloneElement(s.icon as React.ReactElement, { color: s.color, size: 14 })}
                                             </div>
@@ -1071,13 +1084,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* Gear Rack */}
                         {gear.length > 0 && (
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Hammer size={16} color="#7A8C37" /> Gear & Tools
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {gear.map((item: any, i: number) => (
-                                    <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.2)', border: `1px solid ${cardBorder}` }}>
+                                    <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
                                         <p style={{ fontSize: '9px', fontWeight: 700, color: '#7A8C37', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{item.category || 'Other'}</p>
                                         <p style={{ fontSize: '12px', fontWeight: 600, color: cardText, margin: '3px 0 0' }}>{item.name || item}</p>
                                     </div>
@@ -1087,7 +1100,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
 
                         {/* Quick Stats Card */}
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec }}>Stats</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {stats.map(s => (

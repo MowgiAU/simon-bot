@@ -1068,15 +1068,15 @@ export const ProfileEditPage: React.FC = () => {
                             <div style={{ marginBottom: '24px' }}>
                                 <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Card Background</p>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A', '#F0F4F8', '#F5F0FF', '#FFF8F0', '#F0FFF4', '#EFF6FF', '#FDF4FF', '#FFFBEB', '#F0F9FF'].map(preset => (
+                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A', '#F8FAFC', '#FAF5FF', '#FFFBEB', '#F0FDF4', '#FFF1F2', '#EFF6FF', '#FEF3C7', '#ECFDF5', '#FDF2F8', '#F0F9FF'].map(preset => (
                                         <button
                                             key={preset}
                                             onClick={() => updateProfile(p => ({ ...p, cardBgColor: preset }))}
                                             title={preset}
                                             style={{
                                                 width: '28px', height: '28px', borderRadius: '50%',
-                                                backgroundColor: preset, border: `2px solid rgba(255,255,255,0.15)`, cursor: 'pointer',
-                                                boxShadow: profile?.cardBgColor === preset ? `0 0 0 2px ${colors.background}, 0 0 0 4px rgba(255,255,255,0.5)` : 'none',
+                                                backgroundColor: preset, border: `2px solid ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'}`, cursor: 'pointer',
+                                                boxShadow: profile?.cardBgColor === preset ? `0 0 0 2px ${colors.background}, 0 0 0 4px ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'}` : 'none',
                                                 flexShrink: 0, transition: 'box-shadow 0.15s',
                                             }}
                                         />
