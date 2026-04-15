@@ -10015,6 +10015,8 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
             include: { sponsor: { include: { links: true } } },
         });
 
+        apiResponseCache.delete('battles-list');
+
         // Log action
         await db.actionLog.create({
             data: {
@@ -10102,6 +10104,8 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
             await postBattleAnnouncement(battle, settings2);
         }
 
+        apiResponseCache.delete('battles-list');
+
         await db.actionLog.create({
             data: {
                 pluginId: 'beat-battle',
@@ -10126,6 +10130,8 @@ app.delete('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, 
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
         await db.beatBattle.delete({ where: { id: req.params.id } });
+
+        apiResponseCache.delete('battles-list');
 
         await db.actionLog.create({
             data: {
