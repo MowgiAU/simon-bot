@@ -9539,7 +9539,7 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
 });
 
 // --- Public: Get single battle with entries ---
-app.get('/api/beat-battle/battles/:id', publicCache(60), async (req: any, res) => {
+app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     try {
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({

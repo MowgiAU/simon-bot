@@ -773,7 +773,7 @@ export const BattleDetailPage: React.FC = () => {
             </div>
             {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
                 setLoading(true);
-                fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include' })
+                fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include', cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)
                     .then(data => { if (data) setBattle(data); })
                     .catch(() => {})
