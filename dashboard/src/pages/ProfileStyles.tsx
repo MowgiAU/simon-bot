@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Plus, Trash2, Edit3, Save, X, Eye } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
 const API = import.meta.env.VITE_API_URL || '';
