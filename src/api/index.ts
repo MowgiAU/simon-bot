@@ -784,6 +784,7 @@ const apiLimiter = rateLimit({
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
     message: { error: 'Too many requests, please try again later.' },
 });
 // Strict limiter for track uploads \u2014 prevents spam and large-file abuse

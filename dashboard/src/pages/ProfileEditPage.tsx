@@ -1005,8 +1005,7 @@ export const ProfileEditPage: React.FC = () => {
                     </div>
 
                     {/* ── Profile Appearance ── */}
-                    {!isAdminMode && (
-                        <div style={card}>
+                    <div style={card}>
                             <div style={sectionHeader(colors.primary)}><Paintbrush size={15} color={colors.primary} /> Profile Appearance</div>
                             <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
                                 Personalise your public profile with custom colours. Accent tints links and highlights; Card changes section backgrounds; Background changes the page backdrop.
@@ -1103,7 +1102,7 @@ export const ProfileEditPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
 
                     {/* ── Discord Connection ── */}
                     {!isAdminMode && (
