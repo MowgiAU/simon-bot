@@ -433,7 +433,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 )}
                             </div>
                             {profile.bio && (
-                                <p style={{ color: 'rgba(185,195,206,0.8)', fontSize: '14px', margin: '0 0 14px', lineHeight: 1.5, maxWidth: '520px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                <p style={{ color: isLightCard ? 'rgba(51,65,85,0.9)' : 'rgba(185,195,206,0.8)', fontSize: '14px', margin: '0 0 14px', lineHeight: 1.5, maxWidth: '520px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {profile.bio}
                                 </p>
                             )}
@@ -453,10 +453,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {!profile.primaryGenre && profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
                                     <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}4D`, color: accent, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
                                 ))}
-                                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
+                                <span style={{ color: isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
                                 {stats.map((s, i) => (
-                                    <span key={i} style={{ fontSize: '12px', color: '#B9C3CE' }}>
-                                        <strong style={{ color: 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
+                                    <span key={i} style={{ fontSize: '12px', color: isLightCard ? '#4A5568' : '#B9C3CE' }}>
+                                        <strong style={{ color: isLightCard ? '#1A202C' : 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
                                     </span>
                                 ))}
                             </div>
@@ -488,20 +488,20 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         <ListMusic size={13} /> Manage Tracks
                                     </button>
                                 )}
-                                <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.06)', color: copied ? '#4caf50' : '#B9C3CE', transition: 'all 0.2s' }}>
+                                <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)'}`, backgroundColor: copied ? 'rgba(76,175,80,0.15)' : (isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'), color: copied ? '#4caf50' : (isLightCard ? '#4A5568' : '#B9C3CE'), transition: 'all 0.2s' }}>
                                     {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Share</>}
                                 </button>
                                 {!isOwnProfile && user && profile?.id && (
-                                    <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.06)', color: '#B9C3CE' }} />
+                                    <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)'}`, backgroundColor: isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', color: isLightCard ? '#4A5568' : '#B9C3CE' }} />
                                 )}
                                 {/* Social Icons inline */}
                                 {socials.map(s => {
                                     const url = (profile as any)[s.key];
                                     if (!url) return null;
                                     const inner = (
-                                        <div style={{ width: '34px', height: '34px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        <div style={{ width: '34px', height: '34px', borderRadius: '999px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                                             onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${s.color}20`; e.currentTarget.style.borderColor = `${s.color}60`; }}
-                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
+                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = isLightCard ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)'; }}>
                                             {React.cloneElement(s.icon as React.ReactElement, { size: 15, color: s.color })}
                                         </div>
                                     );
@@ -696,7 +696,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         <div>
                             {/* Header + Filter Tabs */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', color: cardText }}>
                                     <Award size={20} color="#F27B13" /> Discography
                                 </h3>
                                 <div style={{ display: 'flex', gap: '4px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.08)' : '#1A1E2E', borderRadius: '8px', padding: '3px' }}>
@@ -705,7 +705,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                                             fontSize: '12px', fontWeight: 600, transition: 'all 0.2s',
                                             backgroundColor: discographyFilter === tab ? accent : 'transparent',
-                                            color: discographyFilter === tab ? 'white' : colors.textSecondary,
+                                            color: discographyFilter === tab ? 'white' : cardTextSec,
                                         }}>
                                             {tab === 'all' ? `All (${(profile.tracks?.length || 0) + (profile.reposts?.length || 0)})` :
                                              tab === 'tracks' ? `Tracks (${profile.tracks?.length || 0})` :
@@ -849,9 +849,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                             </div>
                                                                         )}
                                                                     </Link>
-                                                                    <Link to={`/profile/${trackArtistUsername}`} style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}
+                                                                    <Link to={`/profile/${trackArtistUsername}`} style={{ color: cardTextSec, textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}
                                                                         onMouseEnter={e => e.currentTarget.style.color = accent}
-                                                                        onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}>
+                                                                        onMouseLeave={e => e.currentTarget.style.color = cardTextSec}>
                                                                         {trackArtistDisplay}
                                                                     </Link>
                                                                 </div>
@@ -894,7 +894,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                 <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                                                                     {track.genres.slice(0, 3).map((g: any) => (
                                                                         <Link key={g.genre.slug} to={`/category/${g.genre.slug}`}
-                                                                            style={{ padding: '2px 8px', borderRadius: '3px', fontSize: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textTertiary, textDecoration: 'none', fontWeight: 500 }}>
+                                                                            style={{ padding: '2px 8px', borderRadius: '3px', fontSize: '10px', backgroundColor: cardSubtle, color: cardTextTer, textDecoration: 'none', fontWeight: 500 }}>
                                                                             #{g.genre.name}
                                                                         </Link>
                                                                     ))}
@@ -930,8 +930,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                     <MessageCircle size={13} />
                                                                     <span>{counts.comments || ''}</span>
                                                                 </button>
-                                                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: colors.textTertiary, fontSize: '11px' }}>
-                                                                    <Play size={10} fill={colors.textTertiary} />
+                                                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: cardTextTer, fontSize: '11px' }}>
+                                                                    <Play size={10} fill={cardTextTer} />
                                                                     <span>{track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount}</span>
                                                                 </div>
                                                             </div>
@@ -949,12 +949,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         {battleEntries.length > 0 && (
                         <div style={{
                             borderRadius: '14px',
-                            border: '1px solid rgba(255,215,0,0.18)',
+                            border: isLightCard ? '1px solid rgba(180,140,0,0.4)' : '1px solid rgba(255,215,0,0.18)',
                             padding: isMobile ? '20px' : '28px',
                             position: 'relative',
                             overflow: 'hidden',
-                            background: 'linear-gradient(145deg, #1C1A10 0%, #252318 60%, #1A1E2E 100%)',
-                            boxShadow: '0 0 60px rgba(255,180,0,0.06), 0 8px 30px rgba(0,0,0,0.4)',
+                            background: isLightCard ? 'linear-gradient(145deg, #FAEFD4 0%, #FFF9E9 60%, #EEF4FF 100%)' : 'linear-gradient(145deg, #1C1A10 0%, #252318 60%, #1A1E2E 100%)',
+                            boxShadow: isLightCard ? '0 0 60px rgba(180,140,0,0.1), 0 8px 30px rgba(0,0,0,0.12)' : '0 0 60px rgba(255,180,0,0.06), 0 8px 30px rgba(0,0,0,0.4)',
+                            color: isLightCard ? '#2D2005' : '#F8FAFC',
                         }}>
                             {/* Subtle diagonal lines overlay */}
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,200,0,0.015) 30px, rgba(255,200,0,0.015) 31px)', pointerEvents: 'none' }} />
@@ -967,7 +968,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         </div>
                                         Beat Battle History
                                     </h3>
-                                    <span style={{ fontSize: '12px', color: 'rgba(255,215,0,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                                    <span style={{ fontSize: '12px', color: isLightCard ? 'rgba(140,100,0,0.9)' : 'rgba(255,215,0,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>
                                         {battleEntries.filter((e: any) => e.isWinner).length > 0
                                             ? `${battleEntries.filter((e: any) => e.isWinner).length} WIN${battleEntries.filter((e: any) => e.isWinner).length > 1 ? 'S' : ''} · ${battleEntries.length} BATTLES`
                                             : `${battleEntries.length} BATTLE${battleEntries.length > 1 ? 'S' : ''}`}
@@ -978,9 +979,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         <div key={entry.id} style={{
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                             padding: entry.isWinner ? '14px 16px' : '12px 14px',
-                                            backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.09)' : 'rgba(0,0,0,0.25)',
+                                            backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.09)' : (isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.25)'),
                                             borderRadius: '10px',
-                                            border: entry.isWinner ? '1px solid rgba(255,215,0,0.35)' : '1px solid rgba(255,255,255,0.05)',
+                                            border: entry.isWinner ? '1px solid rgba(255,215,0,0.35)' : `1px solid ${isLightCard ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.05)'}`,
                                             boxShadow: entry.isWinner ? '0 0 20px rgba(255,215,0,0.1), inset 0 1px 0 rgba(255,215,0,0.1)' : 'none',
                                             flexWrap: 'wrap', gap: '8px',
                                             transition: 'border-color 0.2s',
@@ -994,13 +995,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                 ) : entry.avatarUrl ? (
                                                     <img src={entry.avatarUrl} alt="" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, opacity: 0.85 }} />
                                                 ) : (
-                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <Swords size={16} color="rgba(255,255,255,0.3)" />
+                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Swords size={16} color={isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)'} />
                                                     </div>
                                                 )}
                                                 <div style={{ minWidth: 0 }}>
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
-                                                    <Link to={`/battles/${entry.battle.slug || entry.battle.id}`} style={{ margin: '2px 0 0', color: entry.isWinner ? 'rgba(255,215,0,0.55)' : colors.textSecondary, fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : (isLightCard ? '#2D2005' : colors.textPrimary), fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
+                                                    <Link to={`/battles/${entry.battle.slug || entry.battle.id}`} style={{ margin: '2px 0 0', color: entry.isWinner ? (isLightCard ? 'rgba(140,100,0,0.8)' : 'rgba(255,215,0,0.55)') : (isLightCard ? '#5A4A00' : colors.textSecondary), fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                                         <ExternalLink size={9} />{entry.battle.title}
                                                     </Link>
                                                 </div>
@@ -1012,17 +1013,17 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                     </span>
                                                 )}
                                                 {!entry.isWinner && entry.battle.status === 'completed' && (
-                                                    <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 600 }}>#{entry.placement}/{entry.totalEntries}</span>
+                                                    <span style={{ fontSize: '11px', color: isLightCard ? '#5A4A00' : colors.textSecondary, fontWeight: 600 }}>#{entry.placement}/{entry.totalEntries}</span>
                                                 )}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: entry.voteCount > 0 ? '#FF8C00' : colors.textTertiary, fontSize: '13px' }}>
-                                                    <Flame size={14} color={entry.voteCount > 0 ? '#FF8C00' : colors.textTertiary} fill={entry.voteCount > 0 ? '#FF8C00' : 'none'} />
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: entry.voteCount > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary), fontSize: '13px' }}>
+                                                    <Flame size={14} color={entry.voteCount > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary)} fill={entry.voteCount > 0 ? '#FF8C00' : 'none'} />
                                                     <span>{entry.voteCount}</span>
                                                 </div>
                                                 <button
                                                     onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` }); }}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.05)', color: player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? accent : colors.textSecondary, cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'all 0.2s' }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '999px', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'}`, backgroundColor: isLightCard ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)', color: player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? accent : (isLightCard ? '#5A4A00' : colors.textSecondary), cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.color = accent; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = colors.textSecondary; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = isLightCard ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = isLightCard ? '#5A4A00' : colors.textSecondary; }}
                                                 >
                                                     {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? <><Pause size={12} fill="currentColor" /> Pause</> : <><Play size={12} fill="currentColor" /> Play</>}
                                                 </button>
