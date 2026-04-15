@@ -18,7 +18,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
     active:    { label: 'SUBMISSIONS OPEN', color: '#34D399' },
     voting:    { label: 'VOTING LIVE',      color: ACCENT },
-    completed: { label: 'ENDED',            color: '#6B7280' },
+    completed: { label: 'BATTLE ENDED',     color: '#FFD700' },
 };
 
 function formatDate(d: string | null) {
@@ -271,6 +271,13 @@ export const BattleDetailPage: React.FC = () => {
             : rules.map(text => ({ text }));
 
     const isLive = battle.status === 'active' || battle.status === 'voting';
+    const isCompleted = battle.status === 'completed';
+    // Winner: prefer explicit winnerEntryId, fall back to highest voteCount entry
+    const winnerEntry = isCompleted
+        ? (battle.winnerEntryId
+            ? entries.find(e => e.id === battle.winnerEntryId) || entries[0]
+            : entries.slice().sort((a, b) => b.voteCount - a.voteCount)[0])
+        : null;
 
     const phases = [
         {
@@ -389,6 +396,12 @@ export const BattleDetailPage: React.FC = () => {
                                 )}
                                 {battle.status === 'upcoming' && (
                                     <span style={{ color: colors.textSecondary, fontSize: '14px', fontWeight: 600, padding: '12px 0' }}>Submissions open soon!</span>
+                                )}
+                                {isCompleted && winnerEntry && (
+                                    <button onClick={() => document.getElementById('winner-spotlight')?.scrollIntoView({ behavior: 'smooth' })}
+                                        style={{ backgroundColor: '#FFD700', color: '#1a1a1a', padding: '12px 32px', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '15px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(255,215,0,0.3)' }}>
+                                        <Trophy size={16} /> View Winner
+                                    </button>
                                 )}
                                 {entries.length > 0 && (
                                     <button onClick={() => document.getElementById('submissions')?.scrollIntoView({ behavior: 'smooth' })}
@@ -617,6 +630,58 @@ export const BattleDetailPage: React.FC = () => {
                     </div>
                 </section>
 
+                {/* ── WINNER SPOTLIGHT ── */}
+                {isCompleted && winnerEntry && (
+                    <section id="winner-spotlight" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
+                        <div style={{
+                            position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
+                            background: 'linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(255,165,0,0.06) 50%, rgba(43,140,113,0.08) 100%)',
+                            border: '1px solid rgba(255,215,0,0.3)',
+                            padding: isMobile ? '24px 20px' : '36px 40px',
+                        }}>
+                            {/* Gold glow */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, #FFD700, rgba(255,165,0,0.6), transparent)' }} />
+
+                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '20px' : '32px' }}>
+                                {/* Trophy icon */}
+                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(255,215,0,0.15)', border: '2px solid rgba(255,215,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Trophy size={28} color="#FFD700" />
+                                </div>
+
+                                {/* Cover */}
+                                {(winnerEntry.coverUrl || winnerEntry.avatarUrl) && (
+                                    <div style={{ width: '80px', height: '80px', borderRadius: borderRadius.md, overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(255,215,0,0.4)', boxShadow: '0 0 20px rgba(255,215,0,0.2)' }}>
+                                        <img src={(winnerEntry.coverUrl || winnerEntry.avatarUrl)!.startsWith('http') ? (winnerEntry.coverUrl || winnerEntry.avatarUrl)! : `${API}${winnerEntry.coverUrl || winnerEntry.avatarUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                )}
+
+                                {/* Text */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px' }}>🏆 Battle Winner</div>
+                                    <Link to={`/battles/entry/${winnerEntry.id}`} style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 900, color: colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', marginBottom: '4px' }}>
+                                        {winnerEntry.trackTitle}
+                                    </Link>
+                                    <Link to={`/profile/${winnerEntry.userId}`} style={{ fontSize: '14px', color: '#FFD700', fontWeight: 600, textDecoration: 'none' }}>
+                                        @{winnerEntry.username}
+                                    </Link>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                                        <Flame size={13} color={ACCENT} />
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: ACCENT }}>{winnerEntry.voteCount} votes</span>
+                                    </div>
+                                </div>
+
+                                {/* Listen CTA */}
+                                <div style={{ flexShrink: 0 }}>
+                                    <Link to={`/battles/entry/${winnerEntry.id}`}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', backgroundColor: '#FFD700', color: '#1a1a1a', borderRadius: borderRadius.md, fontWeight: 700, fontSize: '14px', textDecoration: 'none', boxShadow: '0 4px 16px rgba(255,215,0,0.3)' }}>
+                                        <Play size={15} fill="#1a1a1a" /> Listen Now
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
                 {/* ── COMMUNITY SUBMISSIONS ── */}
                 <section id="submissions" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '32px 16px 56px' : '48px 24px 72px' }}>
 
@@ -674,15 +739,18 @@ export const BattleDetailPage: React.FC = () => {
                                 const bars = waveHeights(entry.id);
                                 // Color bars based on play state (first ~45% highlighted when playing)
                                 const playedCount = isCurrentlyPlaying ? Math.floor(bars.length * 0.45) : 0;
+                                const isWinner = isCompleted && winnerEntry?.id === entry.id;
 
                                 return (
                                     <div key={entry.id} className="hd-entry-card"
                                         style={{
-                                            backgroundColor: '#242C3D',
+                                            backgroundColor: isWinner ? 'rgba(255,215,0,0.05)' : '#242C3D',
                                             borderRadius: borderRadius.lg,
-                                            border: sortOrder === 'top' && i === 0
-                                                ? `1px solid ${colors.primary}35`
-                                                : '1px solid rgba(255,255,255,0.05)',
+                                            border: isWinner
+                                                ? '1px solid rgba(255,215,0,0.35)'
+                                                : sortOrder === 'top' && i === 0 && !isCompleted
+                                                    ? `1px solid ${colors.primary}35`
+                                                    : '1px solid rgba(255,255,255,0.05)',
                                             overflow: 'hidden',
                                             padding: isMobile ? '16px' : '20px 24px',
                                         }}>
@@ -690,7 +758,7 @@ export const BattleDetailPage: React.FC = () => {
 
                                             {/* Cover + title */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : '300px', flexShrink: 0 }}>
-                                                <div style={{ width: '72px', height: '72px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                                                <div style={{ width: '72px', height: '72px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: isWinner ? '0 0 16px rgba(255,215,0,0.3)' : '0 4px 12px rgba(0,0,0,0.3)', border: isWinner ? '2px solid rgba(255,215,0,0.4)' : 'none' }}>
                                                     {(entry.coverUrl || entry.avatarUrl) ? (
                                                         <img src={(entry.coverUrl || entry.avatarUrl)!.startsWith('http') ? (entry.coverUrl || entry.avatarUrl)! : `${API}${entry.coverUrl || entry.avatarUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
@@ -700,7 +768,12 @@ export const BattleDetailPage: React.FC = () => {
                                                     )}
                                                 </div>
                                                 <div style={{ minWidth: 0 }}>
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
+                                                    {isWinner && (
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', backgroundColor: 'rgba(255,215,0,0.15)', border: '1px solid rgba(255,215,0,0.3)', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>
+                                                            <Trophy size={9} /> Winner
+                                                        </div>
+                                                    )}
+                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: isWinner ? '#FFD700' : colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
                                                         {entry.trackTitle}
                                                     </Link>
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
