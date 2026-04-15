@@ -1492,7 +1492,19 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
 // =============================================
 // LOGIN (email/password with optional 2FA)
 // =============================================
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts, try again later.' } });
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: any) => {
+        // Key per email address so one user can't block others behind the same NAT/proxy IP
+        const email = req.body?.email;
+        return (email ? String(email).toLowerCase().trim() : null) || req.ip || 'unknown';
+    },
+    validate: false,
+    message: { error: 'Too many login attempts, try again later.' },
+});
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { email, password, totpCode } = req.body;
