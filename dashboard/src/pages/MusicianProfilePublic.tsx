@@ -48,7 +48,7 @@ interface MusicianProfile {
         _count?: { favourites: number; comments: number };
     };
     featuredPlaylistId?: string | null;
-    featuredPlaylist?: {
+    accentColor?: string | null;
         id: string;
         name: string;
         description: string | null;
@@ -313,6 +313,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         if (typeof item !== 'string') return item;
         try { return JSON.parse(item); } catch { return { name: item, category: 'Other' }; }
     });
+    // Use user-chosen accent colour, falling back to theme primary
+    const accent = profile.accentColor || colors.primary;
     const stats = [
         { label: 'Followers', value: followerCount.toLocaleString() },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
@@ -373,7 +375,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {avatarUrl ? (
                                 <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', fontWeight: 800 }}>
+                                <div style={{ width: '100%', height: '100%', backgroundColor: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', fontWeight: 800 }}>
                                     {profile.username.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -381,7 +383,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* Info */}
                         <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left', minWidth: 0 }}>
-                            <p style={{ fontSize: '11px', fontWeight: 700, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
+                            <p style={{ fontSize: '11px', fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '8px' }}>
                                 <h1
                                     className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
@@ -415,17 +417,17 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '16px' }}>
                                 {/* Primary genre — larger, full color */}
                                 {profile.primaryGenre && (
-                                    <span onClick={() => navigate(`/category/${profile.primaryGenre!.slug}`)} style={{ backgroundColor: `${colors.primary}22`, border: `1px solid ${colors.primary}66`, color: colors.primary, padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+                                    <span onClick={() => navigate(`/category/${profile.primaryGenre!.slug}`)} style={{ backgroundColor: `${accent}22`, border: `1px solid ${accent}66`, color: accent, padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
                                         {profile.primaryGenre.name}
                                     </span>
                                 )}
                                 {/* Secondary genres — smaller, muted */}
                                 {profile.genres.filter((g: any) => g.genre && g.genre.id !== profile.primaryGenreId).map((g: any, i: number) => (
-                                    <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${colors.primary}0D`, border: `1px solid ${colors.primary}2A`, color: `${colors.primary}BB`, padding: '3px 9px', borderRadius: '999px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
+                                    <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${accent}0D`, border: `1px solid ${accent}2A`, color: `${accent}BB`, padding: '3px 9px', borderRadius: '999px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
                                 ))}
                                 {/* If no primary genre, fall back to showing all genres with original style */}
                                 {!profile.primaryGenre && profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
-                                    <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}4D`, color: colors.primary, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
+                                    <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}4D`, color: accent, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
                                 ))}
                                 <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
                                 {stats.map((s, i) => (
@@ -437,19 +439,19 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {/* Action Buttons */}
                             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                 {!isOwnProfile && (
-                                    <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${colors.primary}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : colors.primary, color: isFollowing ? colors.primary : 'white', transition: 'all 0.2s' }}>
+                                    <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${accent}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : 'white', transition: 'all 0.2s' }}>
                                         {isFollowing ? <><UserCheck size={14} /> Following</> : <><UserPlus size={14} /> Follow</>}
                                     </button>
                                 )}
                                 {!isOwnProfile && user && (
-                                    <button onClick={startMessage} disabled={startingChat} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: startingChat ? 'default' : 'pointer', border: `1px solid ${colors.primary}4D`, backgroundColor: `${colors.primary}1A`, color: colors.primary, transition: 'all 0.2s', opacity: startingChat ? 0.6 : 1 }}>
+                                    <button onClick={startMessage} disabled={startingChat} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: startingChat ? 'default' : 'pointer', border: `1px solid ${accent}4D`, backgroundColor: `${accent}1A`, color: accent, transition: 'all 0.2s', opacity: startingChat ? 0.6 : 1 }}>
                                         <MessageCircle size={13} /> {startingChat ? 'Opening…' : 'Message'}
                                     </button>
                                 )}
                                 {(isOwnProfile || isAdmin) && (
                                     <button
                                         onClick={() => isOwnProfile ? (onEdit ? onEdit() : navigate('/profile/edit')) : navigate(`/profile/edit?adminTarget=${profile.userId}`)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${colors.primary}4D`}`, backgroundColor: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${colors.primary}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : colors.primary, transition: 'all 0.2s' }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${accent}4D`}`, backgroundColor: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${accent}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : accent, transition: 'all 0.2s' }}
                                     >
                                         <Edit3 size={13} /> {isAdmin && !isOwnProfile ? 'Edit Profile (Admin)' : 'Edit Profile'}
                                     </button>
@@ -457,7 +459,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {isOwnProfile && (
                                     <button
                                         onClick={() => navigate('/my-tracks')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${colors.primary}4D`, backgroundColor: `${colors.primary}1A`, color: colors.primary, transition: 'all 0.2s' }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${accent}4D`, backgroundColor: `${accent}1A`, color: accent, transition: 'all 0.2s' }}
                                     >
                                         <ListMusic size={13} /> Manage Tracks
                                     </button>

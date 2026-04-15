@@ -781,6 +781,8 @@ model MusicianProfile {
   displayName     String?
   avatar          String?
   bannerUrl       String?  // User-uploaded hero banner image for profile page
+  accentColor     String?  // User-chosen hex accent color for their profile page (e.g. "#FF5500")
+  cardBgColor     String?  // User-chosen card background hex color (e.g. "#0A1628")
   bio             String?  @db.Text
   location        String?
   contactEmail    String?

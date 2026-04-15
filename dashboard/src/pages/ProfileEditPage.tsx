@@ -5,7 +5,8 @@ import axios from 'axios';
 import { 
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube, 
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
-    Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2
+    Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2,
+    Paintbrush
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -33,6 +34,8 @@ interface MusicianProfile {
     primaryGenreId?: string | null;
     featuredTrackId?: string | null;
     featuredPlaylistId?: string | null;
+    accentColor?: string | null;
+    cardBgColor?: string | null;
 }
 
 interface Genre {
@@ -996,6 +999,78 @@ export const ProfileEditPage: React.FC = () => {
                             </button>
                         </div>
                     </div>
+
+                    {/* ── Profile Appearance ── */}
+                    {!isAdminMode && (
+                        <div style={card}>
+                            <div style={sectionHeader(colors.primary)}><Paintbrush size={15} color={colors.primary} /> Profile Appearance</div>
+                            <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
+                                Personalise your public profile with a custom accent colour. This tints links, borders, and highlights throughout your profile page.
+                                Username gradient and animation effects are separate and granted by admins.
+                            </p>
+
+                            {/* Preset colour swatches */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Accent Colour</p>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                                    {['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
+                                        <button
+                                            key={preset}
+                                            onClick={() => updateProfile(p => ({ ...p, accentColor: preset }))}
+                                            title={preset}
+                                            style={{
+                                                width: '28px', height: '28px', borderRadius: '50%',
+                                                backgroundColor: preset, border: 'none', cursor: 'pointer',
+                                                boxShadow: profile?.accentColor === preset ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${preset}` : 'none',
+                                                flexShrink: 0, transition: 'box-shadow 0.15s',
+                                            }}
+                                        />
+                                    ))}
+                                    {/* Clear swatch */}
+                                    <button
+                                        onClick={() => updateProfile(p => ({ ...p, accentColor: null }))}
+                                        title="Default colour"
+                                        style={{
+                                            width: '28px', height: '28px', borderRadius: '50%',
+                                            background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
+                                            border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
+                                            boxShadow: !profile?.accentColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input
+                                        type="color"
+                                        value={profile?.accentColor || '#10B981'}
+                                        onChange={e => updateProfile(p => ({ ...p, accentColor: e.target.value }))}
+                                        style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={profile?.accentColor || ''}
+                                        onChange={e => {
+                                            const v = e.target.value;
+                                            if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, accentColor: v }));
+                                        }}
+                                        placeholder="#10B981"
+                                        maxLength={7}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
+                                    />
+                                    {profile?.accentColor && (
+                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: profile.accentColor, border: `1px solid ${colors.glassBorder}`, flexShrink: 0 }} />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Preview strip */}
+                            {profile?.accentColor && (
+                                <div style={{ padding: '10px 14px', borderRadius: borderRadius.sm, border: `1px solid ${profile.accentColor}44`, backgroundColor: `${profile.accentColor}11`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: profile.accentColor, flexShrink: 0 }} />
+                                    <span style={{ fontSize: '12px', color: profile.accentColor, fontWeight: 600 }}>Preview — this accent colour will appear on your profile page.</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* ── Discord Connection ── */}
                     {!isAdminMode && (

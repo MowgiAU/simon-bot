@@ -38,6 +38,8 @@ export class ProfileService {
         gearList?: string[];
         featuredTrackId?: string | null;
         featuredPlaylistId?: string | null;
+        accentColor?: string | null;
+        cardBgColor?: string | null;
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         // Discord handles are not URLs so they bypass URL validation
@@ -69,7 +71,9 @@ export class ProfileService {
                     hardware: data.gearList || [],
                     primaryGenreId: data.primaryGenreId || null,
                     featuredTrackId: data.featuredTrackId,
-                    featuredPlaylistId: data.featuredPlaylistId
+                    featuredPlaylistId: data.featuredPlaylistId,
+                    accentColor: data.accentColor ?? null,
+                    cardBgColor: data.cardBgColor ?? null
                 },
                 update: {
                     username: data.username,
@@ -85,7 +89,9 @@ export class ProfileService {
                     hardware: data.gearList,
                     primaryGenreId: data.primaryGenreId !== undefined ? (data.primaryGenreId || null) : undefined,
                     featuredTrackId: data.featuredTrackId,
-                    featuredPlaylistId: data.featuredPlaylistId
+                    featuredPlaylistId: data.featuredPlaylistId,
+                    accentColor: data.accentColor !== undefined ? (data.accentColor || null) : undefined,
+                    cardBgColor: data.cardBgColor !== undefined ? (data.cardBgColor || null) : undefined
                 }
             });
 
