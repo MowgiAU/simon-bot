@@ -49,6 +49,7 @@ interface MusicianProfile {
     };
     featuredPlaylistId?: string | null;
     accentColor?: string | null;
+    featuredPlaylist?: {
         id: string;
         name: string;
         description: string | null;
