@@ -517,13 +517,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <img src={featuredPlaylist.coverUrl} alt={featuredPlaylist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Music size={40} color={colors.primary} />
+                                    <Music size={40} color={accent} />
                                 </div>
                             )}
                         </div>
                         {/* Info */}
                         <div style={{ flex: 1, minWidth: 0, textAlign: isMobile ? 'center' : 'left' }}>
-                            <span style={{ backgroundColor: featuredPlaylist.releaseType === 'album' ? '#7C3AED' : featuredPlaylist.releaseType === 'ep' ? '#0369A1' : featuredPlaylist.releaseType === 'single' ? '#B45309' : colors.primary, color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            <span style={{ backgroundColor: featuredPlaylist.releaseType === 'album' ? '#7C3AED' : featuredPlaylist.releaseType === 'ep' ? '#0369A1' : featuredPlaylist.releaseType === 'single' ? '#B45309' : accent, color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                                 {featuredPlaylist.releaseType ? `Featured ${featuredPlaylist.releaseType}` : 'Featured Release'}
                             </span>
                             <h3 style={{ fontSize: isMobile ? '18px' : '24px', fontWeight: 800, margin: '8px 0 4px', letterSpacing: '-0.01em' }}>{featuredPlaylist.name}</h3>
@@ -547,7 +547,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         <button
                             onClick={() => { if (featuredPlaylistTracks.length > 0) { const first = featuredPlaylistTracks[0]; player.currentTrack?.id === first.id ? togglePlay() : setTrack(first, featuredPlaylistTracks); } }}
                             disabled={featuredPlaylistTracks.length === 0}
-                            style={{ padding: '10px 24px', borderRadius: '999px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: featuredPlaylistTracks.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 4px 15px ${colors.primary}44`, flexShrink: 0, opacity: featuredPlaylistTracks.length > 0 ? 1 : 0.5 }}
+                            style={{ padding: '10px 24px', borderRadius: '999px', backgroundColor: accent, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: featuredPlaylistTracks.length > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: `0 4px 15px ${accent}44`, flexShrink: 0, opacity: featuredPlaylistTracks.length > 0 ? 1 : 0.5 }}
                         >
                             {player.currentTrack?.id === featuredPlaylistTracks[0]?.id && player.isPlaying ? <><Pause size={16} fill="currentColor" /> Pause</> : <><Play size={16} fill="currentColor" /> Play</>}
                         </button>
@@ -577,14 +577,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {trackCoverUrl ? (
                                 <img src={trackCoverUrl} alt={featuredTrack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={48} color={colors.primary} /></div>
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={48} color={accent} /></div>
                             )}
                             {/* Play overlay */}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: player.currentTrack?.id === featuredTrack.id && player.isPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.15)', transition: 'background 0.2s', opacity: player.currentTrack?.id === featuredTrack.id ? 1 : 0 }}
                                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                                 onMouseLeave={e => { if (player.currentTrack?.id !== featuredTrack.id || !player.isPlaying) e.currentTarget.style.opacity = '0'; }}
                             >
-                                <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${colors.primary}66` }}>
+                                <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 20px ${accent}66` }}>
                                     {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <Pause size={22} fill="white" color="white" /> : <Play size={22} fill="white" color="white" style={{ marginLeft: '2px' }} />}
                                 </div>
                             </div>
@@ -595,7 +595,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <Star size={12} color="#F27B13" fill="#F27B13" />
                                 <span style={{ fontSize: '10px', fontWeight: 700, color: '#F27B13', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Featured Track</span>
                             </div>
-                            <h3 style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: player.currentTrack?.id === featuredTrack.id ? colors.primary : 'white', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <h3 style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: player.currentTrack?.id === featuredTrack.id ? accent : 'white', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {featuredTrack.title}
                             </h3>
                             {featuredTrack.description && (
@@ -605,9 +605,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {featuredTrack.genres && featuredTrack.genres.length > 0 && (
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginTop: '2px' }}>
                                     {featuredTrack.genres.slice(0, 3).map((g, i) => (
-                                        <Link key={i} to={`/category/${g.genre.slug}`} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}33`, color: colors.primary, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textDecoration: 'none', transition: 'background 0.15s' }}
-                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = `${colors.primary}33`}
-                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = `${colors.primary}1A`}
+                                        <Link key={i} to={`/category/${g.genre.slug}`} style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}33`, color: accent, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textDecoration: 'none', transition: 'background 0.15s' }}
+                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = `${accent}33`}
+                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = `${accent}1A`}
                                         >{g.genre.name}</Link>
                                     ))}
                                 </div>
@@ -638,9 +638,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {/* Progress bar when playing */}
                             {player.currentTrack?.id === featuredTrack.id && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', maxWidth: isMobile ? '100%' : '320px' }}>
-                                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: colors.primary, minWidth: '32px' }}>{Math.floor(player.currentTime / 60)}:{(Math.floor(player.currentTime % 60)).toString().padStart(2, '0')}</span>
+                                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: accent, minWidth: '32px' }}>{Math.floor(player.currentTime / 60)}:{(Math.floor(player.currentTime % 60)).toString().padStart(2, '0')}</span>
                                     <div style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px', position: 'relative' }}>
-                                        <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime / player.duration) * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '999px', transition: 'width 0.3s linear' }} />
+                                        <div style={{ position: 'absolute', top: 0, left: 0, width: `${(player.currentTime / player.duration) * 100}%`, height: '100%', backgroundColor: accent, borderRadius: '999px', transition: 'width 0.3s linear' }} />
                                     </div>
                                     <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(185,195,206,0.5)', minWidth: '32px', textAlign: 'right' }}>{Math.floor(player.duration / 60)}:{(Math.floor(player.duration % 60)).toString().padStart(2, '0')}</span>
                                 </div>
@@ -650,9 +650,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         {!isMobile && (
                             <button
                                 onClick={() => featuredTrack && (player.currentTrack?.id === featuredTrack.id ? togglePlay() : setTrack(featuredTrack, [featuredTrack, ...(profile.tracks || [])].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)))}
-                                style={{ padding: '12px 28px', borderRadius: '999px', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 15px ${colors.primary}44`, flexShrink: 0, alignSelf: 'center', transition: 'transform 0.15s, box-shadow 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = `0 4px 15px ${colors.primary}44`; }}
+                                style={{ padding: '12px 28px', borderRadius: '999px', backgroundColor: accent, display: 'flex', alignItems: 'center', gap: '8px', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 15px ${accent}44`, flexShrink: 0, alignSelf: 'center', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = `0 6px 20px ${accent}66`; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = `0 4px 15px ${accent}44`; }}
                             >
                                 {player.currentTrack?.id === featuredTrack.id && player.isPlaying ? <><Pause size={16} fill="currentColor" /> Pause</> : <><Play size={16} fill="currentColor" /> Play</>}
                             </button>
@@ -679,7 +679,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         <button key={tab} onClick={() => setDiscographyFilter(tab)} style={{
                                             padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                                             fontSize: '12px', fontWeight: 600, transition: 'all 0.2s',
-                                            backgroundColor: discographyFilter === tab ? colors.primary : 'transparent',
+                                            backgroundColor: discographyFilter === tab ? accent : 'transparent',
                                             color: discographyFilter === tab ? 'white' : colors.textSecondary,
                                         }}>
                                             {tab === 'all' ? `All (${(profile.tracks?.length || 0) + (profile.reposts?.length || 0)})` :
@@ -803,7 +803,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                                                                 onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.opacity = '0'; }}
                                                             >
-                                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
                                                                     {isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />}
                                                                 </div>
                                                             </div>
@@ -818,13 +818,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                         {trackArtistAvatar ? (
                                                                             <img src={trackArtistAvatar} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
                                                                         ) : (
-                                                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: colors.primary + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: colors.primary, fontWeight: 700 }}>
+                                                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: accent + '33', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: accent, fontWeight: 700 }}>
                                                                                 {(trackArtistDisplay || '?')[0].toUpperCase()}
                                                                             </div>
                                                                         )}
                                                                     </Link>
                                                                     <Link to={`/profile/${trackArtistUsername}`} style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}
-                                                                        onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                                                                        onMouseEnter={e => e.currentTarget.style.color = accent}
                                                                         onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}>
                                                                         {trackArtistDisplay}
                                                                     </Link>
@@ -858,7 +858,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                         const y = (48 - h) / 2;
                                                                         const pct = i / peaks.length;
                                                                         const played = pct < progress;
-                                                                        return <rect key={i} x={i} y={y} width={0.6} height={h} fill={played ? colors.primary : 'rgba(255,255,255,0.15)'} rx={0.2} />;
+                                                                        return <rect key={i} x={i} y={y} width={0.6} height={h} fill={played ? accent : 'rgba(255,255,255,0.15)'} rx={0.2} />;
                                                                     })}
                                                                 </svg>
                                                             </div>
@@ -890,8 +890,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                                 </button>
                                                                 {!isOwnProfile && (
                                                                 <button onClick={() => toggleRepost(track.id)}
-                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRep ? colors.primary : colors.textTertiary, fontSize: '12px', padding: 0, transition: 'color 0.2s' }}
-                                                                    onMouseEnter={e => { if (!isRep) e.currentTarget.style.color = colors.primary; }}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: isRep ? accent : colors.textTertiary, fontSize: '12px', padding: 0, transition: 'color 0.2s' }}
+                                                                    onMouseEnter={e => { if (!isRep) e.currentTarget.style.color = accent; }}
                                                                     onMouseLeave={e => { if (!isRep) e.currentTarget.style.color = colors.textTertiary; }}>
                                                                     <Repeat2 size={14} />
                                                                     <span>{counts.reposts || ''}</span>
@@ -921,38 +921,87 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* Beat Battle History */}
                         {battleEntries.length > 0 && (
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
-                            <h3 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Swords size={20} color={colors.primary} /> Beat Battle History
-                            </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {battleEntries.map((entry: any) => (
-                                    <div key={entry.id} style={{
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        padding: '12px 14px', backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.06)' : 'rgba(0,0,0,0.2)',
-                                        borderRadius: '8px', border: entry.isWinner ? '1px solid rgba(255,215,0,0.2)' : '1px solid rgba(255,255,255,0.04)',
-                                        flexWrap: 'wrap', gap: '8px',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                            {entry.avatarUrl && <img src={entry.avatarUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />}
-                                            <div style={{ minWidth: 0 }}>
-                                                <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
-                                                <p style={{ margin: '1px 0 0', color: colors.textSecondary, fontSize: '11px' }}>{entry.battle.title}</p>
+                        <div style={{
+                            borderRadius: '14px',
+                            border: '1px solid rgba(255,215,0,0.18)',
+                            padding: isMobile ? '20px' : '28px',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            background: 'linear-gradient(145deg, #1C1A10 0%, #252318 60%, #1A1E2E 100%)',
+                            boxShadow: '0 0 60px rgba(255,180,0,0.06), 0 8px 30px rgba(0,0,0,0.4)',
+                        }}>
+                            {/* Subtle diagonal lines overlay */}
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,200,0,0.015) 30px, rgba(255,200,0,0.015) 31px)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'relative' }}>
+                                {/* Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.01em' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #B8860B, #FFD700)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(255,215,0,0.3)' }}>
+                                            <Swords size={20} color="white" />
+                                        </div>
+                                        Beat Battle History
+                                    </h3>
+                                    <span style={{ fontSize: '12px', color: 'rgba(255,215,0,0.6)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                                        {battleEntries.filter((e: any) => e.isWinner).length > 0
+                                            ? `${battleEntries.filter((e: any) => e.isWinner).length} WIN${battleEntries.filter((e: any) => e.isWinner).length > 1 ? 'S' : ''} · ${battleEntries.length} BATTLES`
+                                            : `${battleEntries.length} BATTLE${battleEntries.length > 1 ? 'S' : ''}`}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {battleEntries.map((entry: any) => (
+                                        <div key={entry.id} style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: entry.isWinner ? '14px 16px' : '12px 14px',
+                                            backgroundColor: entry.isWinner ? 'rgba(255,215,0,0.09)' : 'rgba(0,0,0,0.25)',
+                                            borderRadius: '10px',
+                                            border: entry.isWinner ? '1px solid rgba(255,215,0,0.35)' : '1px solid rgba(255,255,255,0.05)',
+                                            boxShadow: entry.isWinner ? '0 0 20px rgba(255,215,0,0.1), inset 0 1px 0 rgba(255,215,0,0.1)' : 'none',
+                                            flexWrap: 'wrap', gap: '8px',
+                                            transition: 'border-color 0.2s',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                                                {/* Rank icon */}
+                                                {entry.isWinner ? (
+                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'linear-gradient(135deg, #B8860B, #FFD700)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 10px rgba(255,215,0,0.4)' }}>
+                                                        <Trophy size={18} color="white" fill="white" />
+                                                    </div>
+                                                ) : entry.avatarUrl ? (
+                                                    <img src={entry.avatarUrl} alt="" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, opacity: 0.85 }} />
+                                                ) : (
+                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Swords size={16} color="rgba(255,255,255,0.3)" />
+                                                    </div>
+                                                )}
+                                                <div style={{ minWidth: 0 }}>
+                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : colors.textPrimary, fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
+                                                    <p style={{ margin: '2px 0 0', color: entry.isWinner ? 'rgba(255,215,0,0.6)' : colors.textSecondary, fontSize: '11px' }}>{entry.battle.title}</p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                                                {entry.isWinner && (
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '3px 9px', borderRadius: '999px', backgroundColor: 'rgba(255,215,0,0.12)', border: '1px solid rgba(255,215,0,0.3)' }}>
+                                                        <Trophy size={11} fill="#FFD700" /> Winner
+                                                    </span>
+                                                )}
+                                                {!entry.isWinner && entry.battle.status === 'completed' && (
+                                                    <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 600 }}>#{entry.placement}/{entry.totalEntries}</span>
+                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: entry.voteCount > 0 ? '#FF8C00' : colors.textTertiary, fontSize: '13px' }}>
+                                                    <Flame size={14} color={entry.voteCount > 0 ? '#FF8C00' : colors.textTertiary} fill={entry.voteCount > 0 ? '#FF8C00' : 'none'} />
+                                                    <span>{entry.voteCount}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}` }); }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.05)', color: player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? accent : colors.textSecondary, cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'all 0.2s' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.color = accent; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = colors.textSecondary; }}
+                                                >
+                                                    {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? <><Pause size={12} fill="currentColor" /> Pause</> : <><Play size={12} fill="currentColor" /> Play</>}
+                                                </button>
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                                            {entry.isWinner && <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontWeight: 700, color: '#FFD700' }}><Trophy size={13} /> Winner</span>}
-                                            {!entry.isWinner && entry.battle.status === 'completed' && <span style={{ fontSize: '11px', color: colors.textSecondary }}>#{entry.placement}/{entry.totalEntries}</span>}
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 700, color: colors.primary, fontSize: '12px' }}><Flame size={13} /> {entry.voteCount}</span>
-                                            <button
-                                                onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}` }); }}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}
-                                            >
-                                                {player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? <><Pause size={12} /> Pause</> : <><Play size={12} /> Play</>}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         )}
@@ -1037,8 +1086,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             : (player.currentTrack ? '104px' : '24px'),
                         right: '24px', 
                         backgroundColor: '#111827',
-                        color: colors.primary,
-                        border: `2px solid ${colors.primary}`,
+                        color: accent,
+                        border: `2px solid ${accent}`,
                         padding: isMobile ? '10px 16px' : '12px 24px', 
                         borderRadius: '999px',
                         boxShadow: `0 0 0 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.5)`,
