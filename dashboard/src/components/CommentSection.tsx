@@ -42,6 +42,8 @@ interface CommentSectionProps {
     isCurrentTrack?: boolean;
     /** Called after a comment is successfully posted */
     onCommentPosted?: () => void;
+    /** Called when user clicks a timed comment timestamp to seek */
+    onSeek?: (seconds: number) => void;
 }
 
 // ─── Default emojis ───────────────────────────────────────────────────────
@@ -242,7 +244,7 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
 
 // ─── Comment Section ──────────────────────────────────────────────────────
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted, onSeek }) => {
     const { user } = useAuth();
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -539,7 +541,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                     <StyledUsername userId={comment.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.username}</StyledUsername>
                                     {comment.trackTimestamp != null && (
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: colors.primary, backgroundColor: `${colors.primary}15`, padding: '1px 6px', borderRadius: '4px', cursor: 'pointer' }}
-                                            title="Jump to this time">
+                                            title="Jump to this time"
+                                            onClick={() => onSeek?.(comment.trackTimestamp!)}>
                                             {Math.floor(comment.trackTimestamp / 60)}:{Math.floor(comment.trackTimestamp % 60).toString().padStart(2, '0')}
                                         </span>
                                     )}

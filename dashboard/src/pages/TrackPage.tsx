@@ -665,7 +665,7 @@ export const TrackPage: React.FC = () => {
                         }
                     };
                     return (
-                        <div style={{ marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                        <div style={{ marginBottom: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
                             {/* Header */}
                             <div style={{ padding: '16px 24px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -678,14 +678,15 @@ export const TrackPage: React.FC = () => {
                                 )}
                             </div>
                             {/* Timed comment avatars */}
-                            <div style={{ position: 'relative', height: '32px', margin: '0 24px' }}>
+                            <div style={{ position: 'relative', height: '32px', margin: '0 24px', overflow: 'visible' }}>
                                 {timedComments.map(tc => {
                                     const pct = (tc.trackTimestamp / (track.duration || 1)) * 100;
                                     const isHovered = hoveredComment === tc.id;
                                     return (
                                         <div key={tc.id} style={{ position: 'absolute', left: `${pct}%`, bottom: 0, transform: 'translateX(-50%)', zIndex: isHovered ? 10 : 1 }}
                                             onMouseEnter={() => setHoveredComment(tc.id)}
-                                            onMouseLeave={() => setHoveredComment(null)}>
+                                            onMouseLeave={() => setHoveredComment(null)}
+                                            onClick={(e) => { e.stopPropagation(); if (isThisTrack) { seek(tc.trackTimestamp); } else { setTrack(track, [track]); setTimeout(() => seek(tc.trackTimestamp), 200); } }}>
                                             {isHovered && (
                                                 <div style={{
                                                     position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -943,6 +944,14 @@ export const TrackPage: React.FC = () => {
                     currentTrackTime={player.currentTrack?.id === track.id ? player.currentTime : null}
                     isCurrentTrack={player.currentTrack?.id === track.id}
                     onCommentPosted={refreshTimedComments}
+                    onSeek={(seconds) => {
+                        if (player.currentTrack?.id === track.id) {
+                            seek(seconds);
+                        } else {
+                            setTrack(track, [track]);
+                            setTimeout(() => seek(seconds), 200);
+                        }
+                    }}
                 />
 
                 {/* ═══ LYRICS SECTION ═══ */}
