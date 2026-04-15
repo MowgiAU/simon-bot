@@ -10,8 +10,6 @@ interface State {
   isChunkError: boolean;
 }
 
-const CHUNK_RELOAD_KEY = 'chunkErrorReloaded';
-
 function isChunkLoadError(error: Error): boolean {
   const msg = error.message || '';
   return (
@@ -31,28 +29,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public static getDerivedStateFromError(error: Error): State {
     const chunkError = isChunkLoadError(error);
-
-    // Auto-reload once for chunk errors to pick up the new build
-    if (chunkError) {
-      const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY);
-      if (!alreadyReloaded) {
-        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
-        window.location.reload();
-        // Return a loading state — the reload will happen before render
-        return { hasError: false, error: null, isChunkError: true };
-      }
-    }
-
     return { hasError: true, error, isChunkError: chunkError };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
-  }
-
-  public componentDidMount() {
-    // Clear the reload flag on successful mount so future deploys can reload again
-    sessionStorage.removeItem(CHUNK_RELOAD_KEY);
   }
 
   public render() {
@@ -75,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
               The dashboard was updated while you had it open. Please reload to get the latest version.
             </p>
             <button
-              onClick={() => { sessionStorage.removeItem(CHUNK_RELOAD_KEY); window.location.reload(); }}
+              onClick={() => window.location.reload()}
               style={{
                 padding: '12px 24px',
                 backgroundColor: '#22c55e',
