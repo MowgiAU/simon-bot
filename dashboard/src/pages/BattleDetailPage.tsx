@@ -128,6 +128,7 @@ export const BattleDetailPage: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitToast, setSubmitToast] = useState(false);
 
     // Rule sample audio player
     const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -308,6 +309,14 @@ export const BattleDetailPage: React.FC = () => {
                 .hd-sponsor-bar { opacity: 0.55; filter: grayscale(1); transition: all 0.4s; }
                 .hd-sponsor-bar:hover { opacity: 1; filter: grayscale(0); }
             `}</style>
+
+            {/* Submission success toast */}
+            {submitToast && (
+                <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: colors.primary, color: '#fff', padding: '12px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+                    ✓ Entry submitted! It may take a moment to appear in the list.
+                    <button onClick={() => setSubmitToast(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>✕</button>
+                </div>
+            )}
 
             <div style={{ overflowX: 'hidden' }}>
 
@@ -772,6 +781,8 @@ export const BattleDetailPage: React.FC = () => {
                 </section>
             </div>
             {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
+                setSubmitToast(true);
+                setTimeout(() => setSubmitToast(false), 6000);
                 setLoading(true);
                 fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include', cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)

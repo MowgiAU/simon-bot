@@ -1,4 +1,4 @@
-
+﻿
 import 'dotenv/config';
 import express from 'express';
 import type { RequestHandler } from 'express';
@@ -201,7 +201,7 @@ async function _getClamScanner() {
         return _clamScanner;
     } catch (e: any) {
         _clamAvailable = false;
-        logger.warn(`ClamAV unavailable â€” uploads will proceed without virus scanning: ${e.message}`);
+        logger.warn(`ClamAV unavailable \u2014 uploads will proceed without virus scanning: ${e.message}`);
         return null;
     }
 }
@@ -250,7 +250,7 @@ async function uploadToR2OrLocal(
 
 /**
  * Deletes a file from R2 (when URL is a CDN URL) or from local disk (when URL is a /uploads/ path).
- * Safe to call with null/undefined or Discord/external URLs â€” no-ops in those cases.
+ * Safe to call with null/undefined or Discord/external URLs \u2014 no-ops in those cases.
  */
 async function deleteFromStorage(url: string | null | undefined): Promise<void> {
     if (!url) return;
@@ -282,7 +282,7 @@ const API_CACHE_TTL: Record<string, number> = {
     'charts-alltime': 1000 * 60 * 15,       // 15 minutes
     'battles-list': 1000 * 60 * 2,          // 2 minutes
     'genres': 1000 * 60 * 30,               // 30 minutes
-    // Individual profile pages â€” safe to cache for 5 minutes
+    // Individual profile pages \u2014 safe to cache for 5 minutes
     'profile': 1000 * 60 * 5,              // 5 minutes (prefix-matched below)
 };
 
@@ -406,7 +406,7 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 // Extend DATABASE_URL with larger connection pool (default of 3 connections causes pool exhaustion
-// under concurrent requests â€” each slow track query holds a connection for seconds)
+// under concurrent requests \u2014 each slow track query holds a connection for seconds)
 const _dbUrl = (() => {
     const raw = process.env.DATABASE_URL || '';
     try {
@@ -428,10 +428,10 @@ export const db = globalForPrisma.prisma || new PrismaClient({
 });
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db;
-  // Log every query with its duration â€” use this to spot slow queries and N+1s
+  // Log every query with its duration \u2014 use this to spot slow queries and N+1s
   (db as any).$on('query', (e: any) => {
     if (e.duration > 50) { // only log queries taking >50ms
-      console.warn(`[Prisma SLOW] ${e.duration}ms â€” ${e.query.substring(0, 120)}`);
+      console.warn(`[Prisma SLOW] ${e.duration}ms \u2014 ${e.query.substring(0, 120)}`);
     }
   });
 }
@@ -746,7 +746,7 @@ app.use(helmet({
     // Disabled: breaks SharedArrayBuffer used by audio worklets
     crossOriginEmbedderPolicy: false,
 }));
-// Compress all responses >1KB (gzip) â€” critical for large JSON payloads (waveforms, track listings)
+// Compress all responses >1KB (gzip) \u2014 critical for large JSON payloads (waveforms, track listings)
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -786,7 +786,7 @@ const apiLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
 });
-// Strict limiter for track uploads â€” prevents spam and large-file abuse
+// Strict limiter for track uploads \u2014 prevents spam and large-file abuse
 const uploadLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10-minute window
     max: 5,                    // 5 uploads per window per user
@@ -1358,7 +1358,7 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
         return;
     }
 
-    // No Discord linked â€” no guild data
+    // No Discord linked \u2014 no guild data
     req.session.guilds = [];
     req.session.mutualAdminGuilds = [];
     req.session.mutualStaffGuilds = [];
@@ -1516,7 +1516,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
         if (dbUser.totpEnabled && dbUser.totpSecret) {
             if (!totpCode) {
-                // Password correct but 2FA required â€” send challenge
+                // Password correct but 2FA required \u2014 send challenge
                 return res.status(200).json({ requiresTwoFactor: true });
             }
             // Verify TOTP code or backup code
@@ -1596,7 +1596,7 @@ app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) =>
                     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                         <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
                         <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
-                        <p>Someone requested a password reset for your Fuji Studio account. Click below â€” this link expires in 1 hour.</p>
+                        <p>Someone requested a password reset for your Fuji Studio account. Click below \u2014 this link expires in 1 hour.</p>
                         <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Reset Password</a>
                         <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${resetUrl}</p>
                         <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, ignore this email. Your password won't change.</p>
@@ -1649,7 +1649,7 @@ app.post('/api/auth/2fa/setup', requireAuth, async (req: any, res) => {
         if (dbUser.totpEnabled) return res.status(400).json({ error: 'Two-factor authentication is already enabled' });
 
         const secret = generateSecret();
-        // Store the secret temporarily â€” will finalize when user confirms with a valid code
+        // Store the secret temporarily \u2014 will finalize when user confirms with a valid code
         await db.user.update({ where: { id: dbUser.id }, data: { totpSecret: secret } });
 
         const otpauth = generateURI({ strategy: 'totp', secret, issuer: 'Fuji Studio', label: dbUser.email || dbUser.username });
@@ -1881,7 +1881,7 @@ app.post('/api/auth/send-verification', async (req: any, res) => {
         const dashboardOrigin = process.env.DASHBOARD_ORIGIN || 'https://fujistud.io';
         const verifyUrl = `${dashboardOrigin}/api/auth/verify-email?token=${token}`;
 
-        // Get Resend key â€” prefer env var, fall back to email plugin settings
+        // Get Resend key \u2014 prefer env var, fall back to email plugin settings
         let resendKey = process.env.RESEND_API_KEY;
         if (!resendKey) {
             try {
@@ -6501,7 +6501,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 // --- Musician Profile API ---
 
 // Post new track (Now with file uploads and metadata)
-// Free-tier track cap â€” increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
+// Free-tier track cap \u2014 increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
 const FREE_TIER_TRACK_LIMIT = 25;
 
 app.post('/api/musician/tracks', uploadLimiter, upload.fields([
@@ -6510,7 +6510,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
   { name: 'project', maxCount: 1 } // Optional .flp project file
 ]), async (req: any, res) => {
     try {
-        // Disable socket timeout for this route â€” large file uploads + ZIP processing can take minutes
+        // Disable socket timeout for this route \u2014 large file uploads + ZIP processing can take minutes
         req.socket.setTimeout(0);
 
         const userId = req.session?.user?.id;
@@ -6561,7 +6561,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             if (recentDupe) {
                 logger.warn(`[Upload] Duplicate submission blocked for user ${userId}: "${uploadTitle}" (existing: ${recentDupe.id})`);
                 return res.status(409).json({
-                    error: 'A track with this title was just uploaded. Your previous upload may still be processing â€” please wait a moment before trying again.',
+                    error: 'A track with this title was just uploaded. Your previous upload may still be processing \u2014 please wait a moment before trying again.',
                     code: 'DUPLICATE_UPLOAD',
                     existingTrackId: recentDupe.id,
                 });
@@ -6594,23 +6594,23 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const isZipUpload = projectFile?.originalname.endsWith('.zip');
 
         if (projectFile && !isZipUpload) {
-            // Plain .flp â€” parse arrangement only
+            // Plain .flp \u2014 parse arrangement only
             try {
                 const flpBuffer = fs.readFileSync(projectFile.path);
                 arrangement = FLPParser.parse(flpBuffer);
                 projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 const arr = arrangement as any;
-                logger.info(`Parsed FLP arrangement: ${projectFile.originalname} â€” BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
+                logger.info(`Parsed FLP arrangement: ${projectFile.originalname} \u2014 BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
             } catch (e) {
                 logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
-                // Continue without arrangement â€” don't block the upload
+                // Continue without arrangement \u2014 don't block the upload
             }
         } else if (projectFile && isZipUpload) {
-            // .zip bundle â€” will be processed after track is created (we need trackId first)
+            // .zip bundle \u2014 will be processed after track is created (we need trackId first)
             projectFileSizeBytes = projectFile.size;
             projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
             if (!R2Storage.isConfigured()) {
-                logger.info('R2 not configured â€” ZIP samples will be served from local storage');
+                logger.info('R2 not configured \u2014 ZIP samples will be served from local storage');
             }
         }
 
@@ -6703,7 +6703,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Respond immediately â€” track is playable right away from local storage.
+        // Respond immediately \u2014 track is playable right away from local storage.
         // Audio encoding, artwork optimisation, waveform extraction and R2/CDN uploads
         // happen in the background so the browser never hits a proxy timeout.
         const fullTrack = await db.track.findUnique({
@@ -6985,7 +6985,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
     { name: 'project', maxCount: 1 }
 ]), async (req: any, res) => {
     try {
-        // Disable socket timeout for this route â€” large file uploads + ZIP processing can take minutes
+        // Disable socket timeout for this route \u2014 large file uploads + ZIP processing can take minutes
         req.socket.setTimeout(0);
 
         const userId = req.session?.user?.id;
@@ -7070,7 +7070,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
             updateData.coverUrl = await uploadToR2OrLocal(finalArtworkPath, r2ArtworkKey, 'image/webp', `/uploads/artwork/${path.basename(finalArtworkPath)}`);
         }
 
-        // Project file replacement â€” re-parse FLP or re-process ZIP
+        // Project file replacement \u2014 re-parse FLP or re-process ZIP
         if (projectFile) {
             const isZip = projectFile.originalname.endsWith('.zip');
 
@@ -7086,7 +7086,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
                     const finalBpm = (bpm ? parseInt(bpm) : null) || updateData.bpm || track.bpm;
                     if (finalBpm) (arrangement as any).bpm = finalBpm;
                     updateData.arrangement = arrangement;
-                    logger.info(`Re-parsed FLP for track edit: ${track.title} â€” arrangement BPM set to ${finalBpm}`);
+                    logger.info(`Re-parsed FLP for track edit: ${track.title} \u2014 arrangement BPM set to ${finalBpm}`);
                 } catch (e) {
                     logger.warn(`Failed to parse replaced FLP file: ${e}`);
                 }
@@ -7094,7 +7094,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
                 const r2ProjectKey = `tracks/${trackId}/project/${path.basename(projectFile.path)}`;
                 updateData.projectFileUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', `/uploads/projects/${path.basename(projectFile.path)}`);
             } else {
-                // ZIP bundle replacement â€” respond immediately then process in background (avoid 504)
+                // ZIP bundle replacement \u2014 respond immediately then process in background (avoid 504)
                 updateData.projectFileSizeBytes = projectFile.size;
                 updateData.projectZipUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 updateData.arrangement = null; // Will be repopulated after background processing
@@ -7376,7 +7376,7 @@ app.get('/api/discovery/tracks', publicCache(120), async (req, res) => {
     try {
         const { genre, search, sort = 'newest', limit = 24 } = req.query;
 
-        // Cache the default (no filter) request â€” this is hit on every page load
+        // Cache the default (no filter) request \u2014 this is hit on every page load
         const isDefaultQuery = !genre && !search && sort === 'newest' && Number(limit) === 24;
         if (isDefaultQuery) {
             const cached = getCachedResponse('discovery-tracks');
@@ -7691,7 +7691,7 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
                   take: 1,
                   orderBy: { playCount: 'desc' },
                   // Explicit select avoids loading large JSON columns (arrangement, waveformPeaks)
-                  // on every profile card in the list â€” these can be MB each
+                  // on every profile card in the list \u2014 these can be MB each
                   select: {
                       id: true, title: true, slug: true, url: true, coverUrl: true,
                       playCount: true, duration: true, isPublic: true, status: true,
@@ -7883,7 +7883,7 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
     try {
         const { userId } = req.params;
 
-        // SEC-01: Ownership check â€” only profile owner or admin can edit
+        // SEC-01: Ownership check \u2014 only profile owner or admin can edit
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -8287,7 +8287,7 @@ app.get('/api/admin/debug-arrangement/:trackId', requireAdmin, async (req, res) 
             }
         } else {
             result.flpFileExists = false;
-            result.note = 'No projectFileUrl â€” track has no FLP file';
+            result.note = 'No projectFileUrl \u2014 track has no FLP file';
         }
 
         res.json(result);
@@ -8509,7 +8509,7 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
     try {
         const { userId } = req.params;
 
-        // SEC-02: Ownership check â€” only profile owner or admin can upload avatar
+        // SEC-02: Ownership check \u2014 only profile owner or admin can upload avatar
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -8912,7 +8912,7 @@ app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, re
 // Admin: List tracks for a profile (including suspended/deleted)
 // â”€â”€â”€ Admin Account Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/admin/accounts â€” list + search accounts
+// GET /api/admin/accounts \u2014 list + search accounts
 app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
     try {
         const search = (req.query.search as string || '').trim();
@@ -8957,7 +8957,7 @@ app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
     }
 });
 
-// GET /api/admin/accounts/:id â€” full account detail
+// GET /api/admin/accounts/:id \u2014 full account detail
 app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const rawUser = await db.user.findUnique({
@@ -8985,7 +8985,7 @@ app.get('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// PUT /api/admin/accounts/:id â€” update account fields
+// PUT /api/admin/accounts/:id \u2014 update account fields
 app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const { username, email, displayName } = req.body;
@@ -9033,7 +9033,7 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// DELETE /api/admin/accounts/:id â€” delete account (cannot delete self)
+// DELETE /api/admin/accounts/:id \u2014 delete account (cannot delete self)
 app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const targetId = req.params.id;
@@ -9052,7 +9052,7 @@ app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// POST /api/admin/accounts/:id/force-verify â€” mark email as verified
+// POST /api/admin/accounts/:id/force-verify \u2014 mark email as verified
 app.post('/api/admin/accounts/:id/force-verify', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -9066,7 +9066,7 @@ app.post('/api/admin/accounts/:id/force-verify', requireAdmin, async (req: any, 
     }
 });
 
-// POST /api/admin/accounts/:id/send-password-reset â€” send password reset email
+// POST /api/admin/accounts/:id/send-password-reset \u2014 send password reset email
 app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req: any, res) => {
     try {
         const user = await db.user.findUnique({ where: { id: req.params.id } });
@@ -9106,7 +9106,7 @@ app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req
     }
 });
 
-// POST /api/admin/accounts/:id/disable-2fa â€” disable TOTP
+// POST /api/admin/accounts/:id/disable-2fa \u2014 disable TOTP
 app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -9120,7 +9120,7 @@ app.post('/api/admin/accounts/:id/disable-2fa', requireAdmin, async (req: any, r
     }
 });
 
-// POST /api/admin/accounts/:id/remove-discord â€” unlink Discord
+// POST /api/admin/accounts/:id/remove-discord \u2014 unlink Discord
 app.post('/api/admin/accounts/:id/remove-discord', requireAdmin, async (req: any, res) => {
     try {
         await db.user.update({
@@ -9134,7 +9134,7 @@ app.post('/api/admin/accounts/:id/remove-discord', requireAdmin, async (req: any
     }
 });
 
-// POST /api/admin/accounts/:id/set-password â€” admin sets password directly
+// POST /api/admin/accounts/:id/set-password \u2014 admin sets password directly
 app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, res) => {
     try {
         const { newPassword } = req.body;
@@ -9652,7 +9652,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             return res.status(400).json({ error: 'You cannot vote for your own submission' });
         }
 
-        // Check duplicate vote â€” if exists, toggle (remove) it
+        // Check duplicate vote \u2014 if exists, toggle (remove) it
         const existingVote = await db.battleVote.findUnique({
             where: { entryId_userId: { entryId, userId } },
         });
@@ -9748,7 +9748,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
         const userId = req.session.user.id;
         const battleId = req.params.battleId;
         const title = req.body.title;
-        const trackId = req.body.trackId; // optional â€” library track submission
+        const trackId = req.body.trackId; // optional \u2014 library track submission
         const description = req.body.description || null;
         const bpm = req.body.bpm ? parseInt(req.body.bpm, 10) : null;
         const key = req.body.key || null;
@@ -9929,7 +9929,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             },
         });
 
-        // Upload files to R2 (only for direct uploads â€” library submissions already on R2)
+        // Upload files to R2 (only for direct uploads \u2014 library submissions already on R2)
         if (!trackId) {
             const r2UrlUpdates: any = {};
             const r2Uploads: Promise<void>[] = [];
@@ -10254,10 +10254,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.submissionEnd) {
             fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.rules) fields.push({ name: 'ðŸ“‹ Rules', value: battle.rules });
-        fields.push({ name: 'ðŸŒ Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.rules) fields.push({ name: '\u{1F4CB} Rules', value: battle.rules });
+        fields.push({ name: '\u{1F310} Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `ðŸŽ¤ New Beat Battle: ${battle.title}`,
+            title: `\u{1F3A4} New Beat Battle: ${battle.title}`,
             description: battle.description || 'A new battle has begun! Submit your beats on the website.',
             color: 0x2B8C71,
             fields,
@@ -10269,9 +10269,9 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.votingEnd) {
             fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
         }
-        fields.push({ name: 'ðŸŒ Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        fields.push({ name: '\u{1F310} Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `ðŸ—³ï¸ ${battle.title} â€” Voting is Now Open!`,
+            title: `\u{1F5F3}\uFE0F ${battle.title} \u2014 Voting is Now Open!`,
             description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
             color: 0xFFA500,
             fields,
@@ -10284,10 +10284,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
         if (!winner) return null;
         embed = {
-            title: `ðŸ† ${battle.title} â€” Winner!`,
+            title: `\u{1F3C6} ${battle.title} \u2014 Winner!`,
             description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
             color: 0xFFD700,
-            fields: [{ name: 'ðŸŽ§ Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            fields: [{ name: '\u{1F3A7} Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
@@ -10792,7 +10792,7 @@ const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
-    // 1. Hashed assets (/assets/*.js, /assets/*.css) â€” content-hashed filenames â†’ cache 1 year
+    // 1. Hashed assets (/assets/*.js, /assets/*.css) \u2014 content-hashed filenames â†’ cache 1 year
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
         index: false,
         setHeaders: (res) => {
@@ -10800,7 +10800,7 @@ if (fs.existsSync(distPath)) {
         },
     }));
 
-    // 2. Everything else (index.html, logo.svg, etc.) â€” no cache so the app shell always refreshes
+    // 2. Everything else (index.html, logo.svg, etc.) \u2014 no cache so the app shell always refreshes
     app.use((req, res, next) => {
         next();
     }, express.static(distPath, { index: false }));
@@ -11235,7 +11235,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         let resolvedProfileId = profileId;
 
         if (parentId) {
-            // Reply â€” inherit context from parent, prevent nested replies
+            // Reply \u2014 inherit context from parent, prevent nested replies
             const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
             if (parent.parentId) return res.status(400).json({ error: 'Cannot reply to a reply' });
@@ -11306,7 +11306,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             try {
                 const snippet = (content || '').trim().slice(0, 80) || '(GIF)';
                 if (parentId) {
-                    // Reply notification â€” notify the parent comment author
+                    // Reply notification \u2014 notify the parent comment author
                     const parentComment = await db.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
                     if (parentComment && parentComment.userId !== userId) {
                         let link: string | null = null;
@@ -11322,7 +11322,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                         });
                     }
                 } else {
-                    // Top-level comment notification â€” notify the content owner
+                    // Top-level comment notification \u2014 notify the content owner
                     let ownerId: string | null = null;
                     let link: string | null = null;
                     if (resolvedTrackId) {
@@ -11469,12 +11469,12 @@ app.post('/api/comments/:commentId/react', requireAuth, async (req: any, res) =>
 
         if (existing) {
             if (existing.type === type) {
-                // Same type â€” remove the reaction
+                // Same type \u2014 remove the reaction
                 await db.commentLike.delete({ where: { id: existing.id } });
                 // Log removal
                 await logAction('GLOBAL', 'comment_reaction_removed', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
             } else {
-                // Different type â€” switch
+                // Different type \u2014 switch
                 await db.commentLike.update({ where: { id: existing.id }, data: { type } });
                 await logAction('GLOBAL', 'comment_reacted', userId, commentId, { type, commentAuthor: comment.username }).catch(() => {});
             }
@@ -11920,7 +11920,7 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
             },
         });
 
-        // Add reposts with repost metadata â€” skip tracks already in feed
+        // Add reposts with repost metadata \u2014 skip tracks already in feed
         const repostItems = reposts
             .filter(r => !existingTrackIds.has(r.trackId))
             .map(r => ({

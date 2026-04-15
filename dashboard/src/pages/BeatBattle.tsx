@@ -314,6 +314,8 @@ export const BeatBattlePage: React.FC = () => {
                 setCardImageFile(null);
                 setCardImagePreview('');
                 resetForm();
+                // Re-fetch from server to ensure UI reflects latest DB state
+                fetchBattles();
             } else {
                 const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
                 alert(`Failed to save battle: ${err.error || res.status}`);

@@ -88,6 +88,7 @@ export const BattlesPage: React.FC = () => {
     const [votingId, setVotingId] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitToast, setSubmitToast] = useState(false);
     const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
     const [hallOfFame, setHallOfFame] = useState<Array<{ battle: Battle; winner: Entry | null }>>([]);
     const [globalSponsors, setGlobalSponsors] = useState<PublicSponsor[]>([]);
@@ -212,6 +213,12 @@ export const BattlesPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="battles">
+            {submitToast && (
+                <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: colors.primary, color: '#fff', padding: '12px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+                    ✓ Entry submitted! It may take a moment to appear in the list.
+                    <button onClick={() => setSubmitToast(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>✕</button>
+                </div>
+            )}
             <div style={{ overflowX: 'hidden' }}>
 
                 {/* ── HERO ── */}
@@ -613,7 +620,7 @@ export const BattlesPage: React.FC = () => {
                     )}
                 </div>
             </div>
-            {currentBattle && <BattleSubmitModal battleId={currentBattle.id} requireProjectFile={currentBattle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={load} />}
+            {currentBattle && <BattleSubmitModal battleId={currentBattle.id} requireProjectFile={currentBattle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => { setSubmitToast(true); setTimeout(() => setSubmitToast(false), 6000); load(); }} />}
         </DiscoveryLayout>
     );
 };
