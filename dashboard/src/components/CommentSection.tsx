@@ -4,6 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
 import { showToast } from './Toast';
 import { ReportButton } from './ReportButton';
+import { StyledUsername } from './StyledUsername';
 import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
     Search, Loader2, ChevronDown, Reply, ThumbsUp, ThumbsDown
@@ -20,6 +21,7 @@ interface Comment {
     avatarUrl: string | null;
     content: string;
     gifUrl: string | null;
+    trackTimestamp: number | null;
     editedAt: string | null;
     createdAt: string;
     parentId?: string | null;
@@ -34,6 +36,12 @@ interface CommentSectionProps {
     profileId?: string;
     /** userId that owns the track/profile (for delete permissions) */
     ownerId?: string;
+    /** Current playback time in seconds (for timed comments on tracks) */
+    currentTrackTime?: number | null;
+    /** Whether the current track is the one being viewed */
+    isCurrentTrack?: boolean;
+    /** Called after a comment is successfully posted */
+    onCommentPosted?: () => void;
 }
 
 // ─── Default emojis ───────────────────────────────────────────────────────
@@ -234,7 +242,7 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
 
 // ─── Comment Section ──────────────────────────────────────────────────────
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, ownerId }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted }) => {
     const { user } = useAuth();
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -302,10 +310,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                 gifUrl,
                 ...(trackId ? { trackId } : {}),
                 ...(profileId ? { profileId } : {}),
+                ...(trackId && isCurrentTrack && currentTrackTime != null && currentTrackTime > 0 ? { trackTimestamp: Math.round(currentTrackTime) } : {}),
             }, { withCredentials: true });
             setComments(prev => [res.data, ...prev]);
             setContent('');
             setGifUrl(null);
+            onCommentPosted?.();
         } catch (e: any) {
             const msg = e?.response?.data?.error || 'Failed to post comment';
             showToast(msg, 'error');
@@ -455,7 +465,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                 value={content}
                                 onChange={e => setContent(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                                placeholder="Write a comment..."
+                                placeholder={isCurrentTrack && currentTrackTime != null && currentTrackTime > 0 ? `Comment at ${Math.floor(currentTrackTime / 60)}:${Math.floor(currentTrackTime % 60).toString().padStart(2, '0')}...` : 'Write a comment...'}
                                 rows={1}
                                 style={{
                                     width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.04)',
@@ -526,7 +536,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                             {/* Content */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '14px', color: colors.textPrimary }}>{comment.username}</span>
+                                    <StyledUsername userId={comment.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.username}</StyledUsername>
+                                    {comment.trackTimestamp != null && (
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: colors.primary, backgroundColor: `${colors.primary}15`, padding: '1px 6px', borderRadius: '4px', cursor: 'pointer' }}
+                                            title="Jump to this time">
+                                            {Math.floor(comment.trackTimestamp / 60)}:{Math.floor(comment.trackTimestamp % 60).toString().padStart(2, '0')}
+                                        </span>
+                                    )}
                                     <span style={{ fontSize: '12px', color: colors.textSecondary }}>{formatTime(comment.createdAt)}</span>
                                     {comment.editedAt && <span style={{ fontSize: '11px', color: colors.textSecondary, fontStyle: 'italic' }}>(edited)</span>}
                                 </div>
@@ -653,7 +669,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                         </div>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                                                                <span style={{ fontWeight: 600, fontSize: '13px', color: colors.textPrimary }}>{reply.username}</span>
+                                                                <StyledUsername userId={reply.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '13px' }}>{reply.username}</StyledUsername>
                                                                 <span style={{ fontSize: '11px', color: colors.textSecondary }}>{formatTime(reply.createdAt)}</span>
                                                                 {reply.editedAt && <span style={{ fontSize: '10px', color: colors.textSecondary, fontStyle: 'italic' }}>(edited)</span>}
                                                             </div>

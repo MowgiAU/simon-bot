@@ -52,6 +52,7 @@ interface Track {
     license: string;
     lyrics: string | null;
     lyricsSync: Array<{ time: number; text: string }> | null;
+    waveformPeaks: number[] | null;
     samples?: TrackSample[];
     profile: {
         id: string;
@@ -173,6 +174,19 @@ export const TrackPage: React.FC = () => {
     const lyricsContainerRef = useRef<HTMLDivElement>(null);
     const activeLineRef = useRef<HTMLDivElement>(null);
 
+    // Timed comments for waveform overlay
+    interface TimedComment {
+        id: string;
+        userId: string;
+        username: string;
+        avatarUrl: string | null;
+        content: string;
+        trackTimestamp: number;
+        createdAt: string;
+    }
+    const [timedComments, setTimedComments] = useState<TimedComment[]>([]);
+    const [hoveredComment, setHoveredComment] = useState<string | null>(null);
+
     const isOwner = user && track?.profile?.userId === user.id;
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
     const canEdit = isOwner || isAdmin;
@@ -219,6 +233,31 @@ export const TrackPage: React.FC = () => {
         };
         fetchTrack();
     }, [pathname]);
+
+    // Fetch timed comments for waveform overlay
+    const refreshTimedComments = async () => {
+        if (!track) return;
+        try {
+            const res = await axios.get(`/api/comments?trackId=${track.id}&limit=100`, { withCredentials: true });
+            const all = res.data.comments || [];
+            const timed = all
+                .filter((c: any) => c.trackTimestamp != null)
+                .map((c: any) => ({
+                    id: c.id,
+                    userId: c.userId,
+                    username: c.username,
+                    avatarUrl: c.avatarUrl,
+                    content: c.content,
+                    trackTimestamp: c.trackTimestamp,
+                    createdAt: c.createdAt,
+                }));
+            setTimedComments(timed);
+        } catch {}
+    };
+
+    useEffect(() => {
+        refreshTimedComments();
+    }, [track?.id]);
 
     useEffect(() => {
         if (track) {
@@ -609,6 +648,89 @@ export const TrackPage: React.FC = () => {
                     </div>
                 )}
 
+                {/* ═══ WAVEFORM + TIMED COMMENTS ═══ */}
+                {(() => {
+                    const peaks = track.waveformPeaks as number[] | null;
+                    if (!peaks || peaks.length === 0) return null;
+                    const isThisTrack = player.currentTrack?.id === track.id;
+                    const progress = isThisTrack ? (player.currentTime / (player.duration || track.duration || 1)) : 0;
+                    const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pct = (e.clientX - rect.left) / rect.width;
+                        if (isThisTrack) {
+                            seek(pct * (player.duration || track.duration || 0));
+                        } else {
+                            setTrack(track, [track]);
+                            setTimeout(() => seek(pct * (track.duration || 0)), 200);
+                        }
+                    };
+                    return (
+                        <div style={{ marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            {/* Header */}
+                            <div style={{ padding: '16px 24px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Activity size={18} color={colors.primary} />
+                                    <span style={{ fontSize: '14px', fontWeight: 700 }}>Waveform</span>
+                                    {isThisTrack && <span style={{ fontSize: '12px', color: colors.textSecondary }}>{Math.floor(player.currentTime / 60)}:{Math.floor(player.currentTime % 60).toString().padStart(2, '0')} / {formatDuration(track.duration)}</span>}
+                                </div>
+                                {timedComments.length > 0 && (
+                                    <span style={{ fontSize: '11px', color: colors.textSecondary }}>{timedComments.length} timed comment{timedComments.length !== 1 ? 's' : ''}</span>
+                                )}
+                            </div>
+                            {/* Timed comment avatars */}
+                            <div style={{ position: 'relative', height: '32px', margin: '0 24px' }}>
+                                {timedComments.map(tc => {
+                                    const pct = (tc.trackTimestamp / (track.duration || 1)) * 100;
+                                    const isHovered = hoveredComment === tc.id;
+                                    return (
+                                        <div key={tc.id} style={{ position: 'absolute', left: `${pct}%`, bottom: 0, transform: 'translateX(-50%)', zIndex: isHovered ? 10 : 1 }}
+                                            onMouseEnter={() => setHoveredComment(tc.id)}
+                                            onMouseLeave={() => setHoveredComment(null)}>
+                                            {isHovered && (
+                                                <div style={{
+                                                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                                                    backgroundColor: '#1a1e2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px',
+                                                    padding: '8px 10px', minWidth: '140px', maxWidth: '220px', marginBottom: '6px',
+                                                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)', whiteSpace: 'normal', zIndex: 20,
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 700, color: colors.primary }}>
+                                                            {Math.floor(tc.trackTimestamp / 60)}:{Math.floor(tc.trackTimestamp % 60).toString().padStart(2, '0')}
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textPrimary }}>{tc.username}</span>
+                                                    </div>
+                                                    <p style={{ margin: 0, fontSize: '12px', color: '#CBD5E1', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                                        {tc.content.length > 100 ? tc.content.slice(0, 100) + '…' : tc.content}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {tc.avatarUrl ? (
+                                                <img src={tc.avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${isHovered ? colors.primary : 'rgba(255,255,255,0.15)'}`, cursor: 'pointer', transition: 'border-color 0.15s' }} />
+                                            ) : (
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: `${colors.primary}22`, border: `2px solid ${isHovered ? colors.primary : 'rgba(255,255,255,0.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: colors.primary, cursor: 'pointer' }}>
+                                                    {tc.username.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {/* Waveform bars */}
+                            <div onClick={handleWaveformClick} style={{ cursor: 'pointer', padding: '0 24px 16px', position: 'relative' }}>
+                                <svg width="100%" height="80" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 80`} style={{ display: 'block' }}>
+                                    {peaks.map((peak, i) => {
+                                        const h = Math.max(2, peak * 72);
+                                        const y = (80 - h) / 2;
+                                        const pct = i / peaks.length;
+                                        const played = pct < progress;
+                                        return <rect key={i} x={i} y={y} width={0.6} height={h} fill={played ? colors.primary : 'rgba(255,255,255,0.15)'} rx={0.2} />;
+                                    })}
+                                </svg>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* ═══ FL STUDIO PROJECT SECTION ═══ */}
                 {track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo) && (
                     <div style={{ 
@@ -815,7 +937,13 @@ export const TrackPage: React.FC = () => {
                 )}
 
                 {/* Comments */}
-                <CommentSection trackId={track.id} ownerId={track.profile.userId} />
+                <CommentSection
+                    trackId={track.id}
+                    ownerId={track.profile.userId}
+                    currentTrackTime={player.currentTrack?.id === track.id ? player.currentTime : null}
+                    isCurrentTrack={player.currentTrack?.id === track.id}
+                    onCommentPosted={refreshTimedComments}
+                />
 
                 {/* ═══ LYRICS SECTION ═══ */}
                 {(track.lyrics || (track.lyricsSync && track.lyricsSync.length > 0) || canEdit) && (

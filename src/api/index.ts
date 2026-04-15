@@ -11240,7 +11240,7 @@ app.get('/api/comments', async (req: any, res) => {
 app.post('/api/comments', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl, trackId, profileId, parentId } = req.body;
+        const { content, gifUrl, trackId, profileId, parentId, trackTimestamp } = req.body;
 
         if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
 
@@ -11292,6 +11292,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
                 ...(parentId ? { parentId } : {}),
+                ...(resolvedTrackId && trackTimestamp != null && !parentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
         });
 
