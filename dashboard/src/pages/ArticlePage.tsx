@@ -5,6 +5,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { usePlayer } from '../components/PlayerProvider';
 import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
+import { StyledUsername } from '../components/StyledUsername';
 import {
     Calendar, Eye, Clock, User, ChevronLeft, Tag,
     Newspaper, BookOpen, Megaphone, GraduationCap, Share2,
@@ -20,6 +21,7 @@ interface Article {
     coverImageUrl: string | null;
     authorName: string;
     authorAvatar: string | null;
+    authorUserId: string | null;
     category: string;
     tags: string[];
     publishedAt: string | null;
@@ -173,7 +175,7 @@ export const ArticlePage: React.FC = () => {
                                 <User size={14} color={colors.textTertiary} />
                             </div>
                         )}
-                        <span style={{ fontWeight: 600, fontSize: '13px', color: colors.textPrimary }}>{article.authorName}</span>
+                        <span style={{ fontWeight: 600, fontSize: '13px', color: colors.textPrimary }}><StyledUsername userId={article.authorUserId} showBadge={false}>{article.authorName}</StyledUsername></span>
                     </div>
 
                     {article.publishedAt && (

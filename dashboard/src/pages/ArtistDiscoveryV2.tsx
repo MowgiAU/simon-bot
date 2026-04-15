@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
+import { StyledUsername } from '../components/StyledUsername';
 
 interface ArtistProfile {
     userId: string;
@@ -547,7 +548,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         {/* Name */}
                                         <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
                                             <div style={{ fontWeight: 900, fontSize: isMobile ? '18px' : '22px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {artists[0].displayName || artists[0].username}
+                                                <StyledUsername userId={artists[0].userId}>{artists[0].displayName || artists[0].username}</StyledUsername>
                                             </div>
                                         </Link>
                                         {/* Genre pills */}
@@ -894,7 +895,7 @@ export const ArtistDiscoveryV2Page: React.FC = () => {
                                         {/* Title + artist */}
                                         <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '150px' }}>
                                             <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</div>
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></div>
                                         </div>
 
                                         {/* Waveform — main visual element */}

@@ -4,6 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { LayoutGrid, ArrowLeft, Disc, Music, Play, TrendingUp, Clock, Filter, Search, Repeat2 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { StyledUsername } from '../components/StyledUsername';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
@@ -305,7 +306,7 @@ export const CategoryResultsPage: React.FC<{ slug?: string }> = ({ slug: propSlu
                                     </button>
                                 </div>
                                 <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</h4>
-                                <p style={{ margin: 0, fontSize: '12px', color: '#B9C3CE', fontWeight: 600 }}>{track.profile.displayName || track.profile.username}</p>
+                                <p style={{ margin: 0, fontSize: '12px', color: '#B9C3CE', fontWeight: 600 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></p>
                             </div>
                         )) : (
                             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '80px 0', color: '#B9C3CE' }}>

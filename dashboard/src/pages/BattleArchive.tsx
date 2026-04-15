@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { Trophy, Users, Play, Calendar, Building2, ArrowLeft, Vote } from 'lucide-react';
+import { StyledUsername } from '../components/StyledUsername';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -86,7 +87,7 @@ export const BattleArchivePage: React.FC<{ onBack?: () => void }> = ({ onBack })
                                     {winner && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
                                             <Trophy size={16} color="#FFD700" />
-                                            <span style={{ color: '#FFD700', fontWeight: 600, fontSize: '14px' }}>{winner.username}</span>
+                                            <span style={{ color: '#FFD700', fontWeight: 600, fontSize: '14px' }}><StyledUsername userId={winner.userId} showBadge={false}>{winner.username}</StyledUsername></span>
                                             <span style={{ color: colors.textSecondary, fontSize: '13px' }}>— "{winner.trackTitle}" ({winner.voteCount} votes)</span>
                                         </div>
                                     )}
@@ -125,7 +126,7 @@ export const BattleArchivePage: React.FC<{ onBack?: () => void }> = ({ onBack })
                                                 </span>
                                                 <div>
                                                     <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>{e.trackTitle}</p>
-                                                    <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by {e.username}</p>
+                                                    <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '11px' }}>by <StyledUsername userId={e.userId} showBadge={false}>{e.username}</StyledUsername></p>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

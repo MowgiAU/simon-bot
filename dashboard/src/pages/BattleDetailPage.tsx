@@ -4,6 +4,7 @@ import { colors, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
+import { StyledUsername } from '../components/StyledUsername';
 import {
     ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
@@ -682,7 +683,7 @@ export const BattleDetailPage: React.FC = () => {
                                                     {entry.trackTitle}
                                                 </Link>
                                                 <Link to={`/profile/${entry.userId}`} style={{ fontSize: '13px', color, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: '8px' }}>
-                                                    @{entry.username}
+                                                    <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                 </Link>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -804,7 +805,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         {entry.trackTitle}
                                                     </Link>
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
-                                                        @{entry.username}
+                                                        <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                     </Link>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                         <Flame size={11} color={ACCENT} />

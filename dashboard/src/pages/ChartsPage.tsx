@@ -4,6 +4,7 @@ import { colors } from '../theme/theme';
 import { Play, Trophy, Clock, Repeat2, Crown, Flame, TrendingUp, Headphones } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { StyledUsername } from '../components/StyledUsername';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 
@@ -242,7 +243,7 @@ const ChartRow: React.FC<{
                 </p>
                 <Link to={`/profile/${entry.track.profile.username}`} onClick={e => e.stopPropagation()}
                     style={{ fontSize: '11px', color: colors.textSecondary, textDecoration: 'none' }}>
-                    {entry.track.profile.displayName || entry.track.profile.username}
+                    <StyledUsername userId={entry.track.profile.userId} showBadge={false}>{entry.track.profile.displayName || entry.track.profile.username}</StyledUsername>
                 </Link>
             </div>
 

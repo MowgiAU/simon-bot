@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { StyledUsername } from '../components/StyledUsername';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
@@ -242,7 +243,7 @@ const FeedCard: React.FC<{
                             <Link to={`/profile/${track.profile.username}`} style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}
                                 onMouseEnter={e => e.currentTarget.style.color = colors.primary}
                                 onMouseLeave={e => e.currentTarget.style.color = colors.textSecondary}>
-                                {track.profile.displayName || track.profile.username}
+                                <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
                             </Link>
                         </div>
                         <span style={{ color: colors.textTertiary, fontSize: '11px', whiteSpace: 'nowrap' }}>

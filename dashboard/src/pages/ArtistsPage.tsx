@@ -4,6 +4,7 @@ import { colors, borderRadius } from '../theme/theme';
 import { 
     Search, UserSearch, Music
 } from 'lucide-react';
+import { StyledUsername } from '../components/StyledUsername';
 import { Link } from 'react-router-dom';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
@@ -226,7 +227,7 @@ export const ArtistsPage: React.FC = () => {
                                     )}
                                 </div>
                                 <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {artist.displayName || artist.username}
+                                    <StyledUsername userId={artist.userId}>{artist.displayName || artist.username}</StyledUsername>
                                 </p>
                                 <p style={{ margin: '2px 0 0', fontSize: '10px', color: '#B9C3CE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     @{artist.username}

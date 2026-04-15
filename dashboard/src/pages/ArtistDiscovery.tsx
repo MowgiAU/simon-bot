@@ -10,6 +10,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
+import { StyledUsername } from '../components/StyledUsername';
 
 /** 
  * Modular styles following the Fuji Studio design system (Tailwind-like approach in CSS-in-JS)
@@ -309,7 +310,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </h2>
                                 </Link>
                                 <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '18px', lineHeight: 1.4 }}>
-                                    {featured.featuredTrack.profile.displayName || featured.featuredTrack.profile.username} • {featured.featuredTrack.description || 'New Sound Release'}
+                                    <StyledUsername userId={featured.featuredTrack.profile.userId} showBadge={false}>{featured.featuredTrack.profile.displayName || featured.featuredTrack.profile.username}</StyledUsername> • {featured.featuredTrack.description || 'New Sound Release'}
                                 </p>
                                 <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', gap: '16px' }}>
                                     <button onClick={() => player.currentTrack?.id === featured.featuredTrack!.id ? togglePlay() : setTrack(featured.featuredTrack!, [featured.featuredTrack!, ...topTracks])} style={{ 
@@ -480,7 +481,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
-                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}>{track.profile.displayName || track.profile.username}</p>
+                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></p>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                         <span style={{ backgroundColor: trendBg, color: trendColor, fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', minWidth: '28px', textAlign: 'center', letterSpacing: '0.02em' }}>{trendLabel}</span>
@@ -510,7 +511,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{artist.username.charAt(0).toUpperCase()}</div>
                                         )}
                                     </div>
-                                    <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{artist.displayName || artist.username}</p>
+                                    <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={artist.userId} showBadge={false}>{artist.displayName || artist.username}</StyledUsername></p>
                                 </Link>
                             ))}
                             <Link to="/artists" style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', minWidth: 0 }}>
@@ -728,7 +729,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 {/* Text */}
                                 <div style={{ width: '100%', minWidth: 0 }}>
                                     <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{track.title}</p>
-                                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.profile.displayName || track.profile.username}</p>
+                                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></p>
                                     {track.genres?.[0] && (
                                         <span style={{ display: 'inline-block', marginTop: '6px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.primary, backgroundColor: `${colors.primary}18`, padding: '2px 7px', borderRadius: '4px' }}>
                                             {track.genres[0].genre.name}

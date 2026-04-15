@@ -5,6 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { FujiLogo } from '../components/FujiLogo';
+import { StyledUsername } from '../components/StyledUsername';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import {
@@ -498,7 +499,7 @@ export const BattleEntryPage: React.FC = () => {
                                     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
                                         <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{entry.trackTitle}</h1>
                                         <div style={{ fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px' }}>
-                                            by <span style={{ color: colors.primary, fontWeight: 600 }}>{entry.displayName || entry.username}</span>
+                                            by <span style={{ color: colors.primary, fontWeight: 600 }}><StyledUsername userId={entry.userId} showBadge={false}>{entry.displayName || entry.username}</StyledUsername></span>
                                         </div>
 
                                         {/* Metadata badges */}
@@ -647,7 +648,7 @@ export const BattleEntryPage: React.FC = () => {
                             onClick={() => navigate(`/profile/${track.profile.username}`)}
                             style={{ background: 'none', border: 'none', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: 0, marginBottom: '24px', fontSize: '13px' }}
                         >
-                            <ArrowLeft size={14} /> {track.profile.displayName || track.profile.username}
+                            <ArrowLeft size={14} /> <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
                         </button>
 
                         <div style={{ display: 'flex', gap: isMobile ? '16px' : '32px', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start' }}>
@@ -691,7 +692,7 @@ export const BattleEntryPage: React.FC = () => {
                                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
                                     <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{track.title}</h1>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                                        by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>{track.profile.displayName || track.profile.username}</a>
+                                        by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></a>
                                     </div>
 
                                     {/* Quick metadata badges */}

@@ -4,6 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
+import { StyledUsername } from '../components/StyledUsername';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
 import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X, Repeat2 } from 'lucide-react';
@@ -293,7 +294,7 @@ export const PlaylistPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', color: '#B9C3CE', flexWrap: 'wrap' }}>
                             {playlist.profile && (
                                 <Link to={`/profile/${playlist.profile.username}`} style={{ color: 'white', textDecoration: 'none', fontWeight: 600 }}>
-                                    {playlist.profile.displayName || playlist.profile.username}
+                                    <StyledUsername userId={playlist.userId} showBadge={false}>{playlist.profile.displayName || playlist.profile.username}</StyledUsername>
                                 </Link>
                             )}
                             <span>{playlist.trackCount} tracks</span>

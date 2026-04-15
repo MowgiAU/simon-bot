@@ -4,6 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
+import { StyledUsername } from '../components/StyledUsername';
 import {
     Swords, Trophy, Users, Play, Pause, Vote,
     LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight
@@ -436,7 +437,7 @@ export const BattlesPage: React.FC = () => {
                                             <div style={{ position: 'absolute', bottom: '-2px', right: '-4px', backgroundColor: ACCENT, color: '#fff', fontSize: '7px', fontWeight: 700, padding: '1px 4px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.username || '—'}</h5>
+                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
                                             <p style={{ margin: '1px 0 0', fontSize: '10px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
                                         </div>
                                         {winner?.audioUrl && (
@@ -606,7 +607,7 @@ export const BattlesPage: React.FC = () => {
                                             </div>
                                             {hof?.winner && (
                                                 <span style={{ fontSize: '11px', color: ACCENT, fontWeight: 700, flexShrink: 0, display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Trophy size={11} /> {hof.winner.username}
+                                                    <Trophy size={11} /> <StyledUsername userId={hof.winner.userId} showBadge={false}>{hof.winner.username}</StyledUsername>
                                                 </span>
                                             )}
                                             <span style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0, display: isMobile ? 'none' : 'block' }}>{b._count?.entries || 0} entries</span>
