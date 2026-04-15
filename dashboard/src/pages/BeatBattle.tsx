@@ -249,15 +249,20 @@ export const BeatBattlePage: React.FC = () => {
                     fd.append('battleCardImage', cardImageFile);
                     await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/card-image`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
                 }
-                await fetchBattles();
+                setBattles(prev => [created, ...prev]);
                 setShowCreate(false);
                 setBannerFile(null);
                 setBannerPreview('');
                 setCardImageFile(null);
                 setCardImagePreview('');
                 resetForm();
+            } else {
+                const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                alert(`Failed to create battle: ${err.error || res.status}`);
             }
-        } catch {}
+        } catch (e: any) {
+            alert(`Failed to create battle: ${e.message}`);
+        }
     };
 
     const handleUpdateBattle = async () => {
@@ -301,7 +306,8 @@ export const BeatBattlePage: React.FC = () => {
                 }),
             });
             if (res.ok) {
-                await fetchBattles();
+                const updated = await res.json();
+                setBattles(prev => prev.map(b => b.id === updated.id ? updated : b));
                 setEditingBattle(null);
                 setBannerFile(null);
                 setBannerPreview('');
