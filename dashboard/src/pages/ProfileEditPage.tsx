@@ -1065,7 +1065,7 @@ export const ProfileEditPage: React.FC = () => {
                             <div style={{ marginBottom: '24px' }}>
                                 <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Card Background</p>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A'].map(preset => (
+                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A', '#F0F4F8', '#F5F0FF', '#FFF8F0', '#F0FFF4', '#EFF6FF', '#FDF4FF', '#FFFBEB', '#F0F9FF'].map(preset => (
                                         <button
                                             key={preset}
                                             onClick={() => updateProfile(p => ({ ...p, cardBgColor: preset }))}
