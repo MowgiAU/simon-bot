@@ -9977,12 +9977,14 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 
         const effectiveGuildId = guildId || 'default-guild';
 
-        // Generate unique slug from title
-        const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        let slug = baseSlug;
-        let suffix = 2;
-        while (await db.beatBattle.findUnique({ where: { slug } })) {
-            slug = `${baseSlug}-${suffix++}`;
+        // Generate unique slug from title (always append random suffix to prevent races/empty-slug collisions)
+        const rawSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const baseSlug = rawSlug || 'battle';
+        const randomSuffix = Math.random().toString(36).slice(2, 7);
+        let slug = `${baseSlug}-${randomSuffix}`;
+        // Extremely unlikely collision guard
+        while (await db.beatBattle.findFirst({ where: { slug } })) {
+            slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
         }
 
         const battle = await db.beatBattle.create({
