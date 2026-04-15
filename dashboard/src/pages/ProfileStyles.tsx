@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Plus, Trash2, Edit3, Save, X, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Sparkles, Plus, Trash2, Edit3, Save, X, Search } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
@@ -18,21 +18,29 @@ interface ProfileStyle {
     badgeColor: string | null;
     note: string | null;
     grantedAt: string;
+    profile: { username: string; displayName: string | null; avatar: string | null } | null;
+}
+
+interface SearchResult {
+    userId: string;
+    username: string;
+    displayName: string | null;
+    avatar: string | null;
 }
 
 // ── Preset catalogue ─────────────────────────────────────────────────────────
 
 const GRADIENT_PRESETS = [
-    { label: 'None',     value: '',                                                      preview: colors.textPrimary },
-    { label: 'Sunset',   value: 'linear-gradient(90deg,#FF6B6B,#FFD93D)',                preview: 'linear-gradient(90deg,#FF6B6B,#FFD93D)' },
-    { label: 'Ocean',    value: 'linear-gradient(90deg,#4facfe,#00f2fe)',                preview: 'linear-gradient(90deg,#4facfe,#00f2fe)' },
-    { label: 'Forest',   value: 'linear-gradient(90deg,#11998e,#38ef7d)',                preview: 'linear-gradient(90deg,#11998e,#38ef7d)' },
-    { label: 'Gold',     value: 'linear-gradient(90deg,#f7971e,#ffd200)',                preview: 'linear-gradient(90deg,#f7971e,#ffd200)' },
-    { label: 'Nebula',   value: 'linear-gradient(90deg,#a18cd1,#fbc2eb)',                preview: 'linear-gradient(90deg,#a18cd1,#fbc2eb)' },
-    { label: 'Neon',     value: 'linear-gradient(90deg,#08f7fe,#09fa6e)',                preview: 'linear-gradient(90deg,#08f7fe,#09fa6e)' },
-    { label: 'Rose',     value: 'linear-gradient(90deg,#f953c6,#b91d73)',                preview: 'linear-gradient(90deg,#f953c6,#b91d73)' },
-    { label: 'Fuji',     value: `linear-gradient(90deg,${colors.primary},${colors.accent})`, preview: `linear-gradient(90deg,${colors.primary},${colors.accent})` },
-    { label: 'Custom…',  value: '__custom__',                                             preview: '' },
+    { label: 'None',   value: '' },
+    { label: 'Sunset', value: 'linear-gradient(90deg,#FF6B6B,#FFD93D)' },
+    { label: 'Ocean',  value: 'linear-gradient(90deg,#4facfe,#00f2fe)' },
+    { label: 'Forest', value: 'linear-gradient(90deg,#11998e,#38ef7d)' },
+    { label: 'Gold',   value: 'linear-gradient(90deg,#f7971e,#ffd200)' },
+    { label: 'Nebula', value: 'linear-gradient(90deg,#a18cd1,#fbc2eb)' },
+    { label: 'Neon',   value: 'linear-gradient(90deg,#08f7fe,#09fa6e)' },
+    { label: 'Rose',   value: 'linear-gradient(90deg,#f953c6,#b91d73)' },
+    { label: 'Fuji',   value: `linear-gradient(90deg,${colors.primary},${colors.accent})` },
+    { label: 'Custom…', value: '__custom__' },
 ];
 
 const ANIMATION_OPTIONS = [
@@ -54,8 +62,12 @@ const GLOW_PRESETS = [
 
 // ── Blank form state ─────────────────────────────────────────────────────────
 
-const blank = (): Omit<ProfileStyle, 'id' | 'grantedAt'> & { userId: string } => ({
+type FormState = Omit<ProfileStyle, 'id' | 'grantedAt' | 'profile'> & { _displayName: string; _avatar: string | null };
+
+const blank = (): FormState => ({
     userId: '',
+    _displayName: '',
+    _avatar: null,
     gradient: null,
     animation: 'none',
     glowColor: null,
@@ -67,7 +79,7 @@ const blank = (): Omit<ProfileStyle, 'id' | 'grantedAt'> & { userId: string } =>
 
 // ── Live preview component ───────────────────────────────────────────────────
 
-function StylePreview({ form }: { form: ReturnType<typeof blank> }) {
+function StylePreview({ form }: { form: FormState }) {
     const gradient = form.gradient || '';
     const glowColor = form.glowColor || '';
     const glowPx = glowColor ? `0 0 ${form.glowIntensity * 3}px ${glowColor}88, 0 0 ${form.glowIntensity * 6}px ${glowColor}44` : 'none';
@@ -118,26 +130,34 @@ function StyleEditor({
     onClose,
     saving,
 }: {
-    initial: ReturnType<typeof blank>;
-    onSave: (form: ReturnType<typeof blank>) => void;
+    initial: FormState;
+    onSave: (form: FormState) => void;
     onClose: () => void;
     saving: boolean;
 }) {
     const [form, setForm] = useState(initial);
-    const [customGradient, setCustomGradient] = useState('');
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+    const [customColor1, setCustomColor1] = useState('#FF6B6B');
+    const [customColor2, setCustomColor2] = useState('#4ECDC4');
+    const glowColorInputRef = useRef<HTMLInputElement>(null);
 
-    const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }));
+    const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
 
     const pickGradient = (preset: (typeof GRADIENT_PRESETS)[number]) => {
-        if (preset.value === '__custom__') { setSelectedPreset('__custom__'); return; }
+        if (preset.value === '__custom__') {
+            setSelectedPreset('__custom__');
+            const g = `linear-gradient(90deg, ${customColor1}, ${customColor2})`;
+            set('gradient', g);
+            return;
+        }
         setSelectedPreset(preset.value);
         set('gradient', preset.value || null);
     };
 
-    const applyCustom = () => {
-        set('gradient', customGradient || null);
-        setSelectedPreset(customGradient);
+    const applyCustomColors = (c1: string, c2: string) => {
+        const g = `linear-gradient(90deg, ${c1}, ${c2})`;
+        set('gradient', g);
+        setSelectedPreset('__custom__');
     };
 
     return (
@@ -149,18 +169,17 @@ function StyleEditor({
                     <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '4px' }}><X size={20} /></button>
                 </div>
 
-                {/* User ID */}
-                <label style={{ display: 'block', marginBottom: '16px' }}>
-                    <span style={labelStyle}>Discord User ID</span>
-                    <input
+                {/* User search */}
+                <div style={{ marginBottom: '16px' }}>
+                    <span style={labelStyle}>User</span>
+                    <UserPicker
                         value={form.userId}
-                        onChange={e => set('userId', e.target.value.trim())}
-                        placeholder="e.g. 123456789012345678"
+                        displayName={form._displayName}
+                        onSelect={(userId, displayName, avatar) => setForm(f => ({ ...f, userId, _displayName: displayName, _avatar: avatar }))}
+                        onClear={() => setForm(f => ({ ...f, userId: '', _displayName: '', _avatar: null }))}
                         disabled={!!initial.userId}
-                        style={inputStyle}
                     />
-                    <span style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '4px', display: 'block' }}>Right-click a user in Discord → Copy User ID (Developer Mode required)</span>
-                </label>
+                </div>
 
                 {/* Gradient presets */}
                 <div style={{ marginBottom: '16px' }}>
@@ -169,22 +188,37 @@ function StyleEditor({
                         {GRADIENT_PRESETS.map(p => (
                             <button key={p.label} onClick={() => pickGradient(p)}
                                 style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
                                     padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none',
-                                    background: p.value === '__custom__' ? 'rgba(255,255,255,0.06)' : (p.value ? p.value : 'rgba(255,255,255,0.06)'),
-                                    color: p.value && p.value !== '__custom__' ? 'transparent' : colors.textSecondary,
-                                    WebkitBackgroundClip: p.value && p.value !== '__custom__' ? 'text' : undefined,
-                                    WebkitTextFillColor: p.value && p.value !== '__custom__' ? 'transparent' : undefined,
+                                    backgroundColor: 'rgba(255,255,255,0.06)',
+                                    color: colors.textSecondary,
                                     outline: (selectedPreset ?? form.gradient ?? '') === p.value ? `2px solid ${colors.primary}` : '2px solid transparent',
                                     outlineOffset: '2px',
                                 }}>
+                                {p.value && p.value !== '__custom__' && (
+                                    <span style={{ width: '22px', height: '10px', borderRadius: '3px', background: p.value, flexShrink: 0, display: 'inline-block' }} />
+                                )}
                                 {p.label}
                             </button>
                         ))}
                     </div>
                     {selectedPreset === '__custom__' && (
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                            <input value={customGradient} onChange={e => setCustomGradient(e.target.value)} placeholder="linear-gradient(90deg,#FF6B6B,#4ECDC4)" style={{ ...inputStyle, flex: 1, marginBottom: 0 }} />
-                            <button onClick={applyCustom} style={btnPrimary}>Apply</button>
+                        <div style={{ marginTop: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: colors.textSecondary }}>Start</span>
+                                    <input type="color" value={customColor1}
+                                        onChange={e => { setCustomColor1(e.target.value); applyCustomColors(e.target.value, customColor2); }}
+                                        style={{ width: '48px', height: '40px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', backgroundColor: 'transparent', padding: '2px' }} />
+                                </div>
+                                <div style={{ flex: 1, height: '6px', borderRadius: '3px', background: `linear-gradient(90deg, ${customColor1}, ${customColor2})` }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: colors.textSecondary }}>End</span>
+                                    <input type="color" value={customColor2}
+                                        onChange={e => { setCustomColor2(e.target.value); applyCustomColors(customColor1, e.target.value); }}
+                                        style={{ width: '48px', height: '40px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', backgroundColor: 'transparent', padding: '2px' }} />
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -208,11 +242,22 @@ function StyleEditor({
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
                         {GLOW_PRESETS.map(p => (
                             <button key={p.label} onClick={() => set('glowColor', p.value || null)}
-                                style={{ ...chipStyle, backgroundColor: p.value || 'rgba(255,255,255,0.04)', border: (form.glowColor ?? '') === p.value ? `2px solid ${colors.primary}` : `2px solid transparent` }}>
+                                style={{ ...chipStyle, backgroundColor: 'rgba(255,255,255,0.04)', border: (form.glowColor ?? '') === p.value ? `2px solid ${colors.primary}` : `2px solid transparent` }}>
                                 {p.value && <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: p.value, display: 'inline-block', marginRight: '5px' }} />}
                                 <span style={{ color: colors.textSecondary }}>{p.label}</span>
                             </button>
                         ))}
+                        {/* Custom glow color */}
+                        <button onClick={() => glowColorInputRef.current?.click()}
+                            style={{ ...chipStyle, backgroundColor: 'rgba(255,255,255,0.04)', border: (form.glowColor && !GLOW_PRESETS.find(g => g.value === form.glowColor)) ? `2px solid ${colors.primary}` : `2px solid transparent` }}>
+                            {form.glowColor && !GLOW_PRESETS.find(g => g.value === form.glowColor) && (
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: form.glowColor, display: 'inline-block', marginRight: '5px' }} />
+                            )}
+                            <span style={{ color: colors.textSecondary }}>Custom…</span>
+                        </button>
+                        <input ref={glowColorInputRef} type="color" value={form.glowColor || '#ffffff'}
+                            onChange={e => set('glowColor', e.target.value)}
+                            style={{ display: 'none' }} />
                     </div>
                     {form.glowColor && (
                         <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -270,10 +315,21 @@ const btnSecondary: React.CSSProperties = { display: 'inline-flex', alignItems: 
 // ── Animation keyframes injected once ────────────────────────────────────────
 
 const ANIM_CSS = `
-@keyframes ps-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+@keyframes ps-shimmer-move { 0% { left: -70%; } 100% { left: 120%; } }
 @keyframes ps-pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes ps-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
-.ps-anim-shimmer { background-size: 200% auto !important; animation: ps-shimmer 2.4s linear infinite !important; }
+.ps-anim-shimmer { position: relative !important; overflow: hidden !important; display: inline-block !important; }
+.ps-anim-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -70%;
+  width: 45%;
+  height: 140%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
+  animation: ps-shimmer-move 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
 .ps-anim-pulse   { animation: ps-pulse 2s ease-in-out infinite !important; }
 .ps-anim-rainbow { animation: ps-rainbow 4s linear infinite !important; }
 `;
@@ -288,7 +344,7 @@ export default function ProfileStyles() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const [editing, setEditing] = useState<ReturnType<typeof blank> | null>(null);
+    const [editing, setEditing] = useState<FormState | null>(null);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState<string | null>(null);
     const [confirming, setConfirming] = useState<string | null>(null);
@@ -318,15 +374,17 @@ export default function ProfileStyles() {
         document.head.appendChild(el);
     }, []);
 
-    const save = async (form: ReturnType<typeof blank>) => {
+    const save = async (form: FormState) => {
         if (!guildId || !form.userId) return;
         setSaving(true);
         try {
+            // Strip UI-only fields before sending to API
+            const { _displayName, _avatar, ...payload } = form;
             const r = await fetch(`${API}/api/guilds/${guildId}/profile-styles`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify(payload),
             });
             if (!r.ok) throw new Error('Failed');
             setEditing(null);
@@ -352,7 +410,18 @@ export default function ProfileStyles() {
 
     const openEdit = (s?: ProfileStyle) => {
         if (s) {
-            setEditing({ userId: s.userId, gradient: s.gradient, animation: s.animation, glowColor: s.glowColor, glowIntensity: s.glowIntensity, badgeLabel: s.badgeLabel, badgeColor: s.badgeColor, note: s.note });
+            setEditing({
+                userId: s.userId,
+                _displayName: s.profile?.displayName || s.profile?.username || s.userId,
+                _avatar: s.profile?.avatar || null,
+                gradient: s.gradient,
+                animation: s.animation,
+                glowColor: s.glowColor,
+                glowIntensity: s.glowIntensity,
+                badgeLabel: s.badgeLabel,
+                badgeColor: s.badgeColor,
+                note: s.note,
+            });
         } else {
             setEditing(blank());
         }
@@ -409,8 +478,13 @@ export default function ProfileStyles() {
 
                                 {/* Info */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '14px', fontFamily: 'monospace', ...textStyle }}>{s.userId}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                                        <span key={gradient || 'none'} style={{ fontWeight: 700, fontSize: '14px', ...textStyle }}>
+                                            {s.profile?.displayName || s.profile?.username || s.userId}
+                                        </span>
+                                        {s.profile?.username && (
+                                            <span style={{ fontSize: '12px', color: colors.textSecondary }}>@{s.profile.username}</span>
+                                        )}
                                         {s.badgeLabel && (
                                             <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', borderRadius: '9999px', backgroundColor: `${s.badgeColor || '#FFD700'}22`, border: `1px solid ${s.badgeColor || '#FFD700'}55`, color: s.badgeColor || '#FFD700', textTransform: 'uppercase' }}>
                                                 {s.badgeLabel}

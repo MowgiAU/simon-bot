@@ -14576,6 +14576,31 @@ app.get('/api/spam-guard/incidents/:guildId', async (req, res) => {
 
 // ── ENHANCED PROFILE STYLES ─────────────────────────────────────────────────
 
+// Admin: search musician profiles (for targeting users without needing their Discord ID)
+// Must be registered BEFORE /api/profile-styles/:userId to avoid route conflict
+app.get('/api/profile-styles/users/search', async (req: any, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json([]);
+        const profiles = await db.musicianProfile.findMany({
+            where: {
+                deletedAt: null,
+                status: 'active',
+                OR: [
+                    { username: { contains: q, mode: 'insensitive' } },
+                    { displayName: { contains: q, mode: 'insensitive' } },
+                ],
+            },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+            take: 10,
+        });
+        res.json(profiles);
+    } catch (e) {
+        logger.error('Failed to search profiles for style targeting', e);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
+
 // Public: fetch style for a single user (no guild needed – returns first match across guilds)
 app.get('/api/profile-styles/:userId', publicCache(120), async (req: any, res) => {
     try {
@@ -14588,7 +14613,7 @@ app.get('/api/profile-styles/:userId', publicCache(120), async (req: any, res) =
     }
 });
 
-// Admin: list all styled users in a guild
+// Admin: list all styled users in a guild (enriched with musician profile data)
 app.get('/api/guilds/:guildId/profile-styles', async (req: any, res) => {
     try {
         const { guildId } = req.params;
@@ -14597,7 +14622,15 @@ app.get('/api/guilds/:guildId/profile-styles', async (req: any, res) => {
             where: { guildId },
             orderBy: { grantedAt: 'desc' },
         });
-        res.json(styles);
+        const userIds: string[] = styles.map((s: any) => s.userId);
+        const profiles = userIds.length
+            ? await db.musicianProfile.findMany({
+                  where: { userId: { in: userIds } },
+                  select: { userId: true, username: true, displayName: true, avatar: true },
+              })
+            : [];
+        const profileMap = Object.fromEntries(profiles.map((p: any) => [p.userId, p]));
+        res.json(styles.map((s: any) => ({ ...s, profile: profileMap[s.userId] || null })));
     } catch (e) {
         logger.error('Failed to list profile styles', e);
         res.status(500).json({ error: 'Failed to list profile styles' });
