@@ -77,6 +77,14 @@ interface BattleEntry {
     userId: string;
     username: string;
     displayName: string | null;
+    description: string | null;
+    artist: string | null;
+    bpm: number | null;
+    key: string | null;
+    duration: number;
+    arrangement: ArrangementData | null;
+    projectUrl: string | null;
+    createdAt: string;
     voteCount: number;
     isWinner: boolean;
     placement: number | null;
@@ -388,26 +396,187 @@ export const BattleEntryPage: React.FC = () => {
         </DiscoveryLayout>
     );
 
-    // If there's no linked track, show a basic audio-only view
+    // If there's no linked track, render a full hero using the entry's own data
     if (!track) {
-        const audioUrl = entry.audioUrl.startsWith('http') ? entry.audioUrl : entry.audioUrl;
+        const entryPlayerId = `entry-${entry.id}`;
+        const entryIsPlaying = player.currentTrack?.id === entryPlayerId && player.isPlaying;
+        const fmtDur = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+        const coverImg = entry.coverUrl || entry.avatarUrl;
+
+        const playEntry = () => {
+            if (player.currentTrack?.id === entryPlayerId) {
+                togglePlay();
+            } else {
+                setTrack({
+                    id: entryPlayerId,
+                    title: entry.trackTitle,
+                    artist: entry.displayName || entry.username,
+                    cover: coverImg || '',
+                    url: entry.audioUrl,
+                });
+            }
+        };
+
+        // Synthesize a minimal Track-like object for MemoizedArrangement
+        const synthTrack = entry.arrangement ? {
+            id: entryPlayerId,
+            title: entry.trackTitle,
+            arrangement: entry.arrangement,
+            duration: entry.duration,
+            projectFileUrl: entry.projectUrl || null,
+            projectZipUrl: null,
+            samples: [],
+        } as unknown as Track : null;
+
         return (
             <DiscoveryLayout activeTab="discovery">
                 <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : spacing.xl }}>
-                    {/* Battle breadcrumb */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', fontSize: '13px', color: colors.textSecondary }}>
-                        <Swords size={14} color={colors.primary} />
-                        <Link to="/battles" style={{ color: colors.textSecondary, textDecoration: 'none' }}>Battles</Link>
-                        <span style={{ opacity: 0.4 }}>/</span>
-                        <Link to={`/battles/${entry.battle.id}`} style={{ color: colors.textSecondary, textDecoration: 'none' }}>{entry.battle.title}</Link>
-                        <span style={{ opacity: 0.4 }}>/</span>
-                        <span style={{ color: colors.textPrimary }}>{entry.trackTitle}</span>
+
+                    {/* ═══ BATTLE CONTEXT BANNER ═══ */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                        marginBottom: '16px', padding: '10px 16px', borderRadius: '10px',
+                        backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                    }}>
+                        <Swords size={15} color={colors.primary} />
+                        <Link to="/battles" style={{ color: colors.textSecondary, textDecoration: 'none', fontSize: '13px' }}>Battles</Link>
+                        <span style={{ opacity: 0.3, color: colors.textSecondary }}>/</span>
+                        <Link to={`/battles/${entry.battle.id}`} style={{ color: colors.primary, textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>{entry.battle.title}</Link>
+                        {entry.isWinner && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto', padding: '3px 10px', borderRadius: '20px', backgroundColor: 'rgba(251,191,36,0.18)', border: '1px solid rgba(251,191,36,0.35)', color: '#FBBF24', fontSize: '11px', fontWeight: 700 }}>
+                                <Trophy size={12} /> Winner
+                            </span>
+                        )}
+                        {entry.battle.status === 'voting' && (
+                            <span style={{ marginLeft: entry.isWinner ? '0' : 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '20px', backgroundColor: 'rgba(251,191,36,0.12)', fontSize: '11px', fontWeight: 600, color: '#FBBF24' }}>
+                                Voting Open · {entry.voteCount} vote{entry.voteCount !== 1 ? 's' : ''}
+                            </span>
+                        )}
                     </div>
-                    <div style={{ padding: '40px', textAlign: 'center', backgroundColor: colors.surface, borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <h2 style={{ margin: '0 0 12px' }}>{entry.trackTitle}</h2>
-                        <p style={{ color: colors.textSecondary, marginBottom: '20px' }}>by {entry.displayName || entry.username}</p>
-                        <audio controls src={audioUrl} style={{ width: '100%', maxWidth: '500px' }} />
+
+                    {/* ═══ HERO SECTION ═══ */}
+                    <div style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px' }}>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.92) 0%, rgba(14,18,26,0.75) 100%)' }}>
+                            {coverImg && <img src={coverImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.15 }} />}
+                        </div>
+                        <div style={{ position: 'relative', padding: isMobile ? '20px' : '40px' }}>
+                            <button onClick={() => navigate(`/battles/${entry.battle.id}`)}
+                                style={{ background: 'none', border: 'none', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: 0, marginBottom: '24px', fontSize: '13px' }}>
+                                <ArrowLeft size={14} /> {entry.battle.title}
+                            </button>
+
+                            <div style={{ display: 'flex', gap: isMobile ? '16px' : '32px', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-start' }}>
+                                {/* Cover art */}
+                                <div style={{ width: isMobile ? '200px' : '280px', height: isMobile ? '200px' : '280px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', cursor: 'pointer' }}
+                                    onClick={playEntry}>
+                                    {coverImg ? (
+                                        <img src={coverImg} alt={entry.trackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
+                                            <FujiLogo size={isMobile ? 80 : 120} color={colors.primary} opacity={0.2} />
+                                        </div>
+                                    )}
+                                    <div style={{ position: 'absolute', inset: 0, backgroundColor: entryIsPlaying ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: entryIsPlaying ? 1 : 0, transition: 'opacity 0.2s' }}
+                                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                        onMouseLeave={e => { if (!entryIsPlaying) e.currentTarget.style.opacity = '0'; }}>
+                                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 24px ${colors.primary}66` }}>
+                                            {entryIsPlaying ? <Pause size={28} fill="white" color="white" /> : <Play size={28} fill="white" color="white" style={{ marginLeft: '3px' }} />}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info panel */}
+                                <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden', borderRadius: '16px', padding: isMobile ? '20px' : '28px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {coverImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${coverImg})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(60px) brightness(0.18)', transform: 'scale(1.3)' }} />}
+                                    <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(10,14,22,0.62)' }} />
+                                    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
+                                        <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{entry.trackTitle}</h1>
+                                        <div style={{ fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px' }}>
+                                            by <span style={{ color: colors.primary, fontWeight: 600 }}>{entry.displayName || entry.username}</span>
+                                        </div>
+
+                                        {/* Metadata badges */}
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                            {entry.bpm && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(242,123,19,0.15)', border: '1px solid rgba(242,123,19,0.3)', fontSize: '13px', fontWeight: 600, color: colors.primary }}>
+                                                    <Activity size={13} /> {entry.bpm} BPM
+                                                </span>
+                                            )}
+                                            {entry.key && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '13px', fontWeight: 600, color: '#A78BFA' }}>
+                                                    <Tag size={13} /> {entry.key}
+                                                </span>
+                                            )}
+                                            {entry.duration > 0 && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                                    <Clock size={13} /> {fmtDur(entry.duration)}
+                                                </span>
+                                            )}
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: colors.textSecondary }}>
+                                                <Calendar size={13} /> {new Date(entry.createdAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
+
+                                        {/* Stats */}
+                                        <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: colors.textSecondary }}>
+                                                <Swords size={14} color={colors.textSecondary} />
+                                                <span style={{ fontWeight: 700, color: colors.textPrimary }}>{entry.voteCount}</span> votes
+                                            </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                            <button onClick={playEntry}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: colors.primary, color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px', boxShadow: `0 4px 16px ${colors.primary}44` }}>
+                                                {entryIsPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" />} {entryIsPlaying ? 'Pause' : 'Play'}
+                                            </button>
+                                            <button onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                                                <Share2 size={15} /> Share
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Description */}
+                    {entry.description && (
+                        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', borderLeft: `4px solid ${colors.primary}`, marginBottom: '24px' }}>
+                            <p style={{ margin: 0, color: '#CBD5E1', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{entry.description}</p>
+                        </div>
+                    )}
+
+                    {/* FL Studio Arrangement (if uploaded with .flp) */}
+                    {synthTrack && entry.arrangement && (entry.arrangement as any).tracks?.some((t: any) => t.clips?.length > 0) && (
+                        <div style={{ marginBottom: '24px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(242,123,19,0.2)', background: 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)' }}>
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `linear-gradient(135deg, ${colors.primary}, #E65100)`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${colors.primary}44` }}>
+                                    <Layers size={20} color="white" />
+                                </div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>FL Studio Project</h2>
+                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                                        {(entry.arrangement as any).bpm && `${(entry.arrangement as any).bpm} BPM`}
+                                        {(entry.arrangement as any).bpm && (entry.arrangement as any).tracks?.length > 0 && ' · '}
+                                        {(entry.arrangement as any).tracks?.filter((t: any) => t.clips?.length > 0).length} tracks
+                                    </p>
+                                </div>
+                            </div>
+                            <div style={{ padding: isMobile ? '16px 20px' : '20px 28px' }}>
+                                <MemoizedArrangement track={synthTrack} player={player} isPlaying={entryIsPlaying} zoom={zoom} setZoom={setZoom} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Artist metadata */}
+                    {entry.artist && (
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                            <InfoItem icon={<Info size={16} />} label="Artist" value={entry.artist} />
+                        </div>
+                    )}
                 </div>
             </DiscoveryLayout>
         );
