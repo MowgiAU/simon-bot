@@ -77,6 +77,92 @@ const blank = (): FormState => ({
     note: null,
 });
 
+// ── User Picker ─────────────────────────────────────────────────────────────
+
+function UserPicker({ value, displayName, onSelect, onClear, disabled }: {
+    value: string;
+    displayName: string;
+    onSelect: (userId: string, displayName: string, avatar: string | null) => void;
+    onClear: () => void;
+    disabled: boolean;
+}) {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [open, setOpen] = useState(false);
+    const [searching, setSearching] = useState(false);
+
+    useEffect(() => {
+        if (query.length < 2) { setResults([]); return; }
+        const t = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const r = await fetch(`${API}/api/profile-styles/users/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+                setResults(r.ok ? await r.json() : []);
+            } catch { setResults([]); }
+            setSearching(false);
+        }, 350);
+        return () => clearTimeout(t);
+    }, [query]);
+
+    if (value) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+                <Search size={14} color={colors.primary} />
+                <span style={{ flex: 1, color: colors.textPrimary, fontSize: '14px' }}>{displayName || value}</span>
+                {!disabled && (
+                    <button onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px', lineHeight: 0 }}>
+                        <X size={14} />
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }}>
+                <Search size={14} color={colors.textSecondary} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                    value={query}
+                    onChange={e => { setQuery(e.target.value); setOpen(true); }}
+                    onFocus={() => setOpen(true)}
+                    onBlur={() => setTimeout(() => setOpen(false), 150)}
+                    placeholder="Search by username or display name…"
+                    style={{ ...inputStyle, paddingLeft: '30px' }}
+                    autoComplete="off"
+                />
+                {searching && <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: colors.textSecondary }}>…</span>}
+            </div>
+            {open && results.length > 0 && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, backgroundColor: '#1e1e2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', zIndex: 200, maxHeight: '220px', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
+                    {results.map(u => (
+                        <button key={u.userId}
+                            onMouseDown={() => { onSelect(u.userId, u.displayName || u.username, u.avatar); setQuery(''); setOpen(false); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', textAlign: 'left' }}>
+                            {u.avatar ? (
+                                <img src={u.avatar.startsWith('http') ? u.avatar : `${API}${u.avatar}`} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                            ) : (
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                                    {(u.displayName || u.username).charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <div>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>{u.displayName || u.username}</div>
+                                {u.displayName && <div style={{ fontSize: '11px', color: colors.textSecondary }}>@{u.username}</div>}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+            {open && query.length >= 2 && !searching && results.length === 0 && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, backgroundColor: '#1e1e2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', zIndex: 200, padding: '12px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '13px', color: colors.textSecondary }}>No profiles found</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Live preview component ───────────────────────────────────────────────────
 
 function StylePreview({ form }: { form: FormState }) {
