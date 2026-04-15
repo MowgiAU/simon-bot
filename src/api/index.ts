@@ -779,13 +779,15 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
-const apiLimiter = rateLimit({
+// Write-only limiter — only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
+const writeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: any) => req.session?.user?.id || req.ip,
-    message: { error: 'Too many requests, please try again later.' },
+    skip: (req: any) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+    message: { error: 'You are doing that too fast. Please wait a moment before trying again.' },
 });
 // Strict limiter for track uploads \u2014 prevents spam and large-file abuse
 const uploadLimiter = rateLimit({
@@ -798,7 +800,7 @@ const uploadLimiter = rateLimit({
     message: { error: 'Upload limit reached. You can upload up to 5 tracks every 10 minutes. Please wait before trying again.' },
 });
 app.use('/api/auth', authLimiter);
-app.use('/api/', apiLimiter);
+app.use('/api/', writeLimiter);
 
 // Register-style limiter for non-track uploads (avatars, covers, battle submissions)
 const generalUploadLimiter = rateLimit({

@@ -1,8 +1,22 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import axios from 'axios';
 import App from './App';
 import './index.css';
+import { showToast } from './components/Toast';
+
+// Global 429 interceptor — show warning toast instead of breaking the page
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 429) {
+      const msg = error.response.data?.error || 'You are doing that too fast. Please wait a moment.';
+      showToast(msg, 'warning');
+    }
+    return Promise.reject(error);
+  }
+);
 
 const rootElement = document.getElementById('root');
 
