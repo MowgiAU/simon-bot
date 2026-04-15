@@ -316,6 +316,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     });
     // Use user-chosen accent colour, falling back to theme primary
     const accent = profile.accentColor || colors.primary;
+    // User-chosen card background, falling back to default dark card colour
+    const cardBg = profile.cardBgColor || '#242C3D';
+    // Page background — slightly darker version of cardBg or default
+    const pageBg = profile.cardBgColor ? `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)` : '#0E121A';
     const stats = [
         { label: 'Followers', value: followerCount.toLocaleString() },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
@@ -347,7 +351,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     return (
         <div style={{ 
             color: '#F8FAFC',
-            fontFamily: 'Inter, system-ui, sans-serif'
+            fontFamily: 'Inter, system-ui, sans-serif',
+            backgroundColor: pageBg,
+            minHeight: '100vh',
         }}>
             {/* ── HERO BANNER ── */}
             <div style={{ position: 'relative', minHeight: isMobile ? '320px' : '380px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
@@ -357,7 +363,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 ) : (trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl) ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${trackCoverUrl || featuredPlaylist?.coverUrl || avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.3, filter: 'blur(60px) saturate(1.8)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
                 ) : null}
-                <div style={{ position: 'absolute', inset: 0, background: profile.bannerUrl ? 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.7) 50%, rgba(14,18,26,0.3) 100%)' : 'linear-gradient(to top, #0E121A 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', inset: 0, background: profile.bannerUrl ? `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.7) 50%, rgba(14,18,26,0.3) 100%)` : `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)`, pointerEvents: 'none' }} />
 
                 {/* Hero Content */}
                 <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
@@ -501,11 +507,11 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 {featuredPlaylist && (
                 <div style={{ 
                     borderRadius: '12px', overflow: 'hidden', 
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    border: `1px solid ${accent}22`,
                     marginBottom: '20px',
                     position: 'relative',
                     display: 'flex',
-                    background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)'
+                    background: `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 80%, #242C3D) 100%)`
                 }}>
                     {featuredPlaylist.coverUrl && (
                         <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.15, filter: 'blur(40px)', transform: 'scale(1.2)', pointerEvents: 'none' }} />
@@ -559,10 +565,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 {featuredTrack && (
                 <div style={{
                     borderRadius: '12px', overflow: 'hidden',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    border: `1px solid ${accent}22`,
                     marginBottom: '20px',
                     position: 'relative',
-                    background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)'
+                    background: `linear-gradient(135deg, ${cardBg} 0%, color-mix(in srgb, ${cardBg} 80%, #242C3D) 100%)`
                 }}>
                     {/* Blurred artwork backdrop */}
                     {trackCoverUrl && (
@@ -702,7 +708,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 });
 
                                 if (filtered.length === 0) return (
-                                    <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ textAlign: 'center', padding: '40px', backgroundColor: cardBg, borderRadius: '12px', border: `1px solid rgba(255,255,255,0.06)` }}>
                                         <Music size={40} color="#B9C3CE" style={{ opacity: 0.2, marginBottom: '12px' }} />
                                         <p style={{ color: '#B9C3CE', fontSize: '13px', margin: 0 }}>
                                             {discographyFilter === 'reposts' ? 'No reposts yet.' : discographyFilter === 'tracks' ? 'No tracks uploaded yet.' : 'No tracks uploaded yet.'}
@@ -751,7 +757,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                                             return (
                                                 <div key={track.id + (track._repost ? '-repost' : '')} style={{
-                                                    backgroundColor: track._repost ? '#2A2518' : colors.surface,
+                                                    backgroundColor: track._repost ? `color-mix(in srgb, ${cardBg} 80%, #2A2518)` : cardBg,
                                                     borderRadius: '8px',
                                                     border: track._repost ? '1px solid rgba(218,165,32,0.15)' : '1px solid rgba(255,255,255,0.06)',
                                                     overflow: 'hidden',
@@ -1007,7 +1013,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
 
                         {/* Comments */}
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? '20px' : '28px' }}>
                             <CommentSection profileId={profile.id} ownerId={profile.userId} />
                         </div>
                     </div>
@@ -1017,7 +1023,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* About Card */}
                         {(profile.bio || socials.some(s => !!(profile as any)[s.key])) && (
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE' }}>About</h4>
                             {profile.bio && <p style={{ fontSize: '13px', color: 'rgba(185,195,206,0.85)', margin: '0 0 16px', lineHeight: 1.6 }}>{profile.bio}</p>}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1042,7 +1048,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                         {/* Gear Rack */}
                         {gear.length > 0 && (
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Hammer size={16} color="#7A8C37" /> Gear & Tools
                             </h4>
@@ -1058,7 +1064,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
 
                         {/* Quick Stats Card */}
-                        <div style={{ backgroundColor: '#242C3D', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '24px' }}>
                             <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#B9C3CE' }}>Stats</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {stats.map(s => (

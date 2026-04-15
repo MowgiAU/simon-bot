@@ -1005,12 +1005,12 @@ export const ProfileEditPage: React.FC = () => {
                         <div style={card}>
                             <div style={sectionHeader(colors.primary)}><Paintbrush size={15} color={colors.primary} /> Profile Appearance</div>
                             <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
-                                Personalise your public profile with a custom accent colour. This tints links, borders, and highlights throughout your profile page.
+                                Personalise your public profile with custom colours. Accent tints links and highlights; Card changes section backgrounds; Background changes the page backdrop.
                                 Username gradient and animation effects are separate and granted by admins.
                             </p>
 
-                            {/* Preset colour swatches */}
-                            <div style={{ marginBottom: '20px' }}>
+                            {/* ── Accent Colour ── */}
+                            <div style={{ marginBottom: '24px' }}>
                                 <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Accent Colour</p>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
                                     {['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
@@ -1026,7 +1026,6 @@ export const ProfileEditPage: React.FC = () => {
                                             }}
                                         />
                                     ))}
-                                    {/* Clear swatch */}
                                     <button
                                         onClick={() => updateProfile(p => ({ ...p, accentColor: null }))}
                                         title="Default colour"
@@ -1062,11 +1061,63 @@ export const ProfileEditPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* ── Card Colour ── */}
+                            <div style={{ marginBottom: '24px' }}>
+                                <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Card Background</p>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A'].map(preset => (
+                                        <button
+                                            key={preset}
+                                            onClick={() => updateProfile(p => ({ ...p, cardBgColor: preset }))}
+                                            title={preset}
+                                            style={{
+                                                width: '28px', height: '28px', borderRadius: '50%',
+                                                backgroundColor: preset, border: `2px solid rgba(255,255,255,0.15)`, cursor: 'pointer',
+                                                boxShadow: profile?.cardBgColor === preset ? `0 0 0 2px ${colors.background}, 0 0 0 4px rgba(255,255,255,0.5)` : 'none',
+                                                flexShrink: 0, transition: 'box-shadow 0.15s',
+                                            }}
+                                        />
+                                    ))}
+                                    <button
+                                        onClick={() => updateProfile(p => ({ ...p, cardBgColor: null }))}
+                                        title="Default colour"
+                                        style={{
+                                            width: '28px', height: '28px', borderRadius: '50%',
+                                            background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
+                                            border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
+                                            boxShadow: !profile?.cardBgColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input
+                                        type="color"
+                                        value={profile?.cardBgColor || '#242C3D'}
+                                        onChange={e => updateProfile(p => ({ ...p, cardBgColor: e.target.value }))}
+                                        style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={profile?.cardBgColor || ''}
+                                        onChange={e => {
+                                            const v = e.target.value;
+                                            if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, cardBgColor: v }));
+                                        }}
+                                        placeholder="#242C3D"
+                                        maxLength={7}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
+                                    />
+                                    {profile?.cardBgColor && (
+                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: profile.cardBgColor, border: `1px solid ${colors.glassBorder}`, flexShrink: 0 }} />
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Preview strip */}
-                            {profile?.accentColor && (
-                                <div style={{ padding: '10px 14px', borderRadius: borderRadius.sm, border: `1px solid ${profile.accentColor}44`, backgroundColor: `${profile.accentColor}11`, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: profile.accentColor, flexShrink: 0 }} />
-                                    <span style={{ fontSize: '12px', color: profile.accentColor, fontWeight: 600 }}>Preview — this accent colour will appear on your profile page.</span>
+                            {(profile?.accentColor || profile?.cardBgColor) && (
+                                <div style={{ padding: '12px 14px', borderRadius: borderRadius.sm, border: `1px solid ${(profile.accentColor || '#10B981')}44`, backgroundColor: profile.cardBgColor || '#242C3D', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: profile.accentColor || '#10B981', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '12px', color: profile.accentColor || '#10B981', fontWeight: 600 }}>Preview — your card background and accent colour on your profile.</span>
                                 </div>
                             )}
                         </div>
