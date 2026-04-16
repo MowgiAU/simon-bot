@@ -344,6 +344,8 @@ export class ModerationPlugin implements IPlugin {
             return interaction.reply({ content: 'I cannot kick this user (missing permissions or target has higher role).', flags: MessageFlags.Ephemeral });
         }
 
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
         try {
             // Send DM before action
             await this.sendDM(interaction.guildId!, target, 'kick', reason);
@@ -357,14 +359,13 @@ export class ModerationPlugin implements IPlugin {
             // Log & Reply
             await this.logAction(interaction.guildId!, 'kick', interaction.user.id, target.id, { reason });
             
-            await interaction.reply({ 
+            await interaction.editReply({ 
                 content: `👢 **${target.user.tag}** was kicked. Reason: ${reason}`,
-                flags: MessageFlags.Ephemeral 
             });
 
         } catch (error) {
             this.logger.error('Kick failed', error);
-            await interaction.reply({ content: 'Kick failed due to an error.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply({ content: 'Kick failed due to an error.' });
         }
     }
 
@@ -382,16 +383,19 @@ export class ModerationPlugin implements IPlugin {
          // If member object exists, check permissions
          if (targetMember && !targetMember.bannable) return interaction.reply({ content: 'Cannot ban user (higher role or missing permissions).', flags: MessageFlags.Ephemeral });
 
-         try {
-             let unbanDate: Date | null = null;
-             if (durationStr) {
-                 const ms = this.parseDuration(durationStr);
-                 if (!ms) {
-                     return interaction.reply({ content: 'Invalid duration. Use 1d, 24h, 30m etc.', flags: MessageFlags.Ephemeral });
-                 }
-                 unbanDate = new Date(Date.now() + ms);
+         // Parse duration before deferring so we can reply with validation errors
+         let unbanDate: Date | null = null;
+         if (durationStr) {
+             const ms = this.parseDuration(durationStr);
+             if (!ms) {
+                 return interaction.reply({ content: 'Invalid duration. Use 1d, 24h, 30m etc.', flags: MessageFlags.Ephemeral });
              }
+             unbanDate = new Date(Date.now() + ms);
+         }
 
+         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+         try {
              // Send DM if member is present
              if (targetMember) {
                  await this.sendDM(interaction.guildId!, targetMember, 'ban', reason, durationStr || undefined);
@@ -420,10 +424,10 @@ export class ModerationPlugin implements IPlugin {
              const msg = durationStr 
                 ? `🔨 **${user.tag}** was banned for ${durationStr}. Reason: ${reason}`
                 : `🔨 **${user.tag}** was banned permanently. Reason: ${reason}`;
-             await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+             await interaction.editReply({ content: msg });
          } catch (e) {
              this.logger.error('Ban failed', e);
-             await interaction.reply({ content: 'Ban failed.', flags: MessageFlags.Ephemeral });
+             await interaction.editReply({ content: 'Ban failed.' });
          }
     }
 
@@ -494,6 +498,8 @@ export class ModerationPlugin implements IPlugin {
 
         const guildId = interaction.guildId!;
 
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
         try {
             await this.db.moderationWarning.create({
                 data: { guildId, userId: user.id, reason, issuedBy: interaction.user.id },
@@ -508,13 +514,12 @@ export class ModerationPlugin implements IPlugin {
 
             await this.logAction(guildId, 'warn', interaction.user.id, user.id, { reason, totalWarnings });
 
-            await interaction.reply({
+            await interaction.editReply({
                 content: `⚠️ **${user.tag}** has been warned. Reason: ${reason}\nTotal warnings: **${totalWarnings}**`,
-                flags: MessageFlags.Ephemeral,
             });
         } catch (e) {
             this.logger.error('Warn failed', e);
-            await interaction.reply({ content: 'Failed to issue warning.', flags: MessageFlags.Ephemeral });
+            await interaction.editReply({ content: 'Failed to issue warning.' });
         }
     }
 
