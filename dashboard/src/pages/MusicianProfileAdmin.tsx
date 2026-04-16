@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -37,6 +37,12 @@ interface DiscoveryConfig {
     featuredTutorialUrl?: string | null;
     featuredTutorialTitle?: string | null;
     featuredTutorialDescription?: string | null;
+    featuredTutorialThumbnail?: string | null;
+    featuredTutorialAuthor?: string | null;
+    featuredTutorialDate?: string | null;
+    featuredContentType?: string | null;
+    featuredArticleId?: string | null;
+    featuredArticle?: { id: string; title: string; slug: string; excerpt: string | null; coverImageUrl: string | null; authorName: string; category: string; publishedAt: string | null } | null;
     featuredBattleDescription?: string | null;
     featuredBattle?: { id: string; title: string; status: string } | null;
 }
@@ -84,10 +90,19 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [searchingProducer, setSearchingProducer] = useState(false);
     const [featuredProducerNote, setFeaturedProducerNote] = useState('');
 
-    // Featured Tutorial state
+    // Featured Content state
+    const [featuredContentType, setFeaturedContentType] = useState<'video' | 'news' | 'guide' | 'article'>('video');
     const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
     const [featuredTutorialTitle, setFeaturedTutorialTitle] = useState('');
     const [featuredTutorialDesc, setFeaturedTutorialDesc] = useState('');
+    const [featuredTutorialThumbnail, setFeaturedTutorialThumbnail] = useState('');
+    const [featuredTutorialAuthor, setFeaturedTutorialAuthor] = useState('');
+    const [featuredTutorialDate, setFeaturedTutorialDate] = useState('');
+    const [featuredArticleId, setFeaturedArticleId] = useState<string | null>(null);
+    const [featuredArticle, setFeaturedArticle] = useState<any>(null);
+    const [articleSearch, setArticleSearch] = useState('');
+    const [articleResults, setArticleResults] = useState<any[]>([]);
+    const [searchingArticles, setSearchingArticles] = useState(false);
 
     // Featured Battle state
     const [battleList, setBattleList] = useState<any[]>([]);
@@ -170,9 +185,15 @@ export const MusicianProfileAdmin: React.FC = () => {
             setDiscoveryConfig(res.data);
             setFeaturedLabel(res.data.featuredLabel || '');
             setFeaturedProducerNote(res.data.featuredProducerNote || '');
+            setFeaturedContentType(res.data.featuredContentType || 'video');
             setFeaturedTutorialUrl(res.data.featuredTutorialUrl || '');
             setFeaturedTutorialTitle(res.data.featuredTutorialTitle || '');
             setFeaturedTutorialDesc(res.data.featuredTutorialDescription || '');
+            setFeaturedTutorialThumbnail(res.data.featuredTutorialThumbnail || '');
+            setFeaturedTutorialAuthor(res.data.featuredTutorialAuthor || '');
+            setFeaturedTutorialDate(res.data.featuredTutorialDate || '');
+            setFeaturedArticleId(res.data.featuredArticleId || null);
+            setFeaturedArticle(res.data.featuredArticle || null);
             setFeaturedBattleDesc(res.data.featuredBattleDescription || '');
             setFeaturedHeroDesc(res.data.featuredDescription || '');
         } catch (err) {
@@ -413,21 +434,40 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    // ── Tutorial handler ──
-    const handleSaveTutorial = async () => {
+    // ── Featured Content handler ──
+    const handleSaveFeaturedContent = async () => {
         setSaving(true);
         try {
             await axios.post('/api/discovery/settings', {
+                featuredContentType,
                 featuredTutorialUrl: featuredTutorialUrl || null,
                 featuredTutorialTitle: featuredTutorialTitle || null,
                 featuredTutorialDescription: featuredTutorialDesc || null,
+                featuredTutorialThumbnail: featuredTutorialThumbnail || null,
+                featuredTutorialAuthor: featuredTutorialAuthor || null,
+                featuredTutorialDate: featuredTutorialDate || null,
+                featuredArticleId: featuredArticleId || null,
             }, { withCredentials: true });
-            setMsg({ type: 'success', text: 'Tutorial updated!' });
+            setMsg({ type: 'success', text: 'Featured content saved!' });
             fetchDiscoverySettings();
         } catch (err) {
-            setMsg({ type: 'error', text: 'Failed to save tutorial' });
+            setMsg({ type: 'error', text: 'Failed to save featured content' });
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSearchArticles = async (query: string) => {
+        setArticleSearch(query);
+        if (query.length < 2) { setArticleResults([]); return; }
+        setSearchingArticles(true);
+        try {
+            const res = await axios.get('/api/discovery/articles/search', { params: { q: query }, withCredentials: true });
+            setArticleResults(res.data.articles || []);
+        } catch (err) {
+            setArticleResults([]);
+        } finally {
+            setSearchingArticles(false);
         }
     };
 
@@ -1004,37 +1044,139 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Featured Tutorial ── */}
+                {/* ── Featured Content ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
-                        <Star size={16} color={colors.primary} /> Featured Tutorial
+                        <MonitorPlay size={16} color={colors.primary} /> Featured Content Card
                     </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                        <div>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial URL (YouTube or any link)</label>
-                            <input type="url" value={featuredTutorialUrl} onChange={(e) => setFeaturedTutorialUrl(e.target.value)}
-                                placeholder="https://www.youtube.com/watch?v=..."
-                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }} />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial Title</label>
-                            <input type="text" value={featuredTutorialTitle} onChange={(e) => setFeaturedTutorialTitle(e.target.value)}
-                                placeholder='e.g. "How to make FL Studio beats"'
-                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none' }} />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Tutorial Description</label>
-                            <textarea value={featuredTutorialDesc} onChange={(e) => setFeaturedTutorialDesc(e.target.value)}
-                                placeholder="Brief description shown on the tutorial card..."
-                                rows={3}
-                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                        </div>
-                        <div>
-                            <button onClick={handleSaveTutorial} disabled={saving}
-                                style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                                Save Tutorial
+                    <p style={{ fontSize: '0.8rem', color: colors.textSecondary, margin: `0 0 ${spacing.md}`, lineHeight: 1.6 }}>
+                        Choose what type of content appears in the frontpage feature card. The card spans the full width of the lower grid on the discovery page.
+                    </p>
+
+                    {/* Content Type Selector */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: spacing.lg }}>
+                        {([
+                            { id: 'video' as const, icon: <MonitorPlay size={18} />, label: 'Video', color: colors.primary },
+                            { id: 'news' as const, icon: <Newspaper size={18} />, label: 'News', color: '#A78BFA' },
+                            { id: 'guide' as const, icon: <BookOpen size={18} />, label: 'Guide', color: '#FBBF24' },
+                            { id: 'article' as const, icon: <FileText size={18} />, label: 'Article', color: '#34D399' },
+                        ]).map(opt => (
+                            <button key={opt.id} onClick={() => setFeaturedContentType(opt.id)}
+                                style={{
+                                    background: featuredContentType === opt.id ? `${opt.color}14` : 'rgba(255,255,255,0.03)',
+                                    border: `1.5px solid ${featuredContentType === opt.id ? opt.color + '60' : 'rgba(255,255,255,0.08)'}`,
+                                    borderRadius: borderRadius.sm, padding: '12px', cursor: 'pointer', textAlign: 'left',
+                                    display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s',
+                                }}>
+                                <span style={{ color: featuredContentType === opt.id ? opt.color : colors.textSecondary }}>{opt.icon}</span>
+                                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: featuredContentType === opt.id ? colors.textPrimary : colors.textSecondary }}>{opt.label}</span>
                             </button>
+                        ))}
+                    </div>
+
+                    {/* Video / News / Guide Fields */}
+                    {featuredContentType !== 'article' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>
+                                    {featuredContentType === 'video' ? 'Video URL (YouTube or direct link)' : featuredContentType === 'news' ? 'News Link URL' : 'Guide Link URL'}
+                                </label>
+                                <input type="url" value={featuredTutorialUrl} onChange={(e) => setFeaturedTutorialUrl(e.target.value)}
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Title</label>
+                                <input type="text" value={featuredTutorialTitle} onChange={(e) => setFeaturedTutorialTitle(e.target.value)}
+                                    placeholder='e.g. "How to Mix Bass in FL Studio"'
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Description (optional)</label>
+                                <textarea value={featuredTutorialDesc} onChange={(e) => setFeaturedTutorialDesc(e.target.value)}
+                                    placeholder="A short blurb shown under the title on the frontpage card..."
+                                    rows={2}
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Thumbnail URL (optional — auto-detected from YouTube)</label>
+                                <input type="url" value={featuredTutorialThumbnail} onChange={(e) => setFeaturedTutorialThumbnail(e.target.value)}
+                                    placeholder="https://img.youtube.com/vi/.../maxresdefault.jpg"
+                                    style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Author (optional)</label>
+                                    <input type="text" value={featuredTutorialAuthor} onChange={(e) => setFeaturedTutorialAuthor(e.target.value)}
+                                        placeholder="e.g. Mowgi"
+                                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Date (optional)</label>
+                                    <input type="text" value={featuredTutorialDate} onChange={(e) => setFeaturedTutorialDate(e.target.value)}
+                                        placeholder="e.g. March 23, 2026"
+                                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                                </div>
+                            </div>
                         </div>
+                    ) : (
+                        /* Article Selection */
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                            {featuredArticle && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: spacing.md, background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: borderRadius.sm }}>
+                                    {featuredArticle.coverImageUrl && (
+                                        <img src={featuredArticle.coverImageUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: borderRadius.sm, flexShrink: 0 }} />
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{featuredArticle.title}</div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>by {featuredArticle.authorName} · {featuredArticle.category}</div>
+                                    </div>
+                                    <button onClick={() => { setFeaturedArticleId(null); setFeaturedArticle(null); }} style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            )}
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Search Published Articles</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                    <input type="text" value={articleSearch} onChange={(e) => handleSearchArticles(e.target.value)}
+                                        placeholder="Type to search articles by title..."
+                                        style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none', boxSizing: 'border-box' }} />
+                                </div>
+                                {searchingArticles && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '8px' }}>Searching...</div>}
+                                {articleResults.length > 0 && (
+                                    <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
+                                        {articleResults.map((a: any) => (
+                                            <div key={a.id} onClick={() => { setFeaturedArticleId(a.id); setFeaturedArticle(a); setArticleSearch(''); setArticleResults([]); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                                                onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                                {a.coverImageUrl && (
+                                                    <img src={a.coverImageUrl} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
+                                                    <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{a.authorName} · {a.category}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {!featuredArticle && !articleSearch && (
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: colors.textSecondary, fontStyle: 'italic' }}>
+                                    Search for a published article above to feature it on the frontpage.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    <div style={{ marginTop: spacing.md }}>
+                        <button onClick={handleSaveFeaturedContent} disabled={saving}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                            Save Featured Content
+                        </button>
                     </div>
                 </div>
 
