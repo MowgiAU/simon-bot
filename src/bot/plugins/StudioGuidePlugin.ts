@@ -112,6 +112,9 @@ export class StudioGuidePlugin implements IPlugin {
 
         // Load FAISS vector store
         await this.loadVectorStore();
+
+        // Restore persisted pause states from DB
+        await this.restorePauseStates();
     }
 
     async shutdown(): Promise<void> {
@@ -135,6 +138,33 @@ export class StudioGuidePlugin implements IPlugin {
             this.logger.info('[StudioGuide] Knowledge base loaded successfully.');
         } catch (err) {
             this.logger.error('[StudioGuide] Failed to load knowledge base:', err);
+        }
+    }
+
+    private async restorePauseStates(): Promise<void> {
+        try {
+            const allSettings = await this.db.studioGuideSettings.findMany({
+                where: { pauseResumeAt: { not: null } },
+                select: { guildId: true, pausedBy: true, pausedAt: true, pauseResumeAt: true },
+            });
+            for (const s of allSettings) {
+                if (s.pauseResumeAt && s.pauseResumeAt.getTime() > Date.now()) {
+                    this.guildPauses.set(s.guildId, {
+                        pausedBy: s.pausedBy || 'unknown',
+                        pausedAt: s.pausedAt?.getTime() || Date.now(),
+                        resumeAt: s.pauseResumeAt.getTime(),
+                    });
+                    this.logger.info(`[StudioGuide] Restored pause for guild ${s.guildId} (${Math.ceil((s.pauseResumeAt.getTime() - Date.now()) / 60_000)}min remaining)`);
+                } else {
+                    // Expired pause — clear from DB
+                    await this.db.studioGuideSettings.update({
+                        where: { guildId: s.guildId },
+                        data: { pausedBy: null, pausedAt: null, pauseResumeAt: null },
+                    });
+                }
+            }
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to restore pause states:', err);
         }
     }
 
@@ -242,6 +272,16 @@ export class StudioGuidePlugin implements IPlugin {
             resumeAt,
         });
 
+        // Persist pause to DB so it survives restarts
+        try {
+            await this.db.studioGuideSettings.update({
+                where: { guildId },
+                data: { pausedBy: interaction.user.id, pausedAt: new Date(), pauseResumeAt: new Date(resumeAt) },
+            });
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to persist pause:', err);
+        }
+
         await this.context.logAction({
             guildId,
             actionType: 'STUDIO_GUIDE_PAUSED',
@@ -268,6 +308,16 @@ export class StudioGuidePlugin implements IPlugin {
         }
 
         this.guildPauses.delete(guildId);
+
+        // Clear persisted pause from DB
+        try {
+            await this.db.studioGuideSettings.update({
+                where: { guildId },
+                data: { pausedBy: null, pausedAt: null, pauseResumeAt: null },
+            });
+        } catch (err) {
+            this.logger.error('[StudioGuide] Failed to clear persisted pause:', err);
+        }
 
         await this.context.logAction({
             guildId,
@@ -416,7 +466,14 @@ export class StudioGuidePlugin implements IPlugin {
         // Pause check
         const pause = this.guildPauses.get(guildId);
         if (pause && pause.resumeAt > Date.now()) return;
-        if (pause && pause.resumeAt <= Date.now()) this.guildPauses.delete(guildId);
+        if (pause && pause.resumeAt <= Date.now()) {
+            this.guildPauses.delete(guildId);
+            // Clear expired pause from DB
+            this.db.studioGuideSettings.update({
+                where: { guildId },
+                data: { pausedBy: null, pausedAt: null, pauseResumeAt: null },
+            }).catch(() => {});
+        }
 
         // Track helper activity (suppression roles) — do this BEFORE opt-out or any skip,
         // so helper messages are always tracked even if the helper is opted out.

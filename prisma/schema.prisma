@@ -1868,6 +1868,11 @@ model StudioGuideSettings {
   suppressionRoles  String[] @default([]) // Roles that suppress the bot when active
   suppressionMinutes Int     @default(10) // Minutes of inactivity before bot resumes after helper activity
 
+  // Persisted pause state (survives restarts)
+  pausedBy          String?              // User ID who paused
+  pausedAt          DateTime?            // When the pause started
+  pauseResumeAt     DateTime?            // When the pause expires
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
