@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import { useAuth } from '../components/AuthProvider';
 import {
     ShieldCheck, Trash2, AlertTriangle, RefreshCw, Save, Plus, X,
@@ -429,6 +430,29 @@ export const SpamGuardPage: React.FC = () => {
                                 placeholder="Select a channel for mod alerts..."
                             />
                         </label>
+                    </div>
+
+                    {/* Exempt Roles */}
+                    <div style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: borderRadius.lg,
+                        padding: '20px',
+                        border: `1px solid ${colors.border}`,
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <ShieldCheck size={18} color={colors.primary} />
+                            <h3 style={{ margin: 0, color: colors.textPrimary }}>Bypass Roles</h3>
+                        </div>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>
+                            Members with any of these roles will be completely exempt from spam detection.
+                        </p>
+                        <RoleSelect
+                            guildId={guildId!}
+                            value={settings.exemptRoles}
+                            onChange={v => update({ exemptRoles: Array.isArray(v) ? v : v ? [v] : [] })}
+                            placeholder="Select roles to bypass spam guard..."
+                            multiple={true}
+                        />
                     </div>
 
                     {/* Save */}
