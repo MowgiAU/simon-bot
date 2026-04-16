@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -38,6 +38,7 @@ interface DiscoveryConfig {
     featuredTutorialTitle?: string | null;
     featuredTutorialDescription?: string | null;
     featuredBattleDescription?: string | null;
+    featuredBattle?: { id: string; title: string; status: string } | null;
 }
 
 export const MusicianProfileAdmin: React.FC = () => {
@@ -50,6 +51,7 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const [adminTab, setAdminTab] = useState<'discover' | 'profiles' | 'genres'>('discover');
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -647,7 +649,7 @@ export const MusicianProfileAdmin: React.FC = () => {
 
             <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
-                    Administrators can manage the list of genres users can pick from. Deleting a genre will remove it from all user profiles.
+                    Manage the discovery page, artist profiles, track moderation, and genre library from here.
                 </p>
             </div>
 
@@ -657,6 +659,39 @@ export const MusicianProfileAdmin: React.FC = () => {
                 </div>
             )}
 
+            {/* Tab Navigation */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, padding: '4px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {([
+                    { key: 'discover' as const, label: 'Discovery', icon: <Compass size={16} /> },
+                    { key: 'profiles' as const, label: 'Profiles & Tracks', icon: <ShieldOff size={16} /> },
+                    { key: 'genres' as const, label: 'Genres & Admin', icon: <List size={16} /> },
+                ]).map(t => (
+                    <button
+                        key={t.key}
+                        onClick={() => setAdminTab(t.key)}
+                        style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            borderRadius: borderRadius.sm,
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: adminTab === t.key ? 700 : 500,
+                            backgroundColor: adminTab === t.key ? colors.primary : 'transparent',
+                            color: adminTab === t.key ? '#fff' : colors.textSecondary,
+                            transition: 'all 0.15s ease',
+                        }}
+                    >
+                        {t.icon} {t.label}
+                    </button>
+                ))}
+            </div>
+
+            {adminTab === 'discover' && (<>
             {/* Discovery Settings Section */}
             <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.xl }}>
                 <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.lg }}>
@@ -1096,7 +1131,9 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
             </div>
+            </>)}
 
+            {adminTab === 'profiles' && (<>
             {/* Admin Track Management */}
             <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, marginBottom: spacing.xl }}>
                 <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.md }}>
@@ -1287,7 +1324,9 @@ export const MusicianProfileAdmin: React.FC = () => {
                     })}
                 </div>
             </div>
+            </>)}
 
+            {adminTab === 'genres' && (<>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: spacing.xl }}>
                 {/* Genre Library */}
                 <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
@@ -1472,6 +1511,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
             </div>
+            </>)}
         </div>
         <ConfirmModal
             open={!!confirmDialog}

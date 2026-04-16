@@ -572,6 +572,7 @@ export const BeatBattlePage: React.FC = () => {
         fontSize: '14px',
         outline: 'none',
         boxSizing: 'border-box',
+        colorScheme: 'dark',
     };
 
     const btnPrimary: React.CSSProperties = {
