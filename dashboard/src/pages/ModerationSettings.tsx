@@ -4,6 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import { useResources } from '../components/ResourceProvider';
 import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import axios from 'axios';
 import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
@@ -13,6 +14,7 @@ interface ModerationSettings {
     guildId: string;
     logChannelId: string | null;
     caseLogForumId: string | null;
+    removeAlertRoleId: string | null;
     dmUponAction: boolean;
     kickMessage: string | null;
     banMessage: string | null;
@@ -28,6 +30,7 @@ interface Permission {
     canBan: boolean;
     canTimeout: boolean;
     canPurge: boolean;
+    canRemove: boolean;
     canViewLogs: boolean;
 }
 
@@ -94,6 +97,7 @@ export const ModerationSettingsPage: React.FC = () => {
             await axios.post(`/api/guilds/${selectedGuild.id}/moderation`, {
                 logChannelId: settings.logChannelId === '' ? null : settings.logChannelId,
                 caseLogForumId: settings.caseLogForumId === '' ? null : settings.caseLogForumId,
+                removeAlertRoleId: settings.removeAlertRoleId === '' ? null : settings.removeAlertRoleId,
                 dmUponAction: settings.dmUponAction,
                 kickMessage: settings.kickMessage,
                 banMessage: settings.banMessage,
@@ -126,7 +130,7 @@ export const ModerationSettingsPage: React.FC = () => {
             newSettings.permissions.push({
                 id: 'temp',
                 roleId,
-                canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false,
+                canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canRemove: false, canViewLogs: false,
                 [perm]: true
             } as any);
         }
@@ -150,7 +154,7 @@ export const ModerationSettingsPage: React.FC = () => {
 
     const selectedRole = roles.find(r => r.id === selectedRoleId);
     const selectedRolePerms = settings?.permissions.find(p => p.roleId === selectedRoleId) || {
-        canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canViewLogs: false
+        canWarn: false, canKick: false, canBan: false, canTimeout: false, canPurge: false, canRemove: false, canViewLogs: false
     };
 
     const permissionLabels: Record<string, string> = {
@@ -159,6 +163,7 @@ export const ModerationSettingsPage: React.FC = () => {
         canKick: 'Kick Members',
         canBan: 'Ban Members',
         canPurge: 'Purge Messages',
+        canRemove: 'Remove Messages (Jr Staff)',
         canViewLogs: 'View Audit Logs'
     };
 
@@ -225,6 +230,19 @@ export const ModerationSettingsPage: React.FC = () => {
                             onChange={(val) => setSettings({ ...settings!, caseLogForumId: val as string })}
                             placeholder="-- No Case Files --"
                             channelTypes={[15]}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', marginTop: '24px' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Remove Alert Role</label>
+                        <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '8px' }}>Role to ping when jr staff uses /remove</p>
+                        <RoleSelect 
+                            guildId={selectedGuild?.id || ''}
+                            value={settings?.removeAlertRoleId || ''} 
+                            onChange={(val) => setSettings({ ...settings!, removeAlertRoleId: val as string })}
+                            placeholder="-- No Alert Role --"
                         />
                     </div>
                 </div>

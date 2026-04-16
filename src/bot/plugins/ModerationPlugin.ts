@@ -31,7 +31,7 @@ export class ModerationPlugin implements IPlugin {
         PermissionFlagsBits.ManageMessages
     ];
 
-    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'modlog'];
+    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'remove', 'modlog'];
     readonly events = ['interactionCreate', 'guildBanAdd', 'guildBanRemove', 'guildMemberRemove'];
     readonly dashboardSections = ['moderation'];
     readonly defaultEnabled = true;
@@ -247,6 +247,7 @@ export class ModerationPlugin implements IPlugin {
             case 'ban': await this.handleBan(interaction); break;
             case 'timeout': await this.handleTimeout(interaction); break;
             case 'purge': await this.handlePurge(interaction); break;
+            case 'remove': await this.handleRemove(interaction); break;
             case 'warn': await this.handleWarn(interaction); break;
             case 'warnings': await this.handleWarnings(interaction); break;
         }
@@ -266,7 +267,7 @@ export class ModerationPlugin implements IPlugin {
      */
     private async checkModerationAccess(
         interaction: ChatInputCommandInteraction,
-        flag: 'canWarn' | 'canKick' | 'canBan' | 'canTimeout' | 'canPurge' | 'canViewLogs'
+        flag: 'canWarn' | 'canKick' | 'canBan' | 'canTimeout' | 'canPurge' | 'canRemove' | 'canViewLogs'
     ): Promise<boolean> {
         const member = interaction.member as GuildMember;
         if (!member) return false;
@@ -280,6 +281,7 @@ export class ModerationPlugin implements IPlugin {
             canBan:      PermissionFlagsBits.BanMembers,
             canTimeout:  PermissionFlagsBits.ModerateMembers,
             canPurge:    PermissionFlagsBits.ManageMessages,
+            canRemove:   PermissionFlagsBits.ManageMessages,
             canWarn:     PermissionFlagsBits.KickMembers,
             canViewLogs: PermissionFlagsBits.ViewAuditLog,
         };
@@ -358,9 +360,17 @@ export class ModerationPlugin implements IPlugin {
 
             // Log & Reply
             await this.logAction(interaction.guildId!, 'kick', interaction.user.id, target.id, { reason });
+
+            // Delete messages if requested (after logging so the messages are preserved in the log)
+            const deleteCount = interaction.options.getInteger('messages');
+            let deletedCount = 0;
+            if (deleteCount && deleteCount > 0) {
+                deletedCount = await this.deleteUserMessages(interaction.guildId!, target.id, deleteCount);
+            }
             
+            const deleteInfo = deletedCount > 0 ? ` Deleted ${deletedCount} message(s).` : '';
             await interaction.editReply({ 
-                content: `👢 **${target.user.tag}** was kicked. Reason: ${reason}`,
+                content: `👢 **${target.user.tag}** was kicked. Reason: ${reason}${deleteInfo}`,
             });
 
         } catch (error) {
@@ -420,10 +430,18 @@ export class ModerationPlugin implements IPlugin {
              }
 
              await this.logAction(interaction.guildId!, 'ban', interaction.user.id, user.id, { reason, duration: durationStr || 'Permanent' });
-             
+
+             // Delete messages if requested (after logging so the messages are preserved in the log)
+             const deleteCount = interaction.options.getInteger('messages');
+             let deletedCount = 0;
+             if (deleteCount && deleteCount > 0) {
+                 deletedCount = await this.deleteUserMessages(interaction.guildId!, user.id, deleteCount);
+             }
+
+             const deleteInfo = deletedCount > 0 ? ` Deleted ${deletedCount} message(s).` : '';
              const msg = durationStr 
-                ? `🔨 **${user.tag}** was banned for ${durationStr}. Reason: ${reason}`
-                : `🔨 **${user.tag}** was banned permanently. Reason: ${reason}`;
+                ? `🔨 **${user.tag}** was banned for ${durationStr}. Reason: ${reason}${deleteInfo}`
+                : `🔨 **${user.tag}** was banned permanently. Reason: ${reason}${deleteInfo}`;
              await interaction.editReply({ content: msg });
          } catch (e) {
              this.logger.error('Ban failed', e);
@@ -763,6 +781,101 @@ export class ModerationPlugin implements IPlugin {
         } catch (e) {
             this.logger.error('Failed to search messages via REST', e);
             return [];
+        }
+    }
+
+    /**
+     * Deletes up to `count` recent messages from a user across the guild.
+     * Uses the Discord search API to find messages, then deletes them individually.
+     */
+    private async deleteUserMessages(guildId: string, userId: string, count: number): Promise<number> {
+        try {
+            const data = await this.client.rest.get(
+                `/guilds/${guildId}/messages/search?author_id=${userId}&limit=${Math.min(count, 100)}`
+            ) as any;
+
+            if (!data?.messages?.length) return 0;
+
+            let deleted = 0;
+            for (const group of data.messages) {
+                const msg = group[0];
+                if (!msg?.id || !msg?.channel_id) continue;
+                try {
+                    const channel = this.client.channels.cache.get(msg.channel_id) as TextChannel;
+                    if (!channel) continue;
+                    const message = await channel.messages.fetch(msg.id).catch(() => null);
+                    if (message) {
+                        await message.delete();
+                        deleted++;
+                    }
+                } catch {
+                    // Skip messages we can't delete (permissions, already deleted, etc.)
+                }
+            }
+            return deleted;
+        } catch (e) {
+            this.logger.error('Failed to delete user messages', e);
+            return 0;
+        }
+    }
+
+    private async handleRemove(interaction: ChatInputCommandInteraction) {
+        if (!await this.checkModerationAccess(interaction, 'canRemove')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
+        }
+
+        const messageId = interaction.options.getString('message_id', true);
+        const reason = interaction.options.getString('reason', true);
+        const channel = interaction.channel as TextChannel;
+
+        if (!channel) {
+            return interaction.reply({ content: 'This command must be used in a text channel.', flags: MessageFlags.Ephemeral });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            // Fetch the target message
+            const targetMessage = await channel.messages.fetch(messageId).catch(() => null);
+            if (!targetMessage) {
+                return interaction.editReply({ content: 'Message not found. Make sure you are in the same channel as the message.' });
+            }
+
+            const messageContent = targetMessage.content || '*No text content*';
+            const messageAuthor = targetMessage.author;
+
+            // Delete the message
+            await targetMessage.delete();
+
+            // Post alert to the mod log channel, pinging the configured role
+            const settings = await this.db.moderationSettings.findUnique({ where: { guildId: interaction.guildId! } });
+            const logChannelId = settings?.logChannelId;
+            const alertRoleId = settings?.removeAlertRoleId;
+
+            if (logChannelId) {
+                const logChannel = this.client.channels.cache.get(logChannelId) as TextChannel;
+                if (logChannel) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('🗑️ Message Removed')
+                        .setColor(Colors.Orange)
+                        .addFields(
+                            { name: 'Removed by', value: `<@${interaction.user.id}>`, inline: true },
+                            { name: 'Message Author', value: `<@${messageAuthor.id}> (${messageAuthor.tag})`, inline: true },
+                            { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+                            { name: 'Reason', value: reason },
+                            { name: 'Message Content', value: messageContent.substring(0, 1024) }
+                        )
+                        .setTimestamp();
+
+                    const pingContent = alertRoleId ? `<@&${alertRoleId}>` : undefined;
+                    await logChannel.send({ content: pingContent, embeds: [embed] });
+                }
+            }
+
+            await interaction.editReply({ content: `Message by **${messageAuthor.tag}** removed. Moderators have been alerted.` });
+        } catch (e) {
+            this.logger.error('Remove command failed', e);
+            await interaction.editReply({ content: 'Failed to remove the message.' });
         }
     }
 
