@@ -1243,6 +1243,7 @@ model BattleEntry {
   key         String?
   artist      String?
   arrangement Json?              // Parsed FLP arrangement data
+  waveformPeaks Json?            // number[] ~200 normalised RMS values for waveform display
   voteCount   Int      @default(0) // Denormalized for perf
   trackId     String?  // FK to musician Track (library submission)
   source      String   @default("web")
@@ -1254,6 +1255,7 @@ model BattleEntry {
   battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
   track       Track?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
   votes       BattleVote[]
+  comments    Comment[]
 
   @@unique([battleId, userId]) // One entry per battle per user
   @@index([battleId])
@@ -1368,6 +1370,7 @@ model Comment {
   // Polymorphic target: exactly one of these should be set
   trackId         String?  // Comment on a track
   profileId       String?  // Comment on a musician profile
+  battleEntryId   String?  // Comment on a battle entry
 
   // Self-referential reply thread (one level deep)
   parentId        String?
@@ -1377,6 +1380,7 @@ model Comment {
 
   track           Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
   profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  battleEntry     BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
   parent          Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies         Comment[]        @relation("CommentReplies")
   likes           CommentLike[]
@@ -1385,6 +1389,7 @@ model Comment {
 
   @@index([trackId])
   @@index([profileId])
+  @@index([battleEntryId])
   @@index([userId])
   @@index([parentId])
   @@map("comments")

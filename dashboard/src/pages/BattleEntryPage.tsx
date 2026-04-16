@@ -84,6 +84,7 @@ interface BattleEntry {
     key: string | null;
     duration: number;
     arrangement: ArrangementData | null;
+    waveformPeaks: number[] | null;
     projectUrl: string | null;
     createdAt: string;
     voteCount: number;
@@ -183,6 +184,18 @@ export const BattleEntryPage: React.FC = () => {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // Waveform timed comments state
+    interface TimedComment {
+        id: string;
+        userId: string;
+        username: string;
+        avatarUrl: string | null;
+        content: string;
+        trackTimestamp: number;
+    }
+    const [timedComments, setTimedComments] = useState<TimedComment[]>([]);
+    const [hoveredComment, setHoveredComment] = useState<string | null>(null);
+
     // Lyrics state
     const [lyricsEditOpen, setLyricsEditOpen] = useState(false);
     const [lyricsTab, setLyricsTab] = useState<'write' | 'sync'>('write');
@@ -246,6 +259,20 @@ export const BattleEntryPage: React.FC = () => {
             document.title = `${track.title} — ${entry.battle.title} | Fuji Studio`;
         }
     }, [entry, track]);
+
+    // Fetch timed comments for direct upload entries (no linked track)
+    const fetchTimedComments = useCallback(async () => {
+        if (!entry || entry.track) return;
+        try {
+            const res = await axios.get(`/api/comments?battleEntryId=${entry.id}&limit=200`, { withCredentials: true });
+            const timed = (res.data.comments || []).filter((c: any) => c.trackTimestamp != null);
+            setTimedComments(timed);
+        } catch {}
+    }, [entry]);
+
+    useEffect(() => {
+        fetchTimedComments();
+    }, [fetchTimedComments]);
 
     // ── Favourite / Repost / Edit helpers ──
     const toggleFavourite = async () => {
@@ -596,6 +623,108 @@ export const BattleEntryPage: React.FC = () => {
                             <InfoItem icon={<Info size={16} />} label="Artist" value={entry.artist} />
                         </div>
                     )}
+
+                    {/* ═══ WAVEFORM ═══ */}
+                    {entry.waveformPeaks && entry.waveformPeaks.length > 0 && (
+                        <div style={{ marginBottom: '24px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px 20px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ position: 'relative', height: '80px', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                                    const seekTo = pct * entry.duration;
+                                    if (player.currentTrack?.id === `entry-${entry.id}`) {
+                                        seek(seekTo);
+                                    } else {
+                                        playEntry();
+                                        setTimeout(() => seek(seekTo), 200);
+                                    }
+                                }}>
+                                <svg width="100%" height="80" preserveAspectRatio="none" viewBox={`0 0 ${entry.waveformPeaks.length} 100`}>
+                                    {entry.waveformPeaks.map((peak, i) => {
+                                        const progress = entryIsPlaying || player.currentTrack?.id === `entry-${entry.id}`
+                                            ? (player.currentTime || 0) / entry.duration
+                                            : 0;
+                                        const barPct = i / entry.waveformPeaks!.length;
+                                        const played = barPct < progress;
+                                        const h = Math.max(2, peak * 90);
+                                        return (
+                                            <rect
+                                                key={i}
+                                                x={i}
+                                                y={50 - h / 2}
+                                                width={0.6}
+                                                height={h}
+                                                rx={0.3}
+                                                fill={played ? colors.primary : 'rgba(255,255,255,0.25)'}
+                                                style={{ transition: 'fill 0.15s ease' }}
+                                            />
+                                        );
+                                    })}
+                                </svg>
+                                {/* Timed comment avatars on waveform */}
+                                {timedComments.map(tc => {
+                                    const pct = (tc.trackTimestamp / entry.duration) * 100;
+                                    return (
+                                        <div
+                                            key={tc.id}
+                                            onMouseEnter={() => setHoveredComment(tc.id)}
+                                            onMouseLeave={() => setHoveredComment(null)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (player.currentTrack?.id === `entry-${entry.id}`) {
+                                                    seek(tc.trackTimestamp);
+                                                }
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${pct}%`,
+                                                bottom: '-4px',
+                                                transform: 'translateX(-50%)',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            <img
+                                                src={tc.avatarUrl || '/default-avatar.png'}
+                                                alt=""
+                                                style={{
+                                                    width: '22px', height: '22px', borderRadius: '50%',
+                                                    border: `2px solid ${hoveredComment === tc.id ? colors.primary : 'rgba(255,255,255,0.2)'}`,
+                                                    transition: 'border-color 0.2s',
+                                                }}
+                                            />
+                                            {hoveredComment === tc.id && (
+                                                <div style={{
+                                                    position: 'absolute', bottom: '28px', left: '50%', transform: 'translateX(-50%)',
+                                                    backgroundColor: colors.surface || '#1e293b', padding: '6px 10px', borderRadius: '6px',
+                                                    fontSize: '11px', whiteSpace: 'nowrap', color: colors.textPrimary,
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)', zIndex: 10,
+                                                }}>
+                                                    <strong>{tc.username}</strong>: {tc.content.slice(0, 60)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ═══ COMMENTS ═══ */}
+                    <CommentSection
+                        battleEntryId={entry.id}
+                        ownerId={entry.userId}
+                        currentTrackTime={player.currentTrack?.id === `entry-${entry.id}` ? player.currentTime : null}
+                        isCurrentTrack={player.currentTrack?.id === `entry-${entry.id}`}
+                        onCommentPosted={fetchTimedComments}
+                        onSeek={(s) => {
+                            if (player.currentTrack?.id === `entry-${entry.id}`) {
+                                seek(s);
+                            } else {
+                                playEntry();
+                                setTimeout(() => seek(s), 200);
+                            }
+                        }}
+                    />
                 </div>
             </DiscoveryLayout>
         );
