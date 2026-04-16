@@ -38,7 +38,6 @@ const Logs                   = lazy(() => import("./pages/Logs"));
 const StagingTest            = lazy(() => import("./pages/StagingTest").then(m => ({ default: m.StagingTest })));
 const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
 const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
-const ArtistDiscoveryV2Page  = lazy(() => import("./pages/ArtistDiscoveryV2").then(m => ({ default: m.ArtistDiscoveryV2Page })));
 const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
@@ -741,9 +740,9 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
   }
 
-  // Artist Discovery homepage (V2 is now default)
-  if (currentPath === '/' || currentPath === '/v2') {
-    return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryV2Page /></Suspense>;
+  // Artist Discovery homepage
+  if (currentPath === '/') {
+    return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;
   }
 
   // /artists → Full artists list
@@ -863,7 +862,7 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
   }
 
-  return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryV2Page /></Suspense>;
+  return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;
 };
 
 /**

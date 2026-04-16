@@ -73,23 +73,23 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [playlistResults, setPlaylistResults] = useState<any[]>([]);
     const [searchingPlaylists, setSearchingPlaylists] = useState(false);
 
-    // V2 — Editor's Picks state
+    // Editor's Picks state
     const [editorPickSearch, setEditorPickSearch] = useState('');
     const [editorPickResults, setEditorPickResults] = useState<TrackResult[]>([]);
     const [searchingEditorPicks, setSearchingEditorPicks] = useState(false);
 
-    // V2 — Featured Producer state
+    // Featured Producer state
     const [producerSearch, setProducerSearch] = useState('');
     const [producerResults, setProducerResults] = useState<any[]>([]);
     const [searchingProducer, setSearchingProducer] = useState(false);
     const [featuredProducerNote, setFeaturedProducerNote] = useState('');
 
-    // V2 — Tutorial state
+    // Featured Tutorial state
     const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
     const [featuredTutorialTitle, setFeaturedTutorialTitle] = useState('');
     const [featuredTutorialDesc, setFeaturedTutorialDesc] = useState('');
 
-    // V2 — Featured Battle state
+    // Featured Battle state
     const [battleList, setBattleList] = useState<any[]>([]);
     const [featuredBattleDesc, setFeaturedBattleDesc] = useState('');
 
@@ -324,7 +324,7 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    // ── V2 Editor's Picks handlers ──
+    // ── Editor's Picks handlers ──
     const handleSearchEditorPicks = async (query: string) => {
         setEditorPickSearch(query);
         if (query.length < 2) { setEditorPickResults([]); return; }
@@ -371,7 +371,7 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    // ── V2 Featured Producer handlers ──
+    // ── Featured Producer handlers ──
     const handleSearchProducer = async (query: string) => {
         setProducerSearch(query);
         if (query.length < 2) { setProducerResults([]); return; }
@@ -413,7 +413,7 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    // ── V2 Tutorial handler ──
+    // ── Tutorial handler ──
     const handleSaveTutorial = async () => {
         setSaving(true);
         try {
@@ -431,7 +431,7 @@ export const MusicianProfileAdmin: React.FC = () => {
         }
     };
 
-    // ── V2 Featured Battle handlers ──
+    // ── Featured Battle handlers ──
     const fetchBattles = async () => {
         try {
             const res = await fetch('/api/beat-battle/battles?guildId=default-guild');
@@ -642,14 +642,14 @@ export const MusicianProfileAdmin: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Settings size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                 <div>
-                    <h1 style={{ margin: 0 }}>Musician Profiles Configuration</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Manage global genre libraries and profile settings.</p>
+                    <h1 style={{ margin: 0 }}>Discover & Profiles</h1>
+                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Discovery page settings, artist moderation, and genre management.</p>
                 </div>
             </div>
 
             <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
-                    Manage the discovery page, artist profiles, track moderation, and genre library from here.
+                    Configure the homepage discovery sections, manage artist profiles and tracks, and maintain the genre library.
                 </p>
             </div>
 
@@ -938,10 +938,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                 </div>
 
 
-                {/* ── V2: Featured Producer ── */}
+                {/* ── Featured Producer ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
-                        <Star size={16} color={colors.primary} /> V2 — Featured Producer
+                        <Star size={16} color={colors.primary} /> Featured Producer
                     </h4>
                     {/* Current */}
                     {discoveryConfig.featuredProducer ? (
@@ -992,7 +992,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     )}
                     {searchingProducer && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '8px' }}>Searching...</div>}
                     {/* Note */}
-                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Producer Note (shown on V2 homepage)</label>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Producer Note (shown on homepage)</label>
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <textarea value={featuredProducerNote} onChange={(e) => setFeaturedProducerNote(e.target.value)} placeholder='e.g. "Making beats since 2019..."'
                             rows={2}
@@ -1004,10 +1004,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── V2: Featured Tutorial ── */}
+                {/* ── Featured Tutorial ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
-                        <Star size={16} color={colors.primary} /> V2 — Featured Tutorial
+                        <Star size={16} color={colors.primary} /> Featured Tutorial
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                         <div>
@@ -1038,10 +1038,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── V2: Featured Battle ── */}
+                {/* ── Featured Battle ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <h4 style={{ marginTop: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
-                        <Swords size={16} color={colors.primary} /> V2 — Featured Battle
+                        <Swords size={16} color={colors.primary} /> Featured Battle
                     </h4>
                     {/* Current */}
                     {discoveryConfig.featuredBattle ? (
@@ -1081,7 +1081,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                         <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>No active or upcoming battles found.</div>
                     )}
                     {/* Description */}
-                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Battle Description (shown on V2 homepage card)</label>
+                    <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Battle Description (shown on homepage card)</label>
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <textarea value={featuredBattleDesc} onChange={(e) => setFeaturedBattleDesc(e.target.value)} placeholder='e.g. "Submit your best beats and compete for prizes!"'
                             rows={2}

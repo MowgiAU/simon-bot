@@ -1,57 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { 
-    Search, Music, MapPin, Play, Heart, Plus, ChevronLeft, ChevronRight,
-    Filter, Radio, Disc, Volume2, SkipBack, SkipForward, Shuffle, Repeat, PlayCircle, Menu, ExternalLink, Zap, Pause, TrendingUp, UserSearch, LayoutGrid, Swords, Award,
-    Headphones, Mic, Waves, Trophy, Users, Timer, ListMusic
+import {
+    Play, Plus, Pause, TrendingUp, Swords,
+    Activity, Trophy, Users, Timer, ListMusic,
+    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import { StyledUsername } from '../components/StyledUsername';
-
-/** 
- * Modular styles following the Fuji Studio design system (Tailwind-like approach in CSS-in-JS)
- */
-const styles: any = {
-    widgetCard: {
-        backgroundColor: '#242C3D',
-        border: '1px solid rgba(255,255,255,0.05)',
-        borderRadius: borderRadius.lg,
-        transition: 'all 0.2s ease',
-        height: '100%',
-    },
-    playerGradient: {
-        background: 'linear-gradient(90deg, #242C3D 0%, #1A1E2E 100%)',
-    },
-    genreTile: {
-        position: 'relative',
-        overflow: 'hidden',
-        aspectRatio: '1 / 1',
-        borderRadius: '0.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 'bold',
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-        fontSize: '9px',
-    },
-    headerLabel: {
-        fontSize: '10px',
-        fontWeight: 'bold',
-        color: 'white',
-        textTransform: 'uppercase',
-        letterSpacing: '0.2em',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-    }
-};
 
 interface ArtistProfile {
     userId: string;
@@ -61,6 +20,7 @@ interface ArtistProfile {
     bio: string | null;
     hardware: string[];
     genres: { genre: { name: string } }[];
+    primaryGenre?: { id: string; name: string; slug: string } | null;
     totalPlays: number;
 }
 
@@ -79,96 +39,114 @@ interface TrackInfo {
     };
     description?: string;
     artist?: string;
-}
-
-interface DiscoveryGenre {
-    id: string;
-    name: string;
-    _count: { profiles: number };
+    genres?: { genre: { name: string } }[];
 }
 
 interface FeaturedData {
     featuredType?: string;
     featuredTrackId: string | null;
     featuredLabel: string | null;
+    featuredDescription?: string | null;
     featuredTrack: {
         id: string;
         title: string;
+        slug: string | null;
         url: string;
         coverUrl: string | null;
         artist: string | null;
         description: string | null;
         playCount: number;
-        profile: {
-            userId: string;
-            username: string;
-            displayName: string | null;
-            avatar: string | null;
-        };
+        profile: { userId: string; username: string; displayName: string | null; avatar: string | null; };
     } | null;
     featuredArtist?: {
-        id: string;
-        username: string;
-        displayName: string | null;
-        avatar: string | null;
-        bio: string | null;
+        id: string; username: string; displayName: string | null; avatar: string | null; bio: string | null;
         genres: { genre: { name: string } }[];
         tracks: { id: string; title: string; slug: string | null; url: string; coverUrl: string | null }[];
     } | null;
     featuredPlaylist?: {
-        id: string;
-        name: string;
-        description: string | null;
-        coverUrl: string | null;
-        trackCount: number;
-        totalPlays: number;
+        id: string; name: string; description: string | null; coverUrl: string | null;
+        trackCount: number; totalPlays: number; _count?: { tracks: number };
         profile?: { username: string; displayName: string | null } | null;
         tracks: { track: { id: string; title: string; coverUrl: string | null; url: string; profile: { username: string; displayName: string | null } } }[];
     } | null;
+    editorPicks?: TrackInfo[];
+    featuredProducer?: ArtistProfile & { tracks: { id: string; title: string; url: string; coverUrl: string | null }[] } | null;
+    featuredProducerNote?: string | null;
+    featuredContentType?: string | null;
+    featuredTutorialUrl?: string | null;
+    featuredTutorialTitle?: string | null;
+    featuredTutorialDescription?: string | null;
+    featuredTutorialThumbnail?: string | null;
+    featuredTutorialAuthor?: string | null;
+    featuredTutorialDate?: string | null;
+    featuredBattle?: {
+        id: string; title: string; status: string;
+        bannerUrl: string | null;
+        cardImageUrl: string | null;
+        submissionEnd: string | null; votingEnd: string | null;
+        _count?: { entries: number };
+        sponsor: { id: string; name: string; logoUrl: string | null } | null;
+        prizes: { place: string; title?: string; description: string }[] | null;
+    } | null;
+    featuredBattleDescription?: string | null;
 }
 
 interface PopularPlaylist {
-    id: string;
-    name: string;
-    coverUrl: string | null;
-    trackCount: number;
-    totalPlays: number;
+    id: string; name: string; coverUrl: string | null;
+    trackCount: number; totalPlays: number;
     profile?: { username: string; displayName: string | null } | null;
     tracks: { track: { coverUrl: string | null } }[];
 }
 
-const genreColors = [
-    '#2B8C71', '#F27B13', '#A855F7', '#3B82F6', '#EF4444', 
-    '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#10B981'
-];
+const panel: React.CSSProperties = {
+    backgroundColor: '#242C3D',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '14px',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+};
 
-const genreIcons = [Music, Disc, Radio, Volume2, Headphones, Mic, Waves, Play];
+const panelHeader: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    paddingBottom: '10px', marginBottom: '14px', flexShrink: 0,
+};
+
+const panelTitle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '8px',
+    fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px',
+    color: colors.textPrimary, margin: 0,
+};
+
+function getAvatarUrl(avatar: string | null, userId: string): string {
+    if (!avatar) return `https://cdn.discordapp.com/embed/avatars/${parseInt(userId.slice(-1)) % 5}.png`;
+    if (avatar.startsWith('http') || avatar.startsWith('/uploads/')) return avatar;
+    return `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=256`;
+}
+
+function generateWaveform(seed: string, bars = 32): number[] {
+    const out: number[] = [];
+    let h = 5381;
+    for (let i = 0; i < seed.length; i++) { h = ((Math.imul(h, 33) ^ seed.charCodeAt(i)) >>> 0); }
+    for (let i = 0; i < bars; i++) {
+        h = (Math.imul(h ^ (i + 1), 2246822519) + Math.imul(h, 3266489917)) >>> 0;
+        out.push(18 + (h % 72)); // 18–89 — percentage of container height
+    }
+    return out;
+}
 
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
-    const [chartEntries, setChartEntries] = useState<{ trackId: string; positionChange: number | null; isNew: boolean }[]>([]);
+    const [latestTracks, setLatestTracks] = useState<TrackInfo[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [genres, setGenres] = useState<DiscoveryGenre[]>([]);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
-    const [currentBattle, setCurrentBattle] = useState<{
-        id: string; title: string; status: string;
-        description: string | null; bannerUrl: string | null;
-        submissionEnd: string | null; votingEnd: string | null;
-        _count?: { entries: number };
-        sponsor: { id: string; name: string; logoUrl: string | null } | null;
-        prizes: { place: string; title?: string; description: string; imageUrl?: string; link?: string }[] | null;
-    } | null>(null);
+    const [featuredArticle, setFeaturedArticle] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
-    const navigate = useNavigate();
-
-    const playFullQueue = (startTrack: any, tracks: any[]) => {
-        setTrack(startTrack, tracks);
-    };
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -176,465 +154,304 @@ export const ArtistDiscoveryPage: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Load genres from DB (only genres used in profiles)
     useEffect(() => {
-        axios.get('/api/discovery/genres').then(res => setGenres(res.data)).catch(() => {});
-        axios.get('/api/discovery/settings').then(res => setFeatured(res.data)).catch(() => {});
-        axios.get('/api/playlists/popular').then(res => setPopularPlaylists(res.data)).catch(() => {});
-        // Load current battle for the widget
-        fetch('/api/beat-battle/battles?guildId=default-guild')
-            .then(r => r.ok ? r.json() : [])
-            .then((battles: any[]) => {
-                const active = battles.find((b: any) => b.status === 'voting') ||
-                               battles.find((b: any) => b.status === 'active') ||
-                               battles.find((b: any) => b.status === 'upcoming');
-                if (active) setCurrentBattle(active);
-            })
-            .catch(() => {});
+        axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
+        axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
+        axios.get('/api/articles/featured/current').then(r => setFeaturedArticle(r.data)).catch(() => {});
     }, []);
 
-    const fetchArtists = async () => {
-        setLoading(true);
-        try {
-            const params: any = {};
-            if (search) params.search = search;
-            if (selectedGenre) params.genre = selectedGenre;
-            
-            const [profilesRes, tracksRes] = await Promise.all([
-                axios.get('/api/musician/profiles', { params }),
-                axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } })
-            ]);
-            setArtists(profilesRes.data);
-            setTopTracks(tracksRes.data);
-
-            // Fetch real chart data for position changes
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
             try {
-                const chartRes = await axios.get('/api/charts/daily');
-                if (chartRes.data?.entries) {
-                    setChartEntries(chartRes.data.entries.map((e: any) => ({
-                        trackId: e.track.id,
-                        positionChange: e.positionChange,
-                        isNew: e.prevPosition == null,
-                    })));
-                }
-            } catch { /* charts may not have snapshots yet */ }
-        } catch (err) {
-            console.error('Failed to fetch artists', err);
-        } finally {
-            setLoading(false);
+                const [profilesRes, tracksRes, latestRes] = await Promise.all([
+                    axios.get('/api/musician/profiles'),
+                    axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
+                    axios.get('/api/discovery/tracks', { params: { sort: 'newest', limit: 6 } })
+                ]);
+                setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
+                setTopTracks(tracksRes.data);
+                setLatestTracks(latestRes.data.tracks || []);
+            } catch (err) {
+                console.error('Failed to fetch', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    // ── Helpers ──
+    const heroTrack = featured?.featuredTrack;
+    const heroPlaylist = featured?.featuredPlaylist;
+    const heroArtist = featured?.featuredArtist;
+    const heroType = featured?.featuredType || 'track';
+
+    // Get a cover URL for the hero
+    const heroCover = heroType === 'track' ? heroTrack?.coverUrl
+        : heroType === 'playlist' ? heroPlaylist?.coverUrl
+        : heroType === 'artist' ? (heroArtist?.avatar || null)
+        : null;
+
+    // Tracks to show in the hero track list (up to 4)
+    const heroTrackList: { title: string; artist: string; coverUrl: string | null }[] = [];
+    if (heroType === 'playlist' && heroPlaylist?.tracks) {
+        heroPlaylist.tracks.slice(0, 6).forEach(pt => heroTrackList.push({ title: pt.track.title, artist: pt.track.profile.displayName || pt.track.profile.username, coverUrl: pt.track.coverUrl }));
+    } else if (heroType === 'artist' && heroArtist?.tracks) {
+        heroArtist.tracks.slice(0, 4).forEach(t => heroTrackList.push({ title: t.title, artist: heroArtist.displayName || heroArtist.username, coverUrl: t.coverUrl }));
+    } else if (heroType === 'track' && heroTrack) {
+        heroTrackList.push({ title: heroTrack.title, artist: heroTrack.profile.displayName || heroTrack.profile.username, coverUrl: heroTrack.coverUrl });
+        // Fill with top tracks
+        topTracks.filter(t => t.id !== heroTrack.id).slice(0, 3).forEach(t => heroTrackList.push({ title: t.title, artist: t.profile.displayName || t.profile.username, coverUrl: t.coverUrl }));
+    }
+
+    const heroLabel = featured?.featuredLabel || (heroType === 'artist' ? 'Featured Artist' : heroType === 'playlist' ? 'Hero Playlist' : 'Featured Track');
+    const heroTitle = heroType === 'artist' ? (heroArtist?.displayName || heroArtist?.username || '')
+        : heroType === 'playlist' ? (heroPlaylist?.name || '')
+        : (heroTrack?.title || '');
+    const heroSubtitle = heroType === 'artist' ? '' : heroType === 'playlist' ? (heroPlaylist?.profile?.displayName || heroPlaylist?.profile?.username || '') : (heroTrack?.profile.displayName || heroTrack?.profile.username || '');
+
+    const handleHeroPlay = () => {
+        if (heroType === 'track' && heroTrack) {
+            if (player.currentTrack?.id === heroTrack.id) togglePlay();
+            else setTrack(heroTrack as any, [heroTrack as any, ...topTracks]);
+        } else if (heroType === 'playlist' && heroPlaylist?.tracks?.length) {
+            const tracks = heroPlaylist.tracks.map(pt => pt.track);
+            setTrack(tracks[0] as any, tracks as any[]);
+        } else if (heroType === 'artist' && heroArtist?.tracks?.length) {
+            setTrack(heroArtist.tracks[0] as any, heroArtist.tracks as any[]);
         }
     };
 
-    useEffect(() => {
-        const timer = setTimeout(fetchArtists, 300);
-        return () => clearTimeout(timer);
-    }, [search, selectedGenre]);
+    const isHeroPlaying = heroType === 'track' && heroTrack && player.currentTrack?.id === heroTrack.id && player.isPlaying;
 
-    const sidebarContent = (
-        <>
-            <h3 style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '24px' }}>Discovery Filters</h3>
-            <div style={{ marginBottom: '32px' }}>
-                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Genre</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {genres.length === 0 && <span style={{ fontSize: '11px', color: '#B9C3CE', fontStyle: 'italic' }}>No genres yet</span>}
-                    {genres.map(g => (
-                        <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '12px', color: selectedGenre === g.name ? 'white' : '#B9C3CE' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={selectedGenre === g.name}
-                                onChange={() => setSelectedGenre(selectedGenre === g.name ? null : g.name)}
-                                style={{ accentColor: colors.primary }}
-                            />
-                            {g.name}
-                            <span style={{ fontSize: '10px', color: 'rgba(185,195,206,0.5)', marginLeft: 'auto' }}>{g._count?.profiles || 0}</span>
-                        </label>
-                    ))}
-                </div>
-            </div>
-        </>
-    );
+    // Get YouTube thumbnail from URL
+    const getTutorialThumbnail = (): string | null => {
+        if (featured?.featuredTutorialThumbnail) return featured.featuredTutorialThumbnail;
+        const url = featured?.featuredTutorialUrl;
+        if (!url) return null;
+        const match = url.match(new RegExp('(?:youtu\\.be/|youtube\\.com/(?:embed/|v/|watch\\?v=))([^?&]+)'));
+        if (match) return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+        return null;
+    };
+
+    useEffect(() => {
+        const id = 'hero-marquee-style';
+        if (!document.getElementById(id)) {
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = `
+                @keyframes hero-marquee {
+                    0%   { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                }
+                .hero-marquee-track {
+                    display: flex;
+                    gap: 6px;
+                    animation: hero-marquee 28s linear infinite;
+                    width: max-content;
+                }
+                .hero-marquee-track:hover { animation-play-state: paused; }
+                @keyframes wf-bounce {
+                    0%, 100% { transform: scaleY(0.4); }
+                    50%  { transform: scaleY(1); }
+                }
+                .wf-anim-bar { transform-origin: bottom center; animation: wf-bounce 1.1s ease-in-out infinite; }
+                .lr-row:hover { background: rgba(255,255,255,0.06) !important; }
+                .lr-row:hover .lr-cover-overlay { opacity: 1 !important; }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
 
     return (
-        <DiscoveryLayout 
-            sidebar={isMobile ? undefined : sidebarContent} 
-            search={search} 
-            onSearchChange={setSearch}
-            activeTab="discover"
-        >
+        <DiscoveryLayout activeTab="discover">
             <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '1300px', margin: '0 auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px' }}>
-                    
-                    {/* Featured Hero */}
-                    <div style={{ ...styles.widgetCard, ...styles.playerGradient, gridColumn: isMobile ? 'span 12' : 'span 8', padding: isMobile ? '20px' : '28px', overflow: 'hidden', position: 'relative' }}>
-                        {/* Background blur */}
-                        {featured?.featuredTrack?.coverUrl && featured?.featuredType !== 'artist' && featured?.featuredType !== 'playlist' && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredTrack.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
+                    gap: '18px',
+                }}>
+
+                    {/* ═══════════════ ROW 1: HERO / BATTLE / ARTISTS ═══════════════ */}
+
+                    {/* Hero/Featured */}
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0 }}>
+                        {/* Full-bleed background image */}
+                        {heroCover && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                         )}
-                        {featured?.featuredType === 'artist' && featured?.featuredArtist?.avatar && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredArtist.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
-                        )}
-                        {featured?.featuredType === 'playlist' && featured?.featuredPlaylist?.coverUrl && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${featured.featuredPlaylist.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.22, filter: 'blur(28px)', transform: 'scale(1.15)', pointerEvents: 'none' }} />
+                        {/* Dark gradient overlay — heavier on left for text legibility */}
+                        <div style={{ position: 'absolute', inset: 0, background: heroCover
+                            ? 'linear-gradient(to right, rgba(14,18,26,0.97) 30%, rgba(14,18,26,0.6) 65%, rgba(14,18,26,0.25) 100%), linear-gradient(to top, rgba(14,18,26,0.6) 0%, transparent 50%)'
+                            : 'rgba(14,18,26,0.98)'
+                        }} />
+
+                        {/* Cover art — floated to the right, vertically centred */}
+                        {heroCover && !isMobile && (
+                            <div style={{
+                                position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
+                                width: '190px', height: '190px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0,
+                                boxShadow: '0 20px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)',
+                            }}>
+                                <img src={heroCover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
                         )}
 
-                        {/* Featured Track (default) */}
-                        {(!featured?.featuredType || featured.featuredType === 'track') && featured?.featuredTrack ? (
-                        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                                <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ 
-                                    width: isMobile ? '160px' : '200px', height: isMobile ? '160px' : '200px', borderRadius: '12px', overflow: 'hidden',
-                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                                    display: 'block', textDecoration: 'none'
-                                }}>
-                                    {featured.featuredTrack.coverUrl ? (
-                                        <img src={featured.featuredTrack.coverUrl} alt="Featured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#242C3D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <FujiLogo size={80} color={colors.primary} opacity={0.2} />
-                                        </div>
-                                    )}
-                                </Link>
+                        {/* Main content — full height flex column, padded, right side offset to avoid cover art */}
+                        <div style={{
+                            position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            height: '100%', boxSizing: 'border-box',
+                            padding: isMobile ? '24px 20px' : '28px 32px',
+                            paddingRight: (heroCover && !isMobile) ? '248px' : (isMobile ? '20px' : '32px'),
+                        }}>
+                            {/* Top: label badge */}
+                            <div>
+                                <span style={{
+                                    display: 'inline-block', fontSize: '10px', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.12em',
+                                    color: colors.primary, background: `${colors.primary}25`,
+                                    padding: '4px 10px', borderRadius: '4px',
+                                }}>{heroLabel}</span>
                             </div>
-                            <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                    <span style={{ backgroundColor: `${colors.accentOrange}`, color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                        {featured.featuredLabel || 'Featured Track'}
-                                    </span>
-                                    <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <Zap size={14} /> NOW PLAYING
-                                    </span>
-                                </div>
-                                <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                <h2 style={{ fontSize: isMobile ? '22px' : '34px', fontWeight: '900', margin: '0 0 6px 0', lineHeight: 1.1, cursor: 'pointer' }}>
-                                    {featured.featuredTrack.title}
-                                </h2>
-                                </Link>
-                                <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '18px', lineHeight: 1.4 }}>
-                                    <StyledUsername userId={featured.featuredTrack.profile.userId} showBadge={false}>{featured.featuredTrack.profile.displayName || featured.featuredTrack.profile.username}</StyledUsername> • {featured.featuredTrack.description || 'New Sound Release'}
-                                </p>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', gap: '16px' }}>
-                                    <button onClick={() => player.currentTrack?.id === featured.featuredTrack!.id ? togglePlay() : setTrack(featured.featuredTrack!, [featured.featuredTrack!, ...topTracks])} style={{ 
-                                        backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none', 
-                                        fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', 
-                                        boxShadow: `0 4px 15px ${colors.primary}44` 
-                                    }}>
-                                        {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? <Pause size={16} /> : <Play size={16} fill="white" />}
-                                        {player.currentTrack?.id === featured.featuredTrack.id && player.isPlaying ? 'Pause' : 'Play Now'}
-                                    </button>
-                                    <Link to={`/track/${featured.featuredTrack!.profile.username}/${featured.featuredTrack!.slug || featured.featuredTrack!.id}`} style={{ 
-                                        backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', padding: '12px 28px', borderRadius: '8px', 
-                                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer',
-                                        textDecoration: 'none'
-                                    }}>Track Info</Link>
-                                </div>
-                            </div>
-                        </div>
 
-                        ) : featured?.featuredType === 'artist' && featured?.featuredArtist ? (
-                        /* Featured Artist hero */
-                        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
-                            <div style={{ flexShrink: 0 }}>
-                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{
-                                    width: isMobile ? '160px' : '200px', height: isMobile ? '160px' : '200px', borderRadius: '50%', overflow: 'hidden',
-                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: `3px solid ${colors.primary}44`, cursor: 'pointer',
-                                    display: 'block', textDecoration: 'none'
-                                }}>
-                                    {featured.featuredArtist.avatar ? (
-                                        <img src={featured.featuredArtist.avatar} alt="Featured Artist" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px', color: 'white' }}>
-                                            {featured.featuredArtist.username.charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                </Link>
+                            {/* Middle: title + subtitle + description */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 0' }}>
+                                <h2 style={{ fontSize: isMobile ? '24px' : '34px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff' }}>{heroTitle}</h2>
+                                {heroSubtitle && (
+                                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>{heroSubtitle}</div>
+                                )}
+                                {featured?.featuredDescription && (
+                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</p>
+                                )}
                             </div>
-                            <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                    <span style={{ backgroundColor: '#A855F7', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                        {featured.featuredLabel || 'Featured Artist'}
-                                    </span>
-                                    <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <Zap size={14} /> SPOTLIGHT
-                                    </span>
-                                </div>
-                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                    <h2 style={{ fontSize: isMobile ? '22px' : '34px', fontWeight: '900', margin: '0 0 6px 0', lineHeight: 1.1, cursor: 'pointer' }}>
-                                        {featured.featuredArtist.displayName || featured.featuredArtist.username}
-                                    </h2>
-                                </Link>
-                                <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '12px', lineHeight: 1.4 }}>
-                                    {featured.featuredArtist.bio || 'Discover this artist\'s music'}
-                                </p>
-                                {featured.featuredArtist.genres?.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                                        {featured.featuredArtist.genres.slice(0, 3).map((g, i) => (
-                                            <span key={i} style={{ backgroundColor: `${colors.primary}1A`, border: `1px solid ${colors.primary}4D`, color: colors.primary, padding: '3px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase' }}>{g.genre.name}</span>
+
+                            {/* Bottom: track strip + play button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+                                {/* Track pills — infinite marquee */}
+                                <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)' } as React.CSSProperties}>
+                                    <div className="hero-marquee-track">
+                                        {[...heroTrackList, ...heroTrackList].map((t, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)',
+                                                borderRadius: '6px', padding: '5px 8px 5px 5px', flexShrink: 0,
+                                                border: '1px solid rgba(255,255,255,0.06)',
+                                            }}>
+                                                {t.coverUrl ? (
+                                                    <div style={{ width: '22px', height: '22px', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
+                                                        <img src={t.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                                                )}
+                                                <span style={{ fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', color: 'rgba(255,255,255,0.85)' }}>{t.title}</span>
+                                            </div>
                                         ))}
                                     </div>
-                                )}
-                                <Link to={`/profile/${featured.featuredArtist.username}`} style={{
-                                    backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none',
-                                    fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                    boxShadow: `0 4px 15px ${colors.primary}44`, textDecoration: 'none'
-                                }}>View Artist</Link>
-                            </div>
-                        </div>
-
-                        ) : featured?.featuredType === 'playlist' && featured?.featuredPlaylist ? (
-                        /* Featured Playlist hero */
-                        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '16px' : '22px', height: '100%', position: 'relative' }}>
-                            <div style={{ flexShrink: 0 }}>
-                                <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{
-                                    width: isMobile ? '160px' : '200px', height: isMobile ? '160px' : '200px', borderRadius: '12px', overflow: 'hidden',
-                                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                                    display: 'block', textDecoration: 'none'
+                                </div>
+                                {/* Play button */}
+                                <button onClick={handleHeroPlay} style={{
+                                    backgroundColor: colors.primary, color: 'white', padding: '11px 20px',
+                                    borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
+                                    boxShadow: `0 4px 20px ${colors.primary}55`,
                                 }}>
-                                    {featured.featuredPlaylist.coverUrl ? (
-                                        <img src={featured.featuredPlaylist.coverUrl} alt="Featured Playlist" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#242C3D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <ListMusic size={80} color={colors.primary} style={{ opacity: 0.2 }} />
-                                        </div>
-                                    )}
-                                </Link>
-                            </div>
-                            <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left' }}>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                                    <span style={{ backgroundColor: '#3B82F6', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                        {featured.featuredLabel || 'Featured Playlist'}
-                                    </span>
-                                    <span style={{ color: colors.primary, fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <ListMusic size={14} /> CURATED
-                                    </span>
-                                </div>
-                                <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                    <h2 style={{ fontSize: isMobile ? '22px' : '34px', fontWeight: '900', margin: '0 0 6px 0', lineHeight: 1.1, cursor: 'pointer' }}>
-                                        {featured.featuredPlaylist.name}
-                                    </h2>
-                                </Link>
-                                <p style={{ fontSize: '13px', color: '#B9C3CE', marginBottom: '18px', lineHeight: 1.4 }}>
-                                    {featured.featuredPlaylist.description || `${featured.featuredPlaylist.trackCount} tracks`}
-                                    {featured.featuredPlaylist.profile && ` • by ${featured.featuredPlaylist.profile.displayName || featured.featuredPlaylist.profile.username}`}
-                                </p>
-                                <div style={{ display: 'flex', justifyContent: isMobile ? 'center' : 'flex-start', gap: '16px' }}>
-                                    <Link to={`/playlist/${featured.featuredPlaylist.id}`} style={{
-                                        backgroundColor: colors.primary, color: 'white', padding: '12px 28px', borderRadius: '8px', border: 'none',
-                                        fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                        boxShadow: `0 4px 15px ${colors.primary}44`, textDecoration: 'none'
-                                    }}>
-                                        <Play size={16} fill="white" /> Play Now
-                                    </Link>
-                                </div>
+                                    {isHeroPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                                    {isHeroPlaying ? 'Pause' : 'Play Now'}
+                                </button>
                             </div>
                         </div>
+                    </div>
 
-                        ) : (
-                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#B9C3CE' }}>
-                            <Disc size={48} opacity={0.2} style={{ marginBottom: '12px' }} />
-                            <p>Loading inspiration...</p>
-                        </div>
+                    {/* Battle */}
+                    {(() => {
+                        const battle = featured?.featuredBattle;
+                        const battleDesc = featured?.featuredBattleDescription;
+                        return (
+                    <div style={{ ...panel, padding: 0, height: 'auto', minHeight: isMobile ? '200px' : '200px', position: 'relative', overflow: 'hidden' }}>
+                        {/* Banner image — blurred background */}
+                        {battle?.bannerUrl && (
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
                         )}
-                    </div>
+                        {/* Gradient overlay */}
+                        <div style={{ position: 'absolute', inset: 0, background: battle?.bannerUrl
+                            ? 'rgba(18,22,36,0.55)'
+                            : `linear-gradient(135deg, ${colors.primary}28 0%, rgba(90,20,200,0.14) 100%)`,
+                            pointerEvents: 'none',
+                        }} />
 
-                    {/* Trending Songs */}
-                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <h3 style={styles.headerLabel}><TrendingUp size={16} color={colors.accentOrange} /> Trending Songs</h3>
-                            <Link to="/charts" style={{ fontSize: '10px', fontWeight: 'bold', color: colors.primary, textDecoration: 'none' }}>View All</Link>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {topTracks.slice(0, 5).map((track, idx) => {
-                                const rankColor = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : '#B9C3CE';
-                                // Use real chart data for position changes
-                                const chartEntry = chartEntries.find(e => e.trackId === track.id);
-                                const delta = chartEntry?.positionChange ?? null;
-                                const isNew = chartEntry?.isNew ?? (chartEntries.length === 0); // If no chart data yet, show NEW
-                                const isUp = !isNew && delta != null && delta > 0;
-                                const isDown = !isNew && delta != null && delta < 0;
-                                const trendBg = isNew ? 'rgba(59,168,134,0.2)' : isUp ? 'rgba(74,222,128,0.15)' : isDown ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.06)';
-                                const trendColor = isNew ? colors.primary : isUp ? '#4ADE80' : isDown ? '#F87171' : '#B9C3CE';
-                                const trendLabel = isNew ? 'NEW' : isUp ? `+${delta}` : isDown ? `${delta}` : '—';
-                                return (
-                                <div key={track.id} onClick={() => setTrack(track, topTracks)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.2s' }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-                                        const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
-                                        if (overlay) overlay.style.opacity = '1';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                        const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
-                                        if (overlay) overlay.style.opacity = '0';
-                                    }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: rankColor, width: '18px', textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                                    <div style={{ position: 'relative', width: '40px', height: '40px', backgroundColor: '#1A1E2E', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
-                                        {track.coverUrl ? (
-                                            <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <FujiLogo size={20} color={colors.primary} opacity={0.2} />
-                                            </div>
-                                        )}
-                                        <div data-play-overlay="" style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.15s' }}>
-                                            <Play size={14} fill="white" color="white" />
-                                        </div>
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: '13px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</p>
-                                        <p style={{ fontSize: '10px', color: '#B9C3CE', margin: 0 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></p>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                        <span style={{ backgroundColor: trendBg, color: trendColor, fontSize: '9px', fontWeight: '700', padding: '2px 5px', borderRadius: '4px', minWidth: '28px', textAlign: 'center', letterSpacing: '0.02em' }}>{trendLabel}</span>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <p style={{ fontSize: '11px', fontWeight: 'bold', margin: 0 }}>{track.playCount >= 1000000 ? (track.playCount / 1000000).toFixed(1) + 'M' : track.playCount >= 1000 ? (track.playCount / 1000).toFixed(1) + 'K' : track.playCount.toString()}</p>
-                                            <p style={{ fontSize: '8px', color: '#B9C3CE', margin: 0, textTransform: 'uppercase' }}>Plays</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* New Artists */}
-                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <Link to="/artists" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><UserSearch size={16} color={colors.primary} /> ARTISTS</h3></Link>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', alignItems: 'start' }}>
-                            {artists.slice(0, 7).map(artist => (
-                                <Link key={artist.userId} to={`/profile/${artist.username}`} style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', minWidth: 0 }}>
-                                    <div style={{ aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: '8px', border: '2px solid rgba(255,255,255,0.05)', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = colors.primary} onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
-                                        {artist.avatar ? (
-                                            <img src={artist.avatar.startsWith('http') || artist.avatar.startsWith('/uploads/') ? artist.avatar : `https://cdn.discordapp.com/avatars/${artist.userId}/${artist.avatar}.png?size=256`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                        ) : (
-                                            <div style={{ width: '100%', height: '100%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{artist.username.charAt(0).toUpperCase()}</div>
-                                        )}
-                                    </div>
-                                    <p style={{ fontSize: '10px', fontWeight: 'bold', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={artist.userId} showBadge={false}>{artist.displayName || artist.username}</StyledUsername></p>
-                                </Link>
-                            ))}
-                            <Link to="/artists" style={{ textAlign: 'center', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block', minWidth: 0 }}>
-                                <div style={{ aspectRatio: '1/1', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                                    <Plus size={20} color="#B9C3CE" />
-                                </div>
-                                <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#B9C3CE', margin: 0 }}>Explore</p>
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Genre Exploration */}
-                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                            <Link to="/genres" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><LayoutGrid size={16} color={colors.primary} /> GENRES</h3></Link>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                            {(() => {
-                                // Show top genres sorted by profile count; they're already sorted by the API
-                                const displayGenres = genres.slice(0, 7);
-                                return displayGenres.map((genre, idx) => {
-                                    const GenreIcon = genreIcons[idx % genreIcons.length];
-                                    return (
-                                    <Link 
-                                        key={genre.id} 
-                                        to={`/category/${genre.slug}`}
-                                        style={{ 
-                                            ...styles.genreTile, 
-                                            backgroundColor: `${genreColors[idx % genreColors.length]}1A`,
-                                            color: genreColors[idx % genreColors.length],
-                                            border: `1px solid ${genreColors[idx % genreColors.length]}33`,
-                                            textDecoration: 'none',
-                                        }} 
-                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }} 
-                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-                                    >
-                                        <div style={{ position: 'absolute', right: '-6px', bottom: '-6px', opacity: 0.15, filter: 'blur(1.5px)', color: genreColors[idx % genreColors.length], pointerEvents: 'none' }}>
-                                            <GenreIcon size={48} />
-                                        </div>
-                                        <span style={{ position: 'relative', zIndex: 1 }}>{genre.name}</span>
-                                    </Link>
-                                    );
-                                });
-                            })()}
-                            <Link 
-                                to="/genres"
-                                style={{ 
-                                    ...styles.genreTile, 
-                                    backgroundColor: 'rgba(255,255,255,0.05)', 
-                                    border: '1px dashed rgba(255,255,255,0.1)',
-                                    color: '#B9C3CE',
-                                    textDecoration: 'none',
-                                }} 
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} 
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                                <span style={{ fontSize: '10px' }}>More...</span>
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Beat Battles */}
-                    <div style={{ ...styles.widgetCard, gridColumn: isMobile ? 'span 12' : 'span 4', padding: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', minHeight: '200px' }}>
-                        {/* Background — banner or gradient */}
-                        {currentBattle?.bannerUrl ? (
-                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${currentBattle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
-                        ) : (
-                            <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${colors.primary}28 0%, rgba(90,20,200,0.14) 100%)`, pointerEvents: 'none' }} />
-                        )}
-                        <div style={{ position: 'relative', zIndex: 1, padding: '20px', display: 'flex', flexDirection: 'column', flex: 1, gap: '11px' }}>
-                            {/* Header row */}
+                        {/* Content */}
+                        <div style={{ position: 'relative', zIndex: 1, padding: '14px 18px 16px', display: 'flex', flexDirection: 'column', height: '100%', gap: '8px', boxSizing: 'border-box' }}>
+                            {/* Top row: header + status badge */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Link to="/battles" style={{ textDecoration: 'none' }}><h3 style={{ ...styles.headerLabel, fontSize: '9px', color: 'white', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}><Swords size={14} color={colors.primary} /> BATTLES</h3></Link>
-                                {currentBattle && (
+                                <Link to="/battles" style={{ textDecoration: 'none' }}>
+                                    <h3 style={{ ...panelTitle, transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = colors.primary)} onMouseLeave={e => (e.currentTarget.style.color = 'white')}>
+                                        <Swords size={14} color={colors.primary} /> BATTLES
+                                    </h3>
+                                </Link>
+                                {battle && (
                                     <span style={{
                                         display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 9px',
-                                        backgroundColor: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.18)' : currentBattle.status === 'active' ? 'rgba(52,211,153,0.18)' : 'rgba(96,165,250,0.18)',
-                                        color: currentBattle.status === 'voting' ? '#FBBF24' : currentBattle.status === 'active' ? '#34D399' : '#60A5FA',
+                                        backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle.status === 'active' ? 'rgba(52,211,153,0.22)' : battle.status === 'completed' ? 'rgba(100,116,139,0.22)' : 'rgba(96,165,250,0.22)',
+                                        color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'active' ? '#34D399' : battle.status === 'completed' ? '#94A3B8' : '#60A5FA',
                                         fontSize: '8px', fontWeight: 'bold', borderRadius: '999px', letterSpacing: '0.07em',
+                                        backdropFilter: 'blur(6px)',
                                     }}>
-                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
-                                        {currentBattle.status === 'voting' ? 'VOTING OPEN' : currentBattle.status === 'active' ? 'OPEN' : 'UPCOMING'}
+                                        <span
+                                            className={battle.status === 'active' ? 'new-drops-pulse' : undefined}
+                                            style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }}
+                                        />
+                                        {battle.status === 'voting' ? 'VOTING' : battle.status === 'active' ? 'LIVE' : battle.status === 'completed' ? 'ENDED' : 'UPCOMING'}
                                     </span>
                                 )}
                             </div>
 
-                            {currentBattle ? (
+                            {battle ? (
                                 <>
-                                    {/* Title & description */}
+                                    {/* Title, card image & description */}
                                     <div>
-                                        <p style={{ fontSize: '17px', fontWeight: 800, color: 'white', margin: '0 0 5px', lineHeight: 1.2 }}>{currentBattle.title}</p>
-                                        {currentBattle.description && (
-                                            <p style={{ fontSize: '11px', color: 'rgba(185,195,206,0.8)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                {currentBattle.description}
+                                        <p style={{ fontSize: '18px', fontWeight: 800, color: 'white', margin: '0 0 8px', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{battle.title}</p>
+                                        {battle.cardImageUrl && (
+                                            <img
+                                                src={battle.cardImageUrl}
+                                                alt={battle.title}
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '8px', marginBottom: '6px', display: 'block' }}
+                                            />
+                                        )}
+                                        {battleDesc && (
+                                            <p style={{ fontSize: '11px', color: 'rgba(210,218,226,0.85)', margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                {battleDesc}
                                             </p>
                                         )}
                                     </div>
 
                                     {/* Stats */}
                                     <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#B9C3CE' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#D2DAE2' }}>
                                             <Users size={11} style={{ flexShrink: 0 }} />
-                                            {currentBattle._count?.entries ?? 0} {(currentBattle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
+                                            {battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
                                         </span>
-                                        {currentBattle.status === 'voting' && currentBattle.votingEnd && (
+                                        {battle.status === 'voting' && battle.votingEnd && (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#FBBF24' }}>
                                                 <Timer size={11} style={{ flexShrink: 0 }} />
-                                                Closes {new Date(currentBattle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                Closes {new Date(battle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </span>
                                         )}
-                                        {currentBattle.status === 'active' && currentBattle.submissionEnd && (
+                                        {battle.status === 'active' && battle.submissionEnd && (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#34D399' }}>
                                                 <Timer size={11} style={{ flexShrink: 0 }} />
-                                                Closes {new Date(currentBattle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                Closes {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </span>
                                         )}
                                     </div>
 
-                                    {/* Prizes */}
-                                    {currentBattle.prizes && currentBattle.prizes.length > 0 && (
+                                    {/* Prizes — medal style */}
+                                    {battle.prizes && battle.prizes.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                            {currentBattle.prizes.slice(0, 3).map((p, i) => (
-                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#B9C3CE' }}>
+                                            {battle.prizes.slice(0, 3).map((p, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#D2DAE2' }}>
                                                     <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
                                                     <span style={{ fontWeight: 600, color: 'white' }}>{p.place}:</span>
                                                     {p.title && <span style={{ color: colors.primary, fontWeight: 600 }}>{p.title}</span>}
@@ -643,39 +460,40 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Sponsor chip */}
-                                    {currentBattle.sponsor && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 10px', backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', alignSelf: 'flex-start' }}>
-                                            {currentBattle.sponsor.logoUrl && (
-                                                <img src={currentBattle.sponsor.logoUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '3px', objectFit: 'contain' }} />
-                                            )}
-                                            <span style={{ fontSize: '10px', color: '#B9C3CE' }}>Sponsored by <strong style={{ color: 'white' }}>{currentBattle.sponsor.name}</strong></span>
-                                        </div>
-                                    )}
-
-                                    {/* CTA */}
-                                    <div style={{ marginTop: 'auto', paddingTop: '2px' }}>
+                                    {/* Sponsor chip + CTA row */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                        {battle.sponsor ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '5px 10px', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(6px)' }}>
+                                                {battle.sponsor.logoUrl && (
+                                                    <img src={battle.sponsor.logoUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '3px', objectFit: 'contain' }} />
+                                                )}
+                                                <span style={{ fontSize: '10px', color: '#B9C3CE' }}>Sponsored by <strong style={{ color: 'white' }}>{battle.sponsor.name}</strong></span>
+                                            </div>
+                                        ) : <div />}
                                         <Link
-                                            to={`/battles/${currentBattle.id}`}
+                                            to={`/battles/${battle.id}`}
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 fontSize: '12px', fontWeight: 700, textDecoration: 'none',
-                                                color: currentBattle.status === 'voting' ? '#FBBF24' : colors.primary,
-                                                backgroundColor: currentBattle.status === 'voting' ? 'rgba(251,191,36,0.15)' : `${colors.primary}20`,
+                                                color: battle.status === 'voting' ? '#FBBF24' : battle.status === 'completed' ? '#94A3B8' : colors.primary,
+                                                backgroundColor: battle.status === 'voting' ? 'rgba(251,191,36,0.18)' : battle.status === 'completed' ? 'rgba(100,116,139,0.18)' : `${colors.primary}25`,
                                                 padding: '8px 16px', borderRadius: '8px',
-                                                border: `1px solid ${currentBattle.status === 'voting' ? 'rgba(251,191,36,0.35)' : `${colors.primary}35`}`,
+                                                border: `1px solid ${battle.status === 'voting' ? 'rgba(251,191,36,0.4)' : battle.status === 'completed' ? 'rgba(100,116,139,0.4)' : `${colors.primary}45`}`,
+                                                backdropFilter: 'blur(6px)',
                                             }}
                                         >
-                                            {currentBattle.status === 'voting'
+                                            {battle.status === 'voting'
                                                 ? <><Trophy size={13} /> Vote Now &rarr;</>
-                                                : currentBattle.status === 'active'
+                                                : battle.status === 'active'
                                                 ? <><Swords size={13} /> Submit a Beat &rarr;</>
+                                                : battle.status === 'completed'
+                                                ? 'View Results →'
                                                 : 'View Battle →'}
                                         </Link>
                                     </div>
                                 </>
                             ) : (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px 0', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No battle running right now.</p>
                                     <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
@@ -683,116 +501,437 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             )}
                         </div>
                     </div>
+                        );
+                    })()}
 
-                    {/* Latest Releases — section header */}
-                    <div style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                        <Award size={18} color={colors.accentOrange} />
-                        <div>
-                            <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textPrimary }}>Latest Releases</span>
-                            <span style={{ marginLeft: '12px', fontSize: '11px', color: '#B9C3CE', letterSpacing: '0.05em' }}>Freshly uploaded from the community</span>
+                    {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
+
+                    {/* Trending Artist */}
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
+                        {artists[0] ? (
+                            <>
+                                {/* Full-bleed blurred background */}
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    backgroundImage: `url(${getAvatarUrl(artists[0].avatar, artists[0].userId)})`,
+                                    backgroundSize: 'cover', backgroundPosition: 'center',
+                                    filter: 'blur(40px) brightness(0.2) saturate(1.6)',
+                                    transform: 'scale(1.3)', pointerEvents: 'none',
+                                }} />
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.35) 0%, rgba(14,18,26,0.85) 70%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                {/* Accent glow */}
+                                <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
+
+                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: isMobile ? '16px' : '20px 24px', boxSizing: 'border-box', gap: isMobile ? '14px' : '20px', alignItems: 'center' }}>
+
+                                    {/* Left: avatar with glowing ring */}
+                                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                                        <div style={{ position: 'relative' }}>
+                                            <div style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
+                                            <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
+                                            <div style={{ width: isMobile ? '90px' : '110px', height: isMobile ? '90px' : '110px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
+                                                <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            </div>
+                                            {/* #1 badge */}
+                                            <div style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 2, width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900, color: 'white', border: '3px solid rgba(14,18,26,0.9)', boxShadow: '0 3px 12px rgba(245,158,11,0.6)' }}>#1</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: info */}
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {/* Label */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <TrendingUp size={12} color="#FBBF24" />
+                                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Trending Artist</span>
+                                        </div>
+                                        {/* Name */}
+                                        <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
+                                            <div style={{ fontWeight: 900, fontSize: isMobile ? '18px' : '22px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                <StyledUsername userId={artists[0].userId}>{artists[0].displayName || artists[0].username}</StyledUsername>
+                                            </div>
+                                        </Link>
+                                        {/* Genre pills */}
+                                        {(artists[0].primaryGenre || artists[0].genres?.length > 0) && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                {artists[0].primaryGenre && (
+                                                    <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '4px 10px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>
+                                                        {artists[0].primaryGenre.name}
+                                                    </span>
+                                                )}
+                                                {artists[0].genres?.filter(g => g.genre && (!artists[0].primaryGenre || g.genre.name !== artists[0].primaryGenre!.name)).slice(0, 2).map((g, i) => (
+                                                    <span key={i} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
+                                                        {g.genre.name}
+                                                    </span>
+                                                ))}
+                                                {!artists[0].primaryGenre && artists[0].genres?.slice(0, 3).map((g, i) => (
+                                                    <span key={`fb-${i}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
+                                                        {g.genre.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* Bio */}
+                                        {artists[0].bio && (
+                                            <p style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                {artists[0].bio}
+                                            </p>
+                                        )}
+                                        {/* Stats + CTA row */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                                                <span style={{ fontSize: '22px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                                                    {artists[0].totalPlays >= 1000 ? `${(artists[0].totalPlays / 1000).toFixed(1)}k` : (artists[0].totalPlays || 0).toLocaleString()}
+                                                </span>
+                                                <span style={{ fontSize: '10px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>plays</span>
+                                            </div>
+                                            <Link to={`/profile/${artists[0].username}`} style={{
+                                                marginLeft: 'auto',
+                                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
+                                                background: colors.primary, color: 'white',
+                                                fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
+                                                boxShadow: `0 4px 16px ${colors.primary}44`,
+                                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                            }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
+                                            >
+                                                View Profile
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '20px' }}>
+                                <TrendingUp size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
+                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No artists yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Featured Content — 2 cols wide */}
+                    {(() => {
+                        const contentType = featured?.featuredContentType || 'video';
+                        const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
+                            video:   { icon: <MonitorPlay size={13} />, label: 'Featured Video',   accentColor: colors.primary },
+                            news:    { icon: <Newspaper size={13} />,   label: 'Featured News',    accentColor: '#A78BFA' },
+                            guide:   { icon: <BookOpen size={13} />,    label: 'Featured Guide',   accentColor: '#FBBF24' },
+                            article: { icon: <FileText size={13} />,    label: 'Featured Article', accentColor: '#34D399' },
+                        };
+                        const tc = typeConfig[contentType] ?? typeConfig.video;
+                        return (
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                                {/* Blurred thumbnail/accent background */}
+                                {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        backgroundImage: `url(${featured?.featuredTutorialThumbnail || getTutorialThumbnail()})`,
+                                        backgroundSize: 'cover', backgroundPosition: 'center',
+                                        filter: 'blur(40px) brightness(0.2) saturate(1.5)',
+                                        transform: 'scale(1.3)',
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                {contentType !== 'video' && featuredArticle?.coverImageUrl && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        backgroundImage: `url(${featuredArticle.coverImageUrl})`,
+                                        backgroundSize: 'cover', backgroundPosition: 'center',
+                                        filter: 'blur(40px) brightness(0.18) saturate(1.4)',
+                                        transform: 'scale(1.3)',
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                {contentType !== 'video' && !featuredArticle?.coverImageUrl && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%)`,
+                                        pointerEvents: 'none',
+                                    }} />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.4) 0%, rgba(14,18,26,0.8) 60%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                {/* Accent glow */}
+                                <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '50%', height: '70%', background: `radial-gradient(ellipse, ${tc.accentColor}10 0%, transparent 70%)`, pointerEvents: 'none' }} />
+
+                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: isMobile ? '20px' : '24px 28px', boxSizing: 'border-box' }}>
+                                    {/* Type label */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+                                        <span style={{ color: tc.accentColor, display: 'flex', alignItems: 'center' }}>{tc.icon}</span>
+                                        <span style={{ fontSize: '10px', fontWeight: 800, color: tc.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{tc.label}</span>
+                                    </div>
+
+                                    {/* Content body */}
+                                    {contentType === 'video' ? (
+                                        featured?.featuredTutorialUrl ? (
+                                            <div style={{ flex: 1, display: 'flex', gap: isMobile ? '16px' : '24px', minHeight: 0, overflow: 'hidden', alignItems: 'center' }}>
+                                                {/* Left: thumbnail with play overlay */}
+                                                <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, display: 'block', width: isMobile ? '140px' : '220px', textDecoration: 'none' }}>
+                                                    <div style={{
+                                                        width: '100%', aspectRatio: '16/9',
+                                                        borderRadius: '12px', overflow: 'hidden', position: 'relative',
+                                                        background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+                                                        cursor: 'pointer',
+                                                    }}>
+                                                        {getTutorialThumbnail() && (
+                                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, transition: 'transform 0.3s' }} />
+                                                        )}
+                                                        <div style={{
+                                                            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            transition: 'background 0.2s',
+                                                        }}>
+                                                            <div style={{
+                                                                width: '52px', height: '52px',
+                                                                background: `${colors.primary}dd`, borderRadius: '50%',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                boxShadow: `0 6px 24px ${colors.primary}55`,
+                                                                transition: 'transform 0.2s',
+                                                            }}>
+                                                                <Play size={22} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </a>
+                                                {/* Right: text + CTA */}
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+                                                    <div style={{ fontWeight: 900, fontSize: isMobile ? '16px' : '22px', lineHeight: 1.2, color: colors.textPrimary, letterSpacing: '-0.02em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
+                                                    </div>
+                                                    {featured.featuredTutorialDescription && (
+                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
+                                                            {featured.featuredTutorialDescription}
+                                                        </div>
+                                                    )}
+                                                    {/* Author + date */}
+                                                    {(featured.featuredTutorialAuthor || featured.featuredTutorialDate) && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                            {featured.featuredTutorialAuthor && (
+                                                                <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
+                                                                    {featured.featuredTutorialAuthor}
+                                                                </span>
+                                                            )}
+                                                            {featured.featuredTutorialAuthor && featured.featuredTutorialDate && (
+                                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                            )}
+                                                            {featured.featuredTutorialDate && (
+                                                                <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                                                    {featured.featuredTutorialDate}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <a
+                                                        href={featured.featuredTutorialUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '7px',
+                                                            padding: '9px 20px', borderRadius: '999px', width: 'fit-content',
+                                                            background: colors.primary, color: 'white',
+                                                            fontWeight: 700, fontSize: '12px', textDecoration: 'none',
+                                                            letterSpacing: '0.03em',
+                                                            boxShadow: `0 4px 16px ${colors.primary}44`,
+                                                            transition: 'transform 0.15s, box-shadow 0.15s',
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
+                                                    >
+                                                        <ExternalLink size={13} /> Watch Now
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                                <MonitorPlay size={40} color={colors.textSecondary} style={{ opacity: 0.12 }} />
+                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No video set</p>
+                                            </div>
+                                        )
+                                    ) : (
+                                        /* News / Guide / Article — show featured article or fallback */
+                                        featuredArticle ? (
+                                            <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
+                                                {featuredArticle.coverImageUrl ? (
+                                                    <div style={{
+                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
+                                                        overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                                                    }}>
+                                                        <img src={featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{
+                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
+                                                        background: `${tc.accentColor}12`, border: `1px solid ${tc.accentColor}30`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                                                    }}>
+                                                        {contentType === 'news'
+                                                            ? <Newspaper size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
+                                                            : contentType === 'article'
+                                                            ? <FileText size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
+                                                            : <BookOpen size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />}
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+                                                    <div style={{ fontSize: isMobile ? '16px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                        {featuredArticle.title}
+                                                    </div>
+                                                    {featuredArticle.excerpt && (
+                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
+                                                            {featuredArticle.excerpt}
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {featuredArticle.authorName && (
+                                                            <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
+                                                                {featuredArticle.authorName}
+                                                            </span>
+                                                        )}
+                                                        {featuredArticle.authorName && featuredArticle.publishedAt && (
+                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                        )}
+                                                        {featuredArticle.publishedAt && (
+                                                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                                                {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                                        padding: '9px 20px', borderRadius: '999px', fontSize: '12px', fontWeight: 700,
+                                                        background: tc.accentColor, color: 'white',
+                                                        letterSpacing: '0.03em',
+                                                        boxShadow: `0 4px 16px ${tc.accentColor}44`,
+                                                    }}>Read Article</span>
+                                                </div>
+                                            </a>
+                                        ) : (
+                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', justifyContent: 'center' }}>
+                                                <div style={{
+                                                    width: '100px', height: '100px', flexShrink: 0, borderRadius: '20px',
+                                                    background: `${tc.accentColor}10`,
+                                                    border: `1px solid ${tc.accentColor}25`,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}>
+                                                    {contentType === 'news'
+                                                        ? <Newspaper size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
+                                                        : contentType === 'article'
+                                                        ? <FileText size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
+                                                        : <BookOpen size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />}
+                                                </div>
+                                                <div style={{ flex: 1, maxWidth: '300px' }}>
+                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, marginBottom: '8px', letterSpacing: '-0.02em' }}>
+                                                        {contentType === 'news' ? 'Community News' : contentType === 'article' ? 'Featured Article' : 'Community Guides'}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.6)', lineHeight: 1.7, marginBottom: '14px' }}>
+                                                        {contentType === 'news'
+                                                            ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
+                                                            : contentType === 'article'
+                                                            ? 'A featured article selected by the community team.'
+                                                            : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
+                                                    </div>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                        padding: '6px 14px', borderRadius: '999px', fontSize: '10px', fontWeight: 700,
+                                                        background: `${tc.accentColor}15`, border: `1px solid ${tc.accentColor}30`,
+                                                        color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
+                                                    }}>No content yet</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
+                    <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', padding: 0, overflow: 'hidden' }}>
+                        {/* Header */}
+                        <div style={{ padding: '15px 20px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Activity size={15} color={colors.primary} />
+                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Latest Releases</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary }}>{Math.min(latestTracks.length, 6)} tracks</span>
+                        </div>
+                        {/* Waveform track list */}
+                        <div style={{ padding: '8px 14px 12px' }}>
+                            {latestTracks.slice(0, 6).map((track, i) => {
+                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                return (
+                                    <div
+                                        key={track.id}
+                                        className="lr-row"
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px',
+                                            padding: '8px 8px', borderRadius: '10px', cursor: 'pointer',
+                                            background: isPlaying ? `${colors.primary}0d` : 'transparent',
+                                            border: isPlaying ? `1px solid ${colors.primary}22` : '1px solid transparent',
+                                            marginBottom: '3px', transition: 'background 0.15s',
+                                        }}
+                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, latestTracks); }}
+                                    >
+                                        {/* Rank */}
+                                        <span style={{ fontSize: '11px', fontWeight: 800, color: i === 0 ? colors.primary : 'rgba(255,255,255,0.22)', width: '14px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
+
+                                        {/* Cover + play overlay */}
+                                        <div style={{ width: isMobile ? '44px' : '52px', height: isMobile ? '44px' : '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1a2234' }}>
+                                            {track.coverUrl
+                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={16} color={colors.primary} opacity={0.2} /></div>
+                                            }
+                                            <div
+                                                className="lr-cover-overlay"
+                                                style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 1 : 0, transition: 'opacity 0.15s' }}
+                                            >
+                                                {isPlaying
+                                                    ? <Pause size={14} fill={colors.primary} color={colors.primary} />
+                                                    : <Play size={14} fill="white" color="white" style={{ marginLeft: '2px' }} />
+                                                }
+                                            </div>
+                                        </div>
+
+                                        {/* Title + artist */}
+                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '150px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></div>
+                                        </div>
+
+                                        {/* Waveform — main visual element */}
+                                        <div style={{ flex: isMobile ? undefined : 1, flexShrink: 0, width: isMobile ? '60px' : undefined, minWidth: 0, height: isMobile ? '32px' : '42px', display: 'flex', alignItems: 'flex-end', gap: isMobile ? '1px' : '2px', overflow: 'hidden' }}>
+                                            {generateWaveform(track.id, isMobile ? 14 : 32).map((barH, bi) => (
+                                                    <div
+                                                        key={bi}
+                                                        className={isPlaying ? 'wf-anim-bar' : undefined}
+                                                        style={{
+                                                            flex: 1,
+                                                            height: `${barH}%`,
+                                                            minWidth: '2px',
+                                                            borderRadius: '2px 2px 1px 1px',
+                                                            background: isPlaying
+                                                                ? `rgba(16,185,129,${0.45 + (barH / 90) * 0.55})`
+                                                                : `rgba(255,255,255,${0.07 + (barH / 90) * 0.13})`,
+                                                            animationDelay: isPlaying ? `${(bi % 9) * 0.09}s` : undefined,
+                                                            transition: 'background 0.4s',
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+
+                                        {/* Play count — desktop only */}
+                                        {!isMobile && (
+                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '68px', justifyContent: 'flex-end' }}>
+                                            <Play size={9} color={colors.textSecondary} />
+                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(track.playCount || 0).toLocaleString()}</span>
+                                        </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Latest Releases — individual track cards */}
-                    {topTracks.map(track => (
-                        <Link
-                            key={track.id}
-                            to={`/track/${track.profile.username}/${track.slug || track.id}`}
-                            style={{ gridColumn: isMobile ? 'span 6' : 'span 2', textDecoration: 'none', color: 'inherit' }}
-                        >
-                            <div
-                                style={{ ...styles.widgetCard, padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}55`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
-                            >
-                                {/* Artwork */}
-                                <div
-                                    style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}
-                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTrack(track, topTracks); }}
-                                >
-                                    {track.coverUrl ? (
-                                        <img src={track.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <FujiLogo size={20} color={colors.primary} opacity={0.25} />
-                                        </div>
-                                    )}
-                                    <div
-                                        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.15s' }}
-                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                                    >
-                                        <Play size={20} fill="white" color="white" />
-                                    </div>
-                                </div>
-
-                                {/* Text */}
-                                <div style={{ width: '100%', minWidth: 0 }}>
-                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{track.title}</p>
-                                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></p>
-                                    {track.genres?.[0] && (
-                                        <span style={{ display: 'inline-block', marginTop: '6px', fontSize: '9px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.primary, backgroundColor: `${colors.primary}18`, padding: '2px 7px', borderRadius: '4px' }}>
-                                            {track.genres[0].genre.name}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </Link>
-                    ))}
-
-                    {/* Popular Playlists — section header */}
-                    {popularPlaylists.length > 0 && (
-                        <>
-                            <div style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginTop: '8px' }}>
-                                <ListMusic size={18} color={colors.accentOrange} />
-                                <div>
-                                    <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.textPrimary }}>Popular Playlists</span>
-                                    <span style={{ marginLeft: '12px', fontSize: '11px', color: '#B9C3CE', letterSpacing: '0.05em' }}>Community curated collections</span>
-                                </div>
-                            </div>
-
-                            {/* Popular Playlists — cards */}
-                            {popularPlaylists.map(playlist => (
-                                <Link
-                                    key={playlist.id}
-                                    to={`/playlist/${playlist.id}`}
-                                    style={{ gridColumn: isMobile ? 'span 6' : 'span 2', textDecoration: 'none', color: 'inherit' }}
-                                >
-                                    <div
-                                        style={{ ...styles.widgetCard, padding: '14px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.2s' }}
-                                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}55`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
-                                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
-                                    >
-                                        {/* Cover */}
-                                        <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-                                            {playlist.coverUrl ? (
-                                                <img src={playlist.coverUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', backgroundColor: '#1A1E2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <ListMusic size={24} color={colors.primary} style={{ opacity: 0.3 }} />
-                                                </div>
-                                            )}
-                                            {/* Track count badge */}
-                                            <div style={{ position: 'absolute', bottom: '6px', right: '6px', backgroundColor: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, color: 'white', backdropFilter: 'blur(4px)' }}>
-                                                {playlist.trackCount} tracks
-                                            </div>
-                                        </div>
-
-                                        {/* Text */}
-                                        <div style={{ width: '100%', minWidth: 0 }}>
-                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>{playlist.name}</p>
-                                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>by {playlist.profile?.displayName || playlist.profile?.username || 'Unknown'}</p>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                                                <span style={{ fontSize: '10px', color: '#B9C3CE', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                    <Play size={9} /> {playlist.totalPlays.toLocaleString()} plays
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-                        </>
-                    )}
 
                 </div>
             </div>
