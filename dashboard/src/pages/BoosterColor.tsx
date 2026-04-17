@@ -93,8 +93,8 @@ export const BoosterColorPage: React.FC = () => {
             </div>
 
             {/* Explanation */}
-            <div style={{
-                backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md,
+            <div className="settings-explanation" style={{
+                background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md,
                 marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}`,
             }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>

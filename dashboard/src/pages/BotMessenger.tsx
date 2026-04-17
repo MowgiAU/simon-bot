@@ -1077,7 +1077,7 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
             )}
 
             {/* Explanation */}
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
                     Set up reaction roles so users can react to a message and receive a role automatically.
                     First send a message using the <strong>Send Message</strong> or <strong>Embed Builder</strong> tab, copy its Message ID,
@@ -1339,7 +1339,7 @@ export function BotMessengerPage() {
             </div>
 
             {/* Explanation */}
-            <div className="settings-explanation" style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
                     Use the <strong>Send Message</strong> tab to send text messages with emoji, stickers, and reply functionality. 
                     Use the <strong>Embed Builder</strong> tab to create rich embeds with titles, descriptions, fields, images, and more — similar to Discohook.

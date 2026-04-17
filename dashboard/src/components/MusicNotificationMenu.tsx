@@ -120,7 +120,7 @@ export const MusicNotificationMenu: React.FC = () => {
                         notifications.map(n => (
                             <a
                                 key={n.id}
-                                href={n.link || '#'}
+                                href={n.link || undefined}
                                 onClick={() => setOpen(false)}
                                 style={{
                                     display: 'flex', alignItems: 'flex-start', gap: '10px',

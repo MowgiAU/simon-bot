@@ -245,7 +245,7 @@ export const StudioGuidePage: React.FC = () => {
             </div>
 
             {/* Explanation */}
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
                     Studio Guide monitors a designated help channel and intelligently detects when someone asks a question about 
                     FL Studio, music production, mixing, or music theory. It uses the official FL Studio manual and music theory 
@@ -587,7 +587,7 @@ export const StudioGuidePage: React.FC = () => {
             {/* ─── Knowledge Base Tab ─── */}
             {tab === 'knowledge' && (
                 <div>
-                    <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                    <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                         <p style={{ margin: 0, color: colors.textPrimary, fontSize: '14px' }}>
                             Add specific facts, Q&amp;A pairs, or community-specific information here. These are injected directly into every AI response as authoritative knowledge, so the bot will always use them when relevant — even without the FAISS index.
                         </p>

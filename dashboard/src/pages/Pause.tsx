@@ -98,7 +98,7 @@ export const PausePage: React.FC = () => {
             </div>
 
             {/* Explanation */}
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+            <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
                     <strong>/pause</strong> is a joke command — it sends a fake moderation message (<strong>ban</strong>, <strong>kick</strong>, <strong>timeout</strong>, or <strong>warn</strong>) without actually doing anything to the user.
                     Add roles below that are allowed to use this command. Server admins can always use it regardless.
