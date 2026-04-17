@@ -280,41 +280,43 @@ export class AutoResponderPlugin implements IPlugin {
                     if (raw.timestamp) e.setTimestamp();
                     if (Array.isArray(raw.fields)) {
                         e.addFields(raw.fields.filter((f: any) => f.name || f.value).map((f: any) => ({
-                            name: resolvePlaceholders(f.name || '\u200b'),
-                            value: resolvePlaceholders(f.value || '\u200b'),
+                            name: resolvePlaceholders(f.name || '\u200b').slice(0, 256),
+                            value: resolvePlaceholders(f.value || '\u200b').slice(0, 1024),
                             inline: !!f.inline,
                         })));
                     }
+                    // Helper to build link field value, splitting into multiple fields if >1024 chars
+                    const addLinkFields = (fieldName: string, links: any[]) => {
+                        let value = '';
+                        for (const l of links) {
+                            const desc = l.description ? `\n  ${resolvePlaceholders(l.description)}` : '';
+                            const line = `• [${resolvePlaceholders(l.title)}](${l.url})${desc}\n`;
+                            if (value.length + line.length > 1024) {
+                                if (value) e.addFields({ name: fieldName, value: value.trimEnd(), inline: false });
+                                value = line;
+                                fieldName = `${fieldName} (cont.)`;
+                            } else {
+                                value += line;
+                            }
+                        }
+                        if (value) e.addFields({ name: fieldName, value: value.trimEnd(), inline: false });
+                    };
                     if (Array.isArray(raw.links) && raw.links.length > 0) {
                         const validLinks = raw.links.filter((l: any) => l.title && l.url);
-                        if (validLinks.length > 0) {
-                            e.addFields({
-                                name: '🔗 Links',
-                                value: validLinks.map((l: any) => {
-                                    const desc = l.description ? `\n  ${resolvePlaceholders(l.description)}` : '';
-                                    return `• [${resolvePlaceholders(l.title)}](${l.url})${desc}`;
-                                }).join('\n'),
-                                inline: false,
-                            });
-                        }
+                        if (validLinks.length > 0) addLinkFields('🔗 Links', validLinks);
                     }
                     if (Array.isArray(raw.linkCategories) && raw.linkCategories.length > 0) {
-                        for (const cat of raw.linkCategories) {
-                            if (!cat.category || !Array.isArray(cat.links)) continue;
-                            const validLinks = cat.links.filter((l: any) => l.title && l.url);
+                        for (const linkCat of raw.linkCategories) {
+                            if (!linkCat.category || !Array.isArray(linkCat.links)) continue;
+                            const validLinks = linkCat.links.filter((l: any) => l.title && l.url);
                             if (validLinks.length === 0) continue;
-                            e.addFields({
-                                name: `🔗 ${resolvePlaceholders(cat.category)}`,
-                                value: validLinks.map((l: any) => {
-                                    const desc = l.description ? `\n  ${resolvePlaceholders(l.description)}` : '';
-                                    return `• [${resolvePlaceholders(l.title)}](${l.url})${desc}`;
-                                }).join('\n'),
-                                inline: false,
-                            });
+                            addLinkFields(`🔗 ${resolvePlaceholders(linkCat.category)}`, validLinks);
                         }
                     }
                     embed = e;
-                } catch { /* skip malformed embed */ }
+                } catch (embedErr: any) {
+                    this.logger.warn(`AutoResponder: failed to build embed for rule "${rule.name}": ${embedErr?.message}`);
+                }
             }
 
             try {
