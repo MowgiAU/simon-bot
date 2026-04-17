@@ -105,8 +105,8 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
         // Build track URL — prefer slug, fall back to trackId
         const trackPath = ann.trackSlug
-            ? `/music/${ann.profileUsername}/${ann.trackSlug}`
-            : `/music/${ann.profileUsername}/${ann.trackId}`;
+            ? `/profile/${ann.profileUsername}/${ann.trackSlug}`
+            : `/profile/${ann.profileUsername}/${ann.trackId}`;
         const trackUrl = `${this.siteBase}${trackPath}`;
         const artistUrl = `${this.siteBase}/profile/${ann.profileUsername}`;
 
