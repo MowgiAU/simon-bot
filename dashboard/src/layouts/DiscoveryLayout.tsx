@@ -35,6 +35,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const [isPieMenuOpen, setIsPieMenuOpen] = useState(false);
+    const [hasActiveBattle, setHasActiveBattle] = useState(false);
     const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const openAccountMenu = () => {
@@ -57,6 +58,15 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        fetch('/api/beat-battle/battles?guildId=default-guild')
+            .then(r => r.json())
+            .then((battles: any[]) => {
+                setHasActiveBattle(battles.some((b: any) => b.status === 'active' || b.status === 'voting'));
+            })
+            .catch(() => {});
     }, []);
 
     const navItems = [
@@ -122,19 +132,26 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {!isMobile && (
                         <nav style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', zIndex: 1 }}>
                             {navItems.map(item => {
+                                const isBattleHighlight = item.key === 'battles' && hasActiveBattle && activeTab !== 'battles';
                                 const navStyle: React.CSSProperties = {
                                     padding: '6px 16px', borderRadius: '4px',
-                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
-                                    color: activeTab === item.key ? colors.primary : '#B9C3CE',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(52,211,153,0.12)' : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#34D399' : '#B9C3CE',
                                     fontSize: '10px', fontWeight: 'bold',
                                     display: 'flex', alignItems: 'center', gap: '8px',
+                                    position: 'relative' as const,
                                     opacity: item.comingSoon ? 0.6 : 1,
                                 };
                                 if (item.comingSoon || !item.path) {
                                     return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
                                 }
                                 return (
-                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>{item.icon} {item.label}</Link>
+                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>
+                                        {item.icon} {item.label}
+                                        {isBattleHighlight && (
+                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34D399', flexShrink: 0 }} />
+                                        )}
+                                    </Link>
                                 );
                             })}
                         </nav>
@@ -390,6 +407,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             const x = Math.cos(rad) * r;
                             const y = Math.sin(rad) * r;
                             const isActive = activeTab === item.key;
+                            const isBattleHighlight = item.key === 'battles' && hasActiveBattle && !isActive;
                             return (
                                 <Link
                                     key={item.key}
@@ -404,13 +422,17 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 >
                                     <div style={{
                                         width: '54px', height: '54px', borderRadius: '50%',
-                                        backgroundColor: isActive ? colors.primary : 'rgba(255,255,255,0.07)',
-                                        border: `2px solid ${isActive ? colors.primary : 'rgba(255,255,255,0.12)'}`,
+                                        backgroundColor: isActive ? colors.primary : isBattleHighlight ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.07)',
+                                        border: `2px solid ${isActive ? colors.primary : isBattleHighlight ? '#34D39966' : 'rgba(255,255,255,0.12)'}`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: isActive ? 'white' : '#B9C3CE',
-                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : 'none',
+                                        color: isActive ? 'white' : isBattleHighlight ? '#34D399' : '#B9C3CE',
+                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : isBattleHighlight ? '0 0 12px rgba(52,211,153,0.3)' : 'none',
+                                        position: 'relative' as const,
                                     }}>
                                         {item.icon}
+                                        {isBattleHighlight && (
+                                            <span className="new-drops-pulse" style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34D399', border: '2px solid #161925' }} />
+                                        )}
                                     </div>
                                     <span style={{
                                         fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em',
