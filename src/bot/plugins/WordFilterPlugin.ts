@@ -1,4 +1,4 @@
-import { Message, TextChannel, Webhook, PermissionResolvable } from 'discord.js';
+import { Message, TextChannel, Webhook, PermissionResolvable, GuildMember } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
@@ -24,9 +24,9 @@ export class WordFilterPlugin implements IPlugin {
   version = '1.0.0';
   author = 'Fuji Studio Team';
   
-  requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages'];
+  requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages', 'ManageNicknames'];
   commands = ['filter'];
-  events = ['messageCreate'];
+  events = ['messageCreate', 'guildMemberAdd', 'guildMemberUpdate'];
   dashboardSections = ['word-filter-settings', 'word-filter-groups'];
   defaultEnabled = true;
   
@@ -231,6 +231,71 @@ export class WordFilterPlugin implements IPlugin {
       username: nickname,
       avatarURL: avatar || undefined,
     });
+  }
+
+  /**
+   * On member join — auto-rename if their username contains filtered words.
+   */
+  async onGuildMemberAdd(member: GuildMember): Promise<void> {
+    await this.enforceCleanNickname(member);
+  }
+
+  /**
+   * On member update — auto-rename if they changed their nickname to one with filtered words.
+   */
+  async onGuildMemberUpdate(oldMember: GuildMember, newMember: GuildMember): Promise<void> {
+    const oldName = oldMember.nickname || oldMember.user.username;
+    const newName = newMember.nickname || newMember.user.username;
+    if (oldName === newName) return; // Name didn't change
+    await this.enforceCleanNickname(newMember);
+  }
+
+  /**
+   * Check a member's display name against the word filter and set a clean nickname if needed.
+   */
+  private async enforceCleanNickname(member: GuildMember): Promise<void> {
+    if (!this.context || member.user.bot) return;
+
+    const settings = await this.context.db.filterSettings.findUnique({
+      where: { guildId: member.guild.id },
+      include: { wordGroups: { include: { words: true } } },
+    });
+
+    if (!settings?.enabled || !settings.wordGroups?.length) return;
+
+    const displayName = member.nickname || member.user.displayName || member.user.username;
+    const { filtered, content } = this.processMessageContent(displayName, settings.wordGroups);
+
+    if (!filtered) return;
+
+    // Don't try to rename the guild owner or members with higher roles
+    if (member.id === member.guild.ownerId) return;
+    const botMember = member.guild.members.me;
+    if (botMember && member.roles.highest.position >= botMember.roles.highest.position) return;
+
+    try {
+      await member.setNickname(content, 'Word filter: inappropriate display name');
+      this.logger.info(`Renamed ${member.user.username} to "${content}" in ${member.guild.name} (word filter)`);
+
+      // Log the action
+      await this.context.db.actionLog.create({
+        data: {
+          guildId: member.guild.id,
+          pluginId: this.id,
+          action: 'nickname_filtered',
+          executorId: member.client.user!.id,
+          targetId: member.id,
+          searchableText: `${member.user.username} ${displayName} ${content}`.toLowerCase(),
+          details: {
+            originalName: displayName,
+            filteredName: content,
+            reason: 'Display name contained filtered words',
+          },
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to rename ${member.user.username} in ${member.guild.name}`, error);
+    }
   }
 }
 
