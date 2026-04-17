@@ -397,6 +397,7 @@ export const ProfileEditPage: React.FC = () => {
     };
 
     const socialsList = [
+        { key: 'discordUrl', label: 'Discord', icon: <MessageCircle size={16}/>, placeholder: 'e.g. username or user#1234' },
         { key: 'spotifyUrl', label: 'Spotify', icon: <Radio size={16}/>, placeholder: 'https://open.spotify.com/artist/...' },
         { key: 'soundcloudUrl', label: 'SoundCloud', icon: <Music size={16}/>, placeholder: 'https://soundcloud.com/...' },
         { key: 'youtubeUrl', label: 'YouTube', icon: <Youtube size={16}/>, placeholder: 'https://youtube.com/@...' },

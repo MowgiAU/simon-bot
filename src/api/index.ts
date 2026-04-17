@@ -7871,7 +7871,6 @@ const SOCIAL_DOMAIN_RULES: Record<string, { pattern: RegExp; label: string }> = 
     soundcloud: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud (soundcloud.com)' },
     youtube:    { pattern: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, label: 'YouTube (youtube.com or youtu.be)' },
     instagram:  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i,   label: 'Instagram (instagram.com)' },
-    discord:    { pattern: /^https?:\/\/(discord\.gg|discord\.com\/)/i, label: 'Discord (discord.gg or discord.com)' },
 };
 
 function validateSocialUrls(data: any): string | null {
@@ -7880,7 +7879,6 @@ function validateSocialUrls(data: any): string | null {
         soundcloudUrl: 'soundcloud',
         youtubeUrl:    'youtube',
         instagramUrl:  'instagram',
-        discordUrl:    'discord',
     };
     for (const [field, platform] of Object.entries(fields)) {
         const url: string | undefined = data[field];
@@ -7889,6 +7887,10 @@ function validateSocialUrls(data: any): string | null {
         if (!rule.pattern.test(url.trim())) {
             return `Invalid URL for ${platform}. Must be a valid ${rule.label} link.`;
         }
+    }
+    // Discord is a username/handle, not a URL — just validate length
+    if (data.discordUrl && data.discordUrl.trim().length > 100) {
+        return 'Discord username must be 100 characters or fewer.';
     }
     return null;
 }
