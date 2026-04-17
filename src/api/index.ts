@@ -11241,6 +11241,7 @@ app.get('/api/comments', async (req: any, res) => {
             }
             return {
                 ...rest,
+                profileUsername: prof?.username || null,
                 likeCount,
                 dislikeCount,
                 userVote,

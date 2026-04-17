@@ -9,6 +9,7 @@ import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
     Search, Loader2, ChevronDown, Reply, ThumbsUp, ThumbsDown
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -18,6 +19,7 @@ interface Comment {
     id: string;
     userId: string;
     username: string;
+    profileUsername?: string | null;
     avatarUrl: string | null;
     content: string;
     gifUrl: string | null;
@@ -529,19 +531,37 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                         <div key={comment.id} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.04)' }}>
                             {/* Avatar */}
                             <div style={{ flexShrink: 0 }}>
-                                {comment.avatarUrl ? (
-                                    <img src={comment.avatarUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
+                                {comment.profileUsername ? (
+                                    <Link to={`/profile/${comment.profileUsername}`}>
+                                        {comment.avatarUrl ? (
+                                            <img src={comment.avatarUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }} />
+                                        ) : (
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                                                {comment.username.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                    </Link>
                                 ) : (
-                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
-                                        {comment.username.charAt(0).toUpperCase()}
-                                    </div>
+                                    comment.avatarUrl ? (
+                                        <img src={comment.avatarUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
+                                    ) : (
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600 }}>
+                                            {comment.username.charAt(0).toUpperCase()}
+                                        </div>
+                                    )
                                 )}
                             </div>
 
                             {/* Content */}
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <StyledUsername userId={comment.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.username}</StyledUsername>
+                                    {comment.profileUsername ? (
+                                        <Link to={`/profile/${comment.profileUsername}`} style={{ textDecoration: 'none' }}>
+                                            <StyledUsername userId={comment.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>{comment.username}</StyledUsername>
+                                        </Link>
+                                    ) : (
+                                        <StyledUsername userId={comment.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '14px' }}>{comment.username}</StyledUsername>
+                                    )}
                                     {comment.trackTimestamp != null && (
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: colors.primary, backgroundColor: `${colors.primary}15`, padding: '1px 6px', borderRadius: '4px', cursor: 'pointer' }}
                                             title="Jump to this time"
@@ -665,17 +685,35 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                 {comment.replies.map(reply => (
                                                     <div key={reply.id} style={{ display: 'flex', gap: '10px' }}>
                                                         <div style={{ flexShrink: 0 }}>
-                                                            {reply.avatarUrl ? (
-                                                                <img src={reply.avatarUrl} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+                                                            {reply.profileUsername ? (
+                                                                <Link to={`/profile/${reply.profileUsername}`}>
+                                                                    {reply.avatarUrl ? (
+                                                                        <img src={reply.avatarUrl} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer' }} />
+                                                                    ) : (
+                                                                        <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                                                                            {reply.username.charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                </Link>
                                                             ) : (
-                                                                <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>
-                                                                    {reply.username.charAt(0).toUpperCase()}
-                                                                </div>
+                                                                reply.avatarUrl ? (
+                                                                    <img src={reply.avatarUrl} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+                                                                ) : (
+                                                                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600 }}>
+                                                                        {reply.username.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                )
                                                             )}
                                                         </div>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                                                                <StyledUsername userId={reply.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '13px' }}>{reply.username}</StyledUsername>
+                                                                {reply.profileUsername ? (
+                                                                    <Link to={`/profile/${reply.profileUsername}`} style={{ textDecoration: 'none' }}>
+                                                                        <StyledUsername userId={reply.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>{reply.username}</StyledUsername>
+                                                                    </Link>
+                                                                ) : (
+                                                                    <StyledUsername userId={reply.userId} showBadge={false} style={{ fontWeight: 600, fontSize: '13px' }}>{reply.username}</StyledUsername>
+                                                                )}
                                                                 <span style={{ fontSize: '11px', color: colors.textSecondary }}>{formatTime(reply.createdAt)}</span>
                                                                 {reply.editedAt && <span style={{ fontSize: '10px', color: colors.textSecondary, fontStyle: 'italic' }}>(edited)</span>}
                                                             </div>

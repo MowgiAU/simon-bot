@@ -28,6 +28,7 @@ const ANIM_CSS = `
   background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
   animation: ps-shimmer-move 2.2s ease-in-out infinite;
   pointer-events: none;
+  mix-blend-mode: overlay;
 }
 .ps-anim-pulse   { animation: ps-pulse 2s ease-in-out infinite !important; }
 .ps-anim-rainbow { animation: ps-rainbow 4s linear infinite !important; }
