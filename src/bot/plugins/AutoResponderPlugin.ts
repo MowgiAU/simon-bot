@@ -192,8 +192,11 @@ export class AutoResponderPlugin implements IPlugin {
             if (!match) continue;
 
             // Cooldown check (in-memory for speed) — only runs if message matched
+            // When cooldown comes from a category, use the category ID as the key so that
+            // ANY rule in the category firing puts the entire category on cooldown.
+            const cooldownKey = cat ? cat.id : rule.id;
             if (effectiveCooldownSeconds > 0) {
-                const lastFired = this.cooldowns.get(rule.id) || 0;
+                const lastFired = this.cooldowns.get(cooldownKey) || 0;
                 if (Date.now() - lastFired < effectiveCooldownSeconds * 1000) {
                     // Still react normally even on cooldown
                     if (rule.reactionEmoji) {
@@ -316,8 +319,8 @@ export class AutoResponderPlugin implements IPlugin {
                     continue;
                 }
 
-                // Update per-rule cooldown
-                this.cooldowns.set(rule.id, Date.now());
+                // Update per-rule (or per-category) cooldown
+                this.cooldowns.set(cooldownKey, Date.now());
                 // Update global user cooldown once per message (first fired rule)
                 if (globalCooldownSeconds > 0 && !globalCooldownBlocked && !globalCooldownUpdated) {
                     this.userCooldowns.set(userKey, Date.now());
