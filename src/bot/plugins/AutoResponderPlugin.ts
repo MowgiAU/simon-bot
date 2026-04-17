@@ -39,10 +39,11 @@ export class AutoResponderPlugin implements IPlugin {
 
     private context: IPluginContext | null = null;
     private logger = new Logger('AutoResponderPlugin');
-    // Per-rule cooldown tracker (ruleId -> last triggered timestamp)
+    // Per-rule/category per-user cooldown tracker (userId:entityId -> last triggered timestamp)
     private cooldowns = new Map<string, number>();
     // Global per-user cooldown tracker (guildId:userId -> last triggered timestamp)
     private userCooldowns = new Map<string, number>();
+    private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
     /**
      * Resolve an emoji string to something message.react() can use.
@@ -85,10 +86,25 @@ export class AutoResponderPlugin implements IPlugin {
     async shutdown(): Promise<void> {
         this.cooldowns.clear();
         this.userCooldowns.clear();
+        if (this.cleanupInterval) clearInterval(this.cleanupInterval);
     }
 
     // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage)
     async onMessage(msg: Message): Promise<void> {
+        // Periodic cleanup of stale cooldown entries (every 5 minutes)
+        if (!this.cleanupInterval) {
+            this.cleanupInterval = setInterval(() => {
+                const now = Date.now();
+                const maxAge = 300_000; // 5 minutes
+                for (const [key, ts] of this.cooldowns) {
+                    if (now - ts > maxAge) this.cooldowns.delete(key);
+                }
+                for (const [key, ts] of this.userCooldowns) {
+                    if (now - ts > maxAge) this.userCooldowns.delete(key);
+                }
+            }, 300_000);
+        }
+
         // Ignore bots and DMs
         if (msg.author.bot || !msg.guild || !msg.content) return;
         if (!this.context) return;
@@ -192,9 +208,11 @@ export class AutoResponderPlugin implements IPlugin {
             if (!match) continue;
 
             // Cooldown check (in-memory for speed) — only runs if message matched
-            // When cooldown comes from a category, use the category ID as the key so that
-            // ANY rule in the category firing puts the entire category on cooldown.
-            const cooldownKey = cat ? cat.id : rule.id;
+            // When cooldown comes from a category, use the category ID so that
+            // ANY rule in the category firing puts that user's category on cooldown.
+            // Cooldowns are per-user so different users don't block each other.
+            const cooldownEntity = cat ? cat.id : rule.id;
+            const cooldownKey = `${msg.author.id}:${cooldownEntity}`;
             if (effectiveCooldownSeconds > 0) {
                 const lastFired = this.cooldowns.get(cooldownKey) || 0;
                 if (Date.now() - lastFired < effectiveCooldownSeconds * 1000) {
