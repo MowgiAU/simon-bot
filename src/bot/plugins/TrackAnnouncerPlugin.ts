@@ -118,28 +118,28 @@ export class TrackAnnouncerPlugin implements IPlugin {
                 : `${this.siteBase}${ann.coverUrl}`;
         }
 
-        const genreText = ann.genres.length > 0 ? ann.genres.join(', ') : null;
+        const genreText = ann.genres.length > 0 ? ann.genres.join(' · ') : null;
+
+        // Build a rich description
+        const descParts: string[] = [];
+        descParts.push(`🎵 **[${ann.artistName}](${artistUrl})** just dropped a new track!`);
+        if (genreText) descParts.push(`🎧 ${genreText}`);
+        descParts.push(`\n**[▶ Listen Now on Fuji Studio](${trackUrl})**`);
 
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLOR)
+            .setAuthor({
+                name: '🔔 New Track Drop',
+            })
             .setTitle(ann.trackTitle)
             .setURL(trackUrl)
-            .setAuthor({
-                name: ann.artistName,
-                url: artistUrl,
-            })
-            .setFooter({ text: 'New track on Fuji Studio' })
+            .setDescription(descParts.join('\n'))
+            .setFooter({ text: `Fuji Studio • ${ann.artistName}` })
             .setTimestamp();
 
         if (thumbnailUrl) {
-            embed.setThumbnail(thumbnailUrl);
+            embed.setImage(thumbnailUrl);
         }
-
-        if (genreText) {
-            embed.addFields({ name: 'Genre', value: genreText, inline: true });
-        }
-
-        embed.addFields({ name: '▶ Listen', value: `[Open on Fuji Studio](${trackUrl})`, inline: true });
 
         await channel.send({ embeds: [embed] });
         this.logger.info(`[TrackAnnouncer] Posted track "${ann.trackTitle}" by ${ann.artistName} to channel ${settings.channelId}`);
