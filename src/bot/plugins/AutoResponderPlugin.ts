@@ -8,6 +8,7 @@ import {
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
+import { WordCensor } from '../../services/WordCensor.js';
 
 /**
  * YAGPDB-style auto-responder.  Matches incoming messages against
@@ -39,6 +40,7 @@ export class AutoResponderPlugin implements IPlugin {
 
     private context: IPluginContext | null = null;
     private logger = new Logger('AutoResponderPlugin');
+    private censor!: WordCensor;
     // Per-rule/category per-user cooldown tracker (userId:entityId -> last triggered timestamp)
     private cooldowns = new Map<string, number>();
     // Global per-user cooldown tracker (guildId:userId -> last triggered timestamp)
@@ -80,6 +82,7 @@ export class AutoResponderPlugin implements IPlugin {
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
+        this.censor = new WordCensor(context.db);
         this.logger.info('Auto Responder Plugin initialized');
     }
 
@@ -127,6 +130,10 @@ export class AutoResponderPlugin implements IPlugin {
         }
 
         if (!rules.length) return;
+
+        // Pre-compute censored usernames (async, but constant for the entire message)
+        const safeUsername = await this.censor.clean(guildId, msg.author.username);
+        const safeDisplayName = await this.censor.clean(guildId, msg.member?.displayName || msg.author.username);
 
         // Build a lookup map for categories
         const categoryMap = new Map<string, any>(categories.map((c: any) => [c.id, c]));
@@ -242,8 +249,8 @@ export class AutoResponderPlugin implements IPlugin {
                 let out = text
                     .replace(/\{user\}/gi, `<@${msg.author.id}>`)
                     .replace(/\{mention\}/gi, `<@${msg.author.id}>`)
-                    .replace(/\{username\}/gi, msg.author.username)
-                    .replace(/\{displayname\}/gi, msg.member?.displayName || msg.author.username)
+                    .replace(/\{username\}/gi, safeUsername)
+                    .replace(/\{displayname\}/gi, safeDisplayName)
                     .replace(/\{channel\}/gi, `<#${msg.channel.id}>`)
                     .replace(/\{server\}/gi, msg.guild!.name);
                 if (match && match.length > 1) {

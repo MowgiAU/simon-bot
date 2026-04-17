@@ -20,6 +20,7 @@ import {
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { WordCensor } from '../../services/WordCensor.js';
 
 export class TicketPlugin implements IPlugin {
     readonly id = 'ticket';
@@ -46,11 +47,13 @@ export class TicketPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+    private censor!: WordCensor;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.censor = new WordCensor(context.db);
         this.logger.info('Ticket Plugin initialized');
     }
 
@@ -342,8 +345,9 @@ export class TicketPlugin implements IPlugin {
             });
         }
 
+        const safeUsername = await this.censor.clean(guildId, interaction.user.username);
         const channel = await guild.channels.create({
-            name: `ticket-${interaction.user.username}`,
+            name: `ticket-${safeUsername}`,
             type: ChannelType.GuildText,
             parent: category.id,
             permissionOverwrites: overwrites,
@@ -362,7 +366,7 @@ export class TicketPlugin implements IPlugin {
 
         // Send welcome message
         const embed = new EmbedBuilder()
-            .setTitle(`Ticket: ${interaction.user.username}`)
+            .setTitle(`Ticket: ${safeUsername}`)
             .setDescription('Support will be with you shortly. To close this ticket, use `/ticket close`.')
             .setColor(Colors.Green);
 

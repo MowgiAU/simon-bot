@@ -16,6 +16,7 @@ import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs/promises';
+import { WordCensor } from '../../services/WordCensor.js';
 
 // ─────────────────────────────────────────
 // XP Curve: 100 × level^1.5 + 400
@@ -69,6 +70,7 @@ export class LevelingPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+    private censor!: WordCensor;
 
     // Cooldown tracking (userId-guildId → timestamp)
     private messageCooldowns = new Map<string, number>();
@@ -86,6 +88,7 @@ export class LevelingPlugin implements IPlugin {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.censor = new WordCensor(context.db);
 
         // Start voice XP ticker (every 60s)
         this.voiceInterval = setInterval(() => this.tickVoiceXP(), 60_000);
@@ -502,7 +505,7 @@ export class LevelingPlugin implements IPlugin {
                 const msg = settings.levelUpMessage
                     .replace('{user}', `<@${userId}>`)
                     .replace('{level}', String(newLevel))
-                    .replace('{username}', member.user.username);
+                    .replace('{username}', await this.censor.clean(guildId, member.user.username));
 
                 let content = msg;
 
@@ -586,7 +589,7 @@ export class LevelingPlugin implements IPlugin {
 
         const embed = new EmbedBuilder()
             .setColor(0x10B981)
-            .setAuthor({ name: `${targetUser.username}'s Rank`, iconURL: targetUser.displayAvatarURL() })
+            .setAuthor({ name: `${await this.censor.clean(guildId, targetUser.username)}'s Rank`, iconURL: targetUser.displayAvatarURL() })
             .setThumbnail(targetUser.displayAvatarURL({ size: 128 }))
             .addFields(
                 { name: 'Rank', value: `#${rank} / ${totalMembers}`, inline: true },
@@ -868,12 +871,12 @@ export class LevelingPlugin implements IPlugin {
         const member = await this.db.member.findUnique({
             where: { guildId_userId: { guildId, userId: targetUser!.id } },
         });
-        if (!member) return void interaction.editReply(`${targetUser!.username} has no leveling data.`);
+        if (!member) return void interaction.editReply(`${await this.censor.clean(guildId, targetUser!.username)} has no leveling data.`);
 
         const { added, removed } = await this.syncMemberRoles(guildId, guild, targetUser!.id, member.level, allRewards);
 
         await interaction.editReply(
-            `✅ Synced **${targetUser!.username}** (Level ${member.level}): +${added} roles added, -${removed} roles removed.`
+            `✅ Synced **${await this.censor.clean(guildId, targetUser!.username)}** (Level ${member.level}): +${added} roles added, -${removed} roles removed.`
         );
     }
 

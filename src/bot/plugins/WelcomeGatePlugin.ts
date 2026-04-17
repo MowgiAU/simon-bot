@@ -25,6 +25,7 @@ import {
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { WordCensor } from '../../services/WordCensor.js';
 
 export class WelcomeGatePlugin implements IPlugin {
     readonly id = 'welcome-gate';
@@ -58,11 +59,13 @@ export class WelcomeGatePlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+    private censor!: WordCensor;
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.censor = new WordCensor(context.db);
         this.logger.info('Welcome Gate Plugin initialized');
         
         // Ensure settings exist for all guilds
@@ -114,9 +117,10 @@ export class WelcomeGatePlugin implements IPlugin {
                 const channel = member.guild.channels.cache.get(settings.arrivalChannelId) as TextChannel | undefined;
                 if (channel && channel.isTextBased()) {
                     const memberCount = member.guild.memberCount;
+                    const safeTag = await this.censor.clean(member.guild.id, member.user.tag);
                     const embed = new EmbedBuilder()
                         .setTitle('👋 Welcome!')
-                        .setDescription(`**${member.user.tag}** just joined the server.`)
+                        .setDescription(`**${safeTag}** just joined the server.`)
                         .addFields(
                             { name: 'Member', value: `<@${member.user.id}>`, inline: true },
                             { name: 'Member Count', value: `${memberCount.toLocaleString()}`, inline: true },
@@ -150,9 +154,10 @@ export class WelcomeGatePlugin implements IPlugin {
                 ? this.formatMemberDuration(Date.now() - joinedAt.getTime())
                 : 'Unknown';
 
+            const safeTag = await this.censor.clean(member.guild.id, member.user.tag);
             const embed = new EmbedBuilder()
                 .setTitle('👋 Member Left')
-                .setDescription(`**${member.user.tag}** has left the server.`)
+                .setDescription(`**${safeTag}** has left the server.`)
                 .addFields(
                     { name: 'Member', value: `<@${member.user.id}>`, inline: true },
                     { name: 'Time in Server', value: duration, inline: true },

@@ -17,6 +17,7 @@ import {
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
+import { WordCensor } from '../../services/WordCensor.js';
 
 interface EconomyContext extends IPluginContext {}
 
@@ -47,6 +48,7 @@ export class EconomyPlugin implements IPlugin {
     private db: any;
     private logger: any;
     private logAction: any;
+    private censor!: WordCensor;
 
     private messageCooldowns = new Map<string, number>();
 
@@ -55,6 +57,7 @@ export class EconomyPlugin implements IPlugin {
         this.db = context.db;
         this.logger = context.logger;
         this.logAction = context.logAction;
+        this.censor = new WordCensor(context.db);
     }
 
     async shutdown(): Promise<void> {
@@ -210,7 +213,7 @@ export class EconomyPlugin implements IPlugin {
             const settings = await this.getSettings(interaction.guildId);
 
             const embed = new EmbedBuilder()
-                .setTitle(`${target.username}'s Wallet`)
+                .setTitle(`${await this.censor.clean(interaction.guildId!, target.username)}'s Wallet`)
                 .setColor('#FFD700')
                 .addFields(
                     { name: 'Balance', value: `${settings.currencyEmoji} ${account.balance}`, inline: true },
@@ -490,7 +493,7 @@ export class EconomyPlugin implements IPlugin {
             recipient.id,
             amount,
             'PAY',
-            `Transfer from ${interaction.user.username} to ${recipient.username}`
+            `Transfer from ${await this.censor.clean(interaction.guildId!, interaction.user.username)} to ${await this.censor.clean(interaction.guildId!, recipient.username)}`
         );
 
         if (!success) {
