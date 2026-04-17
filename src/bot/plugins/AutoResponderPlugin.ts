@@ -207,8 +207,6 @@ export class AutoResponderPlugin implements IPlugin {
 
             if (!match) continue;
 
-            this.logger.info(`[AR-DEBUG] Rule "${rule.name}" matched! author=${msg.author.id} cooldownSeconds=${effectiveCooldownSeconds} cat=${cat?.id || 'none'}`);
-
             // Cooldown check (in-memory for speed) — only runs if message matched
             // When cooldown comes from a category, use the category ID so that
             // ANY rule in the category firing puts that user's category on cooldown.
@@ -217,9 +215,7 @@ export class AutoResponderPlugin implements IPlugin {
             const cooldownKey = `${msg.author.id}:${cooldownEntity}`;
             if (effectiveCooldownSeconds > 0) {
                 const lastFired = this.cooldowns.get(cooldownKey) || 0;
-                this.logger.info(`[AR-DEBUG] Cooldown check: key=${cooldownKey} lastFired=${lastFired} elapsed=${Date.now() - lastFired}ms threshold=${effectiveCooldownSeconds * 1000}ms`);
                 if (Date.now() - lastFired < effectiveCooldownSeconds * 1000) {
-                    this.logger.info(`[AR-DEBUG] ON COOLDOWN — skipping text for rule "${rule.name}"`);
                     // Still react normally even on cooldown
                     if (rule.reactionEmoji) {
                         try {
@@ -335,10 +331,8 @@ export class AutoResponderPlugin implements IPlugin {
                 }
 
                 // Send text/embed response if present (only once per message, not when global cooldown active)
-                this.logger.info(`[AR-DEBUG] Send check: textResponseSent=${textResponseSent} globalCooldownBlocked=${globalCooldownBlocked} hasContent=${!!(sendPayload.content || sendPayload.embeds)} content=${JSON.stringify(sendPayload.content || '').slice(0, 80)}`);
                 if (!textResponseSent && !globalCooldownBlocked && (sendPayload.content || sendPayload.embeds)) {
                     await (msg.channel as TextChannel).send(sendPayload);
-                    this.logger.info(`[AR-DEBUG] Text SENT for rule "${rule.name}"`);
                     textResponseSent = true;
                 } else if (!rule.reactionEmoji && !(sendPayload.content || sendPayload.embeds)) {
                     // No reaction and no response — skip this rule entirely
