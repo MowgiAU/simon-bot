@@ -417,7 +417,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <img
                                                 src={battle.cardImageUrl}
                                                 alt={battle.title}
-                                                style={{ width: '100%', height: 'auto', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '6px', display: 'block' }}
+                                                style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', marginBottom: '6px', display: 'block' }}
                                             />
                                         )}
                                         {battleDesc && (

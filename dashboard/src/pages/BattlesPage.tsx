@@ -229,7 +229,7 @@ export const BattlesPage: React.FC = () => {
                             position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
                             backgroundColor: '#242C3D', minHeight: isMobile ? '240px' : '340px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-                            border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                            border: '1px solid #2A3148', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
                             ...(currentBattle.bannerUrl ? {
                                 backgroundImage: `url(${API}${currentBattle.bannerUrl})`,
                                 backgroundSize: 'cover',
