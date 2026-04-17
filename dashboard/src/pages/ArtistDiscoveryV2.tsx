@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink
+    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -209,7 +209,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const heroTitle = heroType === 'artist' ? (heroArtist?.displayName || heroArtist?.username || '')
         : heroType === 'playlist' ? (heroPlaylist?.name || '')
         : (heroTrack?.title || '');
-    const heroSubtitle = heroType === 'artist' ? '' : heroType === 'playlist' ? (heroPlaylist?.profile?.displayName || heroPlaylist?.profile?.username || '') : (heroTrack?.profile.displayName || heroTrack?.profile.username || '');
+    const heroSubtitle = heroType === 'artist'
+        ? (heroArtist?.genres?.length ? heroArtist.genres.map(g => g.genre.name).join(' · ') : '')
+        : heroType === 'playlist' ? (heroPlaylist?.profile?.displayName || heroPlaylist?.profile?.username || '') : (heroTrack?.profile.displayName || heroTrack?.profile.username || '');
 
     const handleHeroPlay = () => {
         if (heroType === 'track' && heroTrack) {
@@ -223,7 +225,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
         }
     };
 
-    const isHeroPlaying = heroType === 'track' && heroTrack && player.currentTrack?.id === heroTrack.id && player.isPlaying;
+    const isHeroPlaying = (heroType === 'track' && heroTrack && player.currentTrack?.id === heroTrack.id && player.isPlaying)
+        || (heroType === 'artist' && heroArtist?.tracks?.length && heroArtist.tracks.some(t => t.id === player.currentTrack?.id) && player.isPlaying)
+        || (heroType === 'playlist' && heroPlaylist?.tracks?.length && heroPlaylist.tracks.some(t => t.track.id === player.currentTrack?.id) && player.isPlaying);
 
     // Get YouTube thumbnail from URL
     const getTutorialThumbnail = (): string | null => {
@@ -291,8 +295,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {heroCover && !isMobile && (
                             <div style={{
                                 position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
-                                width: '190px', height: '190px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0,
-                                boxShadow: '0 20px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)',
+                                width: heroType === 'artist' ? '180px' : '190px',
+                                height: heroType === 'artist' ? '180px' : '190px',
+                                borderRadius: heroType === 'artist' ? '50%' : '16px',
+                                overflow: 'hidden', flexShrink: 0,
+                                boxShadow: heroType === 'artist' ? `0 20px 60px rgba(0,0,0,0.7), 0 0 0 3px ${colors.primary}33` : '0 20px 60px rgba(0,0,0,0.7)',
+                                border: heroType === 'artist' ? `3px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.12)',
                             }}>
                                 <img src={heroCover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
@@ -321,14 +329,18 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 {heroSubtitle && (
                                     <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>{heroSubtitle}</div>
                                 )}
+                                {heroType === 'artist' && heroArtist?.bio && !featured?.featuredDescription && (
+                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{heroArtist.bio}</p>
+                                )}
                                 {featured?.featuredDescription && (
                                     <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as any }}>{featured.featuredDescription}</p>
                                 )}
                             </div>
 
-                            {/* Bottom: track strip + play button */}
+                            {/* Bottom: track strip + action buttons */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
                                 {/* Track pills — infinite marquee */}
+                                {heroTrackList.length > 0 && (
                                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)' } as React.CSSProperties}>
                                     <div className="hero-marquee-track">
                                         {[...heroTrackList, ...heroTrackList].map((t, i) => (
@@ -350,7 +362,31 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Play button */}
+                                )}
+                                {heroType === 'artist' && heroArtist ? (
+                                    <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+                                        <Link to={`/profile/${heroArtist.username}`} style={{
+                                            backgroundColor: colors.primary, color: 'white', padding: '11px 20px',
+                                            borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700,
+                                            textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
+                                            boxShadow: `0 4px 20px ${colors.primary}55`, textDecoration: 'none',
+                                        }}>
+                                            <Mic2 size={16} /> Explore Artist
+                                        </Link>
+                                        {heroArtist.tracks?.length > 0 && (
+                                            <button onClick={handleHeroPlay} style={{
+                                                backgroundColor: 'rgba(255,255,255,0.08)', color: 'white', padding: '11px 20px',
+                                                borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', fontSize: '12px', fontWeight: 700,
+                                                textTransform: 'uppercase', letterSpacing: '1px', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
+                                            }}>
+                                                {isHeroPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                                                {isHeroPlaying ? 'Pause' : 'Listen'}
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
                                 <button onClick={handleHeroPlay} style={{
                                     backgroundColor: colors.primary, color: 'white', padding: '11px 20px',
                                     borderRadius: '8px', border: 'none', fontSize: '12px', fontWeight: 700,
@@ -361,6 +397,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     {isHeroPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
                                     {isHeroPlaying ? 'Pause' : 'Play Now'}
                                 </button>
+                                )}
                             </div>
                         </div>
                     </div>
