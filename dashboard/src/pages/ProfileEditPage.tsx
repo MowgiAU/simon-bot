@@ -1146,17 +1146,17 @@ export const ProfileEditPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Save Button (spans full width) ── */}
-                <div style={{ gridColumn: '1 / -1' }}>
+                {/* ── Save Button ── */}
+                <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', paddingBottom: '24px' }}>
                     <button
                         onClick={handleSave}
                         disabled={saving}
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            width: '100%',
+                            padding: '12px 40px',
                             background: `linear-gradient(135deg, ${colors.primaryDark}, ${colors.primary})`,
                             color: 'white', border: 'none',
-                            borderRadius: borderRadius.md, padding: '14px 24px',
+                            borderRadius: borderRadius.md,
                             fontSize: '15px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
                             opacity: saving ? 0.7 : 1, boxShadow: shadows.glow,
                         }}
