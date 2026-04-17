@@ -20,7 +20,6 @@ import {
   Radio,
   TrendingUp,
   ScrollText,
-  Music,
   BarChart,
   Users,
   ShieldOff,
@@ -171,15 +170,6 @@ const docSections: DocSection[] = [
     requirements: ['Administrator permission (for clear)']
   },
   {
-    id: 'musician-profiles',
-    title: 'Musician Profiles & Discovery',
-    icon: <Music size={20} />,
-    color: colors.accent,
-    content: 'Full-featured producer profiles with public portfolio pages. Members create profiles with their bio, primary DAW, location, genres, and social links. Profiles are publicly accessible at fujistud.io/profile/{username} and appear in the Artist Discovery page. The dashboard admin view allows moderating profiles, managing featured artists, and reviewing profile content. Track uploads, playlists, and favourites are all tied to the profile system.',
-    commands: ['/profile view [user]', '/profile edit'],
-    requirements: ['Profile setup completed by user']
-  },
-  {
     id: 'stats',
     title: 'Server Statistics',
     icon: <BarChart size={20} />,
@@ -246,7 +236,6 @@ export const DocumentationPage: React.FC<{ initialSection?: string, onNavigate?:
       'featured-content': 'featured-content',
       'fuji-radio': 'fuji-radio',
       'logger': 'logs',
-      'musician-profiles': 'musician-profiles-admin',
       'studio-guide': 'studio-guide',
       'bot-messenger': 'bot-messenger',
       'account-management': 'account-management',

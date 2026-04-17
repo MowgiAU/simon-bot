@@ -563,10 +563,47 @@ const AdminDashboard: React.FC = () => {
         
         <div className="main-content-scroll-container">
           <div style={{ padding: window.innerWidth > 768 ? "0 16px 24px" : "0" }}>
+            {(() => {
+              const docMap: Record<string, string> = {
+                "dashboard": "overview",
+                "moderation": "moderation",
+                "word-filter-settings": "word-filter",
+                "anti-piracy": "anti-piracy",
+                "leveling": "leveling",
+                "channel-rules": "channel-rules",
+                "tickets": "tickets",
+                "economy": "economy",
+                "welcome-gate": "welcome-gate",
+                "feedback": "production-feedback",
+                "email-client": "email-client",
+                "beat-battle": "beat-battle",
+                "featured-content": "featured-content",
+                "fuji-radio": "fuji-radio",
+                "logs": "logger",
+                "studio-guide": "studio-guide",
+                "bot-messenger": "bot-messenger",
+                "account-management": "account-management",
+                "bot-identity": "overview",
+                "plugins": "overview",
+                "auto-messages": "overview",
+                "auto-responder": "overview",
+                "server-boost": "overview",
+                "voice-stats": "stats",
+                "spam-guard": "overview",
+                "track-announcer": "overview",
+                "anti-external-forward": "overview",
+                "booster-color": "overview",
+                "pause": "overview",
+                "private-messages": "overview",
+                "reports": "overview"
+              };
+              const docSection = docMap[activeSection];
+              if (!docSection || window.innerWidth <= 768) return null;
+              return (
             <div 
               className="info-banner-hide-mobile"
               style={{ 
-                display: window.innerWidth > 768 ? "flex" : "none", 
+                display: "flex", 
                 alignItems: "center", 
                 gap: "12px", 
                 padding: "10px 20px",
@@ -598,21 +635,15 @@ const AdminDashboard: React.FC = () => {
                 <div style={{ flex: 1 }} />
                 <button 
                   onClick={() => {
-                    const docMap: any = {
-                      "dashboard": "overview",
-                      "moderation": "moderation",
-                      "word-filter-settings": "word-filter",
-                      "tickets": "tickets",
-                      "economy": "economy",
-                      "welcome-gate": "welcome-gate"
-                    };
-                    handleNavigate("docs", { docSection: docMap[activeSection] || "overview" });
+                    handleNavigate("docs", { docSection });
                   }} 
                   style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}
                 >
                     Documentation <ArrowRight size={14} />
                 </button>
             </div>
+              );
+            })()}
 
           {renderContent()}
           </div>
