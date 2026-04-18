@@ -1370,8 +1370,15 @@ const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
         setDeletingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}`, { method: 'DELETE', credentials: 'include' });
-            if (res.ok) setEntries(prev => prev.filter(e => e.id !== entryId));
-        } catch {} finally { setDeletingId(null); }
+            if (res.ok) {
+                setEntries(prev => prev.filter(e => e.id !== entryId));
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(`Failed to delete entry: ${data.error || res.statusText}`);
+            }
+        } catch (e: any) {
+            alert(`Failed to delete entry: ${e.message}`);
+        } finally { setDeletingId(null); }
     };
 
     if (loading) return <p style={{ color: colors.textSecondary, fontSize: '13px', marginTop: '12px' }}>Loading entries...</p>;

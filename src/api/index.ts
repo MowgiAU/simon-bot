@@ -9565,6 +9565,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
             include: {
                 sponsor: { include: { links: true } },
                 entries: {
+                    where: { deletedAt: null },
                     orderBy: { voteCount: 'desc' },
                     select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, description: true, projectUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
                 },
@@ -9600,6 +9601,7 @@ app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
             include: {
                 sponsor: true,
                 entries: {
+                    where: { deletedAt: null },
                     orderBy: { voteCount: 'desc' },
                     take: 3,
                     select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
@@ -10651,7 +10653,7 @@ app.get('/api/beat-battle/admin/battles/:id/analytics', requireAdmin, async (req
             where: { id: battleId },
             include: {
                 sponsor: { include: { links: true } },
-                entries: { select: { id: true, voteCount: true, userId: true } },
+                entries: { where: { deletedAt: null }, select: { id: true, voteCount: true, userId: true } },
             },
         });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
@@ -10980,7 +10982,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
         // ---------- 3. Voting â†’ Completed (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
-            include: { entries: { orderBy: { voteCount: 'desc' }, take: 1 } },
+            include: { entries: { where: { deletedAt: null }, orderBy: { voteCount: 'desc' }, take: 1 } },
         });
         if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) completing`);
 
