@@ -955,7 +955,37 @@ export class ModerationPlugin implements IPlugin {
         }
     }
 
+    /**
+     * Checks if the button interaction user is a moderator or admin level.
+     * Requires Discord Administrator, native BanMembers, or DB canBan permission.
+     * Jr staff / regular staff with only canRemove do NOT qualify.
+     */
+    private async checkApprovalAccess(interaction: ButtonInteraction): Promise<boolean> {
+        const member = interaction.member as GuildMember;
+        if (!member) return false;
+        if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+        if (member.permissions.has(PermissionFlagsBits.BanMembers)) return true;
+
+        try {
+            const settings = await this.db.moderationSettings.findUnique({
+                where: { guildId: interaction.guildId! },
+                include: { permissions: true },
+            });
+            if (!settings?.permissions?.length) return false;
+            const memberRoleIds = member.roles.cache.map(r => r.id);
+            return settings.permissions.some(
+                perm => memberRoleIds.includes(perm.roleId) && perm.canBan === true
+            );
+        } catch {
+            return false;
+        }
+    }
+
     private async handleRemoveApprove(interaction: ButtonInteraction, reviewKey: string) {
+        if (!await this.checkApprovalAccess(interaction)) {
+            return interaction.reply({ content: '❌ Only moderators/admins can approve or deny removal requests.', flags: MessageFlags.Ephemeral });
+        }
+
         const data = this.pendingRemovals.get(reviewKey);
         if (!data) {
             return interaction.reply({ content: '❌ This review request has expired or was already processed.', flags: MessageFlags.Ephemeral });
@@ -985,12 +1015,8 @@ export class ModerationPlugin implements IPlugin {
                     }
 
                     if (webhook) {
-                        const repostContent = data.messageContent
-                            ? `${data.messageContent}\n\n*— Message reviewed and reposted by moderation. Original: removed.*`
-                            : '*— Message reviewed and reposted by moderation. Original: removed.*';
-
                         await webhook.send({
-                            content: repostContent.substring(0, 2000),
+                            content: data.messageContent ? data.messageContent.substring(0, 2000) : undefined,
                             username: data.authorUsername,
                             avatarURL: data.authorAvatar || undefined,
                             files: data.attachmentUrls.map((url, i) => ({ attachment: url, name: `attachment_${i + 1}` })),
@@ -1031,6 +1057,10 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async handleRemoveDeny(interaction: ButtonInteraction, reviewKey: string) {
+        if (!await this.checkApprovalAccess(interaction)) {
+            return interaction.reply({ content: '❌ Only moderators/admins can approve or deny removal requests.', flags: MessageFlags.Ephemeral });
+        }
+
         const data = this.pendingRemovals.get(reviewKey);
         if (!data) {
             return interaction.reply({ content: '❌ This review request has expired or was already processed.', flags: MessageFlags.Ephemeral });
