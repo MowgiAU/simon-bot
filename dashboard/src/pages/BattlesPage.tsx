@@ -15,16 +15,13 @@ import { BattleSubmitModal } from '../components/BattleSubmitModal';
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
 
-// localStorage helpers for voted state (persists across refreshes and server restarts)
-const LS_KEY = (battleId: string) => `fj_voted_${battleId}`;
-const lsGetVotes = (battleId: string): Set<string> => {
-    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY(battleId)) || '[]')); } catch { return new Set(); }
+// localStorage helpers — keyed per entry ID to avoid any battle-ID mismatch
+const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
+const lsSetVote = (entryId: string, voted: boolean) => {
+    try { if (voted) localStorage.setItem(lsVoteKey(entryId), '1'); else localStorage.removeItem(lsVoteKey(entryId)); } catch {}
 };
-const lsAddVote = (battleId: string, entryId: string) => {
-    try { const s = lsGetVotes(battleId); s.add(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
-};
-const lsRemoveVote = (battleId: string, entryId: string) => {
-    try { const s = lsGetVotes(battleId); s.delete(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
+const lsIsVoted = (entryId: string): boolean => {
+    try { return localStorage.getItem(lsVoteKey(entryId)) === '1'; } catch { return false; }
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -156,31 +153,29 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    // Restore voted state after battle loads (localStorage first, then merge with server)
+    // Restore voted state whenever entries load or change
     useEffect(() => {
-        if (!currentBattle) { setVotedIds(new Set()); return; }
-        // Immediately restore from localStorage (works even when not logged in)
-        const localVotes = lsGetVotes(currentBattle.id);
-        setVotedIds(localVotes);
-        // If logged in, also verify against server and merge
+        const entries = currentBattle?.entries;
+        if (!entries?.length) return;
+        // Read each entry's vote from localStorage immediately
+        const localVoted = new Set(entries.filter(e => lsIsVoted(e.id)).map(e => e.id));
+        setVotedIds(localVoted);
+        // If logged in, also verify against server and write back to localStorage
         if (!user) return;
         const fetchMyVotes = async () => {
             try {
-                const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}/my-votes`, { credentials: 'include' });
+                const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle!.id}/my-votes`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    // Merge server votes into localStorage and state
-                    const serverVotes: string[] = data.votedEntryIds;
-                    setVotedIds(prev => {
-                        const merged = new Set([...prev, ...serverVotes]);
-                        localStorage.setItem(LS_KEY(currentBattle.id), JSON.stringify([...merged]));
-                        return merged;
-                    });
+                    const serverVoted: string[] = data.votedEntryIds;
+                    // Write server truth to localStorage
+                    entries.forEach(e => lsSetVote(e.id, serverVoted.includes(e.id) || lsIsVoted(e.id)));
+                    setVotedIds(new Set([...localVoted, ...serverVoted]));
                 }
             } catch {}
         };
         fetchMyVotes();
-    }, [currentBattle?.id, user]);
+    }, [currentBattle?.entries, user]);
 
     // Auto-dismiss vote notifications
     useEffect(() => {
@@ -235,17 +230,16 @@ export const BattlesPage: React.FC = () => {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, { method: 'POST', credentials: 'include' });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const battleId = currentBattle?.id || '';
-                // Persist to localStorage
-                if ((data as any).voted) lsAddVote(battleId, entryId);
-                else lsRemoveVote(battleId, entryId);
+                const voted: boolean = (data as any).voted;
+                // Persist to localStorage keyed by entry ID
+                lsSetVote(entryId, voted);
                 // Update voted state
                 setVotedIds(prev => {
                     const next = new Set(prev);
-                    if ((data as any).voted) next.add(entryId); else next.delete(entryId);
+                    if (voted) next.add(entryId); else next.delete(entryId);
                     return next;
                 });
-                // Update vote count immediately and re-sort entries by vote count
+                // Update vote count immediately and re-sort
                 setCurrentBattle(prev => {
                     if (!prev?.entries) return prev;
                     const updated = prev.entries
@@ -253,6 +247,7 @@ export const BattlesPage: React.FC = () => {
                         .sort((a, b) => b.voteCount - a.voteCount);
                     return { ...prev, entries: updated };
                 });
+                setVoteNotification({ message: voted ? '🔥 Vote cast!' : 'Vote removed.' });
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
