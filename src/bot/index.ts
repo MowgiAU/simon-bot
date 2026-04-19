@@ -8,6 +8,7 @@ import {
     SlashCommandBuilder,
     MessageFlags,
     Partials,
+    PermissionFlagsBits,
 } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
@@ -750,8 +751,16 @@ export class SimonBot {
         .setDescription('View warnings for a user')
         .addUserOption(opt => opt.setName('user').setDescription('User to check').setRequired(true));
 
+    const removeCommand = new SlashCommandBuilder()
+        .setName('remove')
+        .setDescription('Remove a single message and alert senior staff')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+        .addStringOption(opt => opt.setName('message_id').setDescription('Message ID to remove').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for removal').setRequired(true));
+
     commands.push(warnCommand.toJSON());
     commands.push(warningsCommand.toJSON());
+    commands.push(removeCommand.toJSON());
 
     // 3. Economy Commands
     const walletCommand = new SlashCommandBuilder()

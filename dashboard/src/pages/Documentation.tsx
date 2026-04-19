@@ -53,7 +53,7 @@ const docSections: DocSection[] = [
     icon: <Shield size={20} />,
     color: colors.primary,
     content: 'A comprehensive suite for maintaining community standards. Includes kick, ban (with optional duration for auto-unban), timeout, warnings, and bulk message purge. All actions are logged to the audit trail and generate DM notifications to the affected user. Duration strings support seconds, minutes, hours, days and weeks (e.g. "7d", "24h").',
-    commands: ['/kick [user] [reason]', '/ban [user] [reason] [duration]', '/timeout [user] [duration] [reason]', '/warn [user] [reason]', '/purge [amount]', '/modlog [user]'],
+    commands: ['/kick [user] [reason]', '/ban [user] [reason] [duration]', '/timeout [user] [duration] [reason]', '/warn [user] [reason]', '/purge [amount]', '/remove [message_id] [reason]', '/modlog [user]'],
     requirements: ['Manage Members permission', 'Kick Members / Ban Members permissions', 'Bot role must be higher than target in role hierarchy']
   },
   {
