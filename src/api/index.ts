@@ -9566,7 +9566,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
                 sponsor: { include: { links: true } },
                 entries: {
                     where: { deletedAt: null },
-                    orderBy: { voteCount: 'desc' },
+                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
                     select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, description: true, projectUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
                 },
             },
@@ -9622,7 +9622,7 @@ app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
                 sponsor: true,
                 entries: {
                     where: { deletedAt: null },
-                    orderBy: { voteCount: 'desc' },
+                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
                     take: 3,
                     select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
                 },
@@ -10159,7 +10159,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (statusChanged) {
             // â†’ Completed: determine winner
             if (newStatus === 'completed') {
-                const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
+                const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }] });
                 if (winner) {
                     await db.beatBattle.update({ where: { id: battle.id }, data: { winnerEntryId: winner.id } });
                 }
@@ -10234,8 +10234,8 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
         const battleIds = [...new Set(entries.map((e: any) => e.battleId))];
         const allBattleEntries = await db.battleEntry.findMany({
             where: { battleId: { in: battleIds } },
-            select: { id: true, battleId: true, voteCount: true },
-            orderBy: { voteCount: 'desc' },
+            select: { id: true, battleId: true, voteCount: true, createdAt: true },
+            orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
         });
 
         // Group by battleId for O(1) lookup
@@ -10332,7 +10332,7 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
     } else if (battle.status === 'completed') {
         const winner = battle.winnerEntryId
             ? await db.battleEntry.findUnique({ where: { id: battle.winnerEntryId } })
-            : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
+            : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }] });
         if (!winner) return null;
         embed = {
             title: `\u{1F3C6} ${battle.title} \u2014 Winner!`,
@@ -11002,7 +11002,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
         // ---------- 3. Voting â†’ Completed (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
-            include: { entries: { where: { deletedAt: null }, orderBy: { voteCount: 'desc' }, take: 1 } },
+            include: { entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 1 } },
         });
         if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) completing`);
 

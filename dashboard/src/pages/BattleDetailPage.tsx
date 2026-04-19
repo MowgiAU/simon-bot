@@ -310,7 +310,7 @@ export const BattleDetailPage: React.FC = () => {
     const cfg = statusConfig[battle.status] || statusConfig.upcoming;
     const entries = battle.entries || [];
     const sortedEntries = sortOrder === 'top'
-        ? [...entries].sort((a, b) => b.voteCount - a.voteCount)
+        ? [...entries].sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         : [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const rules = battle.rules
@@ -328,7 +328,7 @@ export const BattleDetailPage: React.FC = () => {
     // Podium: top 3 by vote count; pin explicit winnerEntryId to #1 if set
     const podiumEntries = isCompleted && entries.length > 0
         ? (() => {
-            const sorted = entries.slice().sort((a, b) => b.voteCount - a.voteCount);
+            const sorted = entries.slice().sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
             if (battle.winnerEntryId) {
                 const winIdx = sorted.findIndex(e => e.id === battle.winnerEntryId);
                 if (winIdx > 0) { const [w] = sorted.splice(winIdx, 1); sorted.unshift(w); }

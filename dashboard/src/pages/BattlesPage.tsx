@@ -244,7 +244,7 @@ export const BattlesPage: React.FC = () => {
                     if (!prev?.entries) return prev;
                     const updated = prev.entries
                         .map(e => e.id === entryId ? { ...e, voteCount: (data as any).voteCount } : e)
-                        .sort((a, b) => b.voteCount - a.voteCount);
+                        .sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                     return { ...prev, entries: updated };
                 });
                 setVoteNotification({ message: voted ? '🔥 Vote cast!' : 'Vote removed.' });

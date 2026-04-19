@@ -138,7 +138,7 @@ export class BeatBattlePlugin implements IPlugin {
                 status: { in: ['active', 'voting', 'completed'] },
             },
             include: {
-                entries: { orderBy: { voteCount: 'desc' }, take: 10 },
+                entries: { orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 10 },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -202,7 +202,7 @@ export class BeatBattlePlugin implements IPlugin {
             // Voting -> Completed (voting period ended)
             const toComplete = await this.db.beatBattle.findMany({
                 where: { status: 'voting', votingEnd: { lte: now } },
-                include: { entries: { orderBy: { voteCount: 'desc' }, take: 3 } },
+                include: { entries: { orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3 } },
             });
             for (const battle of toComplete) {
                 const winner = battle.entries?.[0];
