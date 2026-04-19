@@ -193,8 +193,9 @@ export const BattleDetailPage: React.FC = () => {
                 if (res.ok) {
                     const data = await res.json();
                     const serverVoted: string[] = data.votedEntryIds;
-                    entries.forEach((e: any) => lsSetVote(e.id, serverVoted.includes(e.id) || lsIsVoted(e.id)));
-                    setVotedIds(new Set([...localVoted, ...serverVoted]));
+                    // Server is the source of truth — overwrite localStorage
+                    entries.forEach((e: any) => lsSetVote(e.id, serverVoted.includes(e.id)));
+                    setVotedIds(new Set(serverVoted));
                 }
             } catch {}
         };
