@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { colors, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -8,12 +9,21 @@ import { StyledUsername } from '../components/StyledUsername';
 import {
     ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
-    Download, Music,
+    Download, Music, AlertCircle,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
+
+// localStorage helpers — keyed per entry ID
+const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
+const lsSetVote = (entryId: string, voted: boolean) => {
+    try { if (voted) localStorage.setItem(lsVoteKey(entryId), '1'); else localStorage.removeItem(lsVoteKey(entryId)); } catch {}
+};
+const lsIsVoted = (entryId: string): boolean => {
+    try { return localStorage.getItem(lsVoteKey(entryId)) === '1'; } catch { return false; }
+};
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
@@ -126,6 +136,7 @@ export const BattleDetailPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
     const [votingId, setVotingId] = useState<string | null>(null);
+    const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -161,6 +172,34 @@ export const BattleDetailPage: React.FC = () => {
 
     // Extract battleId from /battles/:id
     const battleId = pathname.split('/').filter(Boolean)[1];
+
+    // Auto-dismiss vote notification
+    useEffect(() => {
+        if (!voteNotification) return;
+        const t = setTimeout(() => setVoteNotification(null), 6000);
+        return () => clearTimeout(t);
+    }, [voteNotification]);
+
+    // Restore voted state from localStorage + server
+    useEffect(() => {
+        const entries = battle?.entries;
+        if (!entries?.length) return;
+        const localVoted = new Set(entries.filter((e: any) => lsIsVoted(e.id)).map((e: any) => e.id));
+        setVotedIds(localVoted);
+        if (!user || !battleId) return;
+        const fetchMyVotes = async () => {
+            try {
+                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/my-votes`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    const serverVoted: string[] = data.votedEntryIds;
+                    entries.forEach((e: any) => lsSetVote(e.id, serverVoted.includes(e.id) || lsIsVoted(e.id)));
+                    setVotedIds(new Set([...localVoted, ...serverVoted]));
+                }
+            } catch {}
+        };
+        fetchMyVotes();
+    }, [battle?.entries, user, battleId]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -222,17 +261,29 @@ export const BattleDetailPage: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const data = await res.json();
+                const voted: boolean = (data as any).voted;
+                lsSetVote(entryId, voted);
                 setVotedIds(prev => {
                     const next = new Set(prev);
-                    if (data.voted) next.add(entryId); else next.delete(entryId);
+                    if (voted) next.add(entryId); else next.delete(entryId);
                     return next;
                 });
-                const updated = await fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' });
-                if (updated.ok) setBattle(await updated.json());
+                // Update vote count in place and re-sort
+                setBattle(prev => {
+                    if (!prev?.entries) return prev;
+                    const updated = prev.entries
+                        .map((e: any) => e.id === entryId ? { ...e, voteCount: (data as any).voteCount } : e);
+                    return { ...prev, entries: updated };
+                });
+                setVoteNotification({ message: voted ? '🔥 Vote cast!' : 'Vote removed.' });
+            } else {
+                setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
-        } catch {} finally { setVotingId(null); }
+        } catch {
+            setVoteNotification({ message: 'Something went wrong. Please try again.' });
+        } finally { setVotingId(null); }
     };
 
     if (loading) return (
@@ -881,6 +932,14 @@ export const BattleDetailPage: React.FC = () => {
                     )}
                 </section>
             </div>
+            {voteNotification && createPortal(
+                <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
+                    <AlertCircle size={18} color="#F97316" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, lineHeight: 1.4 }}>{voteNotification.message}</span>
+                    <button onClick={() => setVoteNotification(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 0 0 4px', flexShrink: 0 }}>✕</button>
+                </div>,
+                document.body
+            )}
             {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
                 setSubmitToast(true);
                 setTimeout(() => setSubmitToast(false), 6000);
