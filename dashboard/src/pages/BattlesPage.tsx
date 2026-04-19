@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
@@ -13,6 +14,18 @@ import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
+
+// localStorage helpers for voted state (persists across refreshes and server restarts)
+const LS_KEY = (battleId: string) => `fj_voted_${battleId}`;
+const lsGetVotes = (battleId: string): Set<string> => {
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY(battleId)) || '[]')); } catch { return new Set(); }
+};
+const lsAddVote = (battleId: string, entryId: string) => {
+    try { const s = lsGetVotes(battleId); s.add(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
+};
+const lsRemoveVote = (battleId: string, entryId: string) => {
+    try { const s = lsGetVotes(battleId); s.delete(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
+};
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
@@ -143,15 +156,26 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    // Restore voted state after battle loads (persists across refreshes)
+    // Restore voted state after battle loads (localStorage first, then merge with server)
     useEffect(() => {
-        if (!currentBattle || !user) { setVotedIds(new Set()); return; }
+        if (!currentBattle) { setVotedIds(new Set()); return; }
+        // Immediately restore from localStorage (works even when not logged in)
+        const localVotes = lsGetVotes(currentBattle.id);
+        setVotedIds(localVotes);
+        // If logged in, also verify against server and merge
+        if (!user) return;
         const fetchMyVotes = async () => {
             try {
                 const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}/my-votes`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    setVotedIds(new Set(data.votedEntryIds));
+                    // Merge server votes into localStorage and state
+                    const serverVotes: string[] = data.votedEntryIds;
+                    setVotedIds(prev => {
+                        const merged = new Set([...prev, ...serverVotes]);
+                        localStorage.setItem(LS_KEY(currentBattle.id), JSON.stringify([...merged]));
+                        return merged;
+                    });
                 }
             } catch {}
         };
@@ -209,24 +233,27 @@ export const BattlesPage: React.FC = () => {
         setVotingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, { method: 'POST', credentials: 'include' });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const data = await res.json();
+                const battleId = currentBattle?.id || '';
+                // Persist to localStorage
+                if ((data as any).voted) lsAddVote(battleId, entryId);
+                else lsRemoveVote(battleId, entryId);
                 // Update voted state
                 setVotedIds(prev => {
                     const next = new Set(prev);
-                    if (data.voted) next.add(entryId); else next.delete(entryId);
+                    if ((data as any).voted) next.add(entryId); else next.delete(entryId);
                     return next;
                 });
                 // Update vote count immediately and re-sort entries by vote count
                 setCurrentBattle(prev => {
                     if (!prev?.entries) return prev;
                     const updated = prev.entries
-                        .map(e => e.id === entryId ? { ...e, voteCount: data.voteCount } : e)
+                        .map(e => e.id === entryId ? { ...e, voteCount: (data as any).voteCount } : e)
                         .sort((a, b) => b.voteCount - a.voteCount);
                     return { ...prev, entries: updated };
                 });
             } else {
-                const data = await res.json().catch(() => ({}));
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
         } catch {
@@ -247,12 +274,13 @@ export const BattlesPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="battles">
-            {voteNotification && (
-                <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
+            {voteNotification && createPortal(
+                <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
                     <AlertCircle size={18} color="#F97316" style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, lineHeight: 1.4 }}>{voteNotification.message}</span>
                     <button onClick={() => setVoteNotification(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 0 0 4px', flexShrink: 0 }}>✕</button>
-                </div>
+                </div>,
+                document.body
             )}
             {submitToast && (
                 <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: colors.primary, color: '#fff', padding: '12px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
