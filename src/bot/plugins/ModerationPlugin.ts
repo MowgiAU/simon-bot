@@ -15,7 +15,6 @@ import {
     ButtonBuilder,
     ButtonStyle,
     ActionRowBuilder,
-    Webhook,
     ButtonInteraction,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -995,34 +994,11 @@ export class ModerationPlugin implements IPlugin {
         this.pendingRemovals.delete(reviewKey);
 
         try {
-            const targetChannel = this.client.channels.cache.get(data.channelId) as TextChannel | null;
-
             // Delete the original message
+            const targetChannel = this.client.channels.cache.get(data.channelId) as TextChannel | null;
             if (targetChannel) {
                 const targetMessage = await targetChannel.messages.fetch(data.messageId).catch(() => null);
                 if (targetMessage) await targetMessage.delete().catch(() => {});
-
-                // Repost via webhook as the original author
-                if (data.messageContent || data.attachmentUrls.length > 0) {
-                    const webhooks = await targetChannel.fetchWebhooks().catch(() => null);
-                    let webhook: Webhook | undefined = webhooks?.find((w: Webhook) => w.owner?.id === this.client.user?.id);
-
-                    if (!webhook && webhooks && webhooks.size < 10) {
-                        webhook = await targetChannel.createWebhook({
-                            name: 'Fuji Studio Proxy',
-                            avatar: this.client.user?.displayAvatarURL(),
-                        }).catch(() => undefined);
-                    }
-
-                    if (webhook) {
-                        await webhook.send({
-                            content: data.messageContent ? data.messageContent.substring(0, 2000) : undefined,
-                            username: data.authorUsername,
-                            avatarURL: data.authorAvatar || undefined,
-                            files: data.attachmentUrls.map((url, i) => ({ attachment: url, name: `attachment_${i + 1}` })),
-                        }).catch(() => {});
-                    }
-                }
             }
 
             // Update the review embed
@@ -1035,7 +1011,7 @@ export class ModerationPlugin implements IPlugin {
                 embeds: [EmbedBuilder.from(interaction.message.embeds[0])
                     .setTitle('✅ Removal Approved')
                     .setColor(Colors.Green)
-                    .setDescription(`Approved by **${interaction.user.tag}**. Message deleted and reposted.`)],
+                    .setDescription(`Approved by **${interaction.user.tag}**. Message deleted.`)],
                 components: [disabledRow],
             });
 
