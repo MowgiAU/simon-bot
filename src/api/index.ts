@@ -9590,6 +9590,26 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     }
 });
 
+// --- Auth: Get current user's voted entry IDs for a battle ---
+app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const idOrSlug = req.params.id;
+        const battle = await db.beatBattle.findFirst({
+            where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+            select: { id: true },
+        });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        const votes = await db.battleVote.findMany({
+            where: { userId, entry: { battleId: battle.id } },
+            select: { entryId: true },
+        });
+        res.json({ votedEntryIds: votes.map((v: { entryId: string }) => v.entryId) });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Public: Get archive (completed battles) ---
 app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
     try {

@@ -7,7 +7,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
     Swords, Trophy, Users, Play, Pause, Vote,
-    LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight
+    LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 
@@ -87,6 +87,7 @@ export const BattlesPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
     const [votingId, setVotingId] = useState<string | null>(null);
+    const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
@@ -142,6 +143,28 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
+    // Restore voted state after battle loads (persists across refreshes)
+    useEffect(() => {
+        if (!currentBattle || !user) { setVotedIds(new Set()); return; }
+        const fetchMyVotes = async () => {
+            try {
+                const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}/my-votes`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    setVotedIds(new Set(data.votedEntryIds));
+                }
+            } catch {}
+        };
+        fetchMyVotes();
+    }, [currentBattle?.id, user]);
+
+    // Auto-dismiss vote notifications
+    useEffect(() => {
+        if (!voteNotification) return;
+        const t = setTimeout(() => setVoteNotification(null), 6000);
+        return () => clearTimeout(t);
+    }, [voteNotification]);
+
     // Countdown timer
     useEffect(() => {
         if (!currentBattle) return;
@@ -188,17 +211,27 @@ export const BattlesPage: React.FC = () => {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, { method: 'POST', credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
+                // Update voted state
                 setVotedIds(prev => {
                     const next = new Set(prev);
                     if (data.voted) next.add(entryId); else next.delete(entryId);
                     return next;
                 });
-                if (currentBattle) {
-                    const detail = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
-                }
+                // Update vote count immediately and re-sort entries by vote count
+                setCurrentBattle(prev => {
+                    if (!prev?.entries) return prev;
+                    const updated = prev.entries
+                        .map(e => e.id === entryId ? { ...e, voteCount: data.voteCount } : e)
+                        .sort((a, b) => b.voteCount - a.voteCount);
+                    return { ...prev, entries: updated };
+                });
+            } else {
+                const data = await res.json().catch(() => ({}));
+                setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
-        } catch {} finally { setVotingId(null); }
+        } catch {
+            setVoteNotification({ message: 'Something went wrong. Please try again.' });
+        } finally { setVotingId(null); }
     };
 
     const activeBattles = battles.filter(b => b.status !== 'completed');
@@ -214,6 +247,13 @@ export const BattlesPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="battles">
+            {voteNotification && (
+                <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
+                    <AlertCircle size={18} color="#F97316" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, lineHeight: 1.4 }}>{voteNotification.message}</span>
+                    <button onClick={() => setVoteNotification(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 0 0 4px', flexShrink: 0 }}>✕</button>
+                </div>
+            )}
             {submitToast && (
                 <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, backgroundColor: colors.primary, color: '#fff', padding: '12px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
                     ✓ Entry submitted! It may take a moment to appear in the list.
