@@ -754,7 +754,6 @@ export class SimonBot {
     const removeCommand = new SlashCommandBuilder()
         .setName('remove')
         .setDescription('Remove a single message and alert senior staff')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addStringOption(opt => opt.setName('message_id').setDescription('Message ID to remove').setRequired(true))
         .addStringOption(opt => opt.setName('reason').setDescription('Reason for removal').setRequired(true));
 
