@@ -58,6 +58,7 @@ const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").the
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const AcademyPage            = lazy(() => import("./pages/Academy").then(m => ({ default: m.AcademyPage })));
 const CompleteAccountPage   = lazy(() => import("./pages/CompleteAccountPage").then(m => ({ default: m.CompleteAccountPage })));
 const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
@@ -141,7 +142,8 @@ type Section =
   | "article-review"
   | "voice-stats"
   | "spam-guard"
-  | "track-announcer";
+  | "track-announcer"
+  | "academy";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -342,6 +344,7 @@ const AdminDashboard: React.FC = () => {
     'account-management': 'account-management',
     'reports': 'reports',
     'articles': 'articles',
+    'academy': 'academy',
     // Grouped pages — no single plugin requirement (handled in sidebar visibility)
     'boost': '',
     'automation': '',
@@ -476,6 +479,8 @@ const AdminDashboard: React.FC = () => {
           return <ArticleReviewPage />;
         case "genres-list":
           return <GenresPage />;
+        case "academy":
+          return <AcademyPage />;
         default:
           return null;
       }

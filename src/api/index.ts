@@ -3852,7 +3852,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy'] 
             });
         }
 
@@ -14858,6 +14858,245 @@ app.delete('/api/guilds/:guildId/profile-styles/:userId', async (req: any, res) 
     } catch (e) {
         logger.error('Failed to delete profile style', e);
         res.status(500).json({ error: 'Failed to delete profile style' });
+    }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ACADEMY PLUGIN API
+// ──────────────────────────────────────────────────────────────────────────────
+
+// --- Academy Settings (admin) ---
+app.get('/api/guilds/:guildId/academy/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        let settings = await db.academySettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.academySettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to load academy settings', e);
+        res.status(500).json({ error: 'Failed to load academy settings' });
+    }
+});
+
+app.post('/api/guilds/:guildId/academy/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        const { enabled, announcementChannelId, completionRoleId, reputationReward } = req.body;
+        const settings = await db.academySettings.upsert({
+            where: { guildId },
+            create: { guildId, enabled, announcementChannelId, completionRoleId, reputationReward },
+            update: { enabled, announcementChannelId, completionRoleId, reputationReward },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to save academy settings', e);
+        res.status(500).json({ error: 'Failed to save academy settings' });
+    }
+});
+
+// --- Academy Lessons (public listing) ---
+app.get('/api/academy/lessons', async (_req: any, res) => {
+    try {
+        const lessons = await db.academyLesson.findMany({
+            where: { published: true, deletedAt: null },
+            select: {
+                id: true, slug: true, title: true, description: true,
+                category: true, difficulty: true, order: true,
+                imageUrl: true, duration: true, createdAt: true,
+                _count: { select: { progress: { where: { completed: true } } } },
+            },
+            orderBy: [{ category: 'asc' }, { order: 'asc' }],
+        });
+        res.json(lessons);
+    } catch (e) {
+        logger.error('Failed to load academy lessons', e);
+        res.status(500).json({ error: 'Failed to load lessons' });
+    }
+});
+
+// --- Single Lesson (public) ---
+app.get('/api/academy/lessons/:slugOrId', async (req: any, res) => {
+    try {
+        const { slugOrId } = req.params;
+        const lesson = await db.academyLesson.findFirst({
+            where: {
+                deletedAt: null,
+                OR: [{ id: slugOrId }, { slug: slugOrId }],
+            },
+        });
+        if (!lesson) return res.status(404).json({ error: 'Lesson not found' });
+        if (!lesson.published) {
+            // Only admins can see unpublished lessons
+            const user = req.session?.user;
+            if (!user || user.role !== 'admin') return res.status(404).json({ error: 'Lesson not found' });
+        }
+        res.json(lesson);
+    } catch (e) {
+        logger.error('Failed to load lesson', e);
+        res.status(500).json({ error: 'Failed to load lesson' });
+    }
+});
+
+// --- Admin: CRUD Lessons ---
+app.post('/api/academy/admin/lessons', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        if (!title || !slug) return res.status(400).json({ error: 'Title and slug are required' });
+        const lesson = await db.academyLesson.create({
+            data: {
+                title, slug, description, category, difficulty,
+                order: order ?? 0, duration, steps: steps ?? [], assets: assets ?? [],
+                published: published ?? false, imageUrl,
+            },
+        });
+        res.json(lesson);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'A lesson with this slug already exists' });
+        logger.error('Failed to create lesson', e);
+        res.status(500).json({ error: 'Failed to create lesson' });
+    }
+});
+
+app.patch('/api/academy/admin/lessons/:id', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { id } = req.params;
+        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        const lesson = await db.academyLesson.update({
+            where: { id },
+            data: {
+                ...(title !== undefined && { title }),
+                ...(slug !== undefined && { slug }),
+                ...(description !== undefined && { description }),
+                ...(category !== undefined && { category }),
+                ...(difficulty !== undefined && { difficulty }),
+                ...(order !== undefined && { order }),
+                ...(duration !== undefined && { duration }),
+                ...(steps !== undefined && { steps }),
+                ...(assets !== undefined && { assets }),
+                ...(published !== undefined && { published }),
+                ...(imageUrl !== undefined && { imageUrl }),
+            },
+        });
+        res.json(lesson);
+    } catch (e) {
+        logger.error('Failed to update lesson', e);
+        res.status(500).json({ error: 'Failed to update lesson' });
+    }
+});
+
+app.delete('/api/academy/admin/lessons/:id', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { id } = req.params;
+        await db.academyLesson.update({ where: { id }, data: { deletedAt: new Date() } });
+        res.json({ ok: true });
+    } catch (e) {
+        logger.error('Failed to delete lesson', e);
+        res.status(500).json({ error: 'Failed to delete lesson' });
+    }
+});
+
+// --- User Progress ---
+app.get('/api/academy/progress', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const progress = await db.academyProgress.findMany({
+            where: { userId: user.id },
+            include: { lesson: { select: { title: true, slug: true, category: true, difficulty: true, imageUrl: true } } },
+            orderBy: { updatedAt: 'desc' },
+        });
+        res.json(progress);
+    } catch (e) {
+        logger.error('Failed to load progress', e);
+        res.status(500).json({ error: 'Failed to load progress' });
+    }
+});
+
+app.post('/api/academy/progress/:lessonId', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const { lessonId } = req.params;
+        const { currentStep, stepsCompleted } = req.body;
+
+        // Verify lesson exists
+        const lesson = await db.academyLesson.findUnique({ where: { id: lessonId } });
+        if (!lesson || lesson.deletedAt) return res.status(404).json({ error: 'Lesson not found' });
+
+        const steps = Array.isArray(lesson.steps) ? lesson.steps : [];
+        const totalSteps = steps.length;
+        const completedSteps: number[] = Array.isArray(stepsCompleted) ? stepsCompleted : [];
+        const isCompleted = totalSteps > 0 && completedSteps.length >= totalSteps;
+
+        const progress = await db.academyProgress.upsert({
+            where: { userId_lessonId: { userId: user.id, lessonId } },
+            create: {
+                userId: user.id,
+                lessonId,
+                currentStep: currentStep ?? 0,
+                stepsCompleted: completedSteps,
+                completed: isCompleted,
+                completedAt: isCompleted ? new Date() : null,
+                score: isCompleted ? 100 : Math.round((completedSteps.length / Math.max(totalSteps, 1)) * 100),
+            },
+            update: {
+                currentStep: currentStep ?? 0,
+                stepsCompleted: completedSteps,
+                completed: isCompleted,
+                completedAt: isCompleted ? new Date() : undefined,
+                score: isCompleted ? 100 : Math.round((completedSteps.length / Math.max(totalSteps, 1)) * 100),
+            },
+        });
+
+        res.json(progress);
+    } catch (e) {
+        logger.error('Failed to update progress', e);
+        res.status(500).json({ error: 'Failed to update progress' });
+    }
+});
+
+// --- Lesson Completion Validation ---
+app.post('/api/academy/complete/:lessonId', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const { lessonId } = req.params;
+
+        const lesson = await db.academyLesson.findUnique({ where: { id: lessonId } });
+        if (!lesson || lesson.deletedAt) return res.status(404).json({ error: 'Lesson not found' });
+
+        const steps = Array.isArray(lesson.steps) ? lesson.steps : [];
+        const totalSteps = steps.length;
+
+        // Mark fully completed
+        const allSteps = Array.from({ length: totalSteps }, (_, i) => i);
+        const progress = await db.academyProgress.upsert({
+            where: { userId_lessonId: { userId: user.id, lessonId } },
+            create: {
+                userId: user.id, lessonId,
+                currentStep: totalSteps, stepsCompleted: allSteps,
+                completed: true, completedAt: new Date(), score: 100,
+            },
+            update: {
+                currentStep: totalSteps, stepsCompleted: allSteps,
+                completed: true, completedAt: new Date(), score: 100,
+            },
+        });
+
+        res.json({ ok: true, progress });
+    } catch (e) {
+        logger.error('Failed to complete lesson', e);
+        res.status(500).json({ error: 'Failed to complete lesson' });
     }
 });
 

@@ -39,6 +39,7 @@ import {
   BarChart2,
   ClipboardCheck,
   Megaphone,
+  GraduationCap,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -250,6 +251,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Megaphone} size={20} /></span>
                 <span className="nav-label">Track Announcer</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('academy') && (
+            <button
+                className={`nav-item ${activeSection === 'academy' ? 'active' : ''}`}
+                onClick={() => onNavigate('academy')}
+                title={collapsed ? "Academy" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={GraduationCap} size={20} /></span>
+                <span className="nav-label">Academy</span>
             </button>
           )}
 

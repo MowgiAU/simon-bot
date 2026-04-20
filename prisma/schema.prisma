@@ -127,6 +127,9 @@ model Guild {
   antiExternalForwardSettings AntiExternalForwardSettings?
   trackAnnouncerSettings      TrackAnnouncerSettings?
 
+  // Academy
+  academySettings  AcademySettings?
+
   @@map("guilds")
 }
 
@@ -2372,4 +2375,72 @@ model ProfileStyle {
   @@unique([guildId, userId])
   @@index([userId])
   @@map("profile_styles")
+}
+
+// ──────────────────────────────────────────────
+// Academy Plugin — Interactive FL Studio Learning
+// ──────────────────────────────────────────────
+
+model AcademySettings {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  enabled               Boolean  @default(true)
+  announcementChannelId String?
+  completionRoleId      String?  // Role awarded when user finishes a course
+  reputationReward      Int      @default(10) // Rep points per lesson completion
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("academy_settings")
+}
+
+model AcademyLesson {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?  @db.Text
+  category    String   @default("basics") // basics, mixing, sound-design, arrangement, mastering
+  difficulty  String   @default("beginner") // beginner, intermediate, advanced
+  order       Int      @default(0) // Sort order within category
+  published   Boolean  @default(false)
+  imageUrl    String?
+  duration    Int?     // Estimated minutes to complete
+
+  // JSON lesson schema — steps, init_state, audio targets
+  steps       Json     @default("[]")
+
+  // Assets needed for this lesson (sample URLs, presets, etc.)
+  assets      Json     @default("[]")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  progress    AcademyProgress[]
+
+  @@index([category, order])
+  @@map("academy_lessons")
+}
+
+model AcademyProgress {
+  id              String   @id @default(cuid())
+  userId          String
+  lessonId        String
+  currentStep     Int      @default(0)
+  completed       Boolean  @default(false)
+  completedAt     DateTime?
+  stepsCompleted  Json     @default("[]") // Array of completed step indices
+  score           Int      @default(0)    // Points earned in this lesson
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lesson          AcademyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@map("academy_progress")
 }
