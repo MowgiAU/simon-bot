@@ -33,7 +33,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 const MEDAL_GOLD   = '\u{1F947}';

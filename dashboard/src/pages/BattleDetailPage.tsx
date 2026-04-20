@@ -34,12 +34,19 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function formatDateRange(start: string | null, end: string | null) {
     if (!start && !end) return '—';
-    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+    if (start && end) {
+        const s = new Date(start);
+        const e = new Date(end);
+        const sameYear = s.getFullYear() === e.getFullYear();
+        const startStr = s.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...(sameYear ? {} : { year: 'numeric' }) });
+        const endStr = e.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' });
+        return `${startStr} – ${endStr}`;
+    }
     return formatDate(start || end);
 }
 
