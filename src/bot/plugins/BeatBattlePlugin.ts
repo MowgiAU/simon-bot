@@ -149,12 +149,12 @@ export class BeatBattlePlugin implements IPlugin {
         }
 
         const lines = battle.entries.map((e, i) => {
-            const medal = i === 0 ? '??' : i === 1 ? '??' : i === 2 ? '??' : `${i + 1}.`;
-            return `${medal} **${e.trackTitle}** by <@${e.userId}> � ${e.voteCount} votes`;
+            const medal = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `${i + 1}.`;
+            return `${medal} **${e.trackTitle}** by <@${e.userId}> - ${e.voteCount} votes`;
         });
 
         const embed = new EmbedBuilder()
-            .setTitle(`?? ${battle.title} � Leaderboard`)
+            .setTitle(`${battle.title} - Leaderboard`)
             .setDescription(lines.join('\n'))
             .setColor(0x2B8C71)
             .setFooter({ text: 'Fuji Studio Beat Battle' })
@@ -359,10 +359,10 @@ export class BeatBattlePlugin implements IPlugin {
             if (!channel) return;
 
             const embed = new EmbedBuilder()
-                .setTitle(`?? ${battle.title} � Winner!`)
+                .setTitle(`${battle.title} - Winner!`)
                 .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`)
                 .setColor(0xFFD700)
-                .addFields({ name: '?? Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })
+                .addFields({ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })
                 .setFooter({ text: 'Fuji Studio Beat Battle' })
                 .setTimestamp();
             await channel.send({ embeds: [embed] });

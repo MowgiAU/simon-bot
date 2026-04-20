@@ -10305,10 +10305,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.submissionEnd) {
             fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.rules) fields.push({ name: '\u{1F4CB} Rules', value: battle.rules });
-        fields.push({ name: '\u{1F310} Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.rules) fields.push({ name: 'Rules', value: battle.rules });
+        fields.push({ name: 'Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `\u{1F3A4} New Beat Battle: ${battle.title}`,
+            title: `New Beat Battle: ${battle.title}`,
             description: battle.description || 'A new battle has begun! Submit your beats on the website.',
             color: 0x2B8C71,
             fields,
@@ -10320,9 +10320,9 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.votingEnd) {
             fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
         }
-        fields.push({ name: '\u{1F310} Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        fields.push({ name: 'Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `\u{1F5F3}\uFE0F ${battle.title} \u2014 Voting is Now Open!`,
+            title: `${battle.title} - Voting is Now Open!`,
             description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
             color: 0xFFA500,
             fields,
@@ -10335,10 +10335,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }] });
         if (!winner) return null;
         embed = {
-            title: `\u{1F3C6} ${battle.title} \u2014 Winner!`,
+            title: `${battle.title} - Winner!`,
             description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
             color: 0xFFD700,
-            fields: [{ name: '\u{1F3A7} Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            fields: [{ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
@@ -10862,6 +10862,33 @@ if (fs.existsSync(distPath)) {
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
     const TRACK_PATH = /^\/(profile|track)\/([^/?#]+)\/([^/?#]+)\/?$/;
+    const BATTLE_PATH = /^\/battles\/([^/?#]+)\/?$/;
+    const BATTLE_ENTRY_PATH = /^\/battles\/entry\/([^/?#]+)\/?$/;
+    const PLAYLIST_PATH = /^\/playlist\/([^/?#]+)\/?$/;
+    const PROFILE_PATH = /^\/profile\/([^/?#]+)\/?$/;
+    const ARTICLE_PATH = /^\/article\/([^/?#]+)\/?$/;
+
+    /** Build a minimal HTML page with OG meta tags for bot crawlers */
+    function ogPage(tags: Record<string, string>, extras: string[] = []): string {
+        const meta = [
+            `<meta charset="utf-8">`,
+            `<title>${tags.title || 'Fuji Studio'}</title>`,
+            `<meta property="og:title" content="${escapeHtml(tags.title || 'Fuji Studio')}">`,
+            `<meta property="og:description" content="${escapeHtml(tags.description || '')}">`,
+            `<meta property="og:type" content="${tags.type || 'website'}">`,
+            tags.url ? `<meta property="og:url" content="${tags.url}">` : '',
+            tags.image ? `<meta property="og:image" content="${tags.image}">` : '',
+            tags.image ? `<meta property="og:image:secure_url" content="${tags.image}">` : '',
+            `<meta property="og:site_name" content="Fuji Studio">`,
+            `<meta name="theme-color" content="#2B8C71">`,
+            `<meta name="twitter:card" content="summary_large_image">`,
+            `<meta name="twitter:title" content="${escapeHtml(tags.title || 'Fuji Studio')}">`,
+            `<meta name="twitter:description" content="${escapeHtml(tags.description || '')}">`,
+            tags.image ? `<meta name="twitter:image" content="${tags.image}">` : '',
+            ...extras,
+        ].filter(Boolean).join('\n');
+        return `<!DOCTYPE html><html><head>\n${meta}\n</head><body></body></html>`;
+    }
 
     app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
@@ -10869,78 +10896,162 @@ if (fs.existsSync(distPath)) {
             return next();
         }
 
-        // Bot request on a track URL â†’ inject OG meta tags
         const ua = req.headers['user-agent'] || '';
-        const trackMatch = req.path.match(TRACK_PATH);
-        if (BOT_UA.test(ua) && trackMatch) {
+        const isBot = BOT_UA.test(ua);
+
+        if (isBot) {
             logger.info(`[OG] Bot crawl: path=${req.path} ua="${ua.slice(0, 60)}"`);
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            const toAbsolute = (u: string | null | undefined): string | null =>
+                u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
+            const defaultImage = `${baseUrl}/og-default.png`;
+
             try {
-                const [, , username, slug] = trackMatch;
-                const profile = await db.musicianProfile.findFirst({
-                    where: { username: { equals: username, mode: 'insensitive' } }
-                });
-                if (profile) {
-                    // Try slug first, fall back to ID (tracks without a slug use track.id in the URL)
-                    let track = await db.track.findFirst({
-                        where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
-                        include: { profile: true, genres: { include: { genre: true } } }
-                    }) as any;
-                    if (!track) {
-                        track = await db.track.findFirst({
-                            where: { profileId: profile.id, isPublic: true, id: slug },
+                // --- Track page: /profile/:username/:slug ---
+                const trackMatch = req.path.match(TRACK_PATH);
+                if (trackMatch) {
+                    const [, , username, slug] = trackMatch;
+                    const profile = await db.musicianProfile.findFirst({
+                        where: { username: { equals: username, mode: 'insensitive' } }
+                    });
+                    if (profile) {
+                        let track = await db.track.findFirst({
+                            where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
                             include: { profile: true, genres: { include: { genre: true } } }
                         }) as any;
-                    }
-                    if (track) {
-                        const baseUrl = `${req.protocol}://${req.get('host')}`;
-                        const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
-                        // coverUrl / url may be absolute CDN URLs or relative /uploads/... paths
-                        const toAbsolute = (u: string | null | undefined): string | null =>
-                            u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
-                        const imageUrl = toAbsolute(track.coverUrl) ?? `${baseUrl}/og-default.png`;
-                        const audioUrl = toAbsolute(track.url) ?? '';
-                        const artistName: string = track.profile.displayName || track.profile.username || username;
-                        const genreNames: string[] = (track.genres ?? []).map((g: any) => g.genre?.name).filter(Boolean);
-                        // Build a rich description matching the auto-post embed style
-                        const metaLine = [
-                            `By ${artistName}`,
-                            genreNames.length > 0 ? genreNames.join(', ') : null,
-                            typeof track.playCount === 'number' ? `${track.playCount.toLocaleString()} plays` : null,
-                        ].filter(Boolean).join(' · ');
-                        const bodyText = track.description ? track.description.slice(0, 160) : '';
-                        const description: string = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
-                        const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
-                        logger.info(`[OG] Serving embed for "${track.title}" — image: ${imageUrl}`);
-
-                        const metaTags = [
-                            `<meta charset="utf-8">`,
-                            `<title>${escapeHtml(track.title)} by ${escapeHtml(artistName)} | Fuji Studio</title>`,
-                            `<meta property="og:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
-                            `<meta property="og:description" content="${escapeHtml(description)}">`,
-                            `<meta property="og:type" content="music.song">`,
-                            `<meta property="og:url" content="${trackUrl}">`,
-                            `<meta property="og:image" content="${imageUrl}">`,
-                            `<meta property="og:image:secure_url" content="${imageUrl}">`,
-                            `<meta property="og:image:width" content="500">`,
-                            `<meta property="og:image:height" content="500">`,
-                            `<meta property="og:image:type" content="image/webp">`,
-                            `<meta property="og:site_name" content="Fuji Studio">`,
-                            `<meta name="theme-color" content="#2B8C71">`,
-                            audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
-                            audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
-                            audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
-                            `<meta name="twitter:card" content="summary_large_image">`,
-                            `<meta name="twitter:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
-                            `<meta name="twitter:description" content="${escapeHtml(description)}">`,
-                            `<meta name="twitter:image" content="${imageUrl}">`,
-                            `<meta name="twitter:site" content="@fujistudio">`,
-                            `<meta name="twitter:creator" content="@fujistudio">`,
-                            `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
-                        ].filter(Boolean).join('\n');
-
-                        return res.send(`<!DOCTYPE html><html><head>\n${metaTags}\n</head><body></body></html>`);
+                        if (!track) {
+                            track = await db.track.findFirst({
+                                where: { profileId: profile.id, isPublic: true, id: slug },
+                                include: { profile: true, genres: { include: { genre: true } } }
+                            }) as any;
+                        }
+                        if (track) {
+                            const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
+                            const imageUrl = toAbsolute(track.coverUrl) ?? defaultImage;
+                            const audioUrl = toAbsolute(track.url) ?? '';
+                            const artistName: string = track.profile.displayName || track.profile.username || username;
+                            const genreNames: string[] = (track.genres ?? []).map((g: any) => g.genre?.name).filter(Boolean);
+                            const metaLine = [
+                                `By ${artistName}`,
+                                genreNames.length > 0 ? genreNames.join(', ') : null,
+                                typeof track.playCount === 'number' ? `${track.playCount.toLocaleString()} plays` : null,
+                            ].filter(Boolean).join(' | ');
+                            const bodyText = track.description ? track.description.slice(0, 160) : '';
+                            const description: string = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
+                            const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
+                            return res.send(ogPage(
+                                { title: `${track.title} by ${artistName} | Fuji Studio`, description, type: 'music.song', url: trackUrl, image: imageUrl },
+                                [
+                                    `<meta property="og:image:width" content="500">`,
+                                    `<meta property="og:image:height" content="500">`,
+                                    audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
+                                    audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
+                                    audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
+                                    `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
+                                ].filter(Boolean),
+                            ));
+                        }
                     }
                 }
+
+                // --- Profile page: /profile/:username ---
+                const profileMatch = req.path.match(PROFILE_PATH);
+                if (profileMatch && !req.path.match(TRACK_PATH)) {
+                    const [, username] = profileMatch;
+                    const profile = await db.musicianProfile.findFirst({
+                        where: { username: { equals: username, mode: 'insensitive' } },
+                        include: { _count: { select: { tracks: { where: { isPublic: true, status: 'active' } } } } },
+                    }) as any;
+                    if (profile) {
+                        const displayName = profile.displayName || profile.username;
+                        const bio = profile.bio ? profile.bio.slice(0, 160) : '';
+                        const trackCount = profile._count?.tracks ?? 0;
+                        const desc = [bio, trackCount > 0 ? `${trackCount} track${trackCount === 1 ? '' : 's'} on Fuji Studio` : 'Artist on Fuji Studio'].filter(Boolean).join(' | ');
+                        const image = toAbsolute(profile.bannerUrl || profile.avatarUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${displayName} | Fuji Studio Artist`, description: desc, url: `${baseUrl}/profile/${username}`, image }));
+                    }
+                }
+
+                // --- Battle detail: /battles/:idOrSlug ---
+                const battleMatch = req.path.match(BATTLE_PATH);
+                if (battleMatch) {
+                    const [, idOrSlug] = battleMatch;
+                    const battle = await db.beatBattle.findFirst({
+                        where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+                        include: { entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3, select: { trackTitle: true, username: true, voteCount: true } } },
+                    }) as any;
+                    if (battle) {
+                        const statusLabel: Record<string, string> = { upcoming: 'Upcoming', active: 'Submissions Open', voting: 'Voting Live', completed: 'Completed' };
+                        const entryCount = battle.entries?.length ?? 0;
+                        const topNames = battle.entries?.slice(0, 3).map((e: any) => e.username).filter(Boolean).join(', ');
+                        const parts = [statusLabel[battle.status] || battle.status];
+                        if (entryCount > 0) parts.push(`${entryCount} entries`);
+                        if (topNames) parts.push(`Featuring ${topNames}`);
+                        if (battle.description) parts.push(battle.description.slice(0, 120));
+                        const image = toAbsolute(battle.bannerUrl || battle.cardImageUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${battle.title} | Beat Battle | Fuji Studio`, description: parts.join(' - '), url: `${baseUrl}/battles/${idOrSlug}`, image }));
+                    }
+                }
+
+                // --- Battle entry: /battles/entry/:id ---
+                const entryMatch = req.path.match(BATTLE_ENTRY_PATH);
+                if (entryMatch) {
+                    const [, entryId] = entryMatch;
+                    const entry = await db.battleEntry.findUnique({
+                        where: { id: entryId },
+                        include: { battle: { select: { title: true } } },
+                    }) as any;
+                    if (entry) {
+                        const image = toAbsolute(entry.coverUrl || entry.avatarUrl) ?? defaultImage;
+                        const desc = `${entry.voteCount} vote${entry.voteCount === 1 ? '' : 's'} in ${entry.battle.title}`;
+                        return res.send(ogPage({ title: `${entry.trackTitle} by ${entry.username} | Fuji Studio`, description: desc, url: `${baseUrl}/battles/entry/${entryId}`, image }));
+                    }
+                }
+
+                // --- Playlist: /playlist/:id ---
+                const playlistMatch = req.path.match(PLAYLIST_PATH);
+                if (playlistMatch) {
+                    const [, playlistId] = playlistMatch;
+                    const playlist = await db.playlist.findUnique({
+                        where: { id: playlistId },
+                        include: { _count: { select: { tracks: true } } },
+                    }) as any;
+                    if (playlist) {
+                        const trackCount = playlist._count?.tracks ?? 0;
+                        const desc = [playlist.description?.slice(0, 120), `${trackCount} track${trackCount === 1 ? '' : 's'}`].filter(Boolean).join(' | ');
+                        const image = toAbsolute(playlist.coverUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${playlist.name} | Fuji Studio Playlist`, description: desc, url: `${baseUrl}/playlist/${playlistId}`, image }));
+                    }
+                }
+
+                // --- Article: /article/:slug ---
+                const articleMatch = req.path.match(ARTICLE_PATH);
+                if (articleMatch) {
+                    const [, slug] = articleMatch;
+                    const article = await (db as any).article?.findFirst?.({
+                        where: { slug, status: 'published' },
+                    });
+                    if (article) {
+                        const title = article.metaTitle || article.title || 'Article';
+                        const desc = article.metaDescription || article.excerpt || article.content?.slice(0, 160) || '';
+                        const image = toAbsolute(article.coverImageUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${title} | Fuji Studio`, description: desc, url: `${baseUrl}/article/${slug}`, image }));
+                    }
+                }
+
+                // --- Generic pages ---
+                const genericPages: Record<string, { title: string; description: string }> = {
+                    '/battles': { title: 'Beat Battles | Fuji Studio', description: 'Compete in beat battles, vote for your favourite tracks, and win prizes on Fuji Studio.' },
+                    '/genres': { title: 'Genres | Fuji Studio', description: 'Browse music by genre on Fuji Studio. Find beats across Hip-Hop, Trap, Lo-Fi, and more.' },
+                    '/discover': { title: 'Discover Artists | Fuji Studio', description: 'Discover talented FL Studio producers and artists on Fuji Studio.' },
+                };
+                const generic = genericPages[req.path];
+                if (generic) {
+                    return res.send(ogPage({ title: generic.title, description: generic.description, url: `${baseUrl}${req.path}`, image: defaultImage }));
+                }
+
+                // Fallback for any other bot-crawled page
+                return res.send(ogPage({ title: 'Fuji Studio', description: 'The home of FL Studio producers. Discover beats, share tracks, and join beat battles.', url: `${baseUrl}${req.path}`, image: defaultImage }));
             } catch (err: any) {
                 logger.warn(`[SPA bot-detect] error: ${err.message}`);
                 // Fall through to SPA on error

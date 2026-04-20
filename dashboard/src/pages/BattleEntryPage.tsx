@@ -256,7 +256,7 @@ export const BattleEntryPage: React.FC = () => {
 
     useEffect(() => {
         if (entry && track) {
-            document.title = `${track.title} — ${entry.battle.title} | Fuji Studio`;
+            document.title = `${track.title} - ${entry.battle.title} | Fuji Studio`;
         }
     }, [entry, track]);
 
