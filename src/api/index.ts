@@ -11047,6 +11047,7 @@ if (fs.existsSync(distPath)) {
                     '/battles': { title: 'Beat Battles | Fuji Studio', description: 'Compete in beat battles, vote for your favourite tracks, and win prizes on Fuji Studio.' },
                     '/genres': { title: 'Genres | Fuji Studio', description: 'Browse music by genre on Fuji Studio. Find beats across Hip-Hop, Trap, Lo-Fi, and more.' },
                     '/discover': { title: 'Discover Artists | Fuji Studio', description: 'Discover talented FL Studio producers and artists on Fuji Studio.' },
+                    '/learn': { title: 'Fuji Academy | Fuji Studio', description: 'Learn FL Studio interactively with hands-on lessons in a built-in DAW simulator. No downloads required.' },
                 };
                 const generic = genericPages[req.path];
                 if (generic) {

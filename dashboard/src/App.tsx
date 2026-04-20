@@ -90,6 +90,7 @@ const MessagesPage           = lazy(() => import("./pages/Messages").then(m => (
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
+const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -722,7 +723,8 @@ const AppInternal: React.FC = () => {
     currentPath === '/login' || currentPath === '/register' ||
     currentPath === '/terms' || currentPath === '/forgot-password' ||
     currentPath === '/reset-password' || currentPath === '/verify-email' ||
-    currentPath === '/account' || currentPath === '/complete-account';
+    currentPath === '/account' || currentPath === '/complete-account' ||
+    currentPath === '/learn' || currentPath.startsWith('/learn/');
 
   if (inviteOnly && !isExemptRoute) {
     const isAdmin = dashboardGuilds.length > 0 || role === 'admin';
@@ -896,6 +898,11 @@ const AppInternal: React.FC = () => {
   // /article/:slug → Public article view
   if (currentPath.startsWith('/article/')) {
     return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
+  }
+
+  // /learn → Public Academy lesson browser + player
+  if (currentPath === '/learn' || currentPath.startsWith('/learn/')) {
+    return <Suspense fallback={<PageSpinner />}><LearnPage /></Suspense>;
   }
 
   return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;

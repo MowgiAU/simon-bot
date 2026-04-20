@@ -1,9 +1,8 @@
 /**
- * DAWSimulator — Full assembled DAW view combining Transport, ChannelRack, Mixer, and PianoRoll.
- * Used inside the lesson player. Panels can be toggled via tabs.
+ * DAWSimulator — FL Studio 21 window frame containing Transport, ChannelRack, Mixer, PianoRoll.
+ * Authentic FL title bar + tabbed panels.
  */
 import React, { useState } from 'react';
-import { colors, borderRadius } from '../../theme/theme';
 import { Transport } from './Transport';
 import { ChannelRack } from './ChannelRack';
 import { Mixer } from './Mixer';
@@ -19,11 +18,9 @@ interface Note {
 }
 
 interface DAWSimulatorProps {
-    /** Step highlights from lesson engine */
     highlightSteps?: { channelId: string; stepIndex: number }[];
     highlightInserts?: number[];
     highlightBpm?: boolean;
-    /** Show only specific panels */
     visiblePanels?: Panel[];
 }
 
@@ -35,50 +32,79 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
     const [pianoNotes, setPianoNotes] = useState<Note[]>([]);
 
     const tabs: { id: Panel; label: string; icon: React.ReactNode }[] = [
-        { id: 'rack', label: 'Channel Rack', icon: <LayoutGrid size={14} /> },
-        { id: 'mixer', label: 'Mixer', icon: <Sliders size={14} /> },
-        { id: 'piano', label: 'Piano Roll', icon: <Piano size={14} /> },
+        { id: 'rack', label: 'Channel Rack', icon: <LayoutGrid size={12} /> },
+        { id: 'mixer', label: 'Mixer', icon: <Sliders size={12} /> },
+        { id: 'piano', label: 'Piano Roll', icon: <Piano size={12} /> },
     ].filter(t => defaultPanels.includes(t.id));
 
     return (
         <div style={{
-            background: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderRadius: borderRadius.lg,
+            background: '#2B2B2B',
+            border: '1px solid #555',
+            borderRadius: '4px',
             overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            fontFamily: "'Segoe UI', Tahoma, sans-serif",
         }}>
-            {/* Transport bar */}
+            {/* FL Studio window title bar */}
+            <div style={{
+                height: 22,
+                background: 'linear-gradient(180deg, #5A5A5A 0%, #444 50%, #3A3A3A 100%)',
+                borderBottom: '1px solid #666',
+                display: 'flex', alignItems: 'center',
+                padding: '0 8px',
+                gap: '6px',
+            }}>
+                {/* FL "fruit" icon placeholder */}
+                <div style={{
+                    width: 12, height: 12, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #E88C3A, #E8503A)',
+                }} />
+                <span style={{ fontSize: '11px', color: '#DDD', fontWeight: 500 }}>
+                    Fuji Studio Simulator
+                </span>
+            </div>
+
+            {/* Transport */}
             <Transport highlightBpm={highlightBpm} />
 
-            {/* Panel tabs */}
+            {/* Panel tabs — FL Studio tab bar */}
             {tabs.length > 1 && (
                 <div style={{
-                    display: 'flex', borderBottom: `1px solid ${colors.border}`,
-                    background: 'rgba(255,255,255,0.02)',
+                    display: 'flex',
+                    background: '#2A2A2A',
+                    borderBottom: '1px solid #444',
                 }}>
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActivePanel(tab.id)}
-                            style={{
-                                flex: 1, padding: '8px 12px',
-                                background: activePanel === tab.id ? 'rgba(16,185,129,0.08)' : 'transparent',
-                                border: 'none', borderBottom: activePanel === tab.id ? `2px solid ${colors.primary}` : '2px solid transparent',
-                                color: activePanel === tab.id ? colors.primary : colors.textSecondary,
-                                fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                transition: 'all 0.15s',
-                            }}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                        </button>
-                    ))}
+                    {tabs.map(tab => {
+                        const isActive = activePanel === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActivePanel(tab.id)}
+                                style={{
+                                    padding: '5px 16px',
+                                    background: isActive
+                                        ? 'linear-gradient(180deg, #3A3A3A 0%, #2E2E2E 100%)'
+                                        : 'transparent',
+                                    border: 'none',
+                                    borderBottom: isActive ? '2px solid #6FBF40' : '2px solid transparent',
+                                    borderRight: '1px solid #333',
+                                    color: isActive ? '#DDD' : '#777',
+                                    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '5px',
+                                    transition: 'color 0.1s',
+                                }}
+                            >
+                                {tab.icon}
+                                {tab.label}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
 
             {/* Active panel */}
-            <div style={{ padding: '8px' }}>
+            <div style={{ padding: '0' }}>
                 {activePanel === 'rack' && <ChannelRack highlightSteps={highlightSteps} />}
                 {activePanel === 'mixer' && <Mixer highlightInserts={highlightInserts} />}
                 {activePanel === 'piano' && <PianoRoll notes={pianoNotes} onChange={setPianoNotes} />}
