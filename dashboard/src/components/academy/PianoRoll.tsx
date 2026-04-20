@@ -1,6 +1,6 @@
 /**
- * PianoRoll — FL Studio 21 authentic piano roll.
- * Canvas grid with FL colour scheme, piano keys, and note blocks.
+ * PianoRoll — FL Studio 21 piano roll.
+ * Slate blue-gray grid, green note blocks, muted palette.
  */
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 
@@ -24,6 +24,17 @@ const BLACK_KEYS = [1, 3, 6, 8, 10];
 const CELL_W = 24;
 const CELL_H = 14;
 const KEY_WIDTH = 44;
+
+// FL21 palette
+const GRID_WHITE  = '#353D4A';
+const GRID_BLACK  = '#303848';
+const GRID_BEAT_W = '#3A4250';
+const GRID_BEAT_B = '#343C4A';
+const KEY_WHITE   = '#4A5268';
+const KEY_BLACK   = '#2E3440';
+const NOTE_COLOR  = '#8ABF60';
+const NOTE_LABEL  = '#2A3A20';
+const BEAT_LINE   = '#4A5268';
 
 export const PianoRoll: React.FC<PianoRollProps> = ({
     notes, onChange, steps = 16, octaves = 3, startOctave = 3, highlightPitch,
@@ -55,32 +66,32 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
             const isC = noteIdx === 0;
 
             // Piano key
-            ctx.fillStyle = isHighlighted ? '#2A5A3A' : isBlack ? '#222' : '#3A3A3A';
+            ctx.fillStyle = isHighlighted ? '#3A5040' : isBlack ? KEY_BLACK : KEY_WHITE;
             ctx.fillRect(0, y, KEY_WIDTH, CELL_H);
-            ctx.strokeStyle = '#444';
+            ctx.strokeStyle = '#2A3040';
             ctx.lineWidth = 0.5;
             ctx.strokeRect(0, y, KEY_WIDTH, CELL_H);
 
             // Key label
             if (isC) {
-                ctx.fillStyle = '#AAA';
+                ctx.fillStyle = '#8090A0';
                 ctx.font = '9px Segoe UI, Tahoma, sans-serif';
                 ctx.fillText(`C${Math.floor(pitch / 12)}`, 3, y + CELL_H - 3);
             }
 
-            // Grid
+            // Grid cells
             for (let s = 0; s < steps; s++) {
                 const x = KEY_WIDTH + s * CELL_W;
                 const isBeatStart = s % 4 === 0;
                 ctx.fillStyle = isBlack
-                    ? (isBeatStart ? '#1E1E1E' : '#1A1A1A')
-                    : (isBeatStart ? '#2A2A2A' : '#252525');
+                    ? (isBeatStart ? GRID_BEAT_B : GRID_BLACK)
+                    : (isBeatStart ? GRID_BEAT_W : GRID_WHITE);
                 ctx.fillRect(x, y, CELL_W - 1, CELL_H - 1);
             }
         }
 
         // Beat lines
-        ctx.strokeStyle = '#444';
+        ctx.strokeStyle = BEAT_LINE;
         ctx.lineWidth = 1;
         for (let s = 0; s <= steps; s++) {
             if (s % 4 !== 0) continue;
@@ -90,25 +101,24 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
             ctx.stroke();
         }
 
-        // Notes — FL green blocks
+        // Notes
         for (const note of notes) {
             const y = pitchToY(note.pitch);
             const x = KEY_WIDTH + note.start * CELL_W;
             const w = note.length * CELL_W - 2;
 
-            // Note body
-            ctx.fillStyle = '#6FBF40';
+            ctx.fillStyle = NOTE_COLOR;
             ctx.beginPath();
             ctx.roundRect(x + 1, y + 1, w, CELL_H - 2, 2);
             ctx.fill();
 
             // Top highlight
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillStyle = 'rgba(255,255,255,0.12)';
             ctx.fillRect(x + 1, y + 1, w, 2);
 
             // Note label
             const nn = NOTE_NAMES[note.pitch % 12];
-            ctx.fillStyle = '#1A3A1A';
+            ctx.fillStyle = NOTE_LABEL;
             ctx.font = 'bold 8px Segoe UI, Tahoma, sans-serif';
             ctx.fillText(nn, x + 3, y + CELL_H - 4);
         }
@@ -137,20 +147,18 @@ export const PianoRoll: React.FC<PianoRollProps> = ({
 
     return (
         <div style={{
-            background: '#2B2B2B',
-            border: '1px solid #3A3A3A',
-            borderRadius: '4px',
+            background: '#3A4050',
             overflow: 'hidden',
         }}>
             {/* Title bar */}
             <div style={{
-                height: 24,
-                background: 'linear-gradient(180deg, #4A4A4A 0%, #3A3A3A 100%)',
-                borderBottom: '1px solid #555',
+                height: 26,
+                background: '#333A48',
+                borderBottom: '1px solid #4A5060',
                 display: 'flex', alignItems: 'center',
-                padding: '0 8px',
+                padding: '0 10px',
             }}>
-                <span style={{ fontSize: '11px', color: '#CCC', fontWeight: 600 }}>Piano Roll</span>
+                <span style={{ fontSize: '11px', color: '#B0B8C8', fontWeight: 500 }}>Piano roll</span>
             </div>
             <div style={{ overflow: 'auto', maxHeight: 300 }}>
                 <canvas

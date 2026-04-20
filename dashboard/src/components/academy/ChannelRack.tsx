@@ -1,24 +1,32 @@
 /**
  * ChannelRack — FL Studio 21 authentic step sequencer.
- * Fixed-width channel names, proper grid alignment, FL color scheme.
+ * Slate blue-gray palette, subtle monochrome steps, button-style channel names.
  */
 import React from 'react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
 
-const STEP_W = 26;
-const STEP_H = 24;
-const STEP_GAP = 2;
-const NAME_WIDTH = 100;
-const KNOB_AREA = 56;
+// FL21 palette
+const BG          = '#3A4050';   // panel background
+const ROW_EVEN    = '#3A4050';
+const ROW_ODD     = '#363C48';
+const BORDER      = '#2E3440';
+const TITLE_BG    = '#333A48';
+const TITLE_BORDER= '#4A5060';
+const STEP_OFF    = '#2E3440';   // dark recessed step
+const STEP_ON     = '#6A7A8A';   // lit step — neutral gray-blue
+const STEP_ON_ALT = '#8A7A6A';   // slightly warm alternative (snare)
+const PLAYHEAD    = '#A0B0C0';   // current step highlight
+const NAME_BTN    = '#4A5060';   // channel name button bg
+const LED_ON      = '#8ABF60';   // green LED
+const LED_OFF     = '#3A4050';
 
-// FL Studio channel colours — each beat group has a distinct hue
-const BEAT_COLORS = [
-    { on: '#E8503A', off: '#4A2220' },  // Red group
-    { on: '#E88C3A', off: '#4A3A20' },  // Orange group
-    { on: '#E8D03A', off: '#4A4620' },  // Yellow group
-    { on: '#3AE87A', off: '#204A2E' },  // Green group
-];
+const STEP_W = 24;
+const STEP_H = 22;
+const STEP_GAP = 2;
+const GROUP_GAP = 5;   // gap between groups of 4
+const NAME_WIDTH = 110;
+const KNOB_AREA  = 52;
 
 interface ChannelRackProps {
     highlightSteps?: { channelId: string; stepIndex: number }[];
@@ -36,106 +44,108 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
     const isHighlighted = (chId: string, idx: number) =>
         highlightSteps?.some(h => h.channelId === chId && h.stepIndex === idx) ?? false;
 
-    const gridWidth = 16 * (STEP_W + STEP_GAP);
-
     return (
         <div style={{
-            background: '#2B2B2B',
-            border: '1px solid #3A3A3A',
-            borderRadius: '4px',
+            background: BG,
             fontFamily: "'Segoe UI', Tahoma, sans-serif",
             overflow: 'hidden',
         }}>
-            {/* Title bar — FL style */}
+            {/* Title bar */}
             <div style={{
-                height: 24,
-                background: 'linear-gradient(180deg, #4A4A4A 0%, #3A3A3A 100%)',
-                borderBottom: '1px solid #555',
+                height: 26,
+                background: TITLE_BG,
+                borderBottom: `1px solid ${TITLE_BORDER}`,
                 display: 'flex', alignItems: 'center',
-                padding: '0 8px',
+                padding: '0 10px',
+                gap: '8px',
             }}>
-                <span style={{ fontSize: '11px', color: '#CCC', fontWeight: 600 }}>Channel Rack</span>
+                {/* Diamond / play icon */}
+                <svg width="10" height="10" viewBox="0 0 10 10" style={{ flexShrink: 0 }}>
+                    <polygon points="2,0 10,5 2,10" fill="#8ABF60" />
+                </svg>
+                <span style={{ fontSize: '11px', color: '#B0B8C8', fontWeight: 500 }}>
+                    Channel rack
+                </span>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-                {/* Step number header */}
-                <div style={{
-                    display: 'flex', alignItems: 'center',
-                    height: 20,
-                    borderBottom: '1px solid #333',
-                }}>
-                    <div style={{ width: NAME_WIDTH + KNOB_AREA, flexShrink: 0 }} />
-                    <div style={{ display: 'flex' }}>
-                        {Array.from({ length: 16 }, (_, i) => (
-                            <div key={i} style={{
-                                width: STEP_W, marginRight: STEP_GAP,
-                                textAlign: 'center',
-                                fontSize: '8px',
-                                color: i % 4 === 0 ? '#999' : '#555',
-                                fontWeight: i % 4 === 0 ? 700 : 400,
-                            }}>
-                                {i + 1}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
                 {/* Channel rows */}
                 {channels.map((ch, chIdx) => (
                     <div key={ch.id} style={{
                         display: 'flex', alignItems: 'center',
-                        height: 36,
-                        borderBottom: '1px solid #333',
-                        background: chIdx % 2 === 0 ? '#2B2B2B' : '#272727',
+                        height: 34,
+                        borderBottom: `1px solid ${BORDER}`,
+                        background: chIdx % 2 === 0 ? ROW_EVEN : ROW_ODD,
                     }}>
-                        {/* Channel name + mute LED */}
+                        {/* LED + knobs */}
                         <div style={{
-                            width: NAME_WIDTH, flexShrink: 0,
                             display: 'flex', alignItems: 'center',
-                            padding: '0 6px', gap: '6px',
-                            borderRight: '1px solid #3A3A3A',
+                            padding: '0 4px', gap: '3px',
+                            flexShrink: 0,
                         }}>
-                            {/* Green LED — FL style mute indicator */}
+                            {/* Green LED mute indicator */}
                             <div
                                 onClick={() => toggleChannelMute(ch.id)}
                                 style={{
-                                    width: 8, height: 8, borderRadius: '50%',
-                                    background: ch.muted ? '#333' : '#6FBF40',
-                                    boxShadow: ch.muted ? 'none' : '0 0 4px #6FBF4080',
+                                    width: 7, height: 7, borderRadius: '50%',
+                                    background: ch.muted ? LED_OFF : LED_ON,
+                                    boxShadow: ch.muted ? 'none' : `0 0 3px ${LED_ON}80`,
                                     cursor: 'pointer', flexShrink: 0,
-                                    border: '1px solid #555',
                                 }}
                                 title={ch.muted ? 'Unmute' : 'Mute'}
                             />
+                            {/* Vol knob */}
+                            <FLKnob value={ch.volume} onChange={v => setChannelVolume(ch.id, v)}
+                                size={18} color="#8ABF60" />
+                            {/* Pan knob */}
+                            <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
+                                size={18} color="#8ABF60" />
+                        </div>
+
+                        {/* Channel number */}
+                        <div style={{
+                            width: 20, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
                             <span style={{
-                                fontSize: '11px',
-                                color: ch.muted ? '#666' : '#CCC',
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                fontSize: '10px', color: '#6A7080',
+                                fontWeight: 600, fontFamily: 'monospace',
                             }}>
-                                {ch.name}
+                                {chIdx + 1}
                             </span>
                         </div>
 
-                        {/* Vol/Pan mini-knobs */}
+                        {/* Channel name button */}
                         <div style={{
-                            width: KNOB_AREA, flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                            borderRight: '1px solid #3A3A3A',
+                            width: NAME_WIDTH, flexShrink: 0,
+                            display: 'flex', alignItems: 'center',
+                            padding: '0 2px',
                         }}>
-                            <FLKnob value={ch.volume} onChange={v => setChannelVolume(ch.id, v)}
-                                size={20} color="#6FBF40" />
-                            <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
-                                size={20} color="#E88C3A" />
+                            <div style={{
+                                width: '100%',
+                                padding: '3px 8px',
+                                background: NAME_BTN,
+                                borderRadius: '2px',
+                                border: `1px solid #5A6478`,
+                            }}>
+                                <span style={{
+                                    fontSize: '11px',
+                                    color: ch.muted ? '#6A7080' : '#C0C8D8',
+                                    fontWeight: 500,
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                    display: 'block',
+                                }}>
+                                    {ch.name}
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Step grid */}
-                        <div style={{ display: 'flex', padding: '0 4px' }}>
+                        {/* Step grid — groups of 4 with extra gap */}
+                        <div style={{ display: 'flex', padding: '0 6px', alignItems: 'center' }}>
                             {ch.steps.map((on, i) => {
-                                const groupIdx = Math.floor(i / 4);
-                                const bc = BEAT_COLORS[groupIdx % 4];
                                 const isActive = playing && currentStep === i;
                                 const hl = isHighlighted(ch.id, i);
+                                const afterGroup = i > 0 && i % 4 === 0;
                                 return (
                                     <button
                                         key={i}
@@ -143,27 +153,23 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
                                         data-academy-id={`step-${ch.id}-${i}`}
                                         style={{
                                             width: STEP_W, height: STEP_H,
-                                            marginRight: i < 15 ? STEP_GAP : 0,
+                                            marginLeft: afterGroup ? GROUP_GAP : (i > 0 ? STEP_GAP : 0),
                                             borderRadius: '2px',
                                             border: hl
-                                                ? '2px solid #10B981'
-                                                : isActive
-                                                    ? '1px solid #888'
-                                                    : i % 4 === 0
-                                                        ? '1px solid #444'
-                                                        : '1px solid #383838',
-                                            background: on ? bc.on : bc.off,
-                                            opacity: ch.muted ? 0.35 : 1,
+                                                ? '2px solid #60C0A0'
+                                                : `1px solid ${on ? '#5A6478' : '#353D4A'}`,
+                                            background: isActive
+                                                ? (on ? PLAYHEAD : '#4A5568')
+                                                : on ? STEP_ON : STEP_OFF,
+                                            opacity: ch.muted ? 0.4 : 1,
                                             cursor: 'pointer',
                                             padding: 0,
-                                            transition: 'background 0.06s',
+                                            transition: 'background 0.04s',
                                             boxShadow: hl
-                                                ? '0 0 8px #10B98180'
-                                                : isActive && on
-                                                    ? `0 0 6px ${bc.on}80`
-                                                    : on
-                                                        ? `inset 0 1px 1px rgba(255,255,255,0.15)`
-                                                        : 'inset 0 1px 2px rgba(0,0,0,0.3)',
+                                                ? '0 0 6px rgba(96,192,160,0.5)'
+                                                : on
+                                                    ? 'inset 0 1px 0 rgba(255,255,255,0.08)'
+                                                    : 'inset 0 1px 2px rgba(0,0,0,0.3)',
                                         }}
                                     />
                                 );
@@ -171,6 +177,16 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
                         </div>
                     </div>
                 ))}
+
+                {/* Bottom add channel button area */}
+                <div style={{
+                    height: 28,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderTop: `1px solid ${BORDER}`,
+                    background: ROW_ODD,
+                }}>
+                    <span style={{ fontSize: '14px', color: '#6A7080', cursor: 'default' }}>+</span>
+                </div>
             </div>
         </div>
     );
