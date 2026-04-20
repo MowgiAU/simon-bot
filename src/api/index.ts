@@ -10978,14 +10978,17 @@ if (fs.existsSync(distPath)) {
                     const [, idOrSlug] = battleMatch;
                     const battle = await db.beatBattle.findFirst({
                         where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-                        include: { entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3, select: { trackTitle: true, username: true, voteCount: true } } },
+                        include: {
+                            _count: { select: { entries: { where: { deletedAt: null } } } },
+                            entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3, select: { trackTitle: true, username: true, voteCount: true } },
+                        },
                     }) as any;
                     if (battle) {
                         const statusLabel: Record<string, string> = { upcoming: 'Upcoming', active: 'Submissions Open', voting: 'Voting Live', completed: 'Completed' };
-                        const entryCount = battle.entries?.length ?? 0;
+                        const entryCount = battle._count?.entries ?? 0;
                         const topNames = battle.entries?.slice(0, 3).map((e: any) => e.username).filter(Boolean).join(', ');
                         const parts = [statusLabel[battle.status] || battle.status];
-                        if (entryCount > 0) parts.push(`${entryCount} entries`);
+                        if (entryCount > 0) parts.push(`${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`);
                         if (topNames) parts.push(`Featuring ${topNames}`);
                         if (battle.description) parts.push(battle.description.slice(0, 120));
                         const image = toAbsolute(battle.bannerUrl || battle.cardImageUrl) ?? defaultImage;
