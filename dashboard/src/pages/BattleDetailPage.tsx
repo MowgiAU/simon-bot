@@ -141,6 +141,7 @@ export const BattleDetailPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
+    const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; label: string } | null>(null);
 
     // Rule sample audio player
     const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -207,6 +208,33 @@ export const BattleDetailPage: React.FC = () => {
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
+
+    // Countdown timer
+    useEffect(() => {
+        if (!battle) return;
+        const target =
+            battle.status === 'voting'   ? battle.votingEnd :
+            battle.status === 'active'   ? battle.submissionEnd :
+            battle.status === 'upcoming' ? battle.submissionStart : null;
+        const label =
+            battle.status === 'voting'   ? 'Voting ends in' :
+            battle.status === 'active'   ? 'Submissions close in' :
+            battle.status === 'upcoming' ? 'Submissions open in' : '';
+        if (!target) { setCountdown(null); return; }
+        const update = () => {
+            const diff = new Date(target).getTime() - Date.now();
+            if (diff <= 0) { setCountdown(null); return; }
+            setCountdown({
+                days: Math.floor(diff / 86400000),
+                hours: Math.floor((diff % 86400000) / 3600000),
+                minutes: Math.floor((diff % 3600000) / 60000),
+                label,
+            });
+        };
+        update();
+        const interval = setInterval(update, 60000);
+        return () => clearInterval(interval);
+    }, [battle]);
 
     useEffect(() => {
         if (!battleId) return;
@@ -432,6 +460,33 @@ export const BattleDetailPage: React.FC = () => {
                                 <p style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', color: colors.textSecondary, maxWidth: '520px', lineHeight: 1.7 }}>
                                     {renderWithLinks(battle.description)}
                                 </p>
+                            )}
+
+                            {/* Countdown timer */}
+                            {countdown && (
+                                <div>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: colors.textSecondary, marginBottom: '8px' }}>
+                                        {countdown.label}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        {[
+                                            { val: countdown.days, label: 'D' },
+                                            { val: countdown.hours, label: 'H' },
+                                            { val: countdown.minutes, label: 'M' },
+                                        ].map(({ val, label }) => (
+                                            <div key={label} style={{ textAlign: 'center' }}>
+                                                <div style={{ width: '50px', height: '50px', backgroundColor: 'rgba(255,255,255,0.08)',
+                                                    borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '20px', fontWeight: 800, color: '#fff', backdropFilter: 'blur(8px)',
+                                                    border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    {String(val).padStart(2, '0')}
+                                                </div>
+                                                <span style={{ fontSize: '8px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)',
+                                                    fontWeight: 700, display: 'block', marginTop: '3px', letterSpacing: '0.1em' }}>{label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
 
                             {/* CTAs */}

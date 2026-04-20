@@ -8117,7 +8117,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                 where: { id: (settings as any).featuredBattleId },
                 include: {
                     sponsor: true,
-                    _count: { select: { entries: true } },
+                    _count: { select: { entries: { where: { deletedAt: null } } } },
                 },
             }).then(featuredBattle => {
                 result.featuredBattle = featuredBattle;
@@ -9532,7 +9532,7 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
             where,
             include: {
                 sponsor: { include: { links: true } },
-                _count: { select: { entries: true } },
+                _count: { select: { entries: { where: { deletedAt: null } } } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -9626,7 +9626,7 @@ app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
                     take: 3,
                     select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
                 },
-                _count: { select: { entries: true } },
+                _count: { select: { entries: { where: { deletedAt: null } } } },
             },
             orderBy: { updatedAt: 'desc' },
         });
