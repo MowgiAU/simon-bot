@@ -661,7 +661,7 @@ export class ModerationPlugin implements IPlugin {
                         for (const msg of recentMsgs) {
                             const ts = Math.floor(msg.timestamp.getTime() / 1000);
                             const attachTxt = msg.attachments.length > 0
-                                ? '\n' + msg.attachments.map(a => {
+                                ? '\n' + msg.attachments.map((a: any) => {
                                     const icon = a.contentType?.startsWith('image') ? '🖼️' : a.contentType?.startsWith('video') ? '🎬' : a.contentType?.startsWith('audio') ? '🎵' : '📎';
                                     return `${icon} [${a.name}](${a.url})`;
                                 }).join('\n')
@@ -673,8 +673,8 @@ export class ModerationPlugin implements IPlugin {
 
                         // Set first image attachment as embed image for visual preview
                         const firstImage = recentMsgs
-                            .flatMap(m => m.attachments)
-                            .find(a => a.contentType?.startsWith('image'));
+                            .flatMap((m: any) => m.attachments)
+                            .find((a: any) => a.contentType?.startsWith('image'));
                         if (firstImage) msgEmbed.setImage(firstImage.url);
 
                         embeds.push(msgEmbed);

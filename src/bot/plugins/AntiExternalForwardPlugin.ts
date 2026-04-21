@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder, PermissionsBitField } from 'discord.js';
 import { z } from 'zod';
-import { IPlugin, IPluginContext } from '../core/IPlugin';
+import { IPlugin, IPluginContext } from '../types/plugin';
 
 export class AntiExternalForwardPlugin implements IPlugin {
     readonly id = 'anti-external-forward';
@@ -116,10 +116,13 @@ export class AntiExternalForwardPlugin implements IPlugin {
 
         if (settings.warnUser) {
             try {
-                const warn = await message.channel.send({
-                    content: `<@${message.author.id}>, ${blockReason}`,
-                });
-                setTimeout(() => warn.delete().catch(() => {}), 5000);
+                const ch: any = message.channel;
+                if (typeof ch.send === 'function') {
+                    const warn = await ch.send({
+                        content: `<@${message.author.id}>, ${blockReason}`,
+                    });
+                    setTimeout(() => warn.delete().catch(() => {}), 5000);
+                }
             } catch { /* ignore */ }
         }
 
