@@ -616,8 +616,22 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async logAction(guildId: string, action: string, executorId: string, targetId: string, details: any) {
-        // 1. DB Log
+        // 1. DB Log (fetch recent messages first so they're stored with the entry)
         try {
+            let recentMessages: any[] = [];
+            if (action !== 'purge') {
+                try {
+                    const msgs = await this.fetchRecentMessages(guildId, targetId);
+                    recentMessages = msgs.map((m: any) => ({
+                        content: String(m.content || '').slice(0, 200),
+                        channelId: m.channelId,
+                        channelName: m.channelName,
+                        timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+                        attachments: (m.attachments || []).slice(0, 3).map((a: any) => ({ url: a.url, name: a.name, contentType: a.contentType })),
+                    }));
+                } catch { /* non-fatal */ }
+            }
+
             await this.db.actionLog.create({
                 data: {
                     guildId,
@@ -625,7 +639,7 @@ export class ModerationPlugin implements IPlugin {
                     action,
                     executorId,
                     targetId,
-                    details,
+                    details: { ...details, recentMessages },
                     searchableText: `${action} ${targetId}`
                 }
             });

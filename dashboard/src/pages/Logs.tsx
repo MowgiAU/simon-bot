@@ -932,6 +932,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                             if (['ban', 'kick', 'timeout', 'unban', 'warn', 'warnings', 'softban', 'purge'].includes(log.action)) {
                                 const colorMap: any = { ban: colors.error, kick: colors.highlight, timeout: colors.highlightLight, unban: colors.success, warn: '#FBBF24', purge: '#FB923C' };
                                 const d = log.details || {};
+                                const recentMsgs: any[] = Array.isArray(d.recentMessages) ? d.recentMessages : [];
                                 return (
                                     <div style={{ fontSize: '13px' }}>
                                         <div style={{ fontWeight: 600, color: colorMap[log.action] || colors.primary, textTransform: 'capitalize' }}>
@@ -942,6 +943,26 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                             {d.reason && <span>Reason: <span style={{ color: colors.textPrimary }}>{d.reason}</span></span>}
                                             {d.duration && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: '12px' }}>{d.duration}</span>}
                                         </div>
+                                        {recentMsgs.length > 0 && (
+                                            <div style={{ marginTop: 8, borderTop: `1px solid rgba(255,255,255,0.07)`, paddingTop: 6 }}>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    Last {recentMsgs.length} message{recentMsgs.length !== 1 ? 's' : ''}
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                    {recentMsgs.map((m: any, i: number) => (
+                                                        <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 4, padding: '4px 8px', fontSize: '12px' }}>
+                                                            <span style={{ color: colors.textTertiary, marginRight: 8 }}>#{m.channelName ?? m.channelId}</span>
+                                                            <span style={{ color: colors.textSecondary, fontStyle: 'italic' }}>
+                                                                {m.content ? `"${String(m.content).slice(0, 160)}${m.content.length > 160 ? '…' : ''}"` : '*(no text)*'}
+                                                            </span>
+                                                            {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                                                                <span style={{ marginLeft: 6, color: colors.textTertiary }}>📎 {m.attachments.length}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             }
