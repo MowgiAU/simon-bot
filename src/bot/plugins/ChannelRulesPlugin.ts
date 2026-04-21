@@ -469,7 +469,7 @@ export class ChannelRulesPlugin implements IPlugin {
                 ruleName: rule.name,
                 ruleType: rule.type,
                 resolution: action,
-                contentSummary: message.content.substring(0, 50) + '...'
+                content: message.content
             }
         });
     }

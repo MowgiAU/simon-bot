@@ -961,8 +961,10 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                         <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
                                         <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
                                             {d.channelId  && <span>Channel: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{d.channelName ?? d.channelId}</code></span>}
-                                            {d.ruleId     && <span>Rule: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{d.ruleName ?? d.ruleId}</code></span>}
-                                            {d.content    && <span style={{ maxWidth: 360, fontStyle: 'italic', color: colors.textTertiary }}>"<span style={{ color: colors.textPrimary }}>{String(d.content).slice(0, 120)}{String(d.content).length > 120 ? '…' : ''}</span>"</span>}
+                                            {(d.ruleId || d.ruleName) && <span>Rule: <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: 4 }}>{d.ruleName ?? d.ruleId}</code></span>}
+                                            {d.ruleType   && <span>Type: <span style={{ color: colors.textPrimary }}>{d.ruleType}</span></span>}
+                                            {d.resolution && <span>Action: <span style={{ color: colors.textPrimary }}>{d.resolution}</span></span>}
+                                            {d.content    && <span style={{ maxWidth: 360, fontStyle: 'italic', color: colors.textTertiary }}>"<span style={{ color: colors.textPrimary }}>{String(d.content).slice(0, 200)}{String(d.content).length > 200 ? '…' : ''}</span>"</span>}
                                             {d.reason     && <span>Reason: <span style={{ color: colors.textPrimary }}>{d.reason}</span></span>}
                                         </div>
                                     </div>
