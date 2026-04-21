@@ -2243,8 +2243,28 @@ model SpamGuardSettings {
 
   guild                Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   imageHashes          SpamImageHash[]
+  blockedPhrases       SpamBlockedPhrase[]
 
   @@map("spam_guard_settings")
+}
+
+model SpamBlockedPhrase {
+  id            String   @id @default(cuid())
+  guildId       String
+  phrase        String               // The phrase or full-length message to block
+  description   String?              // Optional label e.g. "Server nuked spam Apr 2026"
+  addedByMod    String?              // Discord user ID of mod who added it
+  isRegex       Boolean  @default(false)  // If true, treat phrase as a regex pattern
+  caseSensitive Boolean  @default(false)  // If false, match case-insensitively
+  hitCount      Int      @default(0)
+
+  createdAt     DateTime @default(now())
+
+  settings      SpamGuardSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@unique([guildId, phrase])
+  @@index([guildId])
+  @@map("spam_blocked_phrases")
 }
 
 model SpamImageHash {

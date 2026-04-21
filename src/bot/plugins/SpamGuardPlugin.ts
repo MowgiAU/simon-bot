@@ -103,6 +103,13 @@ export class SpamGuardPlugin implements IPlugin {
     private hashCache: Map<string, { hashes: string[]; loadedAt: number }> = new Map();
     private readonly HASH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+    // Per-guild phrase blocklist cache
+    private phraseCache: Map<string, {
+        phrases: { phrase: string; isRegex: boolean; caseSensitive: boolean; compiled?: RegExp }[];
+        loadedAt: number;
+    }> = new Map();
+    private readonly PHRASE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
@@ -150,6 +157,14 @@ export class SpamGuardPlugin implements IPlugin {
 
         const now = Date.now();
 
+        // ── Layer 0: Blocked phrase / full-message check ──────────────────────
+        // Runs on every message (not just attachment messages) so admins can
+        // block raw text spam like "Server nuked by team X .gg/x".
+        if (message.content && message.content.trim().length > 0) {
+            const matched = await this.checkBlockedPhrases(message, member, settings);
+            if (matched) return;
+        }
+
         // ── Layer 1: Behavioral tripwire ──────────────────────────────────────
         if (message.attachments.size > 0) {
             const triggered = await this.checkBehavior(message, member, settings, now);
@@ -160,6 +175,46 @@ export class SpamGuardPlugin implements IPlugin {
         if (message.attachments.size > 0) {
             await this.checkImageHashes(message, member, settings);
         }
+    }
+
+    // ─── Blocked Phrase Check ─────────────────────────────────────────────────
+
+    private async checkBlockedPhrases(
+        message: Message,
+        member: GuildMember,
+        settings: any,
+    ): Promise<boolean> {
+        const guildId = message.guild!.id;
+        const phrases = await this.getPhraseCache(guildId);
+        if (phrases.length === 0) return false;
+
+        const content = message.content;
+        const contentLower = content.toLowerCase();
+
+        for (const entry of phrases) {
+            let hit = false;
+            if (entry.isRegex) {
+                if (entry.compiled) {
+                    try { hit = entry.compiled.test(content); } catch { hit = false; }
+                }
+            } else if (entry.caseSensitive) {
+                hit = content.includes(entry.phrase);
+            } else {
+                hit = contentLower.includes(entry.phrase.toLowerCase());
+            }
+
+            if (hit) {
+                // Increment hit count in background
+                void this.db.spamBlockedPhrase.updateMany({
+                    where: { guildId, phrase: entry.phrase },
+                    data: { hitCount: { increment: 1 } },
+                });
+
+                await this.handleViolation(message, member, settings, 'blocked_phrase', [message.id]);
+                return true;
+            }
+        }
+        return false;
     }
 
     // ─── Behavioral Check ─────────────────────────────────────────────────────
@@ -273,6 +328,7 @@ export class SpamGuardPlugin implements IPlugin {
             attachment_flood: 'Attachment flood',
             channel_spread: 'Multi-channel spam',
             known_hash: 'Known spam image',
+            blocked_phrase: 'Blocked phrase / message',
         };
 
         let actionTaken = 'deleted_messages';
@@ -396,5 +452,41 @@ export class SpamGuardPlugin implements IPlugin {
     // Called by API when a new hash is added, to flush the cache
     invalidateHashCache(guildId: string): void {
         this.hashCache.delete(guildId);
+    }
+
+    private async getPhraseCache(guildId: string): Promise<
+        { phrase: string; isRegex: boolean; caseSensitive: boolean; compiled?: RegExp }[]
+    > {
+        const cached = this.phraseCache.get(guildId);
+        if (cached && Date.now() - cached.loadedAt < this.PHRASE_CACHE_TTL) {
+            return cached.phrases;
+        }
+
+        try {
+            const rows = await this.db.spamBlockedPhrase.findMany({
+                where: { guildId },
+                select: { phrase: true, isRegex: true, caseSensitive: true },
+            });
+            const phrases = rows.map((r: { phrase: string; isRegex: boolean; caseSensitive: boolean }) => {
+                let compiled: RegExp | undefined;
+                if (r.isRegex) {
+                    try {
+                        compiled = new RegExp(r.phrase, r.caseSensitive ? '' : 'i');
+                    } catch {
+                        compiled = undefined;
+                    }
+                }
+                return { phrase: r.phrase, isRegex: r.isRegex, caseSensitive: r.caseSensitive, compiled };
+            });
+            this.phraseCache.set(guildId, { phrases, loadedAt: Date.now() });
+            return phrases;
+        } catch {
+            return [];
+        }
+    }
+
+    // Called by API when a phrase is added/removed, to flush the cache
+    invalidatePhraseCache(guildId: string): void {
+        this.phraseCache.delete(guildId);
     }
 }

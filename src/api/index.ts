@@ -14749,6 +14749,94 @@ app.get('/api/spam-guard/incidents/:guildId', async (req, res) => {
     }
 });
 
+// ── SpamGuard: Blocked phrases / full-message blocklist ────────────────────
+
+app.get('/api/spam-guard/phrases/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const phrases = await db.spamBlockedPhrase.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(phrases);
+    } catch (e) {
+        logger.error('Failed to get blocked phrases', e);
+        res.status(500).json({ error: 'Failed to get phrases' });
+    }
+});
+
+app.post('/api/spam-guard/phrases/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { phrase, description, isRegex, caseSensitive } = req.body ?? {};
+        if (!phrase || typeof phrase !== 'string') {
+            return res.status(400).json({ error: 'phrase is required' });
+        }
+        const trimmed = phrase.trim();
+        if (trimmed.length < 3) {
+            return res.status(400).json({ error: 'Phrase must be at least 3 characters' });
+        }
+        if (trimmed.length > 2000) {
+            return res.status(400).json({ error: 'Phrase must be 2000 characters or fewer' });
+        }
+        // Validate regex if requested
+        if (isRegex) {
+            try { new RegExp(trimmed); } catch (err: any) {
+                return res.status(400).json({ error: `Invalid regex: ${err?.message ?? 'parse error'}` });
+            }
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        // Ensure SpamGuardSettings row exists (FK target)
+        await db.spamGuardSettings.upsert({
+            where: { guildId },
+            update: {},
+            create: { guildId },
+        });
+
+        const entry = await db.spamBlockedPhrase.upsert({
+            where: { guildId_phrase: { guildId, phrase: trimmed } },
+            update: {
+                description: description?.trim() || null,
+                isRegex: !!isRegex,
+                caseSensitive: !!caseSensitive,
+                addedByMod: (req as any).session?.user?.id,
+            },
+            create: {
+                guildId,
+                phrase: trimmed,
+                description: description?.trim() || null,
+                isRegex: !!isRegex,
+                caseSensitive: !!caseSensitive,
+                addedByMod: (req as any).session?.user?.id,
+            },
+        });
+
+        res.json(entry);
+    } catch (e) {
+        logger.error('Failed to add blocked phrase', e);
+        res.status(500).json({ error: 'Failed to add phrase' });
+    }
+});
+
+app.delete('/api/spam-guard/phrases/:guildId/:phraseId', async (req, res) => {
+    try {
+        const { guildId, phraseId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        await db.spamBlockedPhrase.deleteMany({ where: { id: phraseId, guildId } });
+
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Failed to delete blocked phrase', e);
+        res.status(500).json({ error: 'Failed to delete phrase' });
+    }
+});
+
 // ── ENHANCED PROFILE STYLES ─────────────────────────────────────────────────
 
 // Admin: search musician profiles (for targeting users without needing their Discord ID)

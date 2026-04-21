@@ -5,7 +5,7 @@ import { RoleSelect } from '../components/RoleSelect';
 import { useAuth } from '../components/AuthProvider';
 import {
     ShieldCheck, Trash2, AlertTriangle, RefreshCw, Save, Plus, X,
-    Clock, Zap, Hash, ImageOff, Eye, EyeOff, Link, Loader,
+    Clock, Zap, Hash, ImageOff, Eye, EyeOff, Link, Loader, MessageSquareWarning,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL ?? '';
@@ -48,10 +48,23 @@ interface SpamIncident {
     createdAt: string;
 }
 
+interface SpamBlockedPhrase {
+    id: string;
+    guildId: string;
+    phrase: string;
+    description: string | null;
+    addedByMod: string | null;
+    isRegex: boolean;
+    caseSensitive: boolean;
+    hitCount: number;
+    createdAt: string;
+}
+
 const TRIGGER_LABELS: Record<string, string> = {
     attachment_flood: 'Attachment Flood',
     channel_spread: 'Multi-channel Spread',
     known_hash: 'Known Spam Image',
+    blocked_phrase: 'Blocked Phrase',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -67,16 +80,24 @@ export const SpamGuardPage: React.FC = () => {
 
     const [settings, setSettings] = useState<SpamGuardSettings | null>(null);
     const [hashes, setHashes] = useState<SpamImageHash[]>([]);
+    const [phrases, setPhrases] = useState<SpamBlockedPhrase[]>([]);
     const [incidents, setIncidents] = useState<SpamIncident[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-    const [activeTab, setActiveTab] = useState<'settings' | 'hashes' | 'incidents'>('settings');
+    const [activeTab, setActiveTab] = useState<'settings' | 'phrases' | 'hashes' | 'incidents'>('settings');
 
     // New hash form
     const [newHash, setNewHash] = useState('');
     const [newHashDesc, setNewHashDesc] = useState('');
     const [addingHash, setAddingHash] = useState(false);
+
+    // New phrase form
+    const [newPhrase, setNewPhrase] = useState('');
+    const [newPhraseDesc, setNewPhraseDesc] = useState('');
+    const [newPhraseRegex, setNewPhraseRegex] = useState(false);
+    const [newPhraseCS, setNewPhraseCS] = useState(false);
+    const [addingPhrase, setAddingPhrase] = useState(false);
 
     // Compute hash from URL
     const [hashUrl, setHashUrl] = useState('');
@@ -113,13 +134,15 @@ export const SpamGuardPage: React.FC = () => {
         if (!guildId) return;
         setLoading(true);
         try {
-            const [s, h, i] = await Promise.all([
+            const [s, h, p, i] = await Promise.all([
                 fetch(`${API}/api/spam-guard/settings/${guildId}`, { credentials: 'include' }).then(r => r.json()),
                 fetch(`${API}/api/spam-guard/hashes/${guildId}`, { credentials: 'include' }).then(r => r.json()),
+                fetch(`${API}/api/spam-guard/phrases/${guildId}`, { credentials: 'include' }).then(r => r.json()),
                 fetch(`${API}/api/spam-guard/incidents/${guildId}?limit=50`, { credentials: 'include' }).then(r => r.json()),
             ]);
             if (!s.error) setSettings(s);
             if (Array.isArray(h)) setHashes(h);
+            if (Array.isArray(p)) setPhrases(p);
             if (Array.isArray(i)) setIncidents(i);
         } catch {
             showMsg('error', 'Failed to load settings');
@@ -184,6 +207,49 @@ export const SpamGuardPage: React.FC = () => {
             setHashes(prev => prev.filter(h => h.id !== hashId));
         } catch {
             showMsg('error', 'Failed to delete hash');
+        }
+    };
+
+    const addPhrase = async () => {
+        if (!guildId || !newPhrase.trim()) return;
+        setAddingPhrase(true);
+        try {
+            const res = await fetch(`${API}/api/spam-guard/phrases/${guildId}`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phrase: newPhrase.trim(),
+                    description: newPhraseDesc.trim() || null,
+                    isRegex: newPhraseRegex,
+                    caseSensitive: newPhraseCS,
+                }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            setPhrases(prev => [data, ...prev.filter(p => p.id !== data.id)]);
+            setNewPhrase('');
+            setNewPhraseDesc('');
+            setNewPhraseRegex(false);
+            setNewPhraseCS(false);
+            showMsg('success', 'Phrase added to blocklist (active within 5 min)');
+        } catch (e: any) {
+            showMsg('error', e.message || 'Failed to add phrase');
+        } finally {
+            setAddingPhrase(false);
+        }
+    };
+
+    const deletePhrase = async (phraseId: string) => {
+        if (!guildId) return;
+        try {
+            await fetch(`${API}/api/spam-guard/phrases/${guildId}/${phraseId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            setPhrases(prev => prev.filter(p => p.id !== phraseId));
+        } catch {
+            showMsg('error', 'Failed to delete phrase');
         }
     };
 
@@ -260,8 +326,8 @@ export const SpamGuardPage: React.FC = () => {
             )}
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-                {(['settings', 'hashes', 'incidents'] as const).map(tab => (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                {(['settings', 'phrases', 'hashes', 'incidents'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -277,7 +343,8 @@ export const SpamGuardPage: React.FC = () => {
                             textTransform: 'capitalize',
                         }}
                     >
-                        {tab === 'hashes' ? `Hash Blocklist (${hashes.length})` :
+                        {tab === 'hashes' ? `Image Hashes (${hashes.length})` :
+                         tab === 'phrases' ? `Phrase Blocklist (${phrases.length})` :
                          tab === 'incidents' ? `Incidents (${incidents.length})` :
                          'Settings'}
                     </button>
@@ -479,6 +546,199 @@ export const SpamGuardPage: React.FC = () => {
                         <Save size={15} />
                         {saving ? 'Saving…' : 'Save Settings'}
                     </button>
+                </div>
+            )}
+
+            {/* ── Tab: Phrase Blocklist ── */}
+            {activeTab === 'phrases' && (
+                <div>
+                    <div style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: borderRadius.lg,
+                        padding: '20px',
+                        border: `1px solid ${colors.border}`,
+                        marginBottom: '20px',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <MessageSquareWarning size={18} color={colors.primary} />
+                            <h3 style={{ margin: 0, color: colors.textPrimary }}>Add Blocked Phrase</h3>
+                        </div>
+                        <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px' }}>
+                            Any message <strong>containing</strong> a blocked phrase will be auto-deleted and the
+                            configured action (timeout/kick/ban) applied. Use this for repeating spam text such as
+                            <em> "Server nuked by team X .gg/x"</em>. Matching is case-insensitive by default.
+                            Changes propagate within ~5 minutes.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Phrase or full message to block
+                                </span>
+                                <textarea
+                                    placeholder='e.g. Server nuked by team TRACERS .gg/tracers'
+                                    value={newPhrase}
+                                    onChange={e => setNewPhrase(e.target.value)}
+                                    rows={3}
+                                    maxLength={2000}
+                                    style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical', minHeight: 60 }}
+                                />
+                            </label>
+
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Description (optional)
+                                </span>
+                                <input
+                                    placeholder="e.g. TRACERS nuke spam Apr 2026"
+                                    value={newPhraseDesc}
+                                    onChange={e => setNewPhraseDesc(e.target.value)}
+                                    style={inputStyle}
+                                />
+                            </label>
+
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: colors.textSecondary, fontSize: '13px' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={newPhraseRegex}
+                                        onChange={e => setNewPhraseRegex(e.target.checked)}
+                                        style={{ accentColor: colors.primary }}
+                                    />
+                                    Treat as regex (advanced)
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: colors.textSecondary, fontSize: '13px' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={newPhraseCS}
+                                        onChange={e => setNewPhraseCS(e.target.checked)}
+                                        style={{ accentColor: colors.primary }}
+                                    />
+                                    Case-sensitive
+                                </label>
+                                <button
+                                    onClick={addPhrase}
+                                    disabled={addingPhrase || newPhrase.trim().length < 3}
+                                    style={{
+                                        padding: '9px 18px',
+                                        borderRadius: borderRadius.md,
+                                        border: 'none',
+                                        backgroundColor: newPhrase.trim().length >= 3 ? colors.primary : colors.border,
+                                        color: '#fff',
+                                        cursor: newPhrase.trim().length >= 3 && !addingPhrase ? 'pointer' : 'not-allowed',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        marginLeft: 'auto',
+                                    }}
+                                >
+                                    <Plus size={14} />
+                                    {addingPhrase ? 'Adding…' : 'Add to Blocklist'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {phrases.length === 0 ? (
+                        <div style={{ color: colors.textTertiary, padding: '32px', textAlign: 'center', fontSize: '14px' }}>
+                            No blocked phrases yet.
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {phrases.map(p => (
+                                <div
+                                    key={p.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        justifyContent: 'space-between',
+                                        padding: '12px 16px',
+                                        backgroundColor: colors.surface,
+                                        borderRadius: borderRadius.md,
+                                        border: `1px solid ${colors.border}`,
+                                        gap: '12px',
+                                        flexWrap: 'wrap',
+                                    }}
+                                >
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                            color: colors.textPrimary,
+                                            fontSize: '13px',
+                                            fontFamily: 'monospace',
+                                            wordBreak: 'break-word',
+                                            whiteSpace: 'pre-wrap',
+                                        }}>
+                                            {p.phrase}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                            {p.isRegex && (
+                                                <span style={{
+                                                    backgroundColor: `${colors.accent}22`,
+                                                    color: colors.accent,
+                                                    border: `1px solid ${colors.accent}44`,
+                                                    borderRadius: borderRadius.pill,
+                                                    padding: '1px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                }}>regex</span>
+                                            )}
+                                            {p.caseSensitive && (
+                                                <span style={{
+                                                    backgroundColor: `${colors.warning}22`,
+                                                    color: colors.warning,
+                                                    border: `1px solid ${colors.warning}44`,
+                                                    borderRadius: borderRadius.pill,
+                                                    padding: '1px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                }}>case-sensitive</span>
+                                            )}
+                                            {p.description && (
+                                                <span style={{ color: colors.textSecondary, fontSize: '12px' }}>
+                                                    {p.description}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        {p.hitCount > 0 && (
+                                            <span style={{
+                                                backgroundColor: `${colors.error}22`,
+                                                color: colors.error,
+                                                border: `1px solid ${colors.error}44`,
+                                                borderRadius: borderRadius.pill,
+                                                padding: '2px 8px',
+                                                fontSize: '12px',
+                                                fontWeight: 600,
+                                            }}>
+                                                {p.hitCount} hit{p.hitCount !== 1 ? 's' : ''}
+                                            </span>
+                                        )}
+                                        <span style={{ color: colors.textTertiary, fontSize: '12px' }}>
+                                            {new Date(p.createdAt).toLocaleDateString()}
+                                        </span>
+                                        <button
+                                            onClick={() => deletePhrase(p.id)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: colors.error,
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                            }}
+                                            title="Delete phrase"
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
