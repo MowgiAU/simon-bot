@@ -66,14 +66,16 @@ interface LeaderRow {
 
 // ── Gamification: Tiers based on Elo ──
 type Tier = { name: string; min: number; color: string; icon: React.ReactNode; glow: string };
+// Starting Elo is 1200. Players must EARN their way up — unranked = Bronze.
 const TIERS: Tier[] = [
-    { name: 'BRONZE',   min: 0,    color: '#CD7F32', glow: 'rgba(205,127,50,0.5)',  icon: <Medal size={14} /> },
-    { name: 'SILVER',   min: 1100, color: '#C0C0C0', glow: 'rgba(192,192,192,0.5)', icon: <Medal size={14} /> },
-    { name: 'GOLD',     min: 1250, color: '#FFD700', glow: 'rgba(255,215,0,0.6)',   icon: <Trophy size={14} /> },
-    { name: 'PLATINUM', min: 1400, color: '#E5E4E2', glow: 'rgba(229,228,226,0.6)', icon: <Trophy size={14} /> },
-    { name: 'DIAMOND',  min: 1550, color: '#5DD4FF', glow: 'rgba(93,212,255,0.7)',  icon: <Crown size={14} /> },
-    { name: 'MASTER',   min: 1700, color: '#A855F7', glow: 'rgba(168,85,247,0.7)',  icon: <Crown size={14} /> },
-    { name: 'LEGEND',   min: 1900, color: '#FF3D7F', glow: 'rgba(255,61,127,0.8)',  icon: <Flame size={14} /> },
+    { name: 'UNRANKED', min: 0,    color: '#7A8190', glow: 'rgba(122,129,144,0.4)', icon: <Medal size={14} /> },
+    { name: 'BRONZE',   min: 1200, color: '#CD7F32', glow: 'rgba(205,127,50,0.5)',  icon: <Medal size={14} /> },
+    { name: 'SILVER',   min: 1300, color: '#C0C0C0', glow: 'rgba(192,192,192,0.5)', icon: <Medal size={14} /> },
+    { name: 'GOLD',     min: 1450, color: '#FFD700', glow: 'rgba(255,215,0,0.6)',   icon: <Trophy size={14} /> },
+    { name: 'PLATINUM', min: 1600, color: '#E5E4E2', glow: 'rgba(229,228,226,0.6)', icon: <Trophy size={14} /> },
+    { name: 'DIAMOND',  min: 1750, color: '#5DD4FF', glow: 'rgba(93,212,255,0.7)',  icon: <Crown size={14} /> },
+    { name: 'MASTER',   min: 1900, color: '#A855F7', glow: 'rgba(168,85,247,0.7)',  icon: <Crown size={14} /> },
+    { name: 'LEGEND',   min: 2100, color: '#FF3D7F', glow: 'rgba(255,61,127,0.8)',  icon: <Flame size={14} /> },
 ];
 function tierFor(elo: number): Tier { return [...TIERS].reverse().find(t => elo >= t.min) || TIERS[0]; }
 function nextTier(elo: number): Tier | null {
@@ -388,7 +390,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         </div>
     );
 
-    const tier = tierFor(me.globalRating.elo);
+    const tier = me.globalRating.matchesPlayed === 0 ? TIERS[0] : tierFor(me.globalRating.elo);
     const next = nextTier(me.globalRating.elo);
     const winRate = me.globalRating.matchesPlayed > 0 ? Math.round((me.globalRating.wins / me.globalRating.matchesPlayed) * 100) : 0;
 
