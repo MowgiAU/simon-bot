@@ -18,11 +18,18 @@ interface Sample {
     id: string;
     poolId: string;
     name: string;
+    category: string;
     fileUrl: string;
     fileType: string;
     fileSize: number;
     createdAt: string;
 }
+
+const SAMPLE_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx', 'bass', 'melody', 'chords', 'other'] as const;
+const CATEGORY_COLOR: Record<string, string> = {
+    kick: '#FF3D7F', snare: '#FFD700', hat: '#00E5FF', percussion: '#34D399',
+    fx: '#A855F7', bass: '#5DD4FF', melody: '#FF8A4C', chords: '#E879F9', other: '#7A8190',
+};
 interface Settings {
     enabled: boolean;
     announcementChannelId: string | null;
@@ -158,11 +165,21 @@ const PoolsTab: React.FC = () => {
         await load();
     };
 
-    const uploadSamples = async (poolId: string, files: FileList) => {
+    const uploadSamples = async (poolId: string, files: FileList, category: string) => {
         const fd = new FormData();
         Array.from(files).forEach(f => fd.append('samples', f));
+        fd.append('category', category);
         await fetch(`${API}/api/head-to-head/admin/pools/${poolId}/samples`, {
             method: 'POST', credentials: 'include', body: fd,
+        });
+        await load();
+    };
+
+    const updateSampleCategory = async (id: string, category: string) => {
+        await fetch(`${API}/api/head-to-head/admin/samples/${id}`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category }),
         });
         await load();
     };
@@ -212,43 +229,103 @@ const PoolsTab: React.FC = () => {
             )}
 
             {pools.map(p => (
-                <div key={p.id} style={{ background: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                        <div style={{ flex: 1, minWidth: 200 }}>
-                            <h4 style={{ margin: '0 0 4px' }}>{p.name} {!p.isActive && <span style={{ fontSize: 11, color: colors.textSecondary, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4, marginLeft: 8 }}>DISABLED</span>}</h4>
-                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: 13 }}>
-                                {p.genre?.name || 'Global'} · {p._count?.samples ?? p.samples.length} sample(s)
-                                {p.description && ` · ${p.description}`}
-                            </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <label style={{ background: colors.background, color: colors.textPrimary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, border: `1px solid ${colors.border}` }}>
-                                <Upload size={14} /> Upload
-                                <input type="file" multiple accept="audio/*" style={{ display: 'none' }}
-                                    onChange={e => e.target.files && uploadSamples(p.id, e.target.files)} />
-                            </label>
-                            <button onClick={() => togglePool(p)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-                                {p.isActive ? 'Disable' : 'Enable'}
-                            </button>
-                            <button onClick={() => deletePool(p)} style={{ background: 'transparent', border: `1px solid ${colors.error}`, color: colors.error, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    </div>
-                    {p.samples.length > 0 && (
-                        <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {p.samples.map(s => (
-                                <div key={s.id} style={{ background: colors.background, padding: '4px 8px', borderRadius: 4, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <span>{s.name}</span>
-                                    <button onClick={() => deleteSample(s.id)} style={{ background: 'transparent', border: 'none', color: colors.error, cursor: 'pointer', padding: 0, display: 'flex' }}>
-                                        <X size={12} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <PoolCard key={p.id} pool={p}
+                    onToggle={() => togglePool(p)}
+                    onDelete={() => deletePool(p)}
+                    onUpload={(files, cat) => uploadSamples(p.id, files, cat)}
+                    onChangeCategory={(id, cat) => updateSampleCategory(id, cat)}
+                    onDeleteSample={deleteSample} />
             ))}
+        </div>
+    );
+};
+
+// ─── Pool card ─────────────────────────────────────────────────────────────
+
+const PoolCard: React.FC<{
+    pool: Pool;
+    onToggle: () => void;
+    onDelete: () => void;
+    onUpload: (files: FileList, category: string) => void;
+    onChangeCategory: (id: string, category: string) => void;
+    onDeleteSample: (id: string) => void;
+}> = ({ pool: p, onToggle, onDelete, onUpload, onChangeCategory, onDeleteSample }) => {
+    const [uploadCategory, setUploadCategory] = useState<string>('kick');
+
+    // Group samples by category for a cleaner overview
+    const grouped: Record<string, Sample[]> = {};
+    for (const s of p.samples) {
+        const cat = (s.category || 'other').toLowerCase();
+        (grouped[cat] = grouped[cat] || []).push(s);
+    }
+    const orderedCats = SAMPLE_CATEGORIES.filter(c => grouped[c]?.length);
+
+    return (
+        <div style={{ background: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                    <h4 style={{ margin: '0 0 4px' }}>{p.name} {!p.isActive && <span style={{ fontSize: 11, color: colors.textSecondary, background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4, marginLeft: 8 }}>DISABLED</span>}</h4>
+                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: 13 }}>
+                        {p.genre?.name || 'Global'} · {p._count?.samples ?? p.samples.length} sample(s)
+                        {p.description && ` · ${p.description}`}
+                    </p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)}
+                        style={{ background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
+                        {SAMPLE_CATEGORIES.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+                    </select>
+                    <label style={{ background: colors.background, color: colors.textPrimary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, border: `1px solid ${colors.border}` }}>
+                        <Upload size={14} /> Upload
+                        <input type="file" multiple accept="audio/*" style={{ display: 'none' }}
+                            onChange={e => e.target.files && onUpload(e.target.files, uploadCategory)} />
+                    </label>
+                    <button onClick={onToggle} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+                        {p.isActive ? 'Disable' : 'Enable'}
+                    </button>
+                    <button onClick={onDelete} style={{ background: 'transparent', border: `1px solid ${colors.error}`, color: colors.error, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            </div>
+
+            {p.samples.length === 0 ? (
+                <p style={{ margin: '12px 0 0', color: colors.textSecondary, fontSize: 12, fontStyle: 'italic' }}>
+                    Pick a category above and upload some samples.
+                </p>
+            ) : (
+                <div style={{ marginTop: 12 }}>
+                    {orderedCats.map(cat => {
+                        const color = CATEGORY_COLOR[cat] || CATEGORY_COLOR.other;
+                        return (
+                            <div key={cat} style={{ marginBottom: 8 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color, marginBottom: 4 }}>
+                                    {cat.toUpperCase()} · {grouped[cat].length}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {grouped[cat].map(s => (
+                                        <div key={s.id} style={{
+                                            background: colors.background, padding: '4px 8px', borderRadius: 4, fontSize: 12,
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                            border: `1px solid ${color}33`,
+                                        }}>
+                                            <span title={s.name} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                                            <select value={cat} onChange={e => onChangeCategory(s.id, e.target.value)}
+                                                title="Change category"
+                                                style={{ background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 3, padding: '0 4px', fontSize: 10, cursor: 'pointer' }}>
+                                                {SAMPLE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <button onClick={() => onDeleteSample(s.id)} style={{ background: 'transparent', border: 'none', color: colors.error, cursor: 'pointer', padding: 0, display: 'flex' }}>
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

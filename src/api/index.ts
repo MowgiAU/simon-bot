@@ -11356,22 +11356,50 @@ async function recordForfeit(userId: string): Promise<void> {
     await db.h2HRating.update({ where: { id: r.id }, data: { forfeits: r.forfeits + 1 } });
 }
 
-async function pickRandomSamples(genreId: string | null, count: number): Promise<string[]> {
-    // Prefer pools matching the genre; fall back to global pools (genreId null) if not enough samples.
-    const wherePref: any = { isActive: true };
-    if (genreId) wherePref.genreId = genreId;
-    let samples = await db.h2HSample.findMany({ where: { pool: wherePref } });
-    if (samples.length < count && genreId) {
-        const fallback = await db.h2HSample.findMany({ where: { pool: { isActive: true, genreId: null } } });
-        samples = samples.concat(fallback);
+async function pickRandomSamples(_genreId: string | null, _count: number): Promise<string[]> {
+    // Deprecated: replaced by pickCategorizedSamples. Kept as a stub for any external callers.
+    return [];
+}
+void pickRandomSamples;
+
+// Mandatory categories every match always gets one of (if available).
+const H2H_MANDATORY_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx'] as const;
+// Optional categories — included only when the match's include* flag is true.
+const H2H_OPTIONAL_CATEGORIES = ['bass', 'melody', 'chords'] as const;
+const H2H_ALL_CATEGORIES = [...H2H_MANDATORY_CATEGORIES, ...H2H_OPTIONAL_CATEGORIES] as const;
+
+async function pickCategorizedSamples(
+    genreId: string | null,
+    opts: { includeBass: boolean; includeMelody: boolean; includeChords: boolean }
+): Promise<string[]> {
+    const categories = [
+        ...H2H_MANDATORY_CATEGORIES,
+        ...(opts.includeBass ? ['bass'] : []),
+        ...(opts.includeMelody ? ['melody'] : []),
+        ...(opts.includeChords ? ['chords'] : []),
+    ];
+
+    const picked: string[] = [];
+    for (const cat of categories) {
+        // Prefer genre-matching pools, fall back to global pools (genreId null).
+        let candidates = await db.h2HSample.findMany({
+            where: {
+                category: cat,
+                pool: { isActive: true, ...(genreId ? { genreId } : {}) },
+            },
+            select: { id: true },
+        });
+        if (!candidates.length && genreId) {
+            candidates = await db.h2HSample.findMany({
+                where: { category: cat, pool: { isActive: true, genreId: null } },
+                select: { id: true },
+            });
+        }
+        if (!candidates.length) continue; // category has no samples anywhere — skip silently
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        picked.push(chosen.id);
     }
-    if (!samples.length) return [];
-    // Fisher-Yates shuffle
-    for (let i = samples.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [samples[i], samples[j]] = [samples[j], samples[i]];
-    }
-    return samples.slice(0, Math.min(count, samples.length)).map(s => s.id);
+    return picked;
 }
 
 // ─── Public endpoints ───
@@ -11498,7 +11526,7 @@ app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
         const userId = req.session.user.id;
         const settings = await getH2HSettings();
         if (!settings.enabled) return res.status(403).json({ error: 'Head-to-Head is disabled' });
-        const { genreId, productionMinutes } = req.body || {};
+        const { genreId, productionMinutes, includeBass, includeMelody, includeChords } = req.body || {};
 
         // Block if user already has an active match
         const existing = await db.h2HMatch.findFirst({
@@ -11517,6 +11545,9 @@ app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
                 productionMinutes: prod,
                 votingMinutes: settings.defaultVotingMinutes,
                 status: 'queued',
+                includeBass: includeBass !== false,
+                includeMelody: includeMelody !== false,
+                includeChords: includeChords !== false,
             },
         });
         res.json({ matchId: match.id, status: match.status });
@@ -11603,8 +11634,11 @@ app.post('/api/head-to-head/match/:id/ready', requireAuth, async (req: any, res)
 });
 
 async function advanceToProduction(match: any): Promise<void> {
-    const settings = await getH2HSettings();
-    const sampleIds = await pickRandomSamples(match.genreId, settings.samplesPerMatch);
+    const sampleIds = await pickCategorizedSamples(match.genreId, {
+        includeBass: match.includeBass !== false,
+        includeMelody: match.includeMelody !== false,
+        includeChords: match.includeChords !== false,
+    });
     const now = new Date();
     const deadline = new Date(now.getTime() + match.productionMinutes * 60 * 1000);
     await db.h2HMatch.update({
@@ -11861,17 +11895,35 @@ app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.ar
         if (!pool) return res.status(404).json({ error: 'Pool not found' });
         const files: any[] = req.files || [];
         if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+        const validCategories = new Set<string>([...H2H_ALL_CATEGORIES, 'other']);
+        const normalizeCat = (raw: any): string => {
+            const s = String(raw || '').trim().toLowerCase();
+            return validCategories.has(s) ? s : 'other';
+        };
+        const fallbackCategory = normalizeCat(req.body?.category);
+        // Support a parallel categories[] array: same length as files, one entry per file.
+        let perFile: string[] | null = null;
+        if (Array.isArray(req.body?.categories)) {
+            perFile = (req.body.categories as any[]).map(normalizeCat);
+        } else if (typeof req.body?.categories === 'string') {
+            // Single value form encoding edge case
+            perFile = [normalizeCat(req.body.categories)];
+        }
+
         const created: any[] = [];
-        for (const f of files) {
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const category = perFile && perFile[i] ? perFile[i] : fallbackCategory;
             let url: string;
             if (R2Storage.isConfigured()) {
                 const ext = (f.originalname.split('.').pop() || 'wav').toLowerCase().replace(/[^a-z0-9]/g, '') || 'wav';
-                const key = R2Storage.buildKey('h2h-samples', pool.id, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`);
+                const key = R2Storage.buildKey('h2h-samples', pool.id, `${category}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`);
                 url = await R2Storage.uploadBuffer(key, f.buffer, f.mimetype || 'audio/wav');
             } else {
                 const dir = path.join(PROJECT_ROOT, 'public/uploads/h2h-samples');
                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                const safeName = `${pool.id}-${Date.now()}-${f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                const safeName = `${pool.id}-${category}-${Date.now()}-${f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
                 fs.writeFileSync(path.join(dir, safeName), f.buffer);
                 url = `/uploads/h2h-samples/${safeName}`;
             }
@@ -11879,6 +11931,7 @@ app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.ar
                 data: {
                     poolId: pool.id,
                     name: f.originalname,
+                    category,
                     fileUrl: url,
                     fileType: (f.mimetype || 'audio/wav').split('/')[1] || 'wav',
                     fileSize: f.size || f.buffer.length,
@@ -11890,6 +11943,24 @@ app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.ar
         res.json({ created });
     } catch (e: any) {
         logger.error('H2H sample upload failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update a sample's category (admin)
+app.patch('/api/head-to-head/admin/samples/:id', requireAdmin, async (req, res) => {
+    try {
+        const validCategories = new Set<string>([...H2H_ALL_CATEGORIES, 'other']);
+        const data: any = {};
+        if (req.body?.category !== undefined) {
+            const c = String(req.body.category).trim().toLowerCase();
+            if (!validCategories.has(c)) return res.status(400).json({ error: 'Invalid category' });
+            data.category = c;
+        }
+        if (req.body?.name !== undefined) data.name = String(req.body.name).slice(0, 255);
+        const sample = await db.h2HSample.update({ where: { id: req.params.id }, data });
+        res.json(sample);
+    } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });

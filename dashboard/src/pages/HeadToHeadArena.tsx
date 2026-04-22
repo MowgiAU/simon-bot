@@ -15,7 +15,7 @@ interface Settings {
     minVotesToFinalize: number;
 }
 interface Profile { userId: string; username: string | null; displayName: string | null; avatar: string | null }
-interface Sample { id: string; name: string; fileUrl: string; fileType: string }
+interface Sample { id: string; name: string; fileUrl: string; fileType: string; category?: string }
 interface MatchInfo {
     id: string;
     status: string;
@@ -94,6 +94,18 @@ const NEON = {
     bgDeep: '#0A0E1A',
     bgPanel: 'rgba(15,20,35,0.85)',
     border: 'rgba(120,140,200,0.18)',
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+    kick:       '#FF3D7F', // pink — punchy
+    snare:      '#FFD700', // yellow — sharp
+    hat:        '#00E5FF', // cyan — crisp
+    percussion: '#34D399', // green — organic
+    fx:         '#A855F7', // purple — atmospheric
+    bass:       '#5DD4FF', // diamond blue — low end
+    melody:     '#FF8A4C', // orange — lead
+    chords:     '#E879F9', // magenta — harmony
+    other:      '#7A8190',
 };
 
 function timeLeft(iso: string | null): { txt: string; urgent: boolean; expired: boolean } {
@@ -340,6 +352,9 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [genres, setGenres] = useState<Genre[]>([]);
     const [genreId, setGenreId] = useState<string>('');
     const [prodMin, setProdMin] = useState<number>(60);
+    const [includeBass, setIncludeBass] = useState(true);
+    const [includeMelody, setIncludeMelody] = useState(true);
+    const [includeChords, setIncludeChords] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -367,7 +382,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         const res = await fetch(`${API}/api/head-to-head/queue`, {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ genreId: genreId || null, productionMinutes: prodMin }),
+            body: JSON.stringify({ genreId: genreId || null, productionMinutes: prodMin, includeBass, includeMelody, includeChords }),
         });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
@@ -491,6 +506,21 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                             </select>
                         </FieldGroup>
                     </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em', fontWeight: 700 }}>
+                            <Zap size={14} color={NEON.cyan} /> SAMPLE PACK
+                        </div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>
+                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Pick which melodics you want too:
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            <CategoryToggle label="BASS"   on={includeBass}   onClick={() => setIncludeBass(v => !v)}   color={NEON.purple} />
+                            <CategoryToggle label="MELODY" on={includeMelody} onClick={() => setIncludeMelody(v => !v)} color={NEON.cyan} />
+                            <CategoryToggle label="CHORDS" on={includeChords} onClick={() => setIncludeChords(v => !v)} color={NEON.pink} />
+                        </div>
+                    </div>
+
                     <NeonButton onClick={joinQueue} disabled={busy || (settings ? !settings.enabled : false)} color={NEON.pink} size="lg">
                         <Zap size={18} /> ENTER ARENA
                     </NeonButton>
@@ -574,6 +604,29 @@ const FieldGroup: React.FC<{ label: string; icon: React.ReactNode; children: Rea
         </label>
         {children}
     </div>
+);
+
+const CategoryToggle: React.FC<{ label: string; on: boolean; onClick: () => void; color: string }> = ({ label, on, onClick, color }) => (
+    <button type="button" onClick={onClick} className="h2h-btn-neon" style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '8px 14px', borderRadius: 999,
+        background: on ? `linear-gradient(135deg, ${color}33, ${color}11)` : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${on ? color : 'rgba(255,255,255,0.12)'}`,
+        color: on ? color : 'rgba(255,255,255,0.45)',
+        fontWeight: 800, fontSize: 11, letterSpacing: '0.12em',
+        cursor: 'pointer',
+        boxShadow: on ? `0 0 12px ${color}44` : 'none',
+        textShadow: on ? `0 0 8px ${color}66` : 'none',
+    }}>
+        <span style={{
+            width: 14, height: 14, borderRadius: 4,
+            background: on ? color : 'transparent',
+            border: `1.5px solid ${on ? color : 'rgba(255,255,255,0.3)'}`,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: '#000', fontSize: 11, fontWeight: 900,
+        }}>{on ? '✓' : ''}</span>
+        {label}
+    </button>
 );
 
 const selectStyle: React.CSSProperties = {
@@ -742,18 +795,26 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                                 YOUR WEAPONS · {match.samples.length} SAMPLE{match.samples.length === 1 ? '' : 'S'}
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                {match.samples.map(s => (
-                                    <a key={s.id} href={s.fileUrl} target="_blank" rel="noopener noreferrer" download style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                                        background: `linear-gradient(135deg, ${NEON.purple}22, ${NEON.purple}11)`,
-                                        color: '#fff', textDecoration: 'none',
-                                        padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                                        border: `1px solid ${NEON.purple}66`,
-                                        boxShadow: `0 0 8px ${NEON.purple}33`,
-                                    }}>
-                                        <Headphones size={14} color={NEON.purple} /> {s.name}
-                                    </a>
-                                ))}
+                                {match.samples.map(s => {
+                                    const cat = (s.category || 'other').toLowerCase();
+                                    const catColor = CATEGORY_COLORS[cat] || NEON.purple;
+                                    return (
+                                        <a key={s.id} href={s.fileUrl} target="_blank" rel="noopener noreferrer" download style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                                            background: `linear-gradient(135deg, ${catColor}22, ${catColor}11)`,
+                                            color: '#fff', textDecoration: 'none',
+                                            padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                                            border: `1px solid ${catColor}66`,
+                                            boxShadow: `0 0 8px ${catColor}33`,
+                                        }}>
+                                            <Headphones size={14} color={catColor} />
+                                            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: catColor, padding: '2px 6px', borderRadius: 4, background: `${catColor}22`, border: `1px solid ${catColor}55` }}>
+                                                {cat.toUpperCase()}
+                                            </span>
+                                            {s.name}
+                                        </a>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

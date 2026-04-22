@@ -2539,6 +2539,7 @@ model H2HSample {
   poolId     String
   pool       H2HSamplePool @relation(fields: [poolId], references: [id], onDelete: Cascade)
   name       String
+  category   String        @default("other") // kick | snare | hat | percussion | fx | bass | melody | chords | other
   fileUrl    String        @db.Text
   fileType   String
   fileSize   Int           @default(0)
@@ -2546,6 +2547,7 @@ model H2HSample {
   createdAt  DateTime      @default(now())
 
   @@index([poolId])
+  @@index([category])
   @@map("h2h_samples")
 }
 
@@ -2561,6 +2563,11 @@ model H2HMatch {
 
   challengerId String
   opponentId   String?
+
+  // Per-match optional category toggles (mandatory: kick/snare/hat/percussion/fx)
+  includeBass   Boolean @default(true)
+  includeMelody Boolean @default(true)
+  includeChords Boolean @default(true)
 
   // Sample assignment (string[] of H2HSample ids)
   sampleIds Json?
