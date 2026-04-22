@@ -305,6 +305,23 @@ function normalize(buf: Float32Array, target = 0.95) {
     }
 }
 
+// Trim trailing silence/near-silence + apply release ramp.
+// Walks backward from the end; when amplitude exceeds threshold (relative to peak), cuts there + small tail pad.
+// Use AFTER normalize() so the threshold is meaningful.
+function trimTail(buf: Float32Array, thresholdDb = -42, padMs = 8): Float32Array {
+    const thresh = Math.pow(10, thresholdDb / 20);
+    let lastLoud = 0;
+    for (let i = buf.length - 1; i >= 0; i--) {
+        if (Math.abs(buf[i]) > thresh) { lastLoud = i; break; }
+    }
+    const padN = Math.floor((padMs / 1000) * SAMPLE_RATE);
+    const cut = Math.min(buf.length, lastLoud + padN);
+    if (cut >= buf.length - 4) return buf;
+    const trimmed = buf.slice(0, cut);
+    applyRelease(trimmed, padMs);
+    return trimmed;
+}
+
 // Render a high-passed noise click of length `ms` mixed into `buf` at offset 0.
 function mixClick(buf: Float32Array, rng: RNG, ms: number, hp: number, amp: number) {
     const n = Math.min(buf.length, Math.floor(ms * 0.001 * SAMPLE_RATE));
@@ -1253,15 +1270,21 @@ function synthFX(rng: RNG, p: NonNullable<GenreProfile['fxSlot']>, fx: GenreProf
 
 function synthForSlot(slot: KitSlot, rng: RNG, profile: GenreProfile): Float32Array {
     switch (slot) {
-        case 'kick':    return synthKick(rng,  profile.kick,  Math.max(0.4, profile.kick.decayHi + 0.2), profile.fx);
+        case 'kick': {
+            const dur = Math.max(0.18, profile.kick.decayHi * 1.4 + 0.04);
+            return trimTail(synthKick(rng, profile.kick, dur, profile.fx), -38, 8);
+        }
         case 'bass808': {
             const b = profile.bass808 || { freqLo: 40, freqHi: 55, decayLo: 0.8, decayHi: 1.5, drive: 1.2, glide: 1.6 };
-            return synth808(rng, b, b.decayHi + 0.4, profile.fx);
+            return trimTail(synth808(rng, b, b.decayHi + 0.4, profile.fx), -45, 12);
         }
-        case 'snare':   return synthSnare(rng, profile.snare, profile.snare.decayHi + 0.1, profile.fx);
-        case 'hat':     return synthHat(rng,   profile.hat,   profile.hat.decayHi + 0.05, profile.fx, false);
-        case 'openhat': return synthHat(rng,   profile.hat,   profile.hat.decayHi * 4 + 0.1, profile.fx, true);
-        case 'perc':    return synthPerc(rng,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx);
+        case 'snare': {
+            const dur = Math.max(0.15, profile.snare.decayHi * 1.4 + 0.04);
+            return trimTail(synthSnare(rng, profile.snare, dur, profile.fx), -38, 6);
+        }
+        case 'hat':     return trimTail(synthHat(rng, profile.hat, profile.hat.decayHi + 0.05, profile.fx, false), -40, 4);
+        case 'openhat': return trimTail(synthHat(rng, profile.hat, profile.hat.decayHi * 4 + 0.1, profile.fx, true), -42, 6);
+        case 'perc':    return trimTail(synthPerc(rng, profile.perc, profile.perc.decayHi + 0.1, profile.fx), -40, 6);
         case 'fx': {
             const fxCfg = profile.fxSlot || { style: 'random' as FXStyle, durationLo: 0.3, durationHi: 0.7 };
             return synthFX(rng, fxCfg, profile.fx);
