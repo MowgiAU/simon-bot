@@ -29,6 +29,16 @@ interface MatchInfo {
     challengerReady: boolean;
     opponentReady: boolean;
     readyDeadline: string | null;
+    melodicsVoteDeadline: string | null;
+    challengerVoteBass:   boolean | null;
+    challengerVoteMelody: boolean | null;
+    challengerVoteChords: boolean | null;
+    opponentVoteBass:     boolean | null;
+    opponentVoteMelody:   boolean | null;
+    opponentVoteChords:   boolean | null;
+    includeBass:   boolean;
+    includeMelody: boolean;
+    includeChords: boolean;
     producingDeadline: string | null;
     challengerSubmissionUrl: string | null;
     opponentSubmissionUrl: string | null;
@@ -363,9 +373,6 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [genres, setGenres] = useState<Genre[]>([]);
     const [genreId, setGenreId] = useState<string>('');
     const [prodMin, setProdMin] = useState<number>(60);
-    const [includeBass, setIncludeBass] = useState(true);
-    const [includeMelody, setIncludeMelody] = useState(true);
-    const [includeChords, setIncludeChords] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -393,7 +400,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         const res = await fetch(`${API}/api/head-to-head/queue`, {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ genreId: genreId || null, productionMinutes: prodMin, includeBass, includeMelody, includeChords }),
+            body: JSON.stringify({ genreId: genreId || null, productionMinutes: prodMin }),
         });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
@@ -523,12 +530,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                             <Zap size={14} color={NEON.cyan} /> SAMPLE PACK
                         </div>
                         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>
-                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Pick which melodics you want too:
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            <CategoryToggle label="BASS"   on={includeBass}   onClick={() => setIncludeBass(v => !v)}   color={NEON.purple} />
-                            <CategoryToggle label="MELODY" on={includeMelody} onClick={() => setIncludeMelody(v => !v)} color={NEON.cyan} />
-                            <CategoryToggle label="CHORDS" on={includeChords} onClick={() => setIncludeChords(v => !v)} color={NEON.pink} />
+                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Once the match starts, you and your opponent will <b style={{ color: '#fff' }}>both vote</b> on which melodics (bass / melody / chords) to include — you only get the ones you both agree on.
                         </div>
                     </div>
 
@@ -653,12 +655,13 @@ const selectStyle: React.CSSProperties = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-    queued:      { color: NEON.cyan,   label: 'SEARCHING',     icon: <Target size={14} /> },
-    ready_check: { color: NEON.yellow, label: 'READY UP',      icon: <CheckCircle size={14} /> },
-    producing:   { color: NEON.pink,   label: 'PRODUCING',     icon: <Headphones size={14} /> },
-    voting:      { color: NEON.purple, label: 'BEING JUDGED',  icon: <Vote size={14} /> },
-    completed:   { color: NEON.green,  label: 'COMPLETE',      icon: <Trophy size={14} /> },
-    forfeited:   { color: NEON.red,    label: 'FORFEITED',     icon: <Skull size={14} /> },
+    queued:        { color: NEON.cyan,   label: 'SEARCHING',     icon: <Target size={14} /> },
+    ready_check:   { color: NEON.yellow, label: 'READY UP',      icon: <CheckCircle size={14} /> },
+    melodics_vote: { color: NEON.purple, label: 'PICK MELODICS', icon: <Vote size={14} /> },
+    producing:     { color: NEON.pink,   label: 'PRODUCING',     icon: <Headphones size={14} /> },
+    voting:        { color: NEON.purple, label: 'BEING JUDGED',  icon: <Vote size={14} /> },
+    completed:     { color: NEON.green,  label: 'COMPLETE',      icon: <Trophy size={14} /> },
+    forfeited:     { color: NEON.red,    label: 'FORFEITED',     icon: <Skull size={14} /> },
 };
 
 const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange: () => void; onLeave: () => void }> = ({ match, myUserId, onChange, onLeave }) => {
@@ -699,8 +702,64 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
         onChange();
     };
 
+    const [forfeiting, setForfeiting] = useState(false);
+    const forfeit = async () => {
+        const submittedTrack = mySubmitted;
+        const oppHasTrack = oppSubmitted;
+        let warn: string;
+        if (match.status === 'ready_check' || match.status === 'melodics_vote') {
+            warn = 'Forfeit this match? Your opponent will get the win and you\u2019ll take the L on your record.';
+        } else if (oppHasTrack) {
+            warn = 'Your opponent already submitted. Forfeiting now hands them the win automatically.';
+        } else if (submittedTrack) {
+            warn = 'You already submitted a track. Are you sure you want to forfeit and give your opponent the W?';
+        } else {
+            warn = 'Forfeit this match? Your opponent gets the win automatically.';
+        }
+        if (!confirm(warn)) return;
+        setForfeiting(true);
+        const res = await fetch(`${API}/api/head-to-head/match/${match.id}/forfeit`, {
+            method: 'POST', credentials: 'include',
+        });
+        setForfeiting(false);
+        if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            alert(j.error || 'Forfeit failed');
+        }
+        onChange();
+    };
+
+    // Melodics vote actions
+    const myMVotes = isCh
+        ? { bass: match.challengerVoteBass, melody: match.challengerVoteMelody, chords: match.challengerVoteChords }
+        : { bass: match.opponentVoteBass,   melody: match.opponentVoteMelody,   chords: match.opponentVoteChords };
+    const oppMVotes = isCh
+        ? { bass: match.opponentVoteBass,   melody: match.opponentVoteMelody,   chords: match.opponentVoteChords }
+        : { bass: match.challengerVoteBass, melody: match.challengerVoteMelody, chords: match.challengerVoteChords };
+    const myMSubmitted = myMVotes.bass !== null && myMVotes.melody !== null && myMVotes.chords !== null;
+    const oppMSubmitted = oppMVotes.bass !== null && oppMVotes.melody !== null && oppMVotes.chords !== null;
+    const [pendingM, setPendingM] = useState<{ bass: boolean; melody: boolean; chords: boolean } | null>(null);
+    const [submittingM, setSubmittingM] = useState(false);
+    const draftM = pendingM ?? { bass: !!myMVotes.bass, melody: !!myMVotes.melody, chords: !!myMVotes.chords };
+    const submitMelodics = async () => {
+        setSubmittingM(true);
+        const res = await fetch(`${API}/api/head-to-head/match/${match.id}/melodics-vote`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(draftM),
+        });
+        setSubmittingM(false);
+        if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            alert(j.error || 'Vote failed');
+        }
+        setPendingM(null);
+        onChange();
+    };
+
     const meta = STATUS_META[match.status] || { color: NEON.cyan, label: match.status.toUpperCase(), icon: null };
     const deadline = match.status === 'ready_check' ? match.readyDeadline
+                   : match.status === 'melodics_vote' ? match.melodicsVoteDeadline
                    : match.status === 'producing' ? match.producingDeadline
                    : match.status === 'voting' ? match.votingEnd
                    : null;
@@ -827,6 +886,104 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                     <p style={{ margin: 0, color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>
                         Submissions locked. Other competitors are casting their votes.
                     </p>
+                </div>
+            )}
+
+            {match.status === 'melodics_vote' && (
+                <div>
+                    <p style={{ margin: '0 0 12px', color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center' }}>
+                        Both fighters vote — you only get the melodics you <b style={{ color: '#fff' }}>both agree on</b>.
+                        You'll always get kick, snare, hat, percussion & fx.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
+                        {([
+                            { key: 'bass',   label: 'BASS',   color: CATEGORY_COLORS.bass },
+                            { key: 'melody', label: 'MELODY', color: CATEGORY_COLORS.melody },
+                            { key: 'chords', label: 'CHORDS', color: CATEGORY_COLORS.chords },
+                        ] as const).map(c => {
+                            const my = draftM[c.key];
+                            const opp = oppMVotes[c.key];
+                            return (
+                                <div key={c.key} style={{
+                                    background: 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${my ? c.color : 'rgba(255,255,255,0.08)'}`,
+                                    borderRadius: 10, padding: 12,
+                                    boxShadow: my ? `0 0 14px ${c.color}55` : 'none',
+                                    transition: 'all 0.15s',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', color: c.color }}>{c.label}</span>
+                                        {oppMSubmitted && (
+                                            <span title={`Opponent voted ${opp ? 'YES' : 'NO'}`} style={{
+                                                fontSize: 9, fontWeight: 800, letterSpacing: '0.1em',
+                                                color: opp ? NEON.green : 'rgba(255,255,255,0.4)',
+                                                padding: '2px 6px', borderRadius: 4,
+                                                border: `1px solid ${opp ? NEON.green : 'rgba(255,255,255,0.15)'}`,
+                                            }}>
+                                                OPP {opp ? '✓' : '✗'}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                        <button
+                                            onClick={() => setPendingM({ ...draftM, [c.key]: true })}
+                                            disabled={myMSubmitted || submittingM}
+                                            style={{
+                                                flex: 1, padding: '8px',
+                                                background: my ? `linear-gradient(135deg, ${c.color}, ${c.color}cc)` : 'transparent',
+                                                color: my ? '#000' : 'rgba(255,255,255,0.7)',
+                                                border: `1px solid ${my ? c.color : 'rgba(255,255,255,0.15)'}`,
+                                                borderRadius: 6, cursor: myMSubmitted ? 'not-allowed' : 'pointer',
+                                                fontWeight: 800, fontSize: 11, letterSpacing: '0.08em',
+                                            }}>YES</button>
+                                        <button
+                                            onClick={() => setPendingM({ ...draftM, [c.key]: false })}
+                                            disabled={myMSubmitted || submittingM}
+                                            style={{
+                                                flex: 1, padding: '8px',
+                                                background: !my ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                                color: !my ? '#fff' : 'rgba(255,255,255,0.5)',
+                                                border: `1px solid ${!my ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                                                borderRadius: 6, cursor: myMSubmitted ? 'not-allowed' : 'pointer',
+                                                fontWeight: 800, fontSize: 11, letterSpacing: '0.08em',
+                                            }}>NO</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <NeonButton onClick={submitMelodics}
+                            disabled={myMSubmitted || submittingM}
+                            color={myMSubmitted ? NEON.green : NEON.purple} size="lg">
+                            <CheckCircle size={18} /> {myMSubmitted ? 'VOTE LOCKED' : (submittingM ? 'LOCKING…' : 'LOCK MY VOTE')}
+                        </NeonButton>
+                        <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>
+                            {myMSubmitted && !oppMSubmitted ? 'Waiting on opponent…'
+                                : !myMSubmitted ? 'Lock your vote before the timer runs out — unsubmitted votes count as NO.'
+                                : 'Both locked in — match is starting…'}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Forfeit button — available during ready_check / melodics_vote / producing */}
+            {(match.status === 'ready_check' || match.status === 'melodics_vote' || match.status === 'producing') && (
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                    <button onClick={forfeit} disabled={forfeiting}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            background: 'transparent', color: NEON.red,
+                            border: `1px solid ${NEON.red}66`,
+                            padding: '8px 16px', borderRadius: 8,
+                            fontWeight: 800, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+                            cursor: forfeiting ? 'wait' : 'pointer',
+                            opacity: forfeiting ? 0.6 : 0.9,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = `${NEON.red}11`; e.currentTarget.style.opacity = '1'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = '0.9'; }}>
+                        <Skull size={13} /> {forfeiting ? 'Forfeiting…' : 'Forfeit Match'}
+                    </button>
                 </div>
             )}
         </Panel>

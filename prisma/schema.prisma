@@ -2554,7 +2554,7 @@ model H2HSample {
 model H2HMatch {
   id      String  @id @default(cuid())
   guildId String?
-  status  String  @default("queued") // queued | ready_check | producing | voting | completed | forfeited | cancelled
+  status  String  @default("queued") // queued | ready_check | melodics_vote | producing | voting | completed | forfeited | cancelled
   genreId String?
   genre   Genre?  @relation("H2HMatchGenre", fields: [genreId], references: [id])
 
@@ -2564,10 +2564,21 @@ model H2HMatch {
   challengerId String
   opponentId   String?
 
-  // Per-match optional category toggles (mandatory: kick/snare/hat/percussion/fx)
-  includeBass   Boolean @default(true)
-  includeMelody Boolean @default(true)
-  includeChords Boolean @default(true)
+  // Per-match optional category toggles (mandatory: kick/snare/hat/percussion/fx).
+  // Defaults are false now — the actual values are decided by the in-match melodics vote
+  // (both players must agree per category).
+  includeBass   Boolean @default(false)
+  includeMelody Boolean @default(false)
+  includeChords Boolean @default(false)
+
+  // Melodics vote (each player votes yes/no per category — null = not voted yet)
+  melodicsVoteDeadline    DateTime?
+  challengerVoteBass      Boolean?
+  challengerVoteMelody    Boolean?
+  challengerVoteChords    Boolean?
+  opponentVoteBass        Boolean?
+  opponentVoteMelody      Boolean?
+  opponentVoteChords      Boolean?
 
   // Sample assignment (string[] of H2HSample ids)
   sampleIds Json?
