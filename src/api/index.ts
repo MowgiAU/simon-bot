@@ -11482,11 +11482,16 @@ app.get('/api/head-to-head/leaderboard', publicCache(30), async (req: any, res) 
     }
 });
 
+// Identities are revealed only after the match has truly ended.
+const H2H_REVEAL_STATUSES = new Set(['completed', 'forfeited', 'cancelled']);
+function anonProfile(userId: string) {
+    return { userId, username: null, displayName: null, avatar: null, anonymous: true };
+}
+
 // My state: rating + active match + recent matches + queue position
 app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
-        const [globalRating, genreRatings, activeMatch, recent] = await Promise.all([
+        const userId = req.session.user.id;        const [globalRating, genreRatings, activeMatch, recent] = await Promise.all([
             getOrCreateRating(userId, null),
             db.h2HRating.findMany({ where: { userId, genreId: { not: null } }, include: { genre: true } }),
             db.h2HMatch.findFirst({
@@ -11507,12 +11512,40 @@ app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
                 include: { genre: true },
             }),
         ]);
+        // Attach profiles. Opponent stays masked while the match is still live;
+        // both identities are revealed once the match reaches a terminal status.
+        const allMatchUserIds = new Set<string>();
+        if (activeMatch) {
+            allMatchUserIds.add(activeMatch.challengerId);
+            if (activeMatch.opponentId) allMatchUserIds.add(activeMatch.opponentId);
+        }
+        for (const m of recent) {
+            allMatchUserIds.add(m.challengerId);
+            if (m.opponentId) allMatchUserIds.add(m.opponentId);
+        }
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: Array.from(allMatchUserIds) } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        const attach = (m: any) => {
+            const reveal = H2H_REVEAL_STATUSES.has(m.status);
+            const chReal = pmap.get(m.challengerId) || { userId: m.challengerId, username: null, displayName: null, avatar: null };
+            const opReal = m.opponentId ? (pmap.get(m.opponentId) || { userId: m.opponentId, username: null, displayName: null, avatar: null }) : null;
+            const chIsMe = m.challengerId === userId;
+            const opIsMe = m.opponentId === userId;
+            return {
+                ...m,
+                challengerProfile: reveal || chIsMe ? chReal : anonProfile(m.challengerId),
+                opponentProfile: !m.opponentId ? null : (reveal || opIsMe ? opReal : anonProfile(m.opponentId)),
+            };
+        };
         res.json({
             userId,
             globalRating: { elo: globalRating.elo, wins: globalRating.wins, losses: globalRating.losses, forfeits: globalRating.forfeits, matchesPlayed: globalRating.matchesPlayed },
             genreRatings: genreRatings.map(g => ({ genreId: g.genreId, genreName: g.genre?.name, elo: g.elo, wins: g.wins, losses: g.losses })),
-            activeMatch,
-            recentMatches: recent,
+            activeMatch: activeMatch ? attach(activeMatch) : null,
+            recentMatches: recent.map(attach),
         });
     } catch (e: any) {
         logger.error('H2H me failed', e);
@@ -11598,8 +11631,13 @@ app.get('/api/head-to-head/match/:id', async (req: any, res) => {
             select: { userId: true, username: true, displayName: true, avatar: true },
         });
         const pmap = new Map(profiles.map(p => [p.userId, p]));
-        sanitized.challengerProfile = pmap.get(match.challengerId) || null;
-        sanitized.opponentProfile = match.opponentId ? pmap.get(match.opponentId) || null : null;
+        const reveal = H2H_REVEAL_STATUSES.has(match.status);
+        const chReal = pmap.get(match.challengerId) || { userId: match.challengerId, username: null, displayName: null, avatar: null };
+        const opReal = match.opponentId ? (pmap.get(match.opponentId) || { userId: match.opponentId, username: null, displayName: null, avatar: null }) : null;
+        const chIsMe = userId && match.challengerId === userId;
+        const opIsMe = userId && match.opponentId === userId;
+        sanitized.challengerProfile = reveal || chIsMe ? chReal : anonProfile(match.challengerId);
+        sanitized.opponentProfile = !match.opponentId ? null : (reveal || opIsMe ? opReal : anonProfile(match.opponentId));
         res.json(sanitized);
     } catch (e: any) {
         logger.error('H2H match get failed', e);
@@ -11748,19 +11786,14 @@ app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => 
             include: { genre: true, votes: { where: { voterId: userId } } },
             take: 20,
         });
-        const ids = Array.from(new Set(matches.flatMap(m => [m.challengerId, m.opponentId].filter(Boolean) as string[])));
-        const profiles = await db.musicianProfile.findMany({
-            where: { userId: { in: ids } },
-            select: { userId: true, username: true, displayName: true, avatar: true },
-        });
-        const pmap = new Map(profiles.map(p => [p.userId, p]));
         res.json({
             eligible: true,
             matches: matches.map(m => ({
                 ...m,
                 myVote: m.votes[0]?.voteFor ?? null,
-                challengerProfile: pmap.get(m.challengerId) || null,
-                opponentProfile: m.opponentId ? pmap.get(m.opponentId) || null : null,
+                // Anonymous voting — voters cannot see the producers' identities until the match completes
+                challengerProfile: anonProfile(m.challengerId),
+                opponentProfile: m.opponentId ? anonProfile(m.opponentId) : null,
                 votes: undefined,
             })),
         });

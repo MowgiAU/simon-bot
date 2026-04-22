@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import JSZip from 'jszip';
+import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package } from 'lucide-react';
 import { colors } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
@@ -14,7 +15,7 @@ interface Settings {
     samplesPerMatch: number;
     minVotesToFinalize: number;
 }
-interface Profile { userId: string; username: string | null; displayName: string | null; avatar: string | null }
+interface Profile { userId: string; username: string | null; displayName: string | null; avatar: string | null; anonymous?: boolean }
 interface Sample { id: string; name: string; fileUrl: string; fileType: string; category?: string }
 interface MatchInfo {
     id: string;
@@ -120,6 +121,7 @@ function timeLeft(iso: string | null): { txt: string; urgent: boolean; expired: 
 }
 
 function profileName(p: Profile | null | undefined, fallbackId: string): string {
+    if (p?.anonymous) return 'MYSTERY PRODUCER';
     return p?.displayName || p?.username || fallbackId.slice(0, 8);
 }
 
@@ -227,18 +229,27 @@ const TierBadge: React.FC<{ elo: number; size?: 'sm' | 'md' }> = ({ elo, size = 
 
 const Avatar: React.FC<{ profile: Profile | null | undefined; userId: string; size?: number; ring?: string; ringPulse?: boolean }> = ({ profile, userId, size = 48, ring, ringPulse }) => {
     const name = profileName(profile, userId);
+    const anon = !!profile?.anonymous;
     return (
         <div style={{
             width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
             border: ring ? `3px solid ${ring}` : '2px solid rgba(255,255,255,0.08)',
             boxShadow: ring ? `0 0 ${ringPulse ? 22 : 14}px ${ring}88` : 'none',
-            background: `linear-gradient(135deg, ${NEON.purple}, ${NEON.pink})`,
+            background: anon
+                ? `linear-gradient(135deg, #1a1f2e, #0a0e1a)`
+                : `linear-gradient(135deg, ${NEON.purple}, ${NEON.pink})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 800, fontSize: size * 0.36, color: '#fff',
+            position: 'relative',
             ...(ringPulse ? { animation: 'h2h-glow-pulse 2s ease-in-out infinite', ['--glow-c' as any]: ring } : {}),
         }}>
-            {profile?.avatar ? <img src={profile.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <Initials name={name} />}
+            {anon ? (
+                <Skull size={size * 0.5} color="rgba(255,255,255,0.65)" style={{ filter: `drop-shadow(0 0 6px ${ring || '#fff'}88)` }} />
+            ) : profile?.avatar ? (
+                <img src={profile.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+                <Initials name={name} />
+            )}
         </div>
     );
 };
@@ -790,33 +801,7 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
             {match.status === 'producing' && (
                 <div>
                     {match.samples && match.samples.length > 0 && (
-                        <div style={{ marginBottom: 18 }}>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.12em', fontWeight: 700, marginBottom: 8 }}>
-                                YOUR WEAPONS · {match.samples.length} SAMPLE{match.samples.length === 1 ? '' : 'S'}
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                {match.samples.map(s => {
-                                    const cat = (s.category || 'other').toLowerCase();
-                                    const catColor = CATEGORY_COLORS[cat] || NEON.purple;
-                                    return (
-                                        <a key={s.id} href={s.fileUrl} target="_blank" rel="noopener noreferrer" download style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 8,
-                                            background: `linear-gradient(135deg, ${catColor}22, ${catColor}11)`,
-                                            color: '#fff', textDecoration: 'none',
-                                            padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                                            border: `1px solid ${catColor}66`,
-                                            boxShadow: `0 0 8px ${catColor}33`,
-                                        }}>
-                                            <Headphones size={14} color={catColor} />
-                                            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: catColor, padding: '2px 6px', borderRadius: 4, background: `${catColor}22`, border: `1px solid ${catColor}55` }}>
-                                                {cat.toUpperCase()}
-                                            </span>
-                                            {s.name}
-                                        </a>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                        <SamplePack samples={match.samples} matchId={match.id} />
                     )}
                     <div style={{ textAlign: 'center' }}>
                         <label style={{
@@ -895,9 +880,232 @@ const FighterCard: React.FC<{
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sample Pack player
+// ─────────────────────────────────────────────────────────────────────────────
+const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples, matchId }) => {
+    const [playingId, setPlayingId] = useState<string | null>(null);
+    const [progress, setProgress] = useState<{ id: string; cur: number; dur: number } | null>(null);
+    const [zipping, setZipping] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const stop = () => {
+        const a = audioRef.current;
+        if (a) { a.pause(); a.currentTime = 0; }
+        setPlayingId(null);
+        setProgress(null);
+    };
+
+    const play = (s: Sample) => {
+        if (playingId === s.id) { stop(); return; }
+        const a = audioRef.current;
+        if (!a) return;
+        a.pause();
+        a.src = s.fileUrl;
+        a.currentTime = 0;
+        a.play().catch(() => {});
+        setPlayingId(s.id);
+        setProgress({ id: s.id, cur: 0, dur: 0 });
+    };
+
+    useEffect(() => {
+        const a = audioRef.current;
+        if (!a) return;
+        const onTime = () => setProgress(p => p ? { ...p, cur: a.currentTime, dur: a.duration || 0 } : p);
+        const onEnd = () => stop();
+        a.addEventListener('timeupdate', onTime);
+        a.addEventListener('loadedmetadata', onTime);
+        a.addEventListener('ended', onEnd);
+        return () => {
+            a.removeEventListener('timeupdate', onTime);
+            a.removeEventListener('loadedmetadata', onTime);
+            a.removeEventListener('ended', onEnd);
+        };
+    }, []);
+
+    const fmt = (s: number) => {
+        if (!isFinite(s) || s < 0) return '0:00';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${String(sec).padStart(2, '0')}`;
+    };
+
+    const downloadOne = async (s: Sample) => {
+        try {
+            const r = await fetch(s.fileUrl, { credentials: 'include' });
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${s.category || 'sample'}_${s.name}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch {
+            window.open(s.fileUrl, '_blank');
+        }
+    };
+
+    const downloadZip = async () => {
+        if (!samples.length) return;
+        setZipping(true);
+        try {
+            const zip = new JSZip();
+            const folder = zip.folder(`h2h_pack_${matchId.slice(0, 8)}`)!;
+            await Promise.all(samples.map(async s => {
+                try {
+                    const r = await fetch(s.fileUrl, { credentials: 'include' });
+                    const buf = await r.arrayBuffer();
+                    const cat = (s.category || 'sample').toLowerCase();
+                    const safe = s.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    folder.file(`${cat}_${safe}`, buf);
+                } catch { /* skip failed */ }
+            }));
+            folder.file('README.txt',
+`Head-to-Head Sample Pack
+Match: ${matchId}
+Samples: ${samples.length}
+
+Use these in your DAW. Build something fierce.`);
+            const out = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(out);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `h2h_pack_${matchId.slice(0, 8)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } finally {
+            setZipping(false);
+        }
+    };
+
+    return (
+        <div style={{
+            marginBottom: 18,
+            background: 'linear-gradient(135deg, rgba(168,85,247,0.06), rgba(0,229,255,0.04))',
+            border: `1px solid ${NEON.border}`, borderRadius: 12, padding: 14,
+        }}>
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 10, marginBottom: 12, flexWrap: 'wrap',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Headphones size={16} color={NEON.cyan} style={{ filter: `drop-shadow(0 0 6px ${NEON.cyan})` }} />
+                    <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.16em', fontWeight: 800 }}>
+                        YOUR WEAPONS
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', fontWeight: 700 }}>
+                        · {samples.length} SAMPLE{samples.length === 1 ? '' : 'S'}
+                    </div>
+                </div>
+                <button onClick={downloadZip} disabled={zipping}
+                    style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        background: `linear-gradient(135deg, ${NEON.cyan}33, ${NEON.purple}33)`,
+                        color: '#fff', border: `1px solid ${NEON.cyan}88`,
+                        padding: '8px 14px', borderRadius: 8,
+                        fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                        cursor: zipping ? 'wait' : 'pointer',
+                        boxShadow: `0 0 12px ${NEON.cyan}33`,
+                    }}>
+                    {zipping ? <Loader size={13} className="h2h-spin" /> : <Package size={13} />}
+                    {zipping ? 'Zipping…' : 'Download Pack (.zip)'}
+                </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                {samples.map(s => {
+                    const cat = (s.category || 'other').toLowerCase();
+                    const catColor = CATEGORY_COLORS[cat] || NEON.purple;
+                    const isPlaying = playingId === s.id;
+                    const cur = isPlaying && progress?.id === s.id ? progress.cur : 0;
+                    const dur = isPlaying && progress?.id === s.id ? progress.dur : 0;
+                    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+                    return (
+                        <div key={s.id} style={{
+                            background: isPlaying
+                                ? `linear-gradient(135deg, ${catColor}22, ${catColor}08)`
+                                : 'rgba(255,255,255,0.02)',
+                            border: `1px solid ${isPlaying ? catColor : 'rgba(255,255,255,0.08)'}`,
+                            borderRadius: 10, padding: 10,
+                            transition: 'all 0.2s',
+                            boxShadow: isPlaying ? `0 0 14px ${catColor}55` : 'none',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <button onClick={() => play(s)}
+                                    style={{
+                                        width: 36, height: 36, borderRadius: '50%',
+                                        background: isPlaying
+                                            ? `linear-gradient(135deg, ${catColor}, ${catColor}cc)`
+                                            : 'rgba(255,255,255,0.06)',
+                                        border: `1px solid ${isPlaying ? catColor : 'rgba(255,255,255,0.15)'}`,
+                                        color: '#fff', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: isPlaying ? `0 0 10px ${catColor}` : 'none',
+                                        flexShrink: 0,
+                                    }}
+                                    title={isPlaying ? 'Pause' : 'Play'}>
+                                    {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 2 }} />}
+                                </button>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                        fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+                                        color: catColor, marginBottom: 2,
+                                    }}>
+                                        {cat.toUpperCase()}
+                                    </div>
+                                    <div style={{
+                                        fontSize: 12, fontWeight: 600, color: '#fff',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                    }} title={s.name}>{s.name}</div>
+                                </div>
+                                <button onClick={() => downloadOne(s)}
+                                    title="Download this sample"
+                                    style={{
+                                        width: 30, height: 30, borderRadius: 6,
+                                        background: 'transparent',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        flexShrink: 0,
+                                    }}>
+                                    <Download size={13} />
+                                </button>
+                            </div>
+                            <div style={{
+                                position: 'relative', height: 4, borderRadius: 2,
+                                background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+                            }}>
+                                <div style={{
+                                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                                    width: `${pct}%`,
+                                    background: `linear-gradient(90deg, ${catColor}, ${catColor}aa)`,
+                                    boxShadow: isPlaying ? `0 0 8px ${catColor}` : 'none',
+                                    transition: 'width 0.1s linear',
+                                }} />
+                            </div>
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between',
+                                marginTop: 4, fontFamily: 'monospace', fontSize: 10,
+                                color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums',
+                            }}>
+                                <span>{fmt(cur)}</span>
+                                <span>{fmt(dur)}</span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <audio ref={audioRef} preload="none" crossOrigin="anonymous" />
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Vote Tab
 // ─────────────────────────────────────────────────────────────────────────────
-
 const VoteTab: React.FC = () => {
     const [data, setData] = useState<{ eligible: boolean; reason?: string; matches: VotingMatch[] } | null>(null);
     const [loading, setLoading] = useState(true);
