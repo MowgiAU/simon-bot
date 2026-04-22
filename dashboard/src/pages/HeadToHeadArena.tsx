@@ -1355,6 +1355,148 @@ Use these in your DAW. Build something fierce.`);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Submission player with full waveform (used on the voting page)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SubmissionPlayer: React.FC<{ matchId: string; side: 'challenger' | 'opponent'; color: string }> = ({ matchId, side, color }) => {
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [playing, setPlaying] = useState(false);
+    const [cur, setCur] = useState(0);
+    const [dur, setDur] = useState(0);
+    const [peaks, setPeaks] = useState<number[] | null | 'failed'>(null);
+    const proxyUrl = `${API}/api/head-to-head/match/${matchId}/submission/${side}`;
+
+    useEffect(() => {
+        let cancelled = false;
+        const PEAK_BARS = 140;
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        (async () => {
+            try {
+                const r = await fetch(proxyUrl, { credentials: 'include' });
+                if (!r.ok) throw new Error('fetch failed');
+                const buf = await r.arrayBuffer();
+                const audio = await ctx.decodeAudioData(buf.slice(0));
+                const ch = audio.getChannelData(0);
+                const blockSize = Math.max(1, Math.floor(ch.length / PEAK_BARS));
+                const out: number[] = [];
+                let max = 0;
+                for (let i = 0; i < PEAK_BARS; i++) {
+                    const start = i * blockSize;
+                    const end = Math.min(ch.length, start + blockSize);
+                    let sum = 0;
+                    for (let j = start; j < end; j++) sum += Math.abs(ch[j]);
+                    const v = sum / Math.max(1, end - start);
+                    out.push(v);
+                    if (v > max) max = v;
+                }
+                if (!cancelled) setPeaks(max > 0 ? out.map(p => p / max) : out);
+            } catch {
+                if (!cancelled) setPeaks('failed');
+            } finally {
+                try { ctx.close(); } catch {}
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [proxyUrl]);
+
+    useEffect(() => {
+        const a = audioRef.current;
+        if (!a) return;
+        const onTime = () => { setCur(a.currentTime); setDur(a.duration || 0); };
+        const onEnd = () => { setPlaying(false); setCur(0); };
+        a.addEventListener('timeupdate', onTime);
+        a.addEventListener('loadedmetadata', onTime);
+        a.addEventListener('ended', onEnd);
+        return () => {
+            a.removeEventListener('timeupdate', onTime);
+            a.removeEventListener('loadedmetadata', onTime);
+            a.removeEventListener('ended', onEnd);
+        };
+    }, []);
+
+    const toggle = () => {
+        const a = audioRef.current;
+        if (!a) return;
+        if (playing) { a.pause(); setPlaying(false); }
+        else { a.play().then(() => setPlaying(true)).catch(() => {}); }
+    };
+
+    const fmt = (s: number) => {
+        if (!isFinite(s) || s < 0) return '0:00';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${String(sec).padStart(2, '0')}`;
+    };
+
+    const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+
+    return (
+        <div style={{ marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <button onClick={toggle}
+                    style={{
+                        width: 38, height: 38, borderRadius: '50%',
+                        background: playing ? `linear-gradient(135deg, ${color}, ${color}cc)` : 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${playing ? color : 'rgba(255,255,255,0.18)'}`,
+                        color: '#fff', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: playing ? `0 0 14px ${color}` : 'none',
+                        flexShrink: 0,
+                    }}
+                    title={playing ? 'Pause' : 'Play'}>
+                    {playing ? <Pause size={15} /> : <Play size={15} style={{ marginLeft: 2 }} />}
+                </button>
+                <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.55)', display: 'flex', justifyContent: 'space-between', fontVariantNumeric: 'tabular-nums' }}>
+                    <span>{fmt(cur)}</span>
+                    <span>{fmt(dur)}</span>
+                </div>
+            </div>
+            <div
+                onClick={(e) => {
+                    const a = audioRef.current;
+                    if (!a || !a.duration) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    a.currentTime = ratio * a.duration;
+                }}
+                style={{
+                    position: 'relative', height: 64, cursor: 'pointer',
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: 8, overflow: 'hidden',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                {peaks === null ? (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)' }}>
+                        ANALYZING WAVEFORM…
+                    </div>
+                ) : peaks === 'failed' ? (
+                    <div style={{ position: 'absolute', left: 0, top: '50%', height: 2, width: `${pct}%`, background: color, transform: 'translateY(-50%)', boxShadow: `0 0 8px ${color}` }} />
+                ) : (
+                    <svg width="100%" height="100%" viewBox={`0 0 ${peaks.length} 100`} preserveAspectRatio="none" style={{ display: 'block' }}>
+                        {peaks.map((p, i) => {
+                            const h = Math.max(2, p * 94);
+                            const passed = (i / peaks.length) * 100 < pct;
+                            return (
+                                <rect
+                                    key={i}
+                                    x={i + 0.1}
+                                    y={50 - h / 2}
+                                    width={0.8}
+                                    height={h}
+                                    fill={passed ? color : 'rgba(255,255,255,0.22)'}
+                                    style={passed && playing ? { filter: `drop-shadow(0 0 1.5px ${color})` } : undefined}
+                                />
+                            );
+                        })}
+                    </svg>
+                )}
+            </div>
+            <audio ref={audioRef} src={proxyUrl} preload="metadata" />
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Vote Tab
 // ─────────────────────────────────────────────────────────────────────────────
 const VoteTab: React.FC = () => {
@@ -1431,8 +1573,8 @@ const VoteTab: React.FC = () => {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                             {[
-                                { id: m.challengerId, name: chName, profile: m.challengerProfile, url: m.challengerSubmissionUrl, color: NEON.cyan },
-                                { id: m.opponentId!, name: opName, profile: m.opponentProfile, url: m.opponentSubmissionUrl, color: NEON.pink },
+                                { id: m.challengerId, name: chName, profile: m.challengerProfile, url: m.challengerSubmissionUrl, color: NEON.cyan, side: 'challenger' as const },
+                                { id: m.opponentId!, name: opName, profile: m.opponentProfile, url: m.opponentSubmissionUrl, color: NEON.pink, side: 'opponent' as const },
                             ].map(side => {
                                 const isMine = m.myVote === side.id;
                                 return (
@@ -1455,7 +1597,7 @@ const VoteTab: React.FC = () => {
                                             </div>
                                         </div>
                                         {side.url ? (
-                                            <audio controls src={side.url} style={{ width: '100%', marginBottom: 10 }} />
+                                            <SubmissionPlayer matchId={m.id} side={side.side} color={side.color} />
                                         ) : <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, margin: '0 0 10px' }}>No submission</p>}
                                         <NeonButton onClick={() => vote(m.id, side.id)} disabled={isMine} color={side.color} size="sm" style={{ width: '100%', justifyContent: 'center' }}>
                                             <Award size={14} /> {isMine ? 'Voted' : `Vote ${side.name.split(/\s+/)[0]}`}

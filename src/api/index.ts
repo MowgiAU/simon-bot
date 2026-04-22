@@ -11848,6 +11848,52 @@ app.get('/api/head-to-head/match/:id/sample/:sampleId', async (req: any, res) =>
     }
 });
 
+// Same-origin proxy for the two submitted tracks (used by the voting page so we
+// can decode audio for waveforms without CORS issues, and so we can keep the
+// real R2 URL out of the HTML).
+app.get('/api/head-to-head/match/:id/submission/:side', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        // Submissions are revealed once voting has opened (and stay accessible after)
+        if (!['voting', 'completed', 'forfeited'].includes(match.status)) {
+            // Allow the participants to fetch their own/opponent's during producing, but only if the user is one of them
+            const userId = req.session?.user?.id;
+            const isParticipant = !!userId && (match.challengerId === userId || match.opponentId === userId);
+            if (!isParticipant) return res.status(403).json({ error: 'Forbidden' });
+        }
+        const side = req.params.side;
+        const url = side === 'challenger' ? match.challengerSubmissionUrl
+                  : side === 'opponent'   ? match.opponentSubmissionUrl
+                  : null;
+        if (!url) return res.status(404).json({ error: 'Submission not found' });
+        const upstream = await fetch(url);
+        if (!upstream.ok || !upstream.body) {
+            return res.status(502).json({ error: 'Failed to fetch submission from storage' });
+        }
+        const ct = upstream.headers.get('content-type') || 'audio/mpeg';
+        const len = upstream.headers.get('content-length');
+        res.setHeader('Content-Type', ct);
+        if (len) res.setHeader('Content-Length', len);
+        res.setHeader('Accept-Ranges', 'bytes');
+        const reader = (upstream.body as any).getReader();
+        try {
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) res.write(Buffer.from(value));
+            }
+            res.end();
+        } catch (streamErr: any) {
+            logger.error('H2H submission proxy stream failed', streamErr);
+            try { res.end(); } catch {}
+        }
+    } catch (e: any) {
+        logger.error('H2H submission proxy failed', e);
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 async function advanceToProduction(match: any): Promise<void> {
     const sampleIds = await pickCategorizedSamples(match.genreId, {
         includeBass: match.includeBass !== false,
