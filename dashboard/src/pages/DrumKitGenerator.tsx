@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
-import { Drum, Play, Pause as PauseIcon, Download, Shuffle, Package, Hash, Sparkles, Loader } from 'lucide-react';
+import { Drum, Play, Pause as PauseIcon, Download, Shuffle, Package, Hash, Sparkles, Loader, RotateCw } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -49,54 +49,54 @@ interface GenreProfile {
 }
 
 const GENRE_PROFILES: Record<GenreId, GenreProfile> = {
-    // ─── Trap: deep 808 sub kicks, layered clap snares, ticky pitched hats ──
+    // ─── Trap: deep 808 sub kicks (tuned bass notes), snappy clap-snare, ticky pitched hats ──
     trap: {
-        id: 'trap', label: 'Trap', blurb: 'Long sub 808 kicks · clap-snare hybrid · pitched ticky hats',
-        kick:  { style: '808',           freqLo: 38, freqHi: 50, decayLo: 1.4, decayHi: 2.4, drive: 1.1, clickAmt: 0.45, subAmt: 1.0 },
-        snare: { style: 'clap-layered',  toneLo: 180, toneHi: 230, decayLo: 0.20, decayHi: 0.32, drive: 1.2, bodyAmt: 0.4 },
-        hat:   { style: '808-tick',      decayLo: 0.04, decayHi: 0.10, hpLo: 8000, hpHi: 11000, drive: 1.0 },
-        perc:  { style: 'rim-click',     freqLo: 600, freqHi: 1800, decayLo: 0.04, decayHi: 0.18, drive: 1.0 },
+        id: 'trap', label: 'Trap', blurb: 'Tuned 808 sub kicks (long sustain) · snappy clap-snare · ticky pitched hats',
+        kick:  { style: '808',           freqLo: 36, freqHi: 48, decayLo: 1.6, decayHi: 2.8, drive: 1.2, clickAmt: 0.25, subAmt: 1.0 },
+        snare: { style: 'clap-layered',  toneLo: 180, toneHi: 220, decayLo: 0.18, decayHi: 0.28, drive: 1.2, bodyAmt: 0.45 },
+        hat:   { style: '808-tick',      decayLo: 0.025, decayHi: 0.07, hpLo: 7500, hpHi: 10500, drive: 1.0 },
+        perc:  { style: 'rim-click',     freqLo: 600, freqHi: 1600, decayLo: 0.05, decayHi: 0.18, drive: 1.0 },
     },
-    // ─── Techno: 909-style punchy kicks, snappy snares, ringing FM percussion ──
+    // ─── Techno: 909 punchy kicks (heavy drive, big click), tight snares, ringing FM perc ──
     techno: {
-        id: 'techno', label: 'Techno', blurb: '909 punchy driven kicks · FM metallic perc · tight closed hats',
-        kick:  { style: '909',           freqLo: 50, freqHi: 65, decayLo: 0.30, decayHi: 0.55, drive: 2.6, clickAmt: 1.0, subAmt: 0.4 },
-        snare: { style: '909-snappy',    toneLo: 220, toneHi: 280, decayLo: 0.10, decayHi: 0.20, drive: 1.7, bodyAmt: 0.3 },
-        hat:   { style: '909-metallic',  decayLo: 0.03, decayHi: 0.10, hpLo: 8500, hpHi: 12000, drive: 1.4 },
+        id: 'techno', label: 'Techno', blurb: '909 driven kicks (big click) · tight 909 snare · metallic FM perc',
+        kick:  { style: '909',           freqLo: 55, freqHi: 65, decayLo: 0.28, decayHi: 0.45, drive: 3.0, clickAmt: 1.0, subAmt: 0.45 },
+        snare: { style: '909-snappy',    toneLo: 220, toneHi: 280, decayLo: 0.10, decayHi: 0.18, drive: 1.7, bodyAmt: 0.35 },
+        hat:   { style: '909-metallic',  decayLo: 0.025, decayHi: 0.06, hpLo: 9000, hpHi: 12000, drive: 1.4 },
         perc:  { style: 'fm-metallic',   freqLo: 320, freqHi: 1100, decayLo: 0.06, decayHi: 0.30, drive: 1.5 },
     },
     // ─── Lo-Fi: muffled, tape-warped, vinyl crackle on everything ──
     lofi: {
         id: 'lofi', label: 'Lo-Fi', blurb: 'Muffled tape-warped kit · vinyl crackle · bit-crushed warmth',
-        kick:  { style: 'lofi',          freqLo: 60, freqHi: 78, decayLo: 0.30, decayHi: 0.50, drive: 0.9, clickAmt: 0.2, subAmt: 0.5 },
-        snare: { style: 'vinyl-thock',   toneLo: 170, toneHi: 220, decayLo: 0.12, decayHi: 0.22, drive: 0.95, bodyAmt: 0.5 },
-        hat:   { style: 'vinyl-dust',    decayLo: 0.04, decayHi: 0.14, hpLo: 4500, hpHi: 7500, drive: 0.9 },
+        kick:  { style: 'lofi',          freqLo: 60, freqHi: 75, decayLo: 0.30, decayHi: 0.50, drive: 0.9, clickAmt: 0, subAmt: 0.55 },
+        snare: { style: 'vinyl-thock',   toneLo: 170, toneHi: 210, decayLo: 0.14, decayHi: 0.22, drive: 0.95, bodyAmt: 0.55 },
+        hat:   { style: 'vinyl-dust',    decayLo: 0.05, decayHi: 0.14, hpLo: 3500, hpHi: 5500, drive: 0.9 },
         perc:  { style: 'glass',         freqLo: 250, freqHi: 900, decayLo: 0.10, decayHi: 0.4, drive: 0.85 },
-        fx:    { bitcrush: 9, tapeWowHz: 5.5, tapeWowAmt: 0.004, vinylNoise: 0.025, lpFinal: 7000 },
+        fx:    { bitcrush: 9, tapeWowHz: 5.5, tapeWowAmt: 0.004, vinylNoise: 0.025, lpFinal: 6500 },
     },
     // ─── House: classic 909 4-on-floor with longer open-hat character ──
     house: {
-        id: 'house', label: 'House', blurb: '909 4-on-the-floor punch · clappy snare · airy open hats',
-        kick:  { style: '909',           freqLo: 55, freqHi: 65, decayLo: 0.25, decayHi: 0.42, drive: 1.5, clickAmt: 0.7, subAmt: 0.6 },
-        snare: { style: 'clap-layered',  toneLo: 200, toneHi: 250, decayLo: 0.14, decayHi: 0.24, drive: 1.2, bodyAmt: 0.45 },
-        hat:   { style: '909-metallic',  decayLo: 0.06, decayHi: 0.20, hpLo: 7000, hpHi: 10500, drive: 1.1 },
+        id: 'house', label: 'House', blurb: '909 4-on-the-floor punch · clappy snare · airy metallic open hats',
+        kick:  { style: '909',           freqLo: 55, freqHi: 65, decayLo: 0.25, decayHi: 0.40, drive: 1.6, clickAmt: 0.85, subAmt: 0.6 },
+        snare: { style: 'clap-layered',  toneLo: 200, toneHi: 250, decayLo: 0.15, decayHi: 0.24, drive: 1.2, bodyAmt: 0.5 },
+        hat:   { style: '909-metallic',  decayLo: 0.06, decayHi: 0.18, hpLo: 7500, hpHi: 10500, drive: 1.1 },
         perc:  { style: 'shaker',        freqLo: 600, freqHi: 2000, decayLo: 0.08, decayHi: 0.30, drive: 1.0 },
     },
-    // ─── DnB: short tight punchy kicks, big layered snares, rapid hats ──
+    // ─── DnB: short tight punchy kicks, BIG layered snares, rapid metallic hats ──
     dnb: {
-        id: 'dnb', label: 'Drum & Bass', blurb: 'Tight punchy kicks · big snappy snares · rapid metallic hats',
-        kick:  { style: 'punch',         freqLo: 48, freqHi: 60, decayLo: 0.30, decayHi: 0.55, drive: 1.7, clickAmt: 0.95, subAmt: 0.85 },
-        snare: { style: '909-snappy',    toneLo: 240, toneHi: 320, decayLo: 0.18, decayHi: 0.30, drive: 1.6, bodyAmt: 0.55 },
-        hat:   { style: '909-metallic',  decayLo: 0.025, decayHi: 0.08, hpLo: 9000, hpHi: 12000, drive: 1.5 },
+        id: 'dnb', label: 'Drum & Bass', blurb: 'Tight punchy kicks · huge layered snares · rapid metallic hats',
+        kick:  { style: 'punch',         freqLo: 55, freqHi: 70, decayLo: 0.20, decayHi: 0.35, drive: 1.8, clickAmt: 1.0, subAmt: 0.95 },
+        snare: { style: 'acoustic-shell',toneLo: 230, toneHi: 290, decayLo: 0.22, decayHi: 0.38, drive: 1.6, bodyAmt: 0.75 },
+        hat:   { style: '909-metallic',  decayLo: 0.025, decayHi: 0.07, hpLo: 9000, hpHi: 12000, drive: 1.5 },
         perc:  { style: 'fm-metallic',   freqLo: 500, freqHi: 1800, decayLo: 0.05, decayHi: 0.20, drive: 1.4 },
     },
     // ─── Hip-Hop: warm boom-bap thump, snappy snares with body, dusty hats ──
     hiphop: {
-        id: 'hiphop', label: 'Hip-Hop', blurb: 'Warm boom-bap thump · cracky vinyl snare · dusty hats',
-        kick:  { style: 'lofi',          freqLo: 55, freqHi: 70, decayLo: 0.35, decayHi: 0.60, drive: 1.2, clickAmt: 0.5, subAmt: 0.7 },
-        snare: { style: 'vinyl-thock',   toneLo: 180, toneHi: 240, decayLo: 0.18, decayHi: 0.30, drive: 1.3, bodyAmt: 0.6 },
-        hat:   { style: 'vinyl-dust',    decayLo: 0.05, decayHi: 0.16, hpLo: 5500, hpHi: 9000, drive: 1.0 },
-        perc:  { style: 'rim-click',     freqLo: 500, freqHi: 1600, decayLo: 0.06, decayHi: 0.25, drive: 1.0 },
+        id: 'hiphop', label: 'Hip-Hop', blurb: 'Warm boom-bap thump · cracky vinyl snare · dusty mid-range hats',
+        kick:  { style: 'lofi',          freqLo: 55, freqHi: 72, decayLo: 0.30, decayHi: 0.55, drive: 1.1, clickAmt: 0, subAmt: 0.7 },
+        snare: { style: 'vinyl-thock',   toneLo: 180, toneHi: 230, decayLo: 0.18, decayHi: 0.28, drive: 1.2, bodyAmt: 0.65 },
+        hat:   { style: 'vinyl-dust',    decayLo: 0.05, decayHi: 0.16, hpLo: 4500, hpHi: 7000, drive: 1.0 },
+        perc:  { style: 'rim-click',     freqLo: 500, freqHi: 1400, decayLo: 0.06, decayHi: 0.22, drive: 1.0 },
         fx:    { bitcrush: 11, vinylNoise: 0.018, lpFinal: 8500 },
     },
     // ─── Ambient: soft brushed textures, very gentle attacks ──
@@ -118,11 +118,11 @@ const GENRE_PROFILES: Record<GenreId, GenreProfile> = {
     },
     // ─── Rock: acoustic-feel real-drum-kit ──
     rock: {
-        id: 'rock', label: 'Rock', blurb: 'Acoustic beater kicks · big shell snare · crisp acoustic cymbals',
-        kick:  { style: 'acoustic',      freqLo: 60, freqHi: 80, decayLo: 0.40, decayHi: 0.70, drive: 1.5, clickAmt: 0.95, subAmt: 0.45 },
-        snare: { style: 'acoustic-shell',toneLo: 200, toneHi: 280, decayLo: 0.25, decayHi: 0.45, drive: 1.4, bodyAmt: 0.7 },
-        hat:   { style: 'acoustic-cymbal', decayLo: 0.10, decayHi: 0.30, hpLo: 5500, hpHi: 9500, drive: 1.2 },
-        perc:  { style: 'tonal-tom',     freqLo: 120, freqHi: 250, decayLo: 0.30, decayHi: 0.7, drive: 1.2 },
+        id: 'rock', label: 'Rock', blurb: 'Acoustic beater kicks · big shell snare with wires · crisp acoustic cymbals',
+        kick:  { style: 'acoustic',      freqLo: 60, freqHi: 75, decayLo: 0.40, decayHi: 0.65, drive: 1.4, clickAmt: 1.0, subAmt: 0.4 },
+        snare: { style: 'acoustic-shell',toneLo: 200, toneHi: 260, decayLo: 0.25, decayHi: 0.40, drive: 1.4, bodyAmt: 0.85 },
+        hat:   { style: 'acoustic-cymbal', decayLo: 0.12, decayHi: 0.32, hpLo: 5500, hpHi: 8500, drive: 1.2 },
+        perc:  { style: 'tonal-tom',     freqLo: 110, freqHi: 220, decayLo: 0.30, decayHi: 0.7, drive: 1.2 },
     },
     // ─── EDM: festival-grade compressed transients ──
     edm: {
@@ -343,60 +343,31 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
 
     switch (p.style) {
         case '808': {
-            // Pure low sine sub with VERY long decay, slow pitch drop, no real click — gentle saturation.
-            const pitchStart = baseFreq * rangeR(rng, 2.5, 4.0); // gentler than 909
-            const pitchTau   = 0.040 + rng() * 0.040;
+            // True 808: a tuned sub-bass note. Subtle pitch glide (1.5-2x), saturation gives "warmth".
+            // The TAIL is the sound — almost no transient click. LP'd to keep it pure sub.
+            const pitchStart = baseFreq * rangeR(rng, 1.6, 2.2);
+            const pitchTau   = 0.060 + rng() * 0.040;          // slow musical bend
+            const bodyDecay  = decay;                          // long sustained body
             let phase = 0;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
                 const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
                 phase += (2 * Math.PI * f) / SAMPLE_RATE;
-                const env = Math.exp(-t / decay);
+                const env = Math.exp(-t / bodyDecay);
                 out[i] = Math.sin(phase) * env;
             }
-            // Subtle "warble" on the body (saturated 808 character)
-            for (let i = 0; i < N; i++) out[i] = softClip(out[i] * 1.4, p.drive);
-            // Tiny click for definition (low-passed)
-            if (p.clickAmt > 0) mixClick(out, rng, 3.0, 600, p.clickAmt * 0.4);
-            // Sub layer — pure low sine for weight
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.4)) * p.subAmt * 0.45;
-            }
-            // Heavy lowpass — 808 has no high content
-            lowPass(out, 280);
+            // Add 2nd harmonic via tanh saturation — gives the classic 808 "growl".
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.6 + p.drive * 0.4));
+            // Optional very low click — woody, not clicky.
+            if (p.clickAmt > 0) mixClick(out, rng, 4.0, 400, p.clickAmt * 0.25);
+            // Steep LP — 808 is sub-bass only.
+            lowPass(out, 220);
+            lowPass(out, 220);
             break;
         }
         case '909': {
-            // Fast pitch sweep (10–20ms) + sine body + audible HP click + square-wave attack snap.
-            const pitchStart = baseFreq * rangeR(rng, 6, 9);
-            const pitchTau   = 0.010 + rng() * 0.010;
-            let phase = 0;
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
-                phase += (2 * Math.PI * f) / SAMPLE_RATE;
-                const env = Math.exp(-t / decay);
-                out[i] = Math.sin(phase) * env;
-            }
-            // Mid-range sub for "thud"
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.5)) * p.subAmt * 0.55;
-            }
-            // 909 click — short HP noise burst with square-wave snap
-            mixClick(out, rng, 2.0, 1800, p.clickAmt * 0.85);
-            const snapN = Math.min(N, Math.floor(0.0015 * SAMPLE_RATE));
-            for (let i = 0; i < snapN; i++) {
-                const env = Math.exp(-i / (snapN * 0.35));
-                out[i] += Math.sign(Math.sin(2 * Math.PI * 3000 * (i / SAMPLE_RATE))) * env * p.clickAmt * 0.3;
-            }
-            // 909 character: drive on the body
-            for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
-            break;
-        }
-        case 'punch': {
-            // Like 909 but tighter & more click-heavy. Used by DnB / EDM / Pop.
+            // 909 = fast aggressive pitch sweep (~10ms) + sine body + LOUD audible click.
+            // The click is character-defining — without it, it's not a 909.
             const pitchStart = baseFreq * rangeR(rng, 7, 10);
             const pitchTau   = 0.008 + rng() * 0.008;
             let phase = 0;
@@ -407,40 +378,85 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
                 const env = Math.exp(-t / decay);
                 out[i] = Math.sin(phase) * env;
             }
-            // Bigger sub
+            // Sub layer
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.5)) * p.subAmt * 0.7;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.4)) * p.subAmt * 0.55;
             }
-            // Two-stage click: low thump + bright snap
-            mixClick(out, rng, 1.5, 2000, p.clickAmt * 0.7);
-            mixClick(out, rng, 0.8, 5000, p.clickAmt * 0.5);
-            for (let i = 0; i < N; i++) out[i] = softClip(out[i] * 1.2, p.drive);
+            // 909 click — TWO layers: low woody thump + bright snap. Audible.
+            mixClick(out, rng, 2.5, 1500, p.clickAmt * 1.0);
+            mixClick(out, rng, 1.0, 4500, p.clickAmt * 0.55);
+            // Square-wave snap at 2.8kHz — the iconic 909 "tonk".
+            const snapN = Math.min(N, Math.floor(0.0025 * SAMPLE_RATE));
+            for (let i = 0; i < snapN; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = Math.exp(-i / (snapN * 0.4));
+                out[i] += Math.sign(Math.sin(2 * Math.PI * 2800 * t)) * env * p.clickAmt * 0.45;
+            }
+            // Heavy drive on the body
+            for (let i = 0; i < N; i++) out[i] = softClip(out[i] * 1.3, p.drive);
             break;
         }
-        case 'acoustic': {
-            // Real-drum: beater click + shell resonance via 2 detuned sines + slow decay.
-            const pitchStart = baseFreq * 1.4;                  // softer sweep
-            const pitchTau   = 0.025;
+        case 'punch': {
+            // Festival/DnB punch: tight as hell. Body decay capped short for transient feel.
+            // Sub stays longer to give weight without losing the "slap".
+            const tightDecay = Math.min(decay, 0.30);
+            const pitchStart = baseFreq * rangeR(rng, 8, 12);
+            const pitchTau   = 0.006 + rng() * 0.006;
             let phase = 0;
-            const partial2 = baseFreq * 1.6;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
                 const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
                 phase += (2 * Math.PI * f) / SAMPLE_RATE;
-                const env = Math.exp(-t / decay);
-                out[i] = (Math.sin(phase) * 0.8 + Math.sin(2 * Math.PI * partial2 * t) * 0.25) * env;
+                const env = Math.exp(-t / tightDecay);
+                out[i] = Math.sin(phase) * env;
             }
-            // Beater click — wood-like, mid-frequency
-            mixClick(out, rng, 4.0, 800, p.clickAmt * 0.9);
-            mixClick(out, rng, 1.0, 3500, p.clickAmt * 0.4);
+            // Sub stays longer — gives weight even after the "slap" decays
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.3)) * p.subAmt * 0.85;
+            }
+            // Aggressive 3-layer click — VERY click-forward
+            mixClick(out, rng, 1.8, 1800, p.clickAmt * 0.85);
+            mixClick(out, rng, 1.0, 4000, p.clickAmt * 0.6);
+            mixClick(out, rng, 0.5, 7000, p.clickAmt * 0.35);
+            // Heavy compression-style saturation
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.4 + p.drive * 0.3));
+            break;
+        }
+        case 'acoustic': {
+            // Real bass-drum: beater hit + shell resonance with multiple detuned partials.
+            // Body has FUNDAMENTAL + low-mid "shell tone" partials at ~280Hz / ~420Hz that decay faster.
+            const pitchStart = baseFreq * 1.5;
+            const pitchTau   = 0.028;
+            let phase = 0;
+            const shellTone1 = 240 + rng() * 80;     // shell resonance
+            const shellTone2 = 380 + rng() * 100;
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
+                phase += (2 * Math.PI * f) / SAMPLE_RATE;
+                const envBody  = Math.exp(-t / decay);
+                const envShell = Math.exp(-t / (decay * 0.35));   // shell decays faster
+                out[i] = Math.sin(phase) * envBody
+                       + Math.sin(2 * Math.PI * shellTone1 * t) * envShell * 0.18
+                       + Math.sin(2 * Math.PI * shellTone2 * t) * envShell * 0.10;
+            }
+            // Wood beater click — LP'd noise around 1.2kHz, gives the "thud" of a real beater.
+            const beaterN = Math.floor(0.005 * SAMPLE_RATE);
+            const beater = new Float32Array(beaterN);
+            for (let i = 0; i < beaterN; i++) beater[i] = (rng() * 2 - 1) * Math.exp(-i / (beaterN * 0.3));
+            bandPass(beater, 600, 2500);
+            for (let i = 0; i < beaterN && i < N; i++) out[i] += beater[i] * p.clickAmt * 0.9;
+            // Tiny high snap for definition
+            mixClick(out, rng, 0.8, 4000, p.clickAmt * 0.25);
             for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
             break;
         }
         case 'lofi': {
-            // Muffled vintage thump — sine + LP + slight wobble. No real click.
-            const pitchStart = baseFreq * 1.8;
-            const pitchTau   = 0.030;
+            // Muffled vintage thump — feels "sampled off vinyl". No click at all. Aggressive LP.
+            const pitchStart = baseFreq * 1.5;
+            const pitchTau   = 0.035;
             let phase = 0;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
@@ -449,37 +465,40 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
                 const env = Math.exp(-t / decay);
                 out[i] = Math.sin(phase) * env;
             }
-            // Sub
+            // Sub layer
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.5)) * p.subAmt * 0.5;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.4)) * p.subAmt * 0.55;
             }
-            if (p.clickAmt > 0) mixClick(out, rng, 2.0, 800, p.clickAmt * 0.3);
-            // Aggressive low-pass — kills all the brightness
-            lowPass(out, 1200);
-            for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
+            // Mid "shell" tone for body
+            const shell = 200 + rng() * 80;
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                out[i] += Math.sin(2 * Math.PI * shell * t) * Math.exp(-t / (decay * 0.3)) * 0.15;
+            }
+            // No click. Just warmth.
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * 1.2);
+            // Brutal LP — sounds like it's been through a tape recorder
+            lowPass(out, 700);
+            lowPass(out, 700);
             break;
         }
         case 'soft': {
-            // Ambient mallet kick — slow attack, very long decay, no click.
-            const pitchStart = baseFreq * 1.5;
-            const pitchTau   = 0.060;
-            let phase = 0;
+            // Ambient felt-mallet kick — no transient at all, slow swell, mostly sub.
+            // No pitch sweep — just a tuned bass note that swells.
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
-                phase += (2 * Math.PI * f) / SAMPLE_RATE;
                 const env = Math.exp(-t / decay);
-                out[i] = Math.sin(phase) * env;
+                out[i] = Math.sin(2 * Math.PI * baseFreq * t) * env;
             }
             // Sub
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 2)) * p.subAmt * 0.6;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * 0.5 * t) * Math.exp(-t / (decay * 1.8)) * p.subAmt * 0.7;
             }
-            // Soft attack ramp (10ms instead of 0.3ms)
-            applyAttack(out, 8);
-            lowPass(out, 800);
+            // 25ms attack swell — felt mallet character
+            applyAttack(out, 25);
+            lowPass(out, 600);
             break;
         }
     }
@@ -501,99 +520,115 @@ function synthSnare(rng: RNG, p: GenreProfile['snare'], totalSec: number, fx: Ge
 
     switch (p.style) {
         case 'clap-layered': {
-            // 4-burst clap + short tonal "tonk" — modern trap/pop snare-clap hybrid.
+            // Modern trap/pop snare-clap: 4 quick noise bursts within 25ms + tonal smack + tail.
+            // The bursts are TIGHT (5ms each) and CLOSE (6-7ms apart) — sounds like a snappy clap.
             const bursts = 4;
-            const spacing = 0.009 + rng() * 0.004;
-            const burstLen = 0.010;
+            const spacing = 0.0065;       // total cluster ~25ms
+            const burstLen = 0.005;
             const noise = new Float32Array(N);
             for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
-            bandPass(noise, 1500, 5500);
+            bandPass(noise, 1200, 4500);
             for (let b = 0; b < bursts; b++) {
                 const start = Math.floor((b * spacing) * SAMPLE_RATE);
                 const len = Math.floor(burstLen * SAMPLE_RATE);
+                const gain = b === bursts - 1 ? 1.0 : 0.45 + (b * 0.15);   // build up to last (loudest) burst
                 for (let i = 0; i < len && start + i < N; i++) {
                     const env = Math.exp(-i / (len * 0.3));
-                    out[start + i] += noise[start + i] * env * (b === bursts - 1 ? 1.0 : 0.5);
+                    out[start + i] += noise[start + i] * env * gain;
                 }
             }
-            // Reverb-like tail
+            // Air tail after the last burst
             const tailStart = Math.floor((bursts * spacing) * SAMPLE_RATE);
             for (let i = tailStart; i < N; i++) {
                 const t = (i - tailStart) / SAMPLE_RATE;
-                out[i] += noise[i] * Math.exp(-t / (decay * 0.7)) * 0.35;
+                out[i] += noise[i] * Math.exp(-t / (decay * 0.6)) * 0.35;
             }
-            // Subtle tonal "tonk"
+            // Tonal smack — short pitched "thwack" at the start gives the snare body weight.
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * tone * t) * Math.exp(-t / 0.04) * p.bodyAmt * 0.5;
+                const env = Math.exp(-t / 0.025);
+                out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.7
+                         + Math.sin(2 * Math.PI * tone * 1.5 * t) * 0.3) * env * p.bodyAmt * 0.85;
             }
             break;
         }
         case '909-snappy': {
-            // Sharp tonal shell + bright HP noise — short, punchy, no body weight.
+            // 909 snare: short tonal smack (~200Hz) + bright hi-passed noise tail. No body weight.
             const tone2 = tone * rangeR(rng, 1.55, 1.78);
-            const toneTau = decay * 0.3;
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                const env = Math.exp(-t / toneTau);
-                out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.7
-                         + Math.sin(2 * Math.PI * tone2 * t) * 0.4) * env * p.bodyAmt;
-            }
-            const snap = new Float32Array(N);
-            for (let i = 0; i < N; i++) snap[i] = rng() * 2 - 1;
-            highPass(snap, 2500);
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                out[i] += snap[i] * Math.exp(-t / decay) * 0.95;
-            }
-            mixClick(out, rng, 1.0, 4500, 0.7);
-            break;
-        }
-        case 'acoustic-shell': {
-            // Real-drum: 3-partial shell + band-passed wires + soft attack.
-            const partials = [tone, tone * 1.59, tone * 2.13];
-            const toneTau = decay * 0.4;
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                const env = Math.exp(-t / toneTau);
-                let s = 0;
-                for (let k = 0; k < partials.length; k++) {
-                    s += Math.sin(2 * Math.PI * partials[k] * t) * (1 - k * 0.3);
-                }
-                out[i] += s * env * p.bodyAmt * 0.6;
-            }
-            // Snare wires — band-passed noise with slower decay
-            const wires = new Float32Array(N);
-            for (let i = 0; i < N; i++) wires[i] = rng() * 2 - 1;
-            bandPass(wires, 800, 4500);
-            for (let i = 0; i < N; i++) {
-                const t = i / SAMPLE_RATE;
-                out[i] += wires[i] * Math.exp(-t / decay) * 0.6;
-            }
-            mixClick(out, rng, 2.0, 1200, 0.5);
-            break;
-        }
-        case 'vinyl-thock': {
-            // Boom-bap snare: muffled tonal thock + low-passed noise.
-            const tone2 = tone * 1.55;
-            const toneTau = decay * 0.5;
+            const toneTau = decay * 0.25;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
                 const env = Math.exp(-t / toneTau);
                 out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.8
-                         + Math.sin(2 * Math.PI * tone2 * t) * 0.3) * env * p.bodyAmt;
+                         + Math.sin(2 * Math.PI * tone2 * t) * 0.4) * env * p.bodyAmt;
             }
-            const noise = new Float32Array(N);
-            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
-            bandPass(noise, 600, 3500);
+            // Bright HP noise (snare wires)
+            const snap = new Float32Array(N);
+            for (let i = 0; i < N; i++) snap[i] = rng() * 2 - 1;
+            highPass(snap, 3500);
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += noise[i] * Math.exp(-t / (decay * 0.7)) * 0.7;
+                out[i] += snap[i] * Math.exp(-t / decay) * 1.0;
             }
-            // Soft click
-            mixClick(out, rng, 2.0, 1500, 0.4);
-            // Roll off the highs
-            lowPass(out, 6000);
+            // Sharp transient click
+            mixClick(out, rng, 0.8, 5500, 0.85);
+            break;
+        }
+        case 'acoustic-shell': {
+            // Real snare drum: 5-partial inharmonic shell (210/380/500/700/950Hz typical),
+            // band-passed noise wires, and a stick-tip transient. Big and full.
+            const partials = [tone, tone * 1.59, tone * 2.13, tone * 2.97, tone * 4.05];
+            const partGains = [1.0, 0.5, 0.35, 0.22, 0.15];
+            const partTaus  = [decay * 0.5, decay * 0.4, decay * 0.3, decay * 0.25, decay * 0.18];
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                let s = 0;
+                for (let k = 0; k < partials.length; k++) {
+                    s += Math.sin(2 * Math.PI * partials[k] * t) * partGains[k] * Math.exp(-t / partTaus[k]);
+                }
+                out[i] += s * p.bodyAmt * 0.7;
+            }
+            // Snare wires — prominent, band-passed mid-noise with full decay
+            const wires = new Float32Array(N);
+            for (let i = 0; i < N; i++) wires[i] = rng() * 2 - 1;
+            bandPass(wires, 1000, 5500);
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                out[i] += wires[i] * Math.exp(-t / decay) * 0.85;
+            }
+            // Stick tip click — brief HP noise
+            mixClick(out, rng, 1.5, 3000, 0.7);
+            mixClick(out, rng, 0.5, 6000, 0.4);
+            break;
+        }
+        case 'vinyl-thock': {
+            // Boom-bap snare — muffled, mid-heavy, cracky body. Sounds like a sampled break.
+            // Strong tonal body at ~190Hz + low rumble + LP-rolled noise crack.
+            const tone2 = tone * 1.55;
+            const toneTau = decay * 0.45;
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = Math.exp(-t / toneTau);
+                out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.9
+                         + Math.sin(2 * Math.PI * tone2 * t) * 0.35) * env * p.bodyAmt;
+            }
+            // Low body "thunk" at ~110Hz — gives the snare its weight
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                out[i] += Math.sin(2 * Math.PI * 110 * t) * Math.exp(-t / 0.06) * 0.4;
+            }
+            // LP-rolled noise crack
+            const noise = new Float32Array(N);
+            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+            bandPass(noise, 500, 3000);
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                out[i] += noise[i] * Math.exp(-t / (decay * 0.65)) * 0.65;
+            }
+            // Wood-stick click
+            mixClick(out, rng, 2.5, 1200, 0.5);
+            // Roll off the highs — vintage character
+            lowPass(out, 4500);
             break;
         }
         case 'soft-brush': {
@@ -650,18 +685,16 @@ function synthHat(rng: RNG, p: GenreProfile['hat'], totalSec: number, fx: GenreP
 
     switch (p.style) {
         case '808-tick': {
-            // Trap-style: VERY short ticky transient via HP noise, very minimal metallic ring.
-            const base = rangeR(rng, 220, 280);
+            // Trap closed hat: VERY short pitched tick — single high square wave + brief HP noise.
+            // NOT 6-ratio metallic (too noisy/long). This is tight and ticky.
+            const pitch = 6500 + rng() * 2500;       // 6.5–9kHz pitch
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                let metal = 0;
-                for (const r of ratios808) metal += Math.sign(Math.sin(2 * Math.PI * base * r * t));
-                metal /= ratios808.length;
-                const noise = (rng() * 2 - 1);
                 const env = Math.exp(-t / decay);
-                out[i] = (metal * 0.4 + noise * 0.6) * env;
+                const sq = Math.sign(Math.sin(2 * Math.PI * pitch * t));
+                const noise = rng() * 2 - 1;
+                out[i] = (sq * 0.6 + noise * 0.4) * env;
             }
-            highPass(out, hp);
             highPass(out, hp);
             break;
         }
@@ -705,18 +738,16 @@ function synthHat(rng: RNG, p: GenreProfile['hat'], totalSec: number, fx: GenreP
             break;
         }
         case 'vinyl-dust': {
-            // Lo-fi muffled hat — band-passed noise with mild metallic ring.
-            const base = rangeR(rng, 200, 260);
+            // Lo-fi/hiphop hat: muffled mid-band noise. NOT bright. NOT metallic.
+            // Sounds like a sampled break that's been EQ'd dark.
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                let metal = 0;
-                for (const r of ratios808) metal += Math.sign(Math.sin(2 * Math.PI * base * r * t));
-                metal /= ratios808.length;
-                const noise = (rng() * 2 - 1);
                 const env = Math.exp(-t / decay);
-                out[i] = (metal * 0.3 + noise * 0.7) * env;
+                out[i] = (rng() * 2 - 1) * env;
             }
-            bandPass(out, hp, 8500);  // band-pass instead of pure HP — kills the air
+            // Single LP — muffled. NOT band-passed (too thin).
+            highPass(out, hp);
+            lowPass(out, hp + 2500);
             break;
         }
         case 'noise-shimmer': {
@@ -782,7 +813,7 @@ function synthPerc(rng: RNG, p: GenreProfile['perc'], totalSec: number, fx: Genr
             break;
         }
         case 'rim-click': {
-            // Wood-block / rimshot — short tonal hit + HP noise click
+            // Wood block / rim click — short pitched "tock" with mid-frequency body. NOT bright.
             const woodFreq = freq * 1.4;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
@@ -790,8 +821,14 @@ function synthPerc(rng: RNG, p: GenreProfile['perc'], totalSec: number, fx: Genr
                 out[i] = (Math.sin(2 * Math.PI * freq * t) * 0.6
                         + Math.sin(2 * Math.PI * woodFreq * t) * 0.4) * env;
             }
-            mixClick(out, rng, 1.0, 2500, 0.7);
-            highPass(out, 400);
+            // LP'd noise click — gives the wood character (NOT a HP click)
+            const clickN = Math.floor(0.003 * SAMPLE_RATE);
+            const click = new Float32Array(clickN);
+            for (let i = 0; i < clickN; i++) click[i] = (rng() * 2 - 1) * Math.exp(-i / (clickN * 0.3));
+            bandPass(click, 800, 3000);
+            for (let i = 0; i < clickN && i < N; i++) out[i] += click[i] * 0.7;
+            // Roll off above 4kHz — wood doesn't ring high
+            lowPass(out, 4500);
             break;
         }
         case 'shaker': {
@@ -914,23 +951,29 @@ interface GeneratedSample {
     data: Float32Array;
 }
 
-function generateKit(profile: GenreProfile, seed: number): GeneratedSample[] {
-    const samples: GeneratedSample[] = [];
-    // Each slot uses a derived seed so individual variations differ but kit is deterministic
-    const slots: { slot: KitSlot; fn: (rng: RNG) => Float32Array }[] = [
-        { slot: 'kick',    fn: r => synthKick(r,  profile.kick,  Math.max(0.4, profile.kick.decayHi + 0.2), profile.fx) },
-        { slot: 'snare',   fn: r => synthSnare(r, profile.snare, profile.snare.decayHi + 0.1, profile.fx) },
-        { slot: 'hat',     fn: r => synthHat(r,   profile.hat,   profile.hat.decayHi + 0.05, profile.fx, false) },
-        { slot: 'openhat', fn: r => synthHat(r,   profile.hat,   profile.hat.decayHi * 4 + 0.1, profile.fx, true) },
-        { slot: 'perc',    fn: r => synthPerc(r,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx) },
-        { slot: 'perc2',   fn: r => synthPerc(r,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx) },
-    ];
-    for (let i = 0; i < slots.length; i++) {
-        const rng = mulberry32(seed + i * 9173);
-        const data = slots[i].fn(rng);
-        samples.push({ slot: slots[i].slot, label: SLOT_LABEL[slots[i].slot], data });
+function synthForSlot(slot: KitSlot, rng: RNG, profile: GenreProfile): Float32Array {
+    switch (slot) {
+        case 'kick':    return synthKick(rng,  profile.kick,  Math.max(0.4, profile.kick.decayHi + 0.2), profile.fx);
+        case 'snare':   return synthSnare(rng, profile.snare, profile.snare.decayHi + 0.1, profile.fx);
+        case 'hat':     return synthHat(rng,   profile.hat,   profile.hat.decayHi + 0.05, profile.fx, false);
+        case 'openhat': return synthHat(rng,   profile.hat,   profile.hat.decayHi * 4 + 0.1, profile.fx, true);
+        case 'perc':    return synthPerc(rng,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx);
+        case 'perc2':   return synthPerc(rng,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx);
     }
-    return samples;
+}
+
+function deriveSlotSeeds(master: number): Record<KitSlot, number> {
+    const out = {} as Record<KitSlot, number>;
+    SLOT_ORDER.forEach((s, i) => { out[s] = (master + i * 9173) >>> 0; });
+    return out;
+}
+
+function generateKit(profile: GenreProfile, slotSeeds: Record<KitSlot, number>): GeneratedSample[] {
+    return SLOT_ORDER.map(slot => ({
+        slot,
+        label: SLOT_LABEL[slot],
+        data: synthForSlot(slot, mulberry32(slotSeeds[slot]), profile),
+    }));
 }
 
 // ─── React UI ──────────────────────────────────────────────────────────────
@@ -941,6 +984,7 @@ export const DrumKitGeneratorPage: React.FC = () => {
     const [genreId, setGenreId] = useState<GenreId>('trap');
     const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 0xffffffff));
     const [seedInput, setSeedInput] = useState<string>('');
+    const [slotSeeds, setSlotSeeds] = useState<Record<KitSlot, number>>(() => deriveSlotSeeds(seed));
     const [kit, setKit] = useState<GeneratedSample[]>([]);
     const [busy, setBusy] = useState(false);
     const [playing, setPlaying] = useState<KitSlot | null>(null);
@@ -976,16 +1020,25 @@ export const DrumKitGeneratorPage: React.FC = () => {
 
     const regenerate = (g: GenreId, s: number) => {
         setBusy(true);
+        const seeds = deriveSlotSeeds(s);
+        setSlotSeeds(seeds);
         // Defer to next tick so the spinner can render
         setTimeout(() => {
             try {
                 const p = GENRE_PROFILES[g] || GENRE_PROFILES.generic;
-                const k = generateKit(p, s);
+                const k = generateKit(p, seeds);
                 setKit(k);
             } finally {
                 setBusy(false);
             }
         }, 30);
+    };
+
+    const regenerateSlot = (slot: KitSlot) => {
+        const newSlotSeed = Math.floor(Math.random() * 0xffffffff);
+        setSlotSeeds(prev => ({ ...prev, [slot]: newSlotSeed }));
+        const data = synthForSlot(slot, mulberry32(newSlotSeed), profile);
+        setKit(prev => prev.map(s => s.slot === slot ? { ...s, data } : s));
     };
 
     const handleGenerate = () => {
@@ -1239,9 +1292,11 @@ your own productions.`);
                     return <SampleCard
                         key={slot}
                         sample={s}
+                        slotSeed={slotSeeds[slot]}
                         isPlaying={isPlaying}
                         onPlay={() => isPlaying ? stopPlayback() : playSample(s)}
                         onDownload={() => downloadOne(s)}
+                        onRegenerate={() => regenerateSlot(slot)}
                     />;
                 })}
             </div>
@@ -1305,8 +1360,8 @@ const SampleCard: React.FC<{
         }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontWeight: 600, color: colors.textPrimary }}>{sample.label}</div>
-                <div style={{ color: colors.textTertiary, fontSize: 11 }}>
-                    {(sample.data.length / SAMPLE_RATE).toFixed(2)}s
+                <div style={{ color: colors.textTertiary, fontSize: 11, fontFamily: 'monospace' }}>
+                    #{(slotSeed >>> 0).toString(16).slice(0, 6)} · {(sample.data.length / SAMPLE_RATE).toFixed(2)}s
                 </div>
             </div>
             <canvas ref={canvasRef} style={{ width: '100%', height: 56, background: colors.background, borderRadius: 4 }} />
@@ -1321,6 +1376,16 @@ const SampleCard: React.FC<{
                     }}>
                     {isPlaying ? <PauseIcon size={14} /> : <Play size={14} />}
                     {isPlaying ? 'Stop' : 'Play'}
+                </button>
+                <button onClick={onRegenerate}
+                    title="Re-roll just this sample (keeps the rest of the kit)"
+                    style={{
+                        background: 'transparent', color: colors.textSecondary,
+                        border: `1px solid ${colors.border}`, borderRadius: 6,
+                        padding: '6px 10px', cursor: 'pointer', fontSize: 13,
+                        display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                    <RotateCw size={14} />
                 </button>
                 <button onClick={onDownload}
                     title="Download as 24-bit WAV"
