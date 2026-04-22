@@ -800,7 +800,7 @@ export const BattleDetailPage: React.FC = () => {
                                                 </div>
                                             )}
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <Link to={`/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                                                <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
                                                     {entry.trackTitle}
                                                 </Link>
                                                 <Link to={`/profile/${entry.userId}`} style={{ fontSize: '13px', color, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: '8px' }}>
@@ -811,7 +811,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         <Flame size={12} color={ACCENT} />
                                                         <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
                                                     </div>
-                                                    <Link to={`/battles/entry/${entry.id}`}
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
                                                         <Play size={11} fill="#1a1a1a" /> Listen
                                                     </Link>
@@ -922,7 +922,7 @@ export const BattleDetailPage: React.FC = () => {
                                                             {rankLabel}
                                                         </div>
                                                     )}
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
                                                         {entry.trackTitle}
                                                     </Link>
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
@@ -942,7 +942,7 @@ export const BattleDetailPage: React.FC = () => {
                                                 <div
                                                     onClick={() => {
                                                         if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                                     }}
                                                     style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '48px', width: '100%', cursor: 'pointer' }}>
                                                     {bars.map((h, bi) => (
@@ -963,7 +963,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         <button
                                                             onClick={() => {
                                                                 if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                                             }}
                                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: colors.textPrimary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                                                             {isCurrentlyPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} fill="currentColor" /> Play</>}

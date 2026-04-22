@@ -26,6 +26,23 @@ export interface FlatBattleEntry {
     arrangement?: any;
     waveformPeaks?: number[] | null;
     track?: any;
+    /** Public route to the underlying Track page (preferred over /battles/entry/:id). */
+    trackRoute: string;
+}
+
+/**
+ * Compute the public Track route for a battle entry. Prefers the canonical
+ * /musicians/<username>/<slug> URL; falls back to the track id if the slug
+ * is missing, and finally to the legacy /battles/entry/:id URL if the track
+ * relation is missing entirely.
+ */
+export function battleEntryRoute(e: any): string {
+    const t = e?.track || {};
+    const p = t?.profile || {};
+    const username = p?.username;
+    const slugOrId = t?.slug || t?.id;
+    if (username && slugOrId) return `/track/${username}/${slugOrId}`;
+    return `/battles/entry/${e?.id}`;
 }
 
 export function flattenBattleEntry(e: any): FlatBattleEntry {
@@ -52,6 +69,7 @@ export function flattenBattleEntry(e: any): FlatBattleEntry {
         arrangement: t.arrangement ?? e.arrangement ?? null,
         waveformPeaks: t.waveformPeaks ?? e.waveformPeaks ?? null,
         track: t.id ? t : undefined,
+        trackRoute: battleEntryRoute(e),
     };
 }
 

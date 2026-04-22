@@ -10134,6 +10134,12 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
                 battle: {
                     select: { id: true, title: true, status: true, slug: true },
                 },
+                track: {
+                    select: {
+                        id: true, title: true, slug: true, url: true, coverUrl: true,
+                        profile: { select: { username: true, displayName: true, avatar: true } },
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -10161,18 +10167,25 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
             const placement = battleEntries.findIndex((e: any) => e.id === entry.id) + 1;
             const totalEntries = battleEntries.length;
             const isWinner = placement === 1 && entry.battle.status === 'completed' && entry.voteCount > 0;
+            const t = entry.track || {};
+            const p = t.profile || {};
+            const trackRoute = (p.username && (t.slug || t.id))
+                ? `/track/${p.username}/${t.slug || t.id}`
+                : `/battles/entry/${entry.id}`;
             return {
                 id: entry.id,
-                trackTitle: entry.trackTitle,
-                audioUrl: entry.audioUrl,
-                coverUrl: entry.coverUrl,
-                avatarUrl: entry.avatarUrl,
+                trackId: t.id ?? entry.trackId,
+                trackTitle: t.title ?? entry.trackTitle ?? 'Untitled',
+                audioUrl: t.url ?? entry.audioUrl ?? '',
+                coverUrl: t.coverUrl ?? entry.coverUrl ?? null,
+                avatarUrl: p.avatar ?? entry.avatarUrl ?? null,
                 voteCount: entry.voteCount,
                 createdAt: entry.createdAt,
                 battle: entry.battle,
                 placement,
                 totalEntries,
                 isWinner,
+                trackRoute,
             };
         });
 

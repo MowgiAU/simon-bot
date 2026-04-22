@@ -517,7 +517,7 @@ export const BattlesPage: React.FC = () => {
                                                 e.stopPropagation();
                                                 const id = `battle-${winner.id}`;
                                                 if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: `/battles/entry/${winner.id}` });
+                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
                                             }} style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
                                                 {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={12} /> : <Play size={12} />}
                                             </button>
@@ -552,7 +552,7 @@ export const BattlesPage: React.FC = () => {
                                         if (!entry.audioUrl) return;
                                         const id = `battle-${entry.id}`;
                                         if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                        setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                        setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                     };
                                     return (
                                         <div key={entry.id} style={{ backgroundColor: colors.surface, borderRadius: '8px', border: i === 0 ? `1px solid ${colors.primary}40` : '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', transition: 'border-color 0.2s' }}
@@ -611,7 +611,7 @@ export const BattlesPage: React.FC = () => {
                                                     </div>
 
                                                     {/* Track title */}
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ color: colors.textPrimary, fontSize: '15px', fontWeight: 700, marginBottom: '6px', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ color: colors.textPrimary, fontSize: '15px', fontWeight: 700, marginBottom: '6px', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                                                         {entry.trackTitle}
                                                     </Link>
 
@@ -632,7 +632,7 @@ export const BattlesPage: React.FC = () => {
                                                                 <Flame size={12} /> {hasVoted ? 'Voted' : isVoting ? '…' : 'Vote'}
                                                             </button>
                                                         )}
-                                                        <Link to={`/battles/entry/${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: colors.textSecondary, textDecoration: 'none' }}>
+                                                        <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: colors.textSecondary, textDecoration: 'none' }}>
                                                             <ExternalLink size={13} /> View Entry
                                                         </Link>
                                                         {i >= 3 && (
