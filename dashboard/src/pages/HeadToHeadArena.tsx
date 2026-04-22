@@ -77,7 +77,7 @@ interface LeaderRow {
 
 // ── Gamification: Tiers based on Elo ──
 type Tier = { name: string; min: number; color: string; icon: React.ReactNode; glow: string };
-// Starting Elo is 1200. Players must EARN their way up — unranked = Bronze.
+// Starting Elo is 1200. Players must EARN their way up - unranked = Bronze.
 const TIERS: Tier[] = [
     { name: 'UNRANKED', min: 0,    color: '#7A8190', glow: 'rgba(122,129,144,0.4)', icon: <Medal size={14} /> },
     { name: 'BRONZE',   min: 1200, color: '#CD7F32', glow: 'rgba(205,127,50,0.5)',  icon: <Medal size={14} /> },
@@ -108,19 +108,19 @@ const NEON = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-    kick:       '#FF3D7F', // pink — punchy
-    snare:      '#FFD700', // yellow — sharp
-    hat:        '#00E5FF', // cyan — crisp
-    percussion: '#34D399', // green — organic
-    fx:         '#A855F7', // purple — atmospheric
-    bass:       '#5DD4FF', // diamond blue — low end
-    melody:     '#FF8A4C', // orange — lead
-    chords:     '#E879F9', // magenta — harmony
+    kick:       '#FF3D7F', // pink - punchy
+    snare:      '#FFD700', // yellow - sharp
+    hat:        '#00E5FF', // cyan - crisp
+    percussion: '#34D399', // green - organic
+    fx:         '#A855F7', // purple - atmospheric
+    bass:       '#5DD4FF', // diamond blue - low end
+    melody:     '#FF8A4C', // orange - lead
+    chords:     '#E879F9', // magenta - harmony
     other:      '#7A8190',
 };
 
 function timeLeft(iso: string | null): { txt: string; urgent: boolean; expired: boolean } {
-    if (!iso) return { txt: '—', urgent: false, expired: false };
+    if (!iso) return { txt: '-', urgent: false, expired: false };
     const ms = new Date(iso).getTime() - Date.now();
     if (ms <= 0) return { txt: 'EXPIRED', urgent: true, expired: true };
     const mins = Math.floor(ms / 60000);
@@ -534,7 +534,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                             <Zap size={14} color={NEON.cyan} /> SAMPLE PACK
                         </div>
                         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>
-                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Once the match starts, you and your opponent will <b style={{ color: '#fff' }}>both vote</b> on which melodics (bass / melody / chords) to include — you only get the ones you both agree on.
+                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Once the match starts, you and your opponent will <b style={{ color: '#fff' }}>both vote</b> on which melodics (bass / melody / chords) to include - you only get the ones you both agree on.
                         </div>
                     </div>
 
@@ -655,7 +655,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Active Match Panel — VS layout
+// Active Match Panel - VS layout
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
@@ -712,7 +712,7 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
         const oppHasTrack = oppSubmitted;
         let warn: string;
         if (match.status === 'ready_check' || match.status === 'melodics_vote') {
-            warn = 'Forfeit this match? Your opponent will get the win and you\u2019ll take the L on your record.';
+            warn = 'Forfeit this match? Your opponent will get the win and you\'ll take the L on your record.';
         } else if (oppHasTrack) {
             warn = 'Your opponent already submitted. Forfeiting now hands them the win automatically.';
         } else if (submittedTrack) {
@@ -911,13 +911,13 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                         if (allCats.length === 0) {
                             return (
                                 <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center' }}>
-                                    No melodic categories are available for this genre — the match is starting with the standard kit.
+                                    No melodic categories are available for this genre - the match is starting with the standard kit.
                                 </p>
                             );
                         }
                         return <>
                             <p style={{ margin: '0 0 12px', color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center' }}>
-                                Both fighters vote — you only get the melodics you <b style={{ color: '#fff' }}>both agree on</b>.
+                                Both fighters vote - you only get the melodics you <b style={{ color: '#fff' }}>both agree on</b>.
                                 You'll always get kick, snare, hat, percussion & fx.
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
@@ -981,8 +981,8 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                                 </NeonButton>
                                 <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>
                                     {myMSubmitted && !oppMSubmitted ? 'Waiting on opponent…'
-                                        : !myMSubmitted ? 'Lock your vote before the timer runs out — unsubmitted votes count as NO.'
-                                        : 'Both locked in — match is starting…'}
+                                        : !myMSubmitted ? 'Lock your vote before the timer runs out - unsubmitted votes count as NO.'
+                                        : 'Both locked in - match is starting…'}
                                 </div>
                             </div>
                         </>;
@@ -990,7 +990,7 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                 </div>
             )}
 
-            {/* Forfeit button — available during ready_check / melodics_vote / producing */}
+            {/* Forfeit button - available during ready_check / melodics_vote / producing */}
             {(match.status === 'ready_check' || match.status === 'melodics_vote' || match.status === 'producing') && (
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
                     <button onClick={forfeit} disabled={forfeiting}
@@ -1565,7 +1565,7 @@ const VoteTab: React.FC = () => {
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <Headphones size={36} color={NEON.cyan} style={{ opacity: 0.6, marginBottom: 8 }} />
                 <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)' }}>No matches need judges right now.</p>
-                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Check back soon — fresh battles drop constantly.</p>
+                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Check back soon - fresh battles drop constantly.</p>
             </div>
         </Panel>
     );
@@ -1573,11 +1573,11 @@ const VoteTab: React.FC = () => {
     return (
         <div>
             <div style={{ marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em' }}>
-                Vote for the better track. Your vote matters — only active competitors judge.
+                Vote for the better track. Your vote matters - only active competitors judge.
             </div>
             {data.matches.map(m => {
                 const chName = profileName(m.challengerProfile, m.challengerId);
-                const opName = m.opponentId ? profileName(m.opponentProfile, m.opponentId) : '—';
+                const opName = m.opponentId ? profileName(m.opponentProfile, m.opponentId) : '-';
                 const tl = timeLeft(m.votingEnd);
                 return (
                     <Panel key={m.id} glowColor={NEON.cyan}>
@@ -1635,7 +1635,7 @@ const VoteTab: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Rules Tab — explains every phase of a 1v1
+// Rules Tab - explains every phase of a 1v1
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
@@ -1712,11 +1712,11 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {phase(1, NEON.cyan, Target, 'Queue Up',
                         'Instant',
-                        <>Pick a genre (or Global) and how long you want to produce. You\u2019ll be matched with the next producer who picks the same combo. The wait is usually seconds.</>)}
+                        <>Pick a genre (or Global) and how long you want to produce. You'll be matched with the next producer who picks the same combo. The wait is usually seconds.</>)}
 
                     {phase(2, NEON.yellow, CheckCircle, 'Ready Up',
                         `${ready} min`,
-                        <>Both fighters must hit <b style={{ color: '#fff' }}>READY UP</b>. If one of you doesn\u2019t lock in, the other one wins by default. If neither readies, the match is cancelled.</>)}
+                        <>Both fighters must hit <b style={{ color: '#fff' }}>READY UP</b>. If one of you doesn't lock in, the other one wins by default. If neither readies, the match is cancelled.</>)}
 
                     {phase(3, NEON.purple, Vote, 'Pick Melodics (Together)',
                         '45 sec',
@@ -1724,11 +1724,11 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
 
                     {phase(4, NEON.pink, Headphones, 'Production',
                         `${prod} min`,
-                        <>The chosen sample pack drops in your arena \u2014 preview each sample (with full waveforms!) and download them individually or as a zip. Build your beat in the DAW of your choice and upload an audio file before the timer hits zero. The match auto-advances the moment <b style={{ color: '#fff' }}>both</b> tracks are in.</>)}
+                        <>The chosen sample pack drops in your arena. Preview each sample (with full waveforms!) and download them individually or as a zip. Build your beat in the DAW of your choice and upload an audio file before the timer hits zero. The match auto-advances the moment <b style={{ color: '#fff' }}>both</b> tracks are in.</>)}
 
                     {phase(5, NEON.purple, Award, 'Anonymous Judging',
                         `${vote} min`,
-                        <>Both submissions go to the <b style={{ color: '#fff' }}>JUDGE</b> tab. Voters see them as MYSTERY PRODUCER A vs B \u2014 no names, no avatars \u2014 so it\u2019s the music that wins. You need at least <b style={{ color: '#fff' }}>{minVotes} votes</b> for the match to finalize; under-voted matches get a 50% time extension automatically.</>)}
+                        <>Both submissions go to the <b style={{ color: '#fff' }}>JUDGE</b> tab. Voters see them as MYSTERY PRODUCER A vs B (no names, no avatars) so it's the music that wins. You need at least <b style={{ color: '#fff' }}>{minVotes} votes</b> for the match to finalize; under-voted matches get a 50% time extension automatically.</>)}
 
                     {phase(6, NEON.green, Trophy, 'Reveal & Elo',
                         'Final',
@@ -1742,13 +1742,13 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                     {ruleCard(Sparkles, NEON.cyan, 'Use the Sample Pack',
                         <>The provided samples are the spine of your track. Layer your own sounds on top, but the kit you were dealt should be recognizable in the final beat.</>)}
                     {ruleCard(Users, NEON.purple, 'Stay Anonymous',
-                        <>Don\u2019t leak your identity in metadata, watermarks, voice tags, or DMs while voting is open. Anonymity protects the integrity of every battle.</>)}
+                        <>Don't leak your identity in metadata, watermarks, voice tags, or DMs while voting is open. Anonymity protects the integrity of every battle.</>)}
                     {ruleCard(Skull, NEON.red, 'Forfeits Count',
                         <>You can forfeit any time before voting opens. Forfeit while your opponent has submitted = they win. Both no-shows = double forfeit. Forfeits hit your record.</>)}
                     {ruleCard(Vote, NEON.cyan, 'Vote Honest',
                         <>Vote on what you actually hear, not who you think made it. Vote brigading, sock-puppet accounts, or trades will get your votes nuked and your access to the Arena yanked.</>)}
                     {ruleCard(Upload, NEON.pink, 'One Submission',
-                        <>You can re-upload to replace your file as many times as you want before the production timer ends. Once it ends, what\u2019s on the server is final.</>)}
+                        <>You can re-upload to replace your file as many times as you want before the production timer ends. Once it ends, what's on the server is final.</>)}
                     {ruleCard(TrendingUp, NEON.green, 'Elo & Ranks',
                         <>Wins push your Elo up, losses pull it down. The further apart your ratings, the bigger the swing for the underdog. Genre Elos are tracked separately from your Global rating.</>)}
                 </div>
@@ -1758,10 +1758,10 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                 <h3 style={{ margin: '0 0 12px', fontSize: 14, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.7)' }}>QUICK FAQ</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {[
-                        ['Can I change my submission?', 'Yes, until the production timer hits zero. Just upload a new file \u2014 it overwrites the previous one.'],
+                        ['Can I change my submission?', 'Yes, until the production timer hits zero. Just upload a new file and it overwrites the previous one.'],
                         ['What audio formats are accepted?', 'Standard formats: MP3, WAV, FLAC, OGG. Aim for a clean stereo mix; no need for mastering chains.'],
-                        ['What if my opponent disappears?', 'If they don\u2019t ready up, vote on melodics, or submit before the deadline, you win automatically and they take a forfeit on their record.'],
-                        ['Can I vote on my own match?', 'No \u2014 participants are filtered out of their own match\u2019s judging pool.'],
+                        ['What if my opponent disappears?', 'If they don\'t ready up, vote on melodics, or submit before the deadline, you win automatically and they take a forfeit on their record.'],
+                        ['Can I vote on my own match?', 'No. Participants are filtered out of their own match\'s judging pool.'],
                         ['When are identities revealed?', 'Only after the match reaches a terminal state (completed, forfeited, or cancelled). Until then everyone sees Mystery Producer aliases.'],
                     ].map(([q, a]) => (
                         <div key={q}>
@@ -1823,7 +1823,7 @@ const LeaderboardTab: React.FC = () => {
                         <Loader className="h2h-spin" size={28} color={NEON.cyan} />
                     </div>
                 ) : rows.length === 0 ? (
-                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 20 }}>No rankings yet — be the first.</p>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 20 }}>No rankings yet - be the first.</p>
                 ) : (
                     <>
                         {/* Podium */}
