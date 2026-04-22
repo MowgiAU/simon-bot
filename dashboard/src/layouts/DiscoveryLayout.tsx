@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -72,6 +72,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const navItems = [
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
+        { key: 'new', label: 'NEW', icon: <Sparkles size={14} />, path: '/new' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
         { key: 'h2h', label: '1V1', icon: <Swords size={14} />, path: '/h2h' },
         { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
@@ -397,12 +398,13 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         {/* Nav items at radial positions */}
                         {([
                             { key: 'discover',  label: 'HOME',      icon: <Home size={22} />,       path: '/',             angle: 180 },
-                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,       path: '/artists',      angle: 240 },
-                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,        path: '/genres',       angle: 300 },
+                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,       path: '/artists',      angle: 225 },
+                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,        path: '/genres',       angle: 270 },
+                            { key: 'new',       label: 'NEW',       icon: <Sparkles size={22} />,   path: '/new',          angle: 315 },
                             { key: 'charts',    label: 'CHARTS',    icon: <BarChart3 size={22} />,  path: '/charts',       angle: 0   },
-                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 51  },
+                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 45  },
                             { key: 'h2h',       label: '1V1',       icon: <Swords size={22} />,     path: '/h2h',          angle: 90  },
-                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 129 },
+                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 135 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);
                             const r = 110;

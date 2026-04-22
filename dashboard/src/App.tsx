@@ -59,6 +59,7 @@ const MyPlaylistsPage        = lazy(() => import("./pages/MyPlaylistsPage").then
 const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").then(m => ({ default: m.MyFavouritesPage })));
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
+const LatestReleasesPage     = lazy(() => import("./pages/LatestReleasesPage").then(m => ({ default: m.LatestReleasesPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
 const AcademyPage            = lazy(() => import("./pages/Academy").then(m => ({ default: m.AcademyPage })));
 const CompleteAccountPage   = lazy(() => import("./pages/CompleteAccountPage").then(m => ({ default: m.CompleteAccountPage })));
@@ -884,6 +885,11 @@ const AppInternal: React.FC = () => {
   // /charts → Music charts page
   if (currentPath === '/charts') {
     return <Suspense fallback={<PageSpinner />}><ChartsPage /></Suspense>;
+  }
+
+  // /new → Latest releases page
+  if (currentPath === '/new') {
+    return <Suspense fallback={<PageSpinner />}><LatestReleasesPage /></Suspense>;
   }
 
   // /battles/entry/:entryId → Battle entry track page

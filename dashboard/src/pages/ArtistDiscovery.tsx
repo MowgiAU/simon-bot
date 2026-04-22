@@ -140,7 +140,7 @@ function generateWaveform(seed: string, bars = 32): number[] {
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
-    const [latestTracks, setLatestTracks] = useState<TrackInfo[]>([]);
+    const [weeklyChart, setWeeklyChart] = useState<{ position: number; positionChange: number | null; prevPosition: number | null; playsInPeriod: number; track: TrackInfo }[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
@@ -164,14 +164,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [profilesRes, tracksRes, latestRes] = await Promise.all([
+                const [profilesRes, tracksRes, chartRes] = await Promise.all([
                     axios.get('/api/musician/profiles'),
                     axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
-                    axios.get('/api/discovery/tracks', { params: { sort: 'newest', limit: 6 } })
+                    axios.get('/api/charts/weekly', { params: { limit: 6 } })
                 ]);
                 setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
                 setTopTracks(tracksRes.data);
-                setLatestTracks(latestRes.data.tracks || []);
+                setWeeklyChart(chartRes.data?.entries || []);
             } catch (err) {
                 console.error('Failed to fetch', err);
             } finally {
@@ -884,18 +884,29 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         );
                     })()}
 
-                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
+                    {/* ═══════════════ FULL-WIDTH: WEEKLY CHART ═══════════════ */}
                     <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', padding: 0, overflow: 'hidden' }}>
                         {/* Header */}
                         <div style={{ padding: '15px 20px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Activity size={15} color={colors.primary} />
-                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Latest Releases</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary }}>{Math.min(latestTracks.length, 6)} tracks</span>
+                            <TrendingUp size={15} color={colors.primary} />
+                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Weekly Chart</span>
+                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>Top tracks this week</span>
+                            <Link to="/charts" style={{ marginLeft: 'auto', fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 700, letterSpacing: '0.05em' }}>FULL CHART →</Link>
                         </div>
-                        {/* Waveform track list */}
+                        {/* Chart rows */}
                         <div style={{ padding: '8px 14px 12px' }}>
-                            {latestTracks.slice(0, 6).map((track, i) => {
+                            {weeklyChart.length === 0 && (
+                                <div style={{ padding: '24px', textAlign: 'center', color: colors.textSecondary, fontSize: '13px' }}>
+                                    No chart data yet — check back after the first weekly snapshot.
+                                </div>
+                            )}
+                            {weeklyChart.map(entry => {
+                                const track = entry.track;
                                 const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                const trackList = weeklyChart.map(e => e.track);
+                                const isNew = entry.prevPosition == null;
+                                const change = entry.positionChange;
+                                const rankColor = entry.position === 1 ? '#FFD700' : entry.position === 2 ? '#C0C0C0' : entry.position === 3 ? '#CD7F32' : 'rgba(255,255,255,0.45)';
                                 return (
                                     <div
                                         key={track.id}
@@ -907,10 +918,18 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             border: isPlaying ? `1px solid ${colors.primary}22` : '1px solid transparent',
                                             marginBottom: '3px', transition: 'background 0.15s',
                                         }}
-                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, latestTracks); }}
+                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
                                     >
                                         {/* Rank */}
-                                        <span style={{ fontSize: '11px', fontWeight: 800, color: i === 0 ? colors.primary : 'rgba(255,255,255,0.22)', width: '14px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
+                                        <span style={{ fontSize: entry.position <= 3 ? '15px' : '12px', fontWeight: 800, color: rankColor, width: '20px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
+
+                                        {/* Movement */}
+                                        <span style={{ width: '28px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                                            {isNew ? <span style={{ fontSize: '9px', fontWeight: 800, color: colors.primary, letterSpacing: '0.5px' }}>NEW</span>
+                                                : change != null && change > 0 ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#4ADE80' }}>+{change}</span>
+                                                : change != null && change < 0 ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#F87171' }}>{change}</span>
+                                                : <span style={{ fontSize: '11px', color: colors.textTertiary }}>—</span>}
+                                        </span>
 
                                         {/* Cover + play overlay */}
                                         <div style={{ width: isMobile ? '44px' : '52px', height: isMobile ? '44px' : '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1a2234' }}>
@@ -930,12 +949,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         </div>
 
                                         {/* Title + artist */}
-                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '150px' }}>
+                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '180px' }}>
                                             <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
                                             <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></div>
                                         </div>
 
-                                        {/* Waveform — main visual element */}
+                                        {/* Waveform */}
                                         <div style={{ flex: isMobile ? undefined : 1, flexShrink: 0, width: isMobile ? '60px' : undefined, minWidth: 0, height: isMobile ? '32px' : '42px', display: 'flex', alignItems: 'flex-end', gap: isMobile ? '1px' : '2px', overflow: 'hidden' }}>
                                             {generateWaveform(track.id, isMobile ? 14 : 32).map((barH, bi) => (
                                                     <div
@@ -956,11 +975,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 ))}
                                             </div>
 
-                                        {/* Play count — desktop only */}
+                                        {/* Plays this period — desktop only */}
                                         {!isMobile && (
-                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '68px', justifyContent: 'flex-end' }}>
+                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '78px', justifyContent: 'flex-end' }}>
                                             <Play size={9} color={colors.textSecondary} />
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(track.playCount || 0).toLocaleString()}</span>
+                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(entry.playsInPeriod || 0).toLocaleString()}</span>
                                         </div>
                                         )}
                                     </div>
