@@ -11804,6 +11804,50 @@ app.post('/api/head-to-head/match/:id/forfeit', requireAuth, async (req: any, re
     }
 });
 
+// Same-origin proxy for an individual sample file. Lets the dashboard fetch the
+// underlying R2 audio without running into CORS (which silently returned empty
+// buffers and produced an "empty" zip with only the README).
+app.get('/api/head-to-head/match/:id/sample/:sampleId', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        const userId = req.session?.user?.id;
+        const isParticipant = !!userId && (match.challengerId === userId || match.opponentId === userId);
+        const isPublic = ['voting', 'completed'].includes(match.status);
+        if (!isParticipant && !isPublic) return res.status(403).json({ error: 'Forbidden' });
+        const ids = (match.sampleIds as string[] | null) || [];
+        if (!ids.includes(req.params.sampleId)) return res.status(404).json({ error: 'Sample not in this match' });
+        const sample = await db.h2HSample.findUnique({ where: { id: req.params.sampleId } });
+        if (!sample || !sample.fileUrl) return res.status(404).json({ error: 'Sample not found' });
+        const upstream = await fetch(sample.fileUrl);
+        if (!upstream.ok || !upstream.body) {
+            return res.status(502).json({ error: 'Failed to fetch sample from storage' });
+        }
+        const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+        const len = upstream.headers.get('content-length');
+        res.setHeader('Content-Type', ct);
+        if (len) res.setHeader('Content-Length', len);
+        const ext = sample.fileUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'wav';
+        const safeName = (sample.name || 'sample').replace(/[^a-zA-Z0-9._-]/g, '_');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}.${ext}"`);
+        const reader = (upstream.body as any).getReader();
+        try {
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) res.write(Buffer.from(value));
+            }
+            res.end();
+        } catch (streamErr: any) {
+            logger.error('H2H sample proxy stream failed', streamErr);
+            try { res.end(); } catch {}
+        }
+    } catch (e: any) {
+        logger.error('H2H sample proxy failed', e);
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 async function advanceToProduction(match: any): Promise<void> {
     const sampleIds = await pickCategorizedSamples(match.genreId, {
         includeBass: match.includeBass !== false,

@@ -1088,9 +1088,12 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
         return `${m}:${String(sec).padStart(2, '0')}`;
     };
 
+    const proxyUrl = (s: Sample) => `${API}/api/head-to-head/match/${matchId}/sample/${s.id}`;
+
     const downloadOne = async (s: Sample) => {
         try {
-            const r = await fetch(s.fileUrl, { credentials: 'include' });
+            const r = await fetch(proxyUrl(s), { credentials: 'include' });
+            if (!r.ok) throw new Error('fetch failed');
             const blob = await r.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1101,7 +1104,8 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         } catch {
-            window.open(s.fileUrl, '_blank');
+            // Fallback: hit the proxy directly (it sets Content-Disposition: attachment)
+            window.location.href = proxyUrl(s);
         }
     };
 
@@ -1113,7 +1117,8 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
             const folder = zip.folder(`h2h_pack_${matchId.slice(0, 8)}`)!;
             await Promise.all(samples.map(async s => {
                 try {
-                    const r = await fetch(s.fileUrl, { credentials: 'include' });
+                    const r = await fetch(proxyUrl(s), { credentials: 'include' });
+                    if (!r.ok) return;
                     const buf = await r.arrayBuffer();
                     const cat = (s.category || 'sample').toLowerCase();
                     const safe = s.name.replace(/[^a-zA-Z0-9._-]/g, '_');
