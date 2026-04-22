@@ -448,13 +448,13 @@ export const BattlesPage: React.FC = () => {
                         <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary }}>{sponsorSectionTitle}</span>
                             {globalSponsors.map(s => {
-                                const href = s.links[0]?.url || s.websiteUrl;
+                                const href = s.links?.[0]?.url || s.websiteUrl;
                                 const inner = s.logoUrl
                                     ? <img src={s.logoUrl} alt={s.name} style={{ height: '28px', objectFit: 'contain', opacity: 0.7 }} />
                                     : <span style={{ fontWeight: 800, fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em' }}>{s.name.toUpperCase()}</span>;
                                 return href ? (
                                     <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
-                                        onClick={() => s.links[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
+                                        onClick={() => s.links?.[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
                                         style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '6px 14px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', transition: 'border-color 0.2s' }}
                                         onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
                                         onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
