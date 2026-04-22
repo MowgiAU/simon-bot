@@ -6729,8 +6729,11 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         res.json(fullTrack);
 
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
+        // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
+        // will announce it in the battles channel instead.
         const _annGuildId = process.env.GUILD_ID;
-        if (_annGuildId && uploaderProfile) {
+        const _suppressAnnounce = req.body?.battleId || req.body?.suppressAnnounce === 'true' || req.body?.suppressAnnounce === true;
+        if (_annGuildId && uploaderProfile && !_suppressAnnounce) {
             const genreNames = (fullTrack?.genres ?? []).map((tg: any) => tg.genre?.name).filter(Boolean);
             db.trackAnnouncement.create({
                 data: {
@@ -9872,6 +9875,13 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
         if (track.status !== 'active' || track.deletedAt) {
             return res.status(400).json({ error: 'This track is not eligible for submission' });
         }
+        if (!track.isPublic) {
+            return res.status(400).json({
+                error: 'This track is private. Make it public from your track page before submitting it to a battle.',
+                code: 'TRACK_PRIVATE',
+                trackId: track.id,
+            });
+        }
         if (battle.requireProjectFile && !track.projectFileUrl && !track.projectZipUrl) {
             return res.status(400).json({ error: 'This battle requires a project file. Add a .flp/.zip to your track first.' });
         }
@@ -10180,7 +10190,7 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
         if (!profile) return res.json([]);
         const tracks = await db.track.findMany({
             where: { profileId: profile.id, status: 'active' },
-            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true },
+            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true, isPublic: true },
             orderBy: { createdAt: 'desc' },
         });
         res.json(tracks);

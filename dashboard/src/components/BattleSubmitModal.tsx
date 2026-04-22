@@ -39,6 +39,7 @@ interface LibraryTrack {
     duration: number | null;
     artist: string;
     projectFileUrl: string | null;
+    isPublic?: boolean;
 }
 
 interface BattleSubmitModalProps {
@@ -202,6 +203,11 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     setSubmitting(false);
                     return;
                 }
+                if (selectedTrack && selectedTrack.isPublic === false) {
+                    setError('This track is private. Make it public from your track page (or toggle it from /my-tracks) before submitting it to a battle.');
+                    setSubmitting(false);
+                    return;
+                }
                 trackId = selectedTrackId;
             } else {
                 // Upload tab: first upload as a regular Track to the user's library, then submit it.
@@ -213,6 +219,10 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                 const formData = new FormData();
                 formData.append('audio', audioFile);
                 formData.append('title', title.trim());
+                // Mark this upload as a battle submission so the API skips the
+                // generic "#new-tracks" Discord announcement (the BeatBattle
+                // plugin will announce it in the battles channel instead).
+                formData.append('battleId', battleId);
                 if (description.trim()) formData.append('description', description.trim());
                 if (artist.trim()) formData.append('artist', artist.trim());
                 if (bpm) formData.append('bpm', bpm);
@@ -500,6 +510,32 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                     </div>
                                     {selectedTrackId && (() => {
                                         const sel = tracks.find(t => t.id === selectedTrackId);
+                                        if (!sel || sel.isPublic !== false) return null;
+                                        return (
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: borderRadius.md }}>
+                                                <AlertCircle size={15} color="#F97316" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#F97316' }}>This track is private</p>
+                                                    <p style={{ margin: '2px 0 8px', fontSize: '11px', color: colors.textSecondary }}>Battle entries must be public so other producers can listen and vote.</p>
+                                                    <button
+                                                        type="button"
+                                                        disabled={submitting}
+                                                        onClick={async () => {
+                                                            try {
+                                                                await axios.patch(`${API}/api/musician/tracks/${sel.id}`, { isPublic: true }, { withCredentials: true });
+                                                                setTracks(prev => prev.map(t => t.id === sel.id ? { ...t, isPublic: true } : t));
+                                                            } catch (err: any) {
+                                                                setError(err.response?.data?.error || 'Could not make track public.');
+                                                            }
+                                                        }}
+                                                        style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.15)', color: '#F97316', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                                                    >Make public</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {selectedTrackId && (() => {
+                                        const sel = tracks.find(t => t.id === selectedTrackId);
                                         if (sel?.projectFileUrl) {
                                             return (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: borderRadius.md }}>
@@ -550,7 +586,8 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     {(() => {
                         const selTrack = tab === 'library' ? tracks.find(t => t.id === selectedTrackId) : undefined;
                         const libraryBlocked = tab === 'library' && !!selectedTrackId && requireProjectFile && !selTrack?.projectFileUrl;
-                        const isDisabled = submitting || (tab === 'upload' && !tosAgreed) || libraryBlocked;
+                        const libraryPrivateBlocked = tab === 'library' && !!selTrack && selTrack.isPublic === false;
+                        const isDisabled = submitting || (tab === 'upload' && !tosAgreed) || libraryBlocked || libraryPrivateBlocked;
                         return (
                             <button onClick={handleSubmit} disabled={isDisabled}
                                 style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: borderRadius.md, border: 'none', backgroundColor: colors.primary, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: isDisabled ? 'not-allowed' : 'pointer', opacity: isDisabled ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
