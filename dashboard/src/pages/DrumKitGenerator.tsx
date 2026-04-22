@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
-import { Drum, Play, Pause as PauseIcon, Download, Shuffle, Package, Hash, Sparkles, Loader, RotateCw } from 'lucide-react';
+import { Drum, Play, Pause as PauseIcon, Download, Shuffle, Package, Hash, Sparkles, Loader, RotateCw, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1307,6 +1307,27 @@ function generateKit(profile: GenreProfile, slotSeeds: Record<KitSlot, number>):
 // ─── React UI ──────────────────────────────────────────────────────────────
 interface RemoteGenre { id: string; name: string; }
 
+// ─── Head-to-Head integration ──────────────────────────────────────────────
+type H2HCategory = 'kick' | 'snare' | 'hat' | 'percussion' | 'fx' | 'bass' | 'melody' | 'chords' | 'other';
+const SLOT_TO_H2H_CATEGORY: Record<KitSlot, H2HCategory> = {
+    kick:    'kick',
+    bass808: 'bass',
+    snare:   'snare',
+    hat:     'hat',
+    openhat: 'hat',
+    perc:    'percussion',
+    fx:      'fx',
+};
+interface H2HPool {
+    id: string;
+    name: string;
+    description: string | null;
+    isActive: boolean;
+    genreId: string | null;
+    genre?: { id: string; name: string } | null;
+    _count?: { samples: number };
+}
+
 export const DrumKitGeneratorPage: React.FC = () => {
     const [remoteGenres, setRemoteGenres] = useState<RemoteGenre[]>([]);
     const [genreId, setGenreId] = useState<GenreId>('trap');
@@ -1316,6 +1337,13 @@ export const DrumKitGeneratorPage: React.FC = () => {
     const [kit, setKit] = useState<GeneratedSample[]>([]);
     const [busy, setBusy] = useState(false);
     const [playing, setPlaying] = useState<KitSlot | null>(null);
+
+    // H2H integration state (only populated for admins)
+    const [pools, setPools] = useState<H2HPool[]>([]);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState<null | { mode: 'one'; slot: KitSlot } | { mode: 'kit' }>(null);
+    const [selectedPoolId, setSelectedPoolId] = useState<string>('');
+    const [sendStatus, setSendStatus] = useState<{ kind: 'idle' | 'sending' | 'ok' | 'err'; msg?: string }>({ kind: 'idle' });
 
     const ctxRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -1338,6 +1366,21 @@ export const DrumKitGeneratorPage: React.FC = () => {
                 setRemoteGenres(list);
             })
             .catch(() => { /* silent */ });
+    }, []);
+
+    // Pull H2H pools (admin only — endpoint 403s otherwise, in which case Send-to-H2H stays hidden)
+    useEffect(() => {
+        fetch('/api/head-to-head/admin/pools', { credentials: 'include' })
+            .then(r => {
+                if (!r.ok) throw new Error('not admin');
+                return r.json();
+            })
+            .then((rows: H2HPool[]) => {
+                if (!Array.isArray(rows)) return;
+                setPools(rows.filter(p => p.isActive !== false));
+                setIsAdmin(true);
+            })
+            .catch(() => { /* not admin – feature stays hidden */ });
     }, []);
 
     // Auto-generate a starting kit on first mount
@@ -1460,6 +1503,67 @@ your own productions.`);
         URL.revokeObjectURL(url);
     };
 
+    // ─── Send to H2H ───────────────────────────────────────────────────────
+    // Sort pools so genre-matching ones float to the top, then auto-pick the
+    // best match whenever the picker opens or the genre changes.
+    const sortedPools = useMemo<H2HPool[]>(() => {
+        if (!pools.length) return [];
+        const wanted = profile.label.toLowerCase();
+        const wantedId = profile.id.toLowerCase();
+        const score = (p: H2HPool): number => {
+            const gName = (p.genre?.name || '').toLowerCase();
+            if (!gName) return 0;
+            if (gName === wanted || gName === wantedId) return 3;
+            if (mapGenreNameToProfile(p.genre!.name) === profile.id) return 2;
+            if (gName.includes(wantedId) || wanted.includes(gName)) return 1;
+            return 0;
+        };
+        return [...pools].sort((a, b) => score(b) - score(a));
+    }, [pools, profile.id, profile.label]);
+
+    const openPicker = (target: { mode: 'one'; slot: KitSlot } | { mode: 'kit' }) => {
+        setSendStatus({ kind: 'idle' });
+        setPickerOpen(target);
+        // Auto-select the best matching pool if none chosen yet
+        if (sortedPools.length && !sortedPools.find(p => p.id === selectedPoolId)) {
+            setSelectedPoolId(sortedPools[0].id);
+        }
+    };
+
+    const sendSamplesToPool = async (poolId: string, samples: GeneratedSample[]) => {
+        if (!poolId || samples.length === 0) return;
+        setSendStatus({ kind: 'sending' });
+        try {
+            const fd = new FormData();
+            for (const s of samples) {
+                const blob = encodeWav24(s.data);
+                const fname = `fuji_${profile.id}_${s.slot}_${seed}.wav`;
+                fd.append('samples', new File([blob], fname, { type: 'audio/wav' }));
+                fd.append('categories', SLOT_TO_H2H_CATEGORY[s.slot]);
+            }
+            const r = await fetch(`/api/head-to-head/admin/pools/${poolId}/samples`, {
+                method: 'POST', credentials: 'include', body: fd,
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${r.status}`);
+            }
+            const data = await r.json();
+            const n = data?.created?.length ?? samples.length;
+            const poolName = pools.find(p => p.id === poolId)?.name || 'pool';
+            setSendStatus({ kind: 'ok', msg: `Sent ${n} sample${n === 1 ? '' : 's'} to "${poolName}".` });
+            // Refresh sample counts on the pool list
+            fetch('/api/head-to-head/admin/pools', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : null)
+                .then(rows => { if (Array.isArray(rows)) setPools(rows.filter((p: H2HPool) => p.isActive !== false)); })
+                .catch(() => {});
+            // Auto-close the picker after a brief success display
+            setTimeout(() => setPickerOpen(null), 1400);
+        } catch (e: any) {
+            setSendStatus({ kind: 'err', msg: e?.message || 'Upload failed' });
+        }
+    };
+
     // Genre selector source: combine remote genres (mapped) with built-in profiles
     const genreOptions = useMemo(() => {
         const opts: { id: GenreId; label: string; sublabel?: string }[] =
@@ -1569,6 +1673,19 @@ your own productions.`);
                     <Package size={16} />
                     Download Full Kit (.zip)
                 </button>
+                {isAdmin && (
+                    <button onClick={() => openPicker({ mode: 'kit' })} disabled={busy || kit.length === 0}
+                        title="Upload all samples in this kit to a Head-to-Head sample pool"
+                        style={{
+                            background: 'transparent', color: colors.primary,
+                            border: `1px solid ${colors.primary}`,
+                            padding: '12px 20px', borderRadius: 8, cursor: 'pointer',
+                            fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                        <Send size={16} />
+                        Send Kit to H2H
+                    </button>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
                     <Hash size={14} color={colors.textSecondary} />
                     <span style={{ color: colors.textSecondary, fontSize: 12 }}>SEED</span>
@@ -1625,6 +1742,7 @@ your own productions.`);
                         onPlay={() => isPlaying ? stopPlayback() : playSample(s)}
                         onDownload={() => downloadOne(s)}
                         onRegenerate={() => regenerateSlot(slot)}
+                        onSend={isAdmin ? () => openPicker({ mode: 'one', slot }) : undefined}
                     />;
                 })}
             </div>
@@ -1634,6 +1752,126 @@ your own productions.`);
                 <Sparkles size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />
                 All samples are generated locally in your browser. Use them anywhere — they're yours.
             </div>
+
+            {/* H2H Pool picker modal */}
+            {pickerOpen && (
+                <div onClick={() => sendStatus.kind !== 'sending' && setPickerOpen(null)}
+                    style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+                    }}>
+                    <div onClick={e => e.stopPropagation()}
+                        style={{
+                            background: colors.surface, borderRadius: borderRadius.lg,
+                            padding: spacing.lg, width: 'min(520px, 92vw)',
+                            border: `1px solid ${colors.border}`, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+                        }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: spacing.md }}>
+                            <Send size={20} color={colors.primary} />
+                            <h2 style={{ margin: 0, fontSize: 18, color: colors.textPrimary }}>
+                                {pickerOpen.mode === 'kit'
+                                    ? `Send full ${profile.label} kit to H2H`
+                                    : `Send ${SLOT_LABEL[pickerOpen.slot]} to H2H`}
+                            </h2>
+                        </div>
+
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: 13, lineHeight: 1.5 }}>
+                            {pickerOpen.mode === 'kit' ? (
+                                <>All {kit.length} samples will be uploaded to the selected pool with their categories auto-assigned (kick → kick, 808 → bass, snare → snare, hats → hat, perc → percussion, fx → fx). Files are stored in Cloudflare R2.</>
+                            ) : (
+                                <>This sample will be uploaded as category <b>{SLOT_TO_H2H_CATEGORY[pickerOpen.slot]}</b>. Stored in Cloudflare R2.</>
+                            )}
+                        </p>
+
+                        {pools.length === 0 ? (
+                            <div style={{
+                                padding: spacing.md, background: colors.background,
+                                border: `1px dashed ${colors.border}`, borderRadius: borderRadius.md,
+                                color: colors.textSecondary, fontSize: 13, textAlign: 'center',
+                            }}>
+                                No active H2H pools yet. Create one in the Head-to-Head admin page first.
+                            </div>
+                        ) : (
+                            <>
+                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: colors.textSecondary, marginBottom: 6 }}>
+                                    DESTINATION POOL
+                                </label>
+                                <select
+                                    value={selectedPoolId}
+                                    onChange={e => setSelectedPoolId(e.target.value)}
+                                    disabled={sendStatus.kind === 'sending'}
+                                    style={{
+                                        width: '100%', padding: '10px 12px', fontSize: 14,
+                                        background: colors.background, color: colors.textPrimary,
+                                        border: `1px solid ${colors.border}`, borderRadius: borderRadius.md,
+                                        marginBottom: spacing.md,
+                                    }}>
+                                    <option value="">— pick a pool —</option>
+                                    {sortedPools.map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name}
+                                            {p.genre?.name ? ` · ${p.genre.name}` : ' · global'}
+                                            {typeof p._count?.samples === 'number' ? ` · ${p._count.samples} samples` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </>
+                        )}
+
+                        {sendStatus.kind === 'ok' && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                background: 'rgba(46,204,113,0.12)', color: '#2ecc71',
+                                padding: spacing.sm, borderRadius: borderRadius.sm, fontSize: 13, marginBottom: spacing.md,
+                            }}>
+                                <CheckCircle2 size={16} /> {sendStatus.msg}
+                            </div>
+                        )}
+                        {sendStatus.kind === 'err' && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                background: 'rgba(231,76,60,0.12)', color: colors.error,
+                                padding: spacing.sm, borderRadius: borderRadius.sm, fontSize: 13, marginBottom: spacing.md,
+                            }}>
+                                <AlertCircle size={16} /> {sendStatus.msg}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button
+                                onClick={() => setPickerOpen(null)}
+                                disabled={sendStatus.kind === 'sending'}
+                                style={{
+                                    background: 'transparent', color: colors.textSecondary,
+                                    border: `1px solid ${colors.border}`,
+                                    padding: '10px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+                                }}>
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!selectedPoolId) return;
+                                    const samples = pickerOpen.mode === 'kit'
+                                        ? kit
+                                        : kit.filter(s => s.slot === pickerOpen.slot);
+                                    sendSamplesToPool(selectedPoolId, samples);
+                                }}
+                                disabled={!selectedPoolId || sendStatus.kind === 'sending' || pools.length === 0}
+                                style={{
+                                    background: colors.primary, color: '#fff', border: 'none',
+                                    padding: '10px 18px', borderRadius: 8,
+                                    cursor: (!selectedPoolId || sendStatus.kind === 'sending') ? 'not-allowed' : 'pointer',
+                                    fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+                                    opacity: (!selectedPoolId || sendStatus.kind === 'sending') ? 0.6 : 1,
+                                }}>
+                                {sendStatus.kind === 'sending'
+                                    ? <><Loader size={14} className="spin" /> Uploading…</>
+                                    : <><Send size={14} /> Upload to R2</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
                 @keyframes drumkit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1651,7 +1889,8 @@ const SampleCard: React.FC<{
     onPlay: () => void;
     onDownload: () => void;
     onRegenerate: () => void;
-}> = ({ sample, slotSeed, isPlaying, onPlay, onDownload, onRegenerate }) => {
+    onSend?: () => void;
+}> = ({ sample, slotSeed, isPlaying, onPlay, onDownload, onRegenerate, onSend }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -1727,6 +1966,18 @@ const SampleCard: React.FC<{
                     }}>
                     <Download size={14} />
                 </button>
+                {onSend && (
+                    <button onClick={onSend}
+                        title="Send this sample to a Head-to-Head pool (admin)"
+                        style={{
+                            background: 'transparent', color: colors.primary,
+                            border: `1px solid ${colors.primary}`, borderRadius: 6,
+                            padding: '6px 10px', cursor: 'pointer', fontSize: 13,
+                            display: 'flex', alignItems: 'center', gap: 6,
+                        }}>
+                        <Send size={14} />
+                    </button>
+                )}
             </div>
         </div>
     );
