@@ -665,7 +665,7 @@ export const BattlesPage: React.FC = () => {
                                                                     <img src={entry.avatarUrl.startsWith('http') ? entry.avatarUrl : `${API}${entry.avatarUrl}`} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
                                                                 ) : (
                                                                     <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'white' }}>
-                                                                        {entry.username[0]?.toUpperCase()}
+                                                                        {entry.username?.[0]?.toUpperCase()}
                                                                     </div>
                                                                 )}
                                                             </Link>
