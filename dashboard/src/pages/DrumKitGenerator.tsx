@@ -1318,10 +1318,12 @@ your own productions.`);
 // ─── Sample card with waveform preview ──────────────────────────────────────
 const SampleCard: React.FC<{
     sample: GeneratedSample;
+    slotSeed: number;
     isPlaying: boolean;
     onPlay: () => void;
     onDownload: () => void;
-}> = ({ sample, isPlaying, onPlay, onDownload }) => {
+    onRegenerate: () => void;
+}> = ({ sample, slotSeed, isPlaying, onPlay, onDownload, onRegenerate }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
