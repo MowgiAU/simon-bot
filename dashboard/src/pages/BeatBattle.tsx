@@ -850,11 +850,6 @@ export const BeatBattlePage: React.FC = () => {
                                     <input style={inputStyle} value={form.announcementChannelId} onChange={(e) => setForm({ ...form, announcementChannelId: e.target.value })} placeholder="Channel ID" />
                                 </div>
                                 <div>
-                                    <label style={labelStyle}>Max Votes Per User</label>
-                                    <input type="number" min={0} style={inputStyle} value={form.maxVotesPerUser} onChange={(e) => setForm({ ...form, maxVotesPerUser: Number(e.target.value) })} placeholder="0 = unlimited" />
-                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>0 = unlimited votes</p>
-                                </div>
-                                <div>
                                     <label style={labelStyle}>Sudden Death Duration (minutes)</label>
                                     <input type="number" min={1} style={inputStyle} value={form.suddenDeathDurationMinutes} onChange={(e) => setForm({ ...form, suddenDeathDurationMinutes: Number(e.target.value) || 60 })} placeholder="60" />
                                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>How long the runoff stays open if entries are lex-tied at all 3 ranks</p>
