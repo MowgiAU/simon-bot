@@ -74,7 +74,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
         { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
         { key: 'new', label: 'NEW', icon: <Sparkles size={14} />, path: '/new' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
-        { key: 'h2h', label: '1V1', icon: <Swords size={14} />, path: '/h2h' },
+        { key: 'h2h', label: '1V1', icon: <Swords size={14} />, path: '/arena' },
         { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
     ];
 
@@ -403,7 +403,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             { key: 'new',       label: 'NEW',       icon: <Sparkles size={22} />,   path: '/new',          angle: 315 },
                             { key: 'charts',    label: 'CHARTS',    icon: <BarChart3 size={22} />,  path: '/charts',       angle: 0   },
                             { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 45  },
-                            { key: 'h2h',       label: '1V1',       icon: <Swords size={22} />,     path: '/h2h',          angle: 90  },
+                            { key: 'h2h',       label: '1V1',       icon: <Swords size={22} />,     path: '/arena',          angle: 90  },
                             { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 135 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);

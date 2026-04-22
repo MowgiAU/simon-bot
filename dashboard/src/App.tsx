@@ -912,8 +912,15 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
   }
 
-  // /h2h → Public Head-to-Head arena
+  // /arena → Public Head-to-Head arena (formerly /h2h)
+  if (currentPath === '/arena' || currentPath.startsWith('/arena/')) {
+    return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
+  }
+  // Legacy /h2h redirect
   if (currentPath === '/h2h' || currentPath.startsWith('/h2h/')) {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', currentPath.replace(/^\/h2h/, '/arena'));
+    }
     return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
   }
 
