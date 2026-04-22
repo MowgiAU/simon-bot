@@ -32,18 +32,21 @@ type GenreId =
 // Each slot uses a STYLE that picks the synthesis algorithm. Genres that share
 // a style differ via the `params` block (frequency / decay / drive ranges).
 type KickStyle  = '808' | '909' | 'acoustic' | 'lofi' | 'punch' | 'soft';
-type SnareStyle = 'clap-layered' | '909-snappy' | 'acoustic-shell' | 'vinyl-thock' | 'soft-brush' | 'noise-burst';
+type SnareStyle = 'clap-layered' | '909-snappy' | 'acoustic-shell' | 'vinyl-thock' | 'soft-brush' | 'noise-burst' | 'trap-snap';
 type HatStyle   = '808-tick' | '909-metallic' | 'acoustic-cymbal' | 'vinyl-dust' | 'noise-shimmer';
 type PercStyle  = 'fm-metallic' | 'tonal-tom' | 'rim-click' | 'shaker' | 'clap' | 'glass';
+type FXStyle    = 'riser' | 'zap' | 'impact' | 'sweep' | 'random';
 
 interface GenreProfile {
     id: GenreId;
     label: string;
     blurb: string;
     kick:  { style: KickStyle;  freqLo: number; freqHi: number; decayLo: number; decayHi: number; drive: number; clickAmt: number; subAmt: number; };
+    bass808?: { freqLo: number; freqHi: number; decayLo: number; decayHi: number; drive: number; glide: number; };
     snare: { style: SnareStyle; toneLo: number; toneHi: number; decayLo: number; decayHi: number; drive: number; bodyAmt: number; };
     hat:   { style: HatStyle;   decayLo: number; decayHi: number; hpLo: number; hpHi: number; drive: number; };
     perc:  { style: PercStyle;  freqLo: number; freqHi: number; decayLo: number; decayHi: number; drive: number; };
+    fxSlot?: { style: FXStyle;  durationLo: number; durationHi: number; };
     // Post-processing applied to EVERY hit at the end (give the genre a coherent vibe)
     fx?: { bitcrush?: number; tapeWowHz?: number; tapeWowAmt?: number; vinylNoise?: number; lpFinal?: number; hpFinal?: number; };
 }
@@ -51,94 +54,116 @@ interface GenreProfile {
 const GENRE_PROFILES: Record<GenreId, GenreProfile> = {
     // ─── Trap: deep 808 sub kicks (tuned bass notes), snappy clap-snare, ticky pitched hats ──
     trap: {
-        id: 'trap', label: 'Trap', blurb: 'Tuned 808 sub kicks (long sustain) · snappy clap-snare · ticky pitched hats',
-        kick:  { style: '808',           freqLo: 36, freqHi: 48, decayLo: 1.6, decayHi: 2.8, drive: 1.2, clickAmt: 0.25, subAmt: 1.0 },
-        snare: { style: 'clap-layered',  toneLo: 180, toneHi: 220, decayLo: 0.18, decayHi: 0.28, drive: 1.2, bodyAmt: 0.45 },
+        id: 'trap', label: 'Trap', blurb: 'Punchy short kick + tuned 808 sub bass · sharp HP’d trap snap · ticky pitched hats',
+        kick:  { style: 'punch',         freqLo: 55, freqHi: 70, decayLo: 0.18, decayHi: 0.32, drive: 1.6, clickAmt: 0.95, subAmt: 0.55 },
+        bass808: { freqLo: 36, freqHi: 50, decayLo: 1.6, decayHi: 2.8, drive: 1.3, glide: 1.8 },
+        snare: { style: 'trap-snap',     toneLo: 1100, toneHi: 1500, decayLo: 0.10, decayHi: 0.18, drive: 1.4, bodyAmt: 0.25 },
         hat:   { style: '808-tick',      decayLo: 0.025, decayHi: 0.07, hpLo: 7500, hpHi: 10500, drive: 1.0 },
         perc:  { style: 'rim-click',     freqLo: 600, freqHi: 1600, decayLo: 0.05, decayHi: 0.18, drive: 1.0 },
+        fxSlot: { style: 'zap',          durationLo: 0.18, durationHi: 0.45 },
     },
     // ─── Techno: 909 punchy kicks (heavy drive, big click), tight snares, ringing FM perc ──
     techno: {
-        id: 'techno', label: 'Techno', blurb: '909 driven kicks (big click) · tight 909 snare · metallic FM perc',
+        id: 'techno', label: 'Techno', blurb: '909 driven kicks (big click) · tight 909 snare · metallic FM perc · industrial impact FX',
         kick:  { style: '909',           freqLo: 55, freqHi: 65, decayLo: 0.28, decayHi: 0.45, drive: 3.0, clickAmt: 1.0, subAmt: 0.45 },
+        bass808: { freqLo: 50, freqHi: 65, decayLo: 0.5, decayHi: 1.0, drive: 1.5, glide: 1.4 },
         snare: { style: '909-snappy',    toneLo: 220, toneHi: 280, decayLo: 0.10, decayHi: 0.18, drive: 1.7, bodyAmt: 0.35 },
         hat:   { style: '909-metallic',  decayLo: 0.025, decayHi: 0.06, hpLo: 9000, hpHi: 12000, drive: 1.4 },
         perc:  { style: 'fm-metallic',   freqLo: 320, freqHi: 1100, decayLo: 0.06, decayHi: 0.30, drive: 1.5 },
+        fxSlot: { style: 'impact',       durationLo: 0.4, durationHi: 0.8 },
     },
     // ─── Lo-Fi: muffled, tape-warped, vinyl crackle on everything ──
     lofi: {
-        id: 'lofi', label: 'Lo-Fi', blurb: 'Muffled tape-warped kit · vinyl crackle · bit-crushed warmth',
+        id: 'lofi', label: 'Lo-Fi', blurb: 'Muffled tape-warped kit · vinyl crackle · bit-crushed warmth · dusty impact FX',
         kick:  { style: 'lofi',          freqLo: 60, freqHi: 75, decayLo: 0.30, decayHi: 0.50, drive: 0.9, clickAmt: 0, subAmt: 0.55 },
+        bass808: { freqLo: 45, freqHi: 60, decayLo: 0.7, decayHi: 1.2, drive: 1.0, glide: 1.3 },
         snare: { style: 'vinyl-thock',   toneLo: 170, toneHi: 210, decayLo: 0.14, decayHi: 0.22, drive: 0.95, bodyAmt: 0.55 },
         hat:   { style: 'vinyl-dust',    decayLo: 0.05, decayHi: 0.14, hpLo: 3500, hpHi: 5500, drive: 0.9 },
         perc:  { style: 'glass',         freqLo: 250, freqHi: 900, decayLo: 0.10, decayHi: 0.4, drive: 0.85 },
+        fxSlot: { style: 'impact',       durationLo: 0.5, durationHi: 1.0 },
         fx:    { bitcrush: 9, tapeWowHz: 5.5, tapeWowAmt: 0.004, vinylNoise: 0.025, lpFinal: 6500 },
     },
     // ─── House: classic 909 4-on-floor with longer open-hat character ──
     house: {
-        id: 'house', label: 'House', blurb: '909 4-on-the-floor punch · clappy snare · airy metallic open hats',
+        id: 'house', label: 'House', blurb: '909 4-on-the-floor punch · clappy snare · airy metallic open hats · sweep FX',
         kick:  { style: '909',           freqLo: 55, freqHi: 65, decayLo: 0.25, decayHi: 0.40, drive: 1.6, clickAmt: 0.85, subAmt: 0.6 },
+        bass808: { freqLo: 48, freqHi: 65, decayLo: 0.6, decayHi: 1.1, drive: 1.2, glide: 1.4 },
         snare: { style: 'clap-layered',  toneLo: 200, toneHi: 250, decayLo: 0.15, decayHi: 0.24, drive: 1.2, bodyAmt: 0.5 },
         hat:   { style: '909-metallic',  decayLo: 0.06, decayHi: 0.18, hpLo: 7500, hpHi: 10500, drive: 1.1 },
         perc:  { style: 'shaker',        freqLo: 600, freqHi: 2000, decayLo: 0.08, decayHi: 0.30, drive: 1.0 },
+        fxSlot: { style: 'sweep',        durationLo: 0.5, durationHi: 1.0 },
     },
     // ─── DnB: short tight punchy kicks, BIG layered snares, rapid metallic hats ──
     dnb: {
-        id: 'dnb', label: 'Drum & Bass', blurb: 'Tight punchy kicks · huge layered snares · rapid metallic hats',
+        id: 'dnb', label: 'Drum & Bass', blurb: 'Tight punchy kicks · huge layered snares · rapid metallic hats · reese-style zap FX',
         kick:  { style: 'punch',         freqLo: 55, freqHi: 70, decayLo: 0.20, decayHi: 0.35, drive: 1.8, clickAmt: 1.0, subAmt: 0.95 },
+        bass808: { freqLo: 40, freqHi: 55, decayLo: 0.8, decayHi: 1.6, drive: 1.6, glide: 1.6 },
         snare: { style: 'acoustic-shell',toneLo: 230, toneHi: 290, decayLo: 0.22, decayHi: 0.38, drive: 1.6, bodyAmt: 0.75 },
         hat:   { style: '909-metallic',  decayLo: 0.025, decayHi: 0.07, hpLo: 9000, hpHi: 12000, drive: 1.5 },
         perc:  { style: 'fm-metallic',   freqLo: 500, freqHi: 1800, decayLo: 0.05, decayHi: 0.20, drive: 1.4 },
+        fxSlot: { style: 'zap',          durationLo: 0.15, durationHi: 0.4 },
     },
     // ─── Hip-Hop: warm boom-bap thump, snappy snares with body, dusty hats ──
     hiphop: {
-        id: 'hiphop', label: 'Hip-Hop', blurb: 'Warm boom-bap thump · cracky vinyl snare · dusty mid-range hats',
+        id: 'hiphop', label: 'Hip-Hop', blurb: 'Warm boom-bap thump · cracky vinyl snare · dusty mid-range hats · vinyl impact FX',
         kick:  { style: 'lofi',          freqLo: 55, freqHi: 72, decayLo: 0.30, decayHi: 0.55, drive: 1.1, clickAmt: 0, subAmt: 0.7 },
+        bass808: { freqLo: 42, freqHi: 58, decayLo: 0.9, decayHi: 1.6, drive: 1.1, glide: 1.4 },
         snare: { style: 'vinyl-thock',   toneLo: 180, toneHi: 230, decayLo: 0.18, decayHi: 0.28, drive: 1.2, bodyAmt: 0.65 },
         hat:   { style: 'vinyl-dust',    decayLo: 0.05, decayHi: 0.16, hpLo: 4500, hpHi: 7000, drive: 1.0 },
         perc:  { style: 'rim-click',     freqLo: 500, freqHi: 1400, decayLo: 0.06, decayHi: 0.22, drive: 1.0 },
+        fxSlot: { style: 'impact',       durationLo: 0.4, durationHi: 0.8 },
         fx:    { bitcrush: 11, vinylNoise: 0.018, lpFinal: 8500 },
     },
     // ─── Ambient: soft brushed textures, very gentle attacks ──
     ambient: {
-        id: 'ambient', label: 'Ambient / Chill', blurb: 'Soft mallet kick · brushed snare · airy shimmer hats',
+        id: 'ambient', label: 'Ambient / Chill', blurb: 'Soft mallet kick · brushed snare · airy shimmer hats · long sweep FX',
         kick:  { style: 'soft',          freqLo: 60, freqHi: 90, decayLo: 0.6, decayHi: 1.2, drive: 0.85, clickAmt: 0.1, subAmt: 0.5 },
+        bass808: { freqLo: 50, freqHi: 75, decayLo: 1.0, decayHi: 2.0, drive: 0.9, glide: 1.3 },
         snare: { style: 'soft-brush',    toneLo: 160, toneHi: 220, decayLo: 0.30, decayHi: 0.55, drive: 0.85, bodyAmt: 0.55 },
         hat:   { style: 'noise-shimmer', decayLo: 0.10, decayHi: 0.35, hpLo: 4000, hpHi: 7500, drive: 0.9 },
         perc:  { style: 'glass',         freqLo: 400, freqHi: 1500, decayLo: 0.30, decayHi: 0.80, drive: 0.85 },
+        fxSlot: { style: 'sweep',        durationLo: 1.0, durationHi: 2.0 },
         fx:    { lpFinal: 12000 },
     },
     // ─── Pop: polished radio-ready kit ──
     pop: {
-        id: 'pop', label: 'Pop', blurb: 'Polished tight kit · clap-snare · radio-ready snap',
+        id: 'pop', label: 'Pop', blurb: 'Polished tight kit · clap-snare · radio-ready snap · riser FX',
         kick:  { style: 'punch',         freqLo: 55, freqHi: 70, decayLo: 0.25, decayHi: 0.45, drive: 1.3, clickAmt: 0.7, subAmt: 0.55 },
+        bass808: { freqLo: 48, freqHi: 65, decayLo: 0.7, decayHi: 1.3, drive: 1.1, glide: 1.4 },
         snare: { style: 'clap-layered',  toneLo: 200, toneHi: 270, decayLo: 0.14, decayHi: 0.24, drive: 1.2, bodyAmt: 0.45 },
         hat:   { style: '909-metallic',  decayLo: 0.05, decayHi: 0.16, hpLo: 7000, hpHi: 10500, drive: 1.1 },
         perc:  { style: 'shaker',        freqLo: 500, freqHi: 1800, decayLo: 0.08, decayHi: 0.25, drive: 1.0 },
+        fxSlot: { style: 'riser',        durationLo: 0.6, durationHi: 1.2 },
     },
     // ─── Rock: acoustic-feel real-drum-kit ──
     rock: {
-        id: 'rock', label: 'Rock', blurb: 'Acoustic beater kicks · big shell snare with wires · crisp acoustic cymbals',
+        id: 'rock', label: 'Rock', blurb: 'Acoustic beater kicks · big shell snare with wires · crisp acoustic cymbals · impact FX',
         kick:  { style: 'acoustic',      freqLo: 60, freqHi: 75, decayLo: 0.40, decayHi: 0.65, drive: 1.4, clickAmt: 1.0, subAmt: 0.4 },
+        bass808: { freqLo: 50, freqHi: 70, decayLo: 0.5, decayHi: 1.0, drive: 1.2, glide: 1.3 },
         snare: { style: 'acoustic-shell',toneLo: 200, toneHi: 260, decayLo: 0.25, decayHi: 0.40, drive: 1.4, bodyAmt: 0.85 },
         hat:   { style: 'acoustic-cymbal', decayLo: 0.12, decayHi: 0.32, hpLo: 5500, hpHi: 8500, drive: 1.2 },
         perc:  { style: 'tonal-tom',     freqLo: 110, freqHi: 220, decayLo: 0.30, decayHi: 0.7, drive: 1.2 },
+        fxSlot: { style: 'impact',       durationLo: 0.4, durationHi: 0.8 },
     },
     // ─── EDM: festival-grade compressed transients ──
     edm: {
-        id: 'edm', label: 'EDM', blurb: 'Festival-grade tight kicks · snappy snare · driven open hats',
+        id: 'edm', label: 'EDM', blurb: 'Festival-grade tight kicks · snappy snare · driven open hats · big riser FX',
         kick:  { style: 'punch',         freqLo: 50, freqHi: 65, decayLo: 0.30, decayHi: 0.50, drive: 2.0, clickAmt: 1.0, subAmt: 0.85 },
+        bass808: { freqLo: 45, freqHi: 60, decayLo: 0.6, decayHi: 1.2, drive: 1.5, glide: 1.5 },
         snare: { style: 'clap-layered',  toneLo: 220, toneHi: 290, decayLo: 0.14, decayHi: 0.26, drive: 1.5, bodyAmt: 0.4 },
         hat:   { style: '909-metallic',  decayLo: 0.04, decayHi: 0.14, hpLo: 8000, hpHi: 11500, drive: 1.4 },
         perc:  { style: 'fm-metallic',   freqLo: 400, freqHi: 1500, decayLo: 0.06, decayHi: 0.25, drive: 1.5 },
+        fxSlot: { style: 'riser',        durationLo: 0.8, durationHi: 1.6 },
     },
     // ─── Generic fallback ──
     generic: {
         id: 'generic', label: 'Generic', blurb: 'Balanced studio-style kit',
         kick:  { style: '909',           freqLo: 55, freqHi: 70, decayLo: 0.30, decayHi: 0.55, drive: 1.3, clickAmt: 0.7, subAmt: 0.6 },
+        bass808: { freqLo: 45, freqHi: 60, decayLo: 0.8, decayHi: 1.5, drive: 1.2, glide: 1.5 },
         snare: { style: '909-snappy',    toneLo: 200, toneHi: 270, decayLo: 0.14, decayHi: 0.28, drive: 1.3, bodyAmt: 0.4 },
         hat:   { style: '909-metallic',  decayLo: 0.05, decayHi: 0.18, hpLo: 7000, hpHi: 10500, drive: 1.1 },
         perc:  { style: 'fm-metallic',   freqLo: 400, freqHi: 1500, decayLo: 0.06, decayHi: 0.25, drive: 1.2 },
+        fxSlot: { style: 'random',       durationLo: 0.4, durationHi: 0.9 },
     },
 };
 
@@ -650,6 +675,35 @@ function synthSnare(rng: RNG, p: GenreProfile['snare'], totalSec: number, fx: Ge
             }
             break;
         }
+        case 'trap-snap': {
+            // Modern trap snare: a SINGLE sharp HP'd noise crack with a tonal "snap" on top.
+            // Very short, very dry, almost no body. Tone here is HIGH (1100-1500Hz) for the crack, not 200Hz.
+            const noise = new Float32Array(N);
+            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+            highPass(noise, 1800);
+            // Main crack: 8ms attack into ~120ms decay
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / (decay * 0.45));
+                out[i] += noise[i] * env;
+            }
+            // Tiny secondary burst 6ms later for the layered "clap-snap" feel.
+            const off = Math.floor(0.006 * SAMPLE_RATE);
+            for (let i = off; i < N; i++) {
+                const t = (i - off) / SAMPLE_RATE;
+                const env = Math.exp(-t / (decay * 0.25));
+                out[i] += noise[i] * env * 0.5;
+            }
+            // Tonal snap (high pitched "tssk" element) — fast decay, no low body.
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = Math.exp(-t / 0.020);
+                out[i] += Math.sin(2 * Math.PI * tone * t) * env * p.bodyAmt * 0.6;
+            }
+            // Slightly tame the very top end so it's punchy not piercing
+            lowPass(out, 8500);
+            break;
+        }
         case 'noise-burst': {
             // Pure HP noise — minimalist techno snare
             const noise = new Float32Array(N);
@@ -939,10 +993,10 @@ function bufferToAudioBuffer(ctx: AudioContext, data: Float32Array): AudioBuffer
 }
 
 // ─── Kit generation ────────────────────────────────────────────────────────
-type KitSlot = 'kick' | 'snare' | 'hat' | 'openhat' | 'perc' | 'perc2';
-const SLOT_ORDER: KitSlot[] = ['kick', 'snare', 'hat', 'openhat', 'perc', 'perc2'];
+type KitSlot = 'kick' | 'bass808' | 'snare' | 'hat' | 'openhat' | 'perc' | 'fx';
+const SLOT_ORDER: KitSlot[] = ['kick', 'bass808', 'snare', 'hat', 'openhat', 'perc', 'fx'];
 const SLOT_LABEL: Record<KitSlot, string> = {
-    kick: 'Kick', snare: 'Snare', hat: 'Closed Hat', openhat: 'Open Hat', perc: 'Percussion', perc2: 'Perc / FX'
+    kick: 'Kick', bass808: '808 Bass', snare: 'Snare', hat: 'Closed Hat', openhat: 'Open Hat', perc: 'Percussion', fx: 'FX'
 };
 
 interface GeneratedSample {
@@ -951,14 +1005,171 @@ interface GeneratedSample {
     data: Float32Array;
 }
 
+// ─── 808 BASS (sub-bass note slot, separate from kick) ──────────────────────────
+function synth808(rng: RNG, p: NonNullable<GenreProfile['bass808']>, totalSec: number, fx: GenreProfile['fx']): Float32Array {
+    const N = Math.floor(totalSec * SAMPLE_RATE);
+    const out = new Float32Array(N);
+    const baseFreq = rangeR(rng, p.freqLo, p.freqHi);
+    const decay    = rangeR(rng, p.decayLo, p.decayHi);
+    // Pitch glide DOWN from a higher note (musical bend that gives 808s their "woomp")
+    const pitchStart = baseFreq * (p.glide || 1.6);
+    const pitchTau   = 0.070 + rng() * 0.040;
+    let phase = 0;
+    for (let i = 0; i < N; i++) {
+        const t = i / SAMPLE_RATE;
+        const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
+        phase += (2 * Math.PI * f) / SAMPLE_RATE;
+        // Long sustained sub envelope (slow exponential)
+        const env = Math.exp(-t / decay);
+        out[i] = Math.sin(phase) * env;
+    }
+    // Saturation gives the classic 808 "growl" / harmonics — required for it to read on small speakers.
+    for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.8 + p.drive * 0.5));
+    // Strict LP — keep it sub. No transient click.
+    lowPass(out, 240);
+    lowPass(out, 240);
+    for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
+    dcBlock(out);
+    applyAttack(out, 2);
+    applyRelease(out, 12);
+    applyGenreFx(out, rng, fx);
+    normalize(out, 0.95);
+    return out;
+}
+
+// ─── FX SLOT (riser / zap / impact / sweep) ──────────────────────────────────
+function synthFX(rng: RNG, p: NonNullable<GenreProfile['fxSlot']>, fx: GenreProfile['fx']): Float32Array {
+    const duration = rangeR(rng, p.durationLo, p.durationHi);
+    const N = Math.floor(duration * SAMPLE_RATE);
+    const out = new Float32Array(N);
+
+    // Resolve 'random' to one of the four concrete styles
+    let style: FXStyle = p.style;
+    if (style === 'random') {
+        const pick = ['riser', 'zap', 'impact', 'sweep'] as FXStyle[];
+        style = pick[Math.floor(rng() * pick.length)];
+    }
+
+    switch (style) {
+        case 'riser': {
+            // Upward-sweeping band-passed noise (build-up tension)
+            const noise = new Float32Array(N);
+            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+            // Time-varying HP that climbs from 200 → 6000 Hz
+            // Cheap manual sweep: split into 16 chunks, BP each then re-glue with crossfade
+            const chunks = 32;
+            const chunkLen = Math.floor(N / chunks);
+            for (let c = 0; c < chunks; c++) {
+                const lo = 200 + (c / chunks) * 4500;
+                const hi = lo + 1200;
+                const slice = new Float32Array(chunkLen + 1);
+                const start = c * chunkLen;
+                for (let i = 0; i < slice.length && start + i < N; i++) slice[i] = noise[start + i];
+                bandPass(slice, lo, hi);
+                for (let i = 0; i < slice.length && start + i < N; i++) {
+                    // Volume swells from quiet → loud across the riser
+                    const tNorm = (start + i) / N;
+                    const env = Math.pow(tNorm, 1.6);
+                    out[start + i] += slice[i] * env;
+                }
+            }
+            // Add a subtle sine sweep underneath (200 → 1500 Hz)
+            let phase = 0;
+            for (let i = 0; i < N; i++) {
+                const tNorm = i / N;
+                const f = 200 + tNorm * 1300;
+                phase += (2 * Math.PI * f) / SAMPLE_RATE;
+                out[i] += Math.sin(phase) * Math.pow(tNorm, 2) * 0.3;
+            }
+            break;
+        }
+        case 'zap': {
+            // Descending pitch sweep — "pew" laser-like FX, common in trap/dnb
+            const startHz = 1800 + rng() * 1500;
+            const endHz   = 80 + rng() * 80;
+            let phase = 0;
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const tNorm = i / N;
+                // Exponential drop
+                const f = startHz * Math.pow(endHz / startHz, tNorm);
+                phase += (2 * Math.PI * f) / SAMPLE_RATE;
+                const env = Math.exp(-t / (duration * 0.5));
+                out[i] = Math.sin(phase) * env;
+            }
+            // Slight saturation
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * 1.4);
+            break;
+        }
+        case 'impact': {
+            // Cinematic boom: low filtered noise burst with long tail
+            const noise = new Float32Array(N);
+            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+            lowPass(noise, 800);
+            lowPass(noise, 800);
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = (1 - Math.exp(-t / 0.003)) * Math.exp(-t / (duration * 0.6));
+                out[i] = noise[i] * env;
+            }
+            // Sub sine layer (60 Hz boom)
+            const sub = 50 + rng() * 30;
+            for (let i = 0; i < N; i++) {
+                const t = i / SAMPLE_RATE;
+                const env = Math.exp(-t / (duration * 0.7));
+                out[i] += Math.sin(2 * Math.PI * sub * t) * env * 0.7;
+            }
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * 1.5);
+            break;
+        }
+        case 'sweep': {
+            // Long filtered pad/sweep — ambient pad-style FX
+            const noise = new Float32Array(N);
+            for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+            // Up-and-down filter sweep
+            const chunks = 24;
+            const chunkLen = Math.floor(N / chunks);
+            for (let c = 0; c < chunks; c++) {
+                const tNorm = c / chunks;
+                const center = 400 + Math.sin(tNorm * Math.PI) * 2500;
+                const slice = new Float32Array(chunkLen + 1);
+                const start = c * chunkLen;
+                for (let i = 0; i < slice.length && start + i < N; i++) slice[i] = noise[start + i];
+                bandPass(slice, center * 0.7, center * 1.4);
+                for (let i = 0; i < slice.length && start + i < N; i++) {
+                    // Triangular volume envelope (fade in, fade out)
+                    const tn = (start + i) / N;
+                    const env = 4 * tn * (1 - tn);
+                    out[start + i] += slice[i] * env * 0.8;
+                }
+            }
+            break;
+        }
+    }
+
+    dcBlock(out);
+    applyAttack(out, 1.5);
+    applyRelease(out, 10);
+    applyGenreFx(out, rng, fx);
+    normalize(out, 0.9);
+    return out;
+}
+
 function synthForSlot(slot: KitSlot, rng: RNG, profile: GenreProfile): Float32Array {
     switch (slot) {
         case 'kick':    return synthKick(rng,  profile.kick,  Math.max(0.4, profile.kick.decayHi + 0.2), profile.fx);
+        case 'bass808': {
+            const b = profile.bass808 || { freqLo: 40, freqHi: 55, decayLo: 0.8, decayHi: 1.5, drive: 1.2, glide: 1.6 };
+            return synth808(rng, b, b.decayHi + 0.4, profile.fx);
+        }
         case 'snare':   return synthSnare(rng, profile.snare, profile.snare.decayHi + 0.1, profile.fx);
         case 'hat':     return synthHat(rng,   profile.hat,   profile.hat.decayHi + 0.05, profile.fx, false);
         case 'openhat': return synthHat(rng,   profile.hat,   profile.hat.decayHi * 4 + 0.1, profile.fx, true);
         case 'perc':    return synthPerc(rng,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx);
-        case 'perc2':   return synthPerc(rng,  profile.perc,  profile.perc.decayHi + 0.1, profile.fx);
+        case 'fx': {
+            const fxCfg = profile.fxSlot || { style: 'random' as FXStyle, durationLo: 0.3, durationHi: 0.7 };
+            return synthFX(rng, fxCfg, profile.fx);
+        }
     }
 }
 
