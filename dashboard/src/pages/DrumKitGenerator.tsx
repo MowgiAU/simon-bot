@@ -58,7 +58,7 @@ const GENRE_PROFILES: Record<GenreId, GenreProfile> = {
         kick:  { style: 'trap-knock',    freqLo: 50, freqHi: 90, decayLo: 0.06, decayHi: 0.13, drive: 1.8, clickAmt: 1.0, subAmt: 0.4 },
         bass808: { freqLo: 36, freqHi: 50, decayLo: 1.6, decayHi: 2.8, drive: 1.3, glide: 1.8 },
         snare: { style: 'trap-snap',     toneLo: 220, toneHi: 380, decayLo: 0.06, decayHi: 0.10, drive: 1.4, bodyAmt: 0.55 },
-        hat:   { style: '808-tick',      decayLo: 0.020, decayHi: 0.06, hpLo: 7500, hpHi: 10500, drive: 1.0 },
+        hat:   { style: '808-tick',      decayLo: 0.012, decayHi: 0.025, hpLo: 7500, hpHi: 10500, drive: 1.0 },
         perc:  { style: 'rim-click',     freqLo: 600, freqHi: 1600, decayLo: 0.05, decayHi: 0.18, drive: 1.0 },
         fxSlot: { style: 'zap',          durationLo: 0.18, durationHi: 0.45 },
     },
@@ -440,30 +440,32 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
             break;
         }
         case 'trap-knock': {
-            // Modern Trap "Top Kick" / "Punch Kick": its job is IMPACT, not melody.
-            // Spec: 60-150ms total, root 50-90Hz, transient click 2-5kHz, soft-clipped + saturated, dry.
+            // Modern Trap "Top Kick": pure IMPACT, almost atonal. Body is a tiny pitched thump (~15-30ms),
+            // most of the energy is in layered transient clicks. No sustained tone.
             const tightDecay = Math.min(decay, 0.13);
-            const pitchStart = baseFreq * rangeR(rng, 4, 6);
-            const pitchTau   = 0.005 + rng() * 0.004;
+            const bodyTau    = Math.min(tightDecay * 0.25, 0.030);   // 15-30ms thump only
+            const pitchStart = baseFreq * rangeR(rng, 5, 8);
+            const pitchTau   = 0.004 + rng() * 0.003;
             let phase = 0;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
                 const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
                 phase += (2 * Math.PI * f) / SAMPLE_RATE;
-                const env = Math.exp(-t / tightDecay);
-                out[i] = Math.sin(phase) * env;
+                const env = Math.exp(-t / bodyTau);
+                out[i] = Math.sin(phase) * env * 0.7;
             }
-            // Sub layer kept SHORT — trap kick should not bleed into the 808.
+            // Tiny sub thump for weight (very short — doesn't sustain a pitch)
+            const subTau = Math.min(tightDecay * 0.4, 0.045);
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (tightDecay * 0.6)) * p.subAmt * 0.5;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / subTau) * p.subAmt * 0.4;
             }
-            // The defining transient: layered clicks at 2k / 3.5k / 5kHz so the kick reads on phone speakers.
-            mixClick(out, rng, 2.0, 2000, p.clickAmt * 0.9);
-            mixClick(out, rng, 1.2, 3500, p.clickAmt * 0.7);
-            mixClick(out, rng, 0.6, 5000, p.clickAmt * 0.4);
+            // The defining sound: layered transient clicks (this IS the kick)
+            mixClick(out, rng, 2.5, 1500, p.clickAmt * 1.0);
+            mixClick(out, rng, 1.5, 3000, p.clickAmt * 0.85);
+            mixClick(out, rng, 0.8, 5000, p.clickAmt * 0.5);
             // Heavy soft-clip + saturation
-            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.6 + p.drive * 0.4));
+            for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.7 + p.drive * 0.5));
             highPass(out, 45);
             break;
         }
@@ -836,26 +838,28 @@ function synthHat(rng: RNG, p: GenreProfile['hat'], totalSec: number, fx: GenreP
 
     switch (p.style) {
         case '808-tick': {
-            // Trap closed hat: TR-808-derived metallic tick — SHORT (very short), high-passed aggressively.
-            // Six inharmonic square partials (the classic 808 ratios) but at a high base + ultra-fast decay
-            // so it reads as a tight "ts" rather than a long ringing metallic.
-            const base = 280 + rng() * 60;        // base frequency for the inharmonic stack
-            const tickDecay = Math.min(decay, 0.05);   // hard cap — trap hats are TIGHT
+            // Trap closed hat: VERY short metallic click — hard cap ~25ms.
+            // 6 inharmonic squares but with an aggressive transient envelope, almost no sustain.
+            const base = 280 + rng() * 60;
+            const tickDecay = Math.min(decay, 0.025);   // ~10-25ms only
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
                 let metal = 0;
                 for (const r of ratios808) metal += Math.sign(Math.sin(2 * Math.PI * base * r * t));
                 metal /= ratios808.length;
+                // Sharp attack into very fast decay
                 const env = Math.exp(-t / tickDecay);
                 out[i] = metal * env;
             }
-            // Aggressive HP — anything below ~7-10kHz is rolled off so it sits at the very top of the mix
+            // Aggressive HP
             highPass(out, hp);
             highPass(out, hp);
-            // Tiny noise sparkle for air
+            // Click transient at 8kHz — the "tick"
+            mixClick(out, rng, 1.0, 8000, 0.6);
+            // Tiny noise sparkle, even shorter than the body
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += (rng() * 2 - 1) * Math.exp(-t / (tickDecay * 0.5)) * 0.15;
+                out[i] += (rng() * 2 - 1) * Math.exp(-t / (tickDecay * 0.4)) * 0.18;
             }
             break;
         }
