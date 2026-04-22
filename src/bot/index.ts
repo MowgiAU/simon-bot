@@ -29,6 +29,7 @@ import { ChannelRulesPlugin } from './plugins/ChannelRulesPlugin';
 import { MusicianProfilePlugin } from './plugins/MusicianProfilePlugin';
 import { ProjectViewerPlugin } from './plugins/ProjectViewerPlugin';
 import { BeatBattlePlugin } from './plugins/BeatBattlePlugin';
+import { HeadToHeadBattlePlugin } from './plugins/HeadToHeadBattlePlugin';
 import { AntiPiracyPlugin } from './plugins/AntiPiracyPlugin';
 import { LevelingPlugin } from './plugins/LevelingPlugin';
 import { FujiRadioPlugin } from './plugins/FujiRadioPlugin';
@@ -132,6 +133,7 @@ export class SimonBot {
       this.pluginManager.register(new MusicianProfilePlugin());
       this.pluginManager.register(new ProjectViewerPlugin(this.db));
       this.pluginManager.register(new BeatBattlePlugin());
+      this.pluginManager.register(new HeadToHeadBattlePlugin());
       this.pluginManager.register(new AntiPiracyPlugin());
       this.pluginManager.register(new LevelingPlugin());
       this.pluginManager.register(new FujiRadioPlugin());

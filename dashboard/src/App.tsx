@@ -47,6 +47,8 @@ const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
 const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
 const BeatBattlePage         = lazy(() => import("./pages/BeatBattle").then(m => ({ default: m.BeatBattlePage })));
+const HeadToHeadAdminPage    = lazy(() => import("./pages/HeadToHead").then(m => ({ default: m.HeadToHeadAdminPage })));
+const HeadToHeadArenaPage    = lazy(() => import("./pages/HeadToHeadArena").then(m => ({ default: m.HeadToHeadArenaPage })));
 const BattleArchivePage      = lazy(() => import("./pages/BattleArchive").then(m => ({ default: m.BattleArchivePage })));
 const BattlesPage            = lazy(() => import("./pages/BattlesPage").then(m => ({ default: m.BattlesPage })));
 const BattleEntryPage        = lazy(() => import("./pages/BattleEntryPage").then(m => ({ default: m.BattleEntryPage })));
@@ -120,6 +122,7 @@ type Section =
   | "staging-test"
   | "plugins"
   | "beat-battle"
+  | "head-to-head"
   | "battle-archive"
   | "featured-content"
   | "account-management"
@@ -330,6 +333,7 @@ const AdminDashboard: React.FC = () => {
     'library': 'fuji-studio',
     'logs': 'logger',
     'beat-battle': 'beat-battle',
+    'head-to-head': 'head-to-head',
     'battle-archive': 'beat-battle',
     'featured-content': 'featured-content',
     'fuji-radio': 'fuji-radio',
@@ -432,6 +436,8 @@ const AdminDashboard: React.FC = () => {
           return <PluginManagementPage />;
         case "beat-battle":
           return <BeatBattlePage />;
+        case "head-to-head":
+          return <HeadToHeadAdminPage />;
         case "battle-archive":
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":
@@ -893,6 +899,11 @@ const AppInternal: React.FC = () => {
   // /battles → Public Beat Battles page
   if (currentPath === '/battles') {
     return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
+  }
+
+  // /h2h → Public Head-to-Head arena
+  if (currentPath === '/h2h' || currentPath.startsWith('/h2h/')) {
+    return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
   }
 
   // /article/:slug → Public article view

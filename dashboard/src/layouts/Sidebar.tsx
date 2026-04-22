@@ -413,6 +413,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('head-to-head') && (
+            <button
+                className={`nav-item ${activeSection === 'head-to-head' ? 'active' : ''}`}
+                onClick={() => onNavigate('head-to-head')}
+                title={collapsed ? "Head-to-Head" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
+                <span className="nav-label">Head-to-Head</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('articles') && (
             <button
                 className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`}

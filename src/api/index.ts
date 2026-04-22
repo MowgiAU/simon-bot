@@ -3852,7 +3852,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head'] 
             });
         }
 
@@ -11269,6 +11269,829 @@ async function resolveBattleRanking(battleId: string): Promise<{ winnerEntryId: 
 // Run lifecycle immediately on start, then every 60 seconds
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
+
+// ════════════════════════════════════════════════════════════════════════════
+// Head-to-Head 1v1 Producer Battles
+// ════════════════════════════════════════════════════════════════════════════
+
+const PUBLIC_GUILD_ID_H2H = 'default-guild';
+
+const h2hUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB cap on submissions/samples
+});
+
+async function getH2HSettings(): Promise<any> {
+    let s = await db.headToHeadSettings.findUnique({ where: { guildId: PUBLIC_GUILD_ID_H2H } });
+    if (!s) {
+        await db.guild.upsert({
+            where: { id: PUBLIC_GUILD_ID_H2H },
+            create: { id: PUBLIC_GUILD_ID_H2H, name: 'Default Guild' },
+            update: {},
+        });
+        s = await db.headToHeadSettings.create({ data: { guildId: PUBLIC_GUILD_ID_H2H } });
+    }
+    return s;
+}
+
+async function getOrCreateRating(userId: string, genreId: string | null): Promise<any> {
+    const settings = await getH2HSettings();
+    const existing = await db.h2HRating.findFirst({ where: { userId, genreId: genreId ?? null } });
+    if (existing) return existing;
+    return db.h2HRating.create({
+        data: { userId, genreId: genreId ?? null, elo: settings.startingElo },
+    });
+}
+
+function calcEloDelta(winnerElo: number, loserElo: number, kFactor: number): { winnerDelta: number; loserDelta: number } {
+    const expectedWinner = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+    const expectedLoser = 1 - expectedWinner;
+    const winnerDelta = Math.round(kFactor * (1 - expectedWinner));
+    const loserDelta = Math.round(kFactor * (0 - expectedLoser));
+    return { winnerDelta, loserDelta };
+}
+
+async function applyEloUpdate(match: any, winnerId: string, loserId: string): Promise<{ before: any; after: any }> {
+    const settings = await getH2HSettings();
+    const k = settings.kFactor || 32;
+    const genreId = match.genreId ?? null;
+
+    const [winnerGlobal, loserGlobal, winnerGenre, loserGenre] = await Promise.all([
+        getOrCreateRating(winnerId, null),
+        getOrCreateRating(loserId, null),
+        genreId ? getOrCreateRating(winnerId, genreId) : Promise.resolve(null),
+        genreId ? getOrCreateRating(loserId, genreId) : Promise.resolve(null),
+    ]);
+
+    const before = { winnerElo: winnerGlobal.elo, loserElo: loserGlobal.elo };
+    const { winnerDelta, loserDelta } = calcEloDelta(winnerGlobal.elo, loserGlobal.elo, k);
+
+    await db.h2HRating.update({
+        where: { id: winnerGlobal.id },
+        data: { elo: winnerGlobal.elo + winnerDelta, wins: winnerGlobal.wins + 1, matchesPlayed: winnerGlobal.matchesPlayed + 1 },
+    });
+    await db.h2HRating.update({
+        where: { id: loserGlobal.id },
+        data: { elo: Math.max(0, loserGlobal.elo + loserDelta), losses: loserGlobal.losses + 1, matchesPlayed: loserGlobal.matchesPlayed + 1 },
+    });
+    if (winnerGenre && loserGenre) {
+        const { winnerDelta: wd, loserDelta: ld } = calcEloDelta(winnerGenre.elo, loserGenre.elo, k);
+        await db.h2HRating.update({
+            where: { id: winnerGenre.id },
+            data: { elo: winnerGenre.elo + wd, wins: winnerGenre.wins + 1, matchesPlayed: winnerGenre.matchesPlayed + 1 },
+        });
+        await db.h2HRating.update({
+            where: { id: loserGenre.id },
+            data: { elo: Math.max(0, loserGenre.elo + ld), losses: loserGenre.losses + 1, matchesPlayed: loserGenre.matchesPlayed + 1 },
+        });
+    }
+    return {
+        before,
+        after: { winnerElo: winnerGlobal.elo + winnerDelta, loserElo: Math.max(0, loserGlobal.elo + loserDelta) },
+    };
+}
+
+async function recordForfeit(userId: string): Promise<void> {
+    const r = await getOrCreateRating(userId, null);
+    await db.h2HRating.update({ where: { id: r.id }, data: { forfeits: r.forfeits + 1 } });
+}
+
+async function pickRandomSamples(genreId: string | null, count: number): Promise<string[]> {
+    // Prefer pools matching the genre; fall back to global pools (genreId null) if not enough samples.
+    const wherePref: any = { isActive: true };
+    if (genreId) wherePref.genreId = genreId;
+    let samples = await db.h2HSample.findMany({ where: { pool: wherePref } });
+    if (samples.length < count && genreId) {
+        const fallback = await db.h2HSample.findMany({ where: { pool: { isActive: true, genreId: null } } });
+        samples = samples.concat(fallback);
+    }
+    if (!samples.length) return [];
+    // Fisher-Yates shuffle
+    for (let i = samples.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [samples[i], samples[j]] = [samples[j], samples[i]];
+    }
+    return samples.slice(0, Math.min(count, samples.length)).map(s => s.id);
+}
+
+// ─── Public endpoints ───
+
+// Genres available for H2H (those with at least one active pool, plus any global pools)
+app.get('/api/head-to-head/genres', publicCache(120), async (_req, res) => {
+    try {
+        const pools = await db.h2HSamplePool.findMany({
+            where: { isActive: true },
+            include: { genre: true, _count: { select: { samples: true } } },
+        });
+        const map = new Map<string, any>();
+        let globalSamples = 0;
+        for (const p of pools) {
+            if (!p.genreId) { globalSamples += p._count.samples; continue; }
+            const key = p.genreId;
+            const existing = map.get(key);
+            if (existing) existing.sampleCount += p._count.samples;
+            else map.set(key, { id: p.genreId, name: p.genre?.name || 'Unknown', sampleCount: p._count.samples });
+        }
+        const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        res.json({ genres: list, globalSamples });
+    } catch (e: any) {
+        logger.error('H2H genres failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Settings (public, sanitized)
+app.get('/api/head-to-head/settings', publicCache(60), async (_req, res) => {
+    try {
+        const s = await getH2HSettings();
+        res.json({
+            enabled: s.enabled,
+            defaultProductionMinutes: s.defaultProductionMinutes,
+            defaultVotingMinutes: s.defaultVotingMinutes,
+            readyUpMinutes: s.readyUpMinutes,
+            startingElo: s.startingElo,
+            minVotesToFinalize: s.minVotesToFinalize,
+            samplesPerMatch: s.samplesPerMatch,
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Leaderboard
+app.get('/api/head-to-head/leaderboard', publicCache(30), async (req: any, res) => {
+    try {
+        const genreId = (req.query.genreId as string | undefined) || null;
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+        const ratings = await db.h2HRating.findMany({
+            where: { genreId: genreId === '' ? null : genreId, matchesPlayed: { gt: 0 } },
+            orderBy: { elo: 'desc' },
+            take: limit,
+            include: { genre: true },
+        });
+        // Enrich with profile info
+        const userIds = ratings.map(r => r.userId);
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: userIds } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        res.json(ratings.map((r, i) => ({
+            rank: i + 1,
+            userId: r.userId,
+            elo: r.elo,
+            wins: r.wins,
+            losses: r.losses,
+            forfeits: r.forfeits,
+            matchesPlayed: r.matchesPlayed,
+            genreId: r.genreId,
+            genreName: r.genre?.name || null,
+            profile: pmap.get(r.userId) || null,
+        })));
+    } catch (e: any) {
+        logger.error('H2H leaderboard failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// My state: rating + active match + recent matches + queue position
+app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const [globalRating, genreRatings, activeMatch, recent] = await Promise.all([
+            getOrCreateRating(userId, null),
+            db.h2HRating.findMany({ where: { userId, genreId: { not: null } }, include: { genre: true } }),
+            db.h2HMatch.findFirst({
+                where: {
+                    OR: [{ challengerId: userId }, { opponentId: userId }],
+                    status: { in: ['queued', 'ready_check', 'producing', 'voting'] },
+                },
+                orderBy: { createdAt: 'desc' },
+                include: { genre: true },
+            }),
+            db.h2HMatch.findMany({
+                where: {
+                    OR: [{ challengerId: userId }, { opponentId: userId }],
+                    status: { in: ['completed', 'forfeited', 'cancelled'] },
+                },
+                orderBy: { updatedAt: 'desc' },
+                take: 10,
+                include: { genre: true },
+            }),
+        ]);
+        res.json({
+            userId,
+            globalRating: { elo: globalRating.elo, wins: globalRating.wins, losses: globalRating.losses, forfeits: globalRating.forfeits, matchesPlayed: globalRating.matchesPlayed },
+            genreRatings: genreRatings.map(g => ({ genreId: g.genreId, genreName: g.genre?.name, elo: g.elo, wins: g.wins, losses: g.losses })),
+            activeMatch,
+            recentMatches: recent,
+        });
+    } catch (e: any) {
+        logger.error('H2H me failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Join queue
+app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const settings = await getH2HSettings();
+        if (!settings.enabled) return res.status(403).json({ error: 'Head-to-Head is disabled' });
+        const { genreId, productionMinutes } = req.body || {};
+
+        // Block if user already has an active match
+        const existing = await db.h2HMatch.findFirst({
+            where: {
+                OR: [{ challengerId: userId }, { opponentId: userId }],
+                status: { in: ['queued', 'ready_check', 'producing', 'voting'] },
+            },
+        });
+        if (existing) return res.status(400).json({ error: 'You already have an active match', matchId: existing.id });
+
+        const prod = Math.max(15, Math.min(720, Number(productionMinutes) || settings.defaultProductionMinutes));
+        const match = await db.h2HMatch.create({
+            data: {
+                challengerId: userId,
+                genreId: genreId || null,
+                productionMinutes: prod,
+                votingMinutes: settings.defaultVotingMinutes,
+                status: 'queued',
+            },
+        });
+        res.json({ matchId: match.id, status: match.status });
+    } catch (e: any) {
+        logger.error('H2H queue failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Leave queue (only while still queued)
+app.post('/api/head-to-head/queue/leave', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const m = await db.h2HMatch.findFirst({ where: { challengerId: userId, opponentId: null, status: 'queued' } });
+        if (!m) return res.status(404).json({ error: 'Not in queue' });
+        await db.h2HMatch.update({ where: { id: m.id }, data: { status: 'cancelled' } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Match details (with sample URLs only for participants while in producing)
+app.get('/api/head-to-head/match/:id', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({
+            where: { id: req.params.id },
+            include: { genre: true, votes: true },
+        });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        const userId = req.session?.user?.id;
+        const isParticipant = userId && (match.challengerId === userId || match.opponentId === userId);
+        const sampleIds: string[] = (match.sampleIds as string[] | null) || [];
+        let samples: any[] = [];
+        if (sampleIds.length && (isParticipant || ['voting', 'completed'].includes(match.status))) {
+            samples = await db.h2HSample.findMany({ where: { id: { in: sampleIds } } });
+        }
+        // Hide submission URLs from voters until voting (or always for non-participants if still producing)
+        const sanitized: any = { ...match, samples };
+        if (match.status === 'producing' && !isParticipant) {
+            sanitized.challengerSubmissionUrl = null;
+            sanitized.opponentSubmissionUrl = null;
+        }
+        // Include profile names
+        const ids = [match.challengerId, match.opponentId].filter(Boolean) as string[];
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: ids } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        sanitized.challengerProfile = pmap.get(match.challengerId) || null;
+        sanitized.opponentProfile = match.opponentId ? pmap.get(match.opponentId) || null : null;
+        res.json(sanitized);
+    } catch (e: any) {
+        logger.error('H2H match get failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Ready up
+app.post('/api/head-to-head/match/:id/ready', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'ready_check') return res.status(400).json({ error: 'Not in ready-up phase' });
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: isCh ? { challengerReady: true } : { opponentReady: true },
+        });
+        // If both ready now, advance immediately
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh && fresh.challengerReady && fresh.opponentReady) {
+            await advanceToProduction(fresh);
+        }
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H ready failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+async function advanceToProduction(match: any): Promise<void> {
+    const settings = await getH2HSettings();
+    const sampleIds = await pickRandomSamples(match.genreId, settings.samplesPerMatch);
+    const now = new Date();
+    const deadline = new Date(now.getTime() + match.productionMinutes * 60 * 1000);
+    await db.h2HMatch.update({
+        where: { id: match.id },
+        data: {
+            status: 'producing',
+            sampleIds,
+            producingStartedAt: now,
+            producingDeadline: deadline,
+        },
+    });
+}
+
+// Submit track (multipart/form-data field "submission")
+app.post('/api/head-to-head/match/:id/submit', requireAuth, h2hUpload.single('submission'), async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'producing') return res.status(400).json({ error: 'Not in production phase' });
+        if (match.producingDeadline && new Date() > new Date(match.producingDeadline)) {
+            return res.status(400).json({ error: 'Production window has closed' });
+        }
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Allow common audio types
+        const mt = (req.file.mimetype || '').toLowerCase();
+        if (!/^audio\//.test(mt) && !mt.includes('ogg') && !mt.includes('octet-stream')) {
+            return res.status(400).json({ error: 'File must be an audio file' });
+        }
+
+        let url: string;
+        if (R2Storage.isConfigured()) {
+            const ext = (req.file.originalname.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+            const key = R2Storage.buildKey('h2h-submissions', match.id, `${userId}-${Date.now()}.${ext}`);
+            url = await R2Storage.uploadBuffer(key, req.file.buffer, req.file.mimetype || 'audio/mpeg');
+        } else {
+            // Local fallback
+            const dir = path.join(PROJECT_ROOT, 'public/uploads/h2h');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const safeName = `${match.id}-${userId}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            fs.writeFileSync(path.join(dir, safeName), req.file.buffer);
+            url = `/uploads/h2h/${safeName}`;
+        }
+
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: isCh
+                ? { challengerSubmissionUrl: url, challengerSubmissionAt: new Date() }
+                : { opponentSubmissionUrl: url, opponentSubmissionAt: new Date() },
+        });
+
+        // If both have submitted, transition immediately
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh && fresh.challengerSubmissionUrl && fresh.opponentSubmissionUrl) {
+            await openVoting(fresh);
+        }
+        res.json({ ok: true, url });
+    } catch (e: any) {
+        logger.error('H2H submit failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+async function openVoting(match: any): Promise<void> {
+    const settings = await getH2HSettings();
+    const now = new Date();
+    const end = new Date(now.getTime() + (match.votingMinutes || settings.defaultVotingMinutes) * 60 * 1000);
+    await db.h2HMatch.update({
+        where: { id: match.id },
+        data: { status: 'voting', votingStart: now, votingEnd: end },
+    });
+}
+
+// Voting queue: peer-reviewed — only return matches where the viewer also has an active or recently-completed match.
+app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        // Eligibility: user must currently be queued, in producing/voting, or have completed a match in the last 7 days.
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const ownMatch = await db.h2HMatch.findFirst({
+            where: {
+                AND: [
+                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
+                    {
+                        OR: [
+                            { status: { in: ['queued', 'ready_check', 'producing', 'voting'] } },
+                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
+                        ],
+                    },
+                ],
+            },
+        });
+        if (!ownMatch) {
+            return res.json({ eligible: false, reason: 'Join the queue or complete a match in the last 7 days to vote on others.', matches: [] });
+        }
+        // Fetch active voting matches the user is NOT a part of
+        const matches = await db.h2HMatch.findMany({
+            where: {
+                status: 'voting',
+                challengerId: { not: userId },
+                opponentId: { not: userId },
+            },
+            orderBy: { votingEnd: 'asc' },
+            include: { genre: true, votes: { where: { voterId: userId } } },
+            take: 20,
+        });
+        const ids = Array.from(new Set(matches.flatMap(m => [m.challengerId, m.opponentId].filter(Boolean) as string[])));
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: ids } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        res.json({
+            eligible: true,
+            matches: matches.map(m => ({
+                ...m,
+                myVote: m.votes[0]?.voteFor ?? null,
+                challengerProfile: pmap.get(m.challengerId) || null,
+                opponentProfile: m.opponentId ? pmap.get(m.opponentId) || null : null,
+                votes: undefined,
+            })),
+        });
+    } catch (e: any) {
+        logger.error('H2H voting queue failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Cast a vote on a match
+app.post('/api/head-to-head/match/:id/vote', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { voteFor } = req.body || {};
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'voting') return res.status(400).json({ error: 'Not in voting phase' });
+        if (match.challengerId === userId || match.opponentId === userId) {
+            return res.status(403).json({ error: 'You cannot vote on your own match' });
+        }
+        if (![match.challengerId, match.opponentId].includes(voteFor)) {
+            return res.status(400).json({ error: 'Invalid vote target' });
+        }
+        // Eligibility: must have an active match or recently completed
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const ownMatch = await db.h2HMatch.findFirst({
+            where: {
+                AND: [
+                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
+                    {
+                        OR: [
+                            { status: { in: ['queued', 'ready_check', 'producing', 'voting'] } },
+                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
+                        ],
+                    },
+                ],
+            },
+        });
+        if (!ownMatch) return res.status(403).json({ error: 'Only active competitors can vote' });
+
+        await db.h2HVote.upsert({
+            where: { matchId_voterId: { matchId: match.id, voterId: userId } },
+            create: { matchId: match.id, voterId: userId, voteFor },
+            update: { voteFor },
+        });
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H vote failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── Admin endpoints ───
+
+app.get('/api/head-to-head/admin/settings', requireAdmin, async (_req, res) => {
+    try {
+        const s = await getH2HSettings();
+        res.json(s);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/settings', requireAdmin, async (req, res) => {
+    try {
+        const allowed = ['enabled', 'announcementChannelId', 'defaultProductionMinutes', 'defaultVotingMinutes',
+            'readyUpMinutes', 'startingElo', 'kFactor', 'minVotesToFinalize', 'maxQueueWaitMinutes', 'samplesPerMatch'];
+        const data: any = {};
+        for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+        await getH2HSettings();
+        const s = await db.headToHeadSettings.update({ where: { guildId: PUBLIC_GUILD_ID_H2H }, data });
+        res.json(s);
+    } catch (e: any) {
+        logger.error('H2H admin settings failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/head-to-head/admin/pools', requireAdmin, async (_req, res) => {
+    try {
+        const pools = await db.h2HSamplePool.findMany({
+            include: { genre: true, samples: true, _count: { select: { samples: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(pools);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/pools', requireAdmin, async (req, res) => {
+    try {
+        const { name, description, genreId } = req.body || {};
+        if (!name) return res.status(400).json({ error: 'Name required' });
+        const pool = await db.h2HSamplePool.create({
+            data: { name, description: description || null, genreId: genreId || null },
+        });
+        res.json(pool);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.patch('/api/head-to-head/admin/pools/:id', requireAdmin, async (req, res) => {
+    try {
+        const data: any = {};
+        for (const k of ['name', 'description', 'genreId', 'isActive']) {
+            if (req.body[k] !== undefined) data[k] = req.body[k] === '' ? null : req.body[k];
+        }
+        const pool = await db.h2HSamplePool.update({ where: { id: req.params.id }, data });
+        res.json(pool);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/head-to-head/admin/pools/:id', requireAdmin, async (req, res) => {
+    try {
+        // Best-effort delete of R2 sample objects
+        const samples = await db.h2HSample.findMany({ where: { poolId: req.params.id } });
+        await Promise.all(samples.map(s => deleteFromStorage(s.fileUrl).catch(() => {})));
+        await db.h2HSamplePool.delete({ where: { id: req.params.id } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.array('samples', 50), async (req: any, res) => {
+    try {
+        const pool = await db.h2HSamplePool.findUnique({ where: { id: req.params.id } });
+        if (!pool) return res.status(404).json({ error: 'Pool not found' });
+        const files: any[] = req.files || [];
+        if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
+        const created: any[] = [];
+        for (const f of files) {
+            let url: string;
+            if (R2Storage.isConfigured()) {
+                const ext = (f.originalname.split('.').pop() || 'wav').toLowerCase().replace(/[^a-z0-9]/g, '') || 'wav';
+                const key = R2Storage.buildKey('h2h-samples', pool.id, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`);
+                url = await R2Storage.uploadBuffer(key, f.buffer, f.mimetype || 'audio/wav');
+            } else {
+                const dir = path.join(PROJECT_ROOT, 'public/uploads/h2h-samples');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                const safeName = `${pool.id}-${Date.now()}-${f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                fs.writeFileSync(path.join(dir, safeName), f.buffer);
+                url = `/uploads/h2h-samples/${safeName}`;
+            }
+            const sample = await db.h2HSample.create({
+                data: {
+                    poolId: pool.id,
+                    name: f.originalname,
+                    fileUrl: url,
+                    fileType: (f.mimetype || 'audio/wav').split('/')[1] || 'wav',
+                    fileSize: f.size || f.buffer.length,
+                    uploadedBy: req.session?.user?.id || null,
+                },
+            });
+            created.push(sample);
+        }
+        res.json({ created });
+    } catch (e: any) {
+        logger.error('H2H sample upload failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/head-to-head/admin/samples/:id', requireAdmin, async (req, res) => {
+    try {
+        const s = await db.h2HSample.findUnique({ where: { id: req.params.id } });
+        if (!s) return res.status(404).json({ error: 'Not found' });
+        await deleteFromStorage(s.fileUrl).catch(() => {});
+        await db.h2HSample.delete({ where: { id: req.params.id } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/head-to-head/admin/matches', requireAdmin, async (req: any, res) => {
+    try {
+        const status = req.query.status as string | undefined;
+        const where: any = {};
+        if (status) where.status = status;
+        const matches = await db.h2HMatch.findMany({
+            where,
+            include: { genre: true, _count: { select: { votes: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(matches);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/matches/:id/cancel', requireAdmin, async (req, res) => {
+    try {
+        await db.h2HMatch.update({
+            where: { id: req.params.id },
+            data: { status: 'cancelled', forfeitReason: 'Admin cancelled' },
+        });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── Lifecycle ticker ───
+
+async function runHeadToHeadLifecycle(): Promise<void> {
+    try {
+        const settings = await getH2HSettings();
+        if (!settings.enabled) return;
+        const now = new Date();
+
+        // 1. Matchmaking — pair queued players within the same genre + production length, prefer closest Elo.
+        const queued = await db.h2HMatch.findMany({
+            where: { status: 'queued', opponentId: null },
+            orderBy: { createdAt: 'asc' },
+        });
+        const consumed = new Set<string>();
+        for (const a of queued) {
+            if (consumed.has(a.id)) continue;
+            const candidate = queued.find(b =>
+                !consumed.has(b.id) &&
+                b.id !== a.id &&
+                b.challengerId !== a.challengerId &&
+                (b.genreId ?? null) === (a.genreId ?? null) &&
+                b.productionMinutes === a.productionMinutes
+            );
+            if (!candidate) continue;
+            // Elo distance is informational — we still match within bucket since the queue is small.
+            const readyDeadline = new Date(now.getTime() + settings.readyUpMinutes * 60 * 1000);
+            await db.h2HMatch.update({
+                where: { id: a.id },
+                data: {
+                    opponentId: candidate.challengerId,
+                    status: 'ready_check',
+                    readyUpStartedAt: now,
+                    readyDeadline,
+                },
+            });
+            // Mark candidate as cancelled (it was a placeholder queue row) — its user is now opponent on `a`.
+            await db.h2HMatch.update({
+                where: { id: candidate.id },
+                data: { status: 'cancelled', forfeitReason: 'Merged into match ' + a.id },
+            });
+            consumed.add(a.id);
+            consumed.add(candidate.id);
+        }
+
+        // 2. Ready-check timeouts
+        const readyChecks = await db.h2HMatch.findMany({
+            where: { status: 'ready_check', readyDeadline: { lte: now } },
+        });
+        for (const m of readyChecks) {
+            if (m.challengerReady && m.opponentReady) {
+                await advanceToProduction(m);
+            } else if (m.challengerReady && !m.opponentReady && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.challengerId, loserId: m.opponentId, forfeitReason: 'Opponent did not ready up' },
+                });
+                await recordForfeit(m.opponentId);
+            } else if (!m.challengerReady && m.opponentReady && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.opponentId, loserId: m.challengerId, forfeitReason: 'Challenger did not ready up' },
+                });
+                await recordForfeit(m.challengerId);
+            } else {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'cancelled', forfeitReason: 'Neither player readied up' },
+                });
+                if (m.opponentId) await recordForfeit(m.opponentId);
+                await recordForfeit(m.challengerId);
+            }
+        }
+
+        // 3. Production deadlines
+        const producing = await db.h2HMatch.findMany({
+            where: { status: 'producing', producingDeadline: { lte: now } },
+        });
+        for (const m of producing) {
+            const chDone = !!m.challengerSubmissionUrl;
+            const opDone = !!m.opponentSubmissionUrl;
+            if (chDone && opDone) {
+                await openVoting(m);
+            } else if (chDone && !opDone && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.challengerId, loserId: m.opponentId, forfeitReason: 'Opponent did not submit' },
+                });
+                await recordForfeit(m.opponentId);
+            } else if (!chDone && opDone && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.opponentId, loserId: m.challengerId, forfeitReason: 'Challenger did not submit' },
+                });
+                await recordForfeit(m.challengerId);
+            } else {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'cancelled', forfeitReason: 'Neither player submitted' },
+                });
+                if (m.opponentId) await recordForfeit(m.opponentId);
+                await recordForfeit(m.challengerId);
+            }
+        }
+
+        // 4. Voting deadlines / vote thresholds
+        const voting = await db.h2HMatch.findMany({
+            where: { status: 'voting' },
+            include: { votes: true },
+        });
+        for (const m of voting) {
+            const ended = m.votingEnd && new Date(m.votingEnd) <= now;
+            if (!ended) continue;
+            if (!m.opponentId) continue;
+            const chVotes = m.votes.filter(v => v.voteFor === m.challengerId).length;
+            const opVotes = m.votes.filter(v => v.voteFor === m.opponentId).length;
+            const total = chVotes + opVotes;
+            if (total < settings.minVotesToFinalize) {
+                // Extend by 50% of voting window if under-voted (max one extension per cycle is fine — idempotent)
+                const ext = new Date(now.getTime() + Math.ceil((m.votingMinutes || settings.defaultVotingMinutes) * 30 * 1000));
+                await db.h2HMatch.update({ where: { id: m.id }, data: { votingEnd: ext } });
+                continue;
+            }
+            let winnerId: string;
+            let loserId: string;
+            if (chVotes === opVotes) {
+                // Tiebreak: earliest submission wins
+                const earliest = (m.challengerSubmissionAt && m.opponentSubmissionAt &&
+                    new Date(m.challengerSubmissionAt) <= new Date(m.opponentSubmissionAt))
+                    ? m.challengerId : m.opponentId;
+                winnerId = earliest;
+                loserId = winnerId === m.challengerId ? m.opponentId : m.challengerId;
+            } else if (chVotes > opVotes) {
+                winnerId = m.challengerId; loserId = m.opponentId;
+            } else {
+                winnerId = m.opponentId; loserId = m.challengerId;
+            }
+            const elo = await applyEloUpdate(m, winnerId, loserId);
+            await db.h2HMatch.update({
+                where: { id: m.id },
+                data: {
+                    status: 'completed',
+                    winnerId, loserId,
+                    challengerEloBefore: winnerId === m.challengerId ? elo.before.winnerElo : elo.before.loserElo,
+                    challengerEloAfter:  winnerId === m.challengerId ? elo.after.winnerElo  : elo.after.loserElo,
+                    opponentEloBefore:   winnerId === m.opponentId   ? elo.before.winnerElo : elo.before.loserElo,
+                    opponentEloAfter:    winnerId === m.opponentId   ? elo.after.winnerElo  : elo.after.loserElo,
+                },
+            });
+        }
+    } catch (e: any) {
+        logger.error('H2H lifecycle failed', e);
+    }
+}
+
+// Run lifecycle immediately on start, then every 30 seconds (faster cadence than weekly battles).
+runHeadToHeadLifecycle();
+setInterval(runHeadToHeadLifecycle, 30_000);
 
 // ─── Anti-External Forward ──────────────────────────────────────────────────
 
