@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Swords, Trophy, Clock, CheckCircle, Upload, Users, Loader, Play, Award, Vote } from 'lucide-react';
-import { colors, spacing, borderRadius } from '../theme/theme';
+import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio } from 'lucide-react';
+import { colors } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 const API = '';
@@ -64,39 +64,174 @@ interface LeaderRow {
     genreName: string | null;
 }
 
-function timeLeft(iso: string | null): string {
-    if (!iso) return '—';
+// ── Gamification: Tiers based on Elo ──
+type Tier = { name: string; min: number; color: string; icon: React.ReactNode; glow: string };
+const TIERS: Tier[] = [
+    { name: 'BRONZE',   min: 0,    color: '#CD7F32', glow: 'rgba(205,127,50,0.5)',  icon: <Medal size={14} /> },
+    { name: 'SILVER',   min: 1100, color: '#C0C0C0', glow: 'rgba(192,192,192,0.5)', icon: <Medal size={14} /> },
+    { name: 'GOLD',     min: 1250, color: '#FFD700', glow: 'rgba(255,215,0,0.6)',   icon: <Trophy size={14} /> },
+    { name: 'PLATINUM', min: 1400, color: '#E5E4E2', glow: 'rgba(229,228,226,0.6)', icon: <Trophy size={14} /> },
+    { name: 'DIAMOND',  min: 1550, color: '#5DD4FF', glow: 'rgba(93,212,255,0.7)',  icon: <Crown size={14} /> },
+    { name: 'MASTER',   min: 1700, color: '#A855F7', glow: 'rgba(168,85,247,0.7)',  icon: <Crown size={14} /> },
+    { name: 'LEGEND',   min: 1900, color: '#FF3D7F', glow: 'rgba(255,61,127,0.8)',  icon: <Flame size={14} /> },
+];
+function tierFor(elo: number): Tier { return [...TIERS].reverse().find(t => elo >= t.min) || TIERS[0]; }
+function nextTier(elo: number): Tier | null {
+    const idx = TIERS.findIndex(t => elo < t.min);
+    return idx === -1 ? null : TIERS[idx];
+}
+
+// ── Neon palette ──
+const NEON = {
+    pink: '#FF3D7F',
+    cyan: '#00E5FF',
+    purple: '#A855F7',
+    yellow: '#FFD700',
+    green: '#34D399',
+    red: '#F87171',
+    bgDeep: '#0A0E1A',
+    bgPanel: 'rgba(15,20,35,0.85)',
+    border: 'rgba(120,140,200,0.18)',
+};
+
+function timeLeft(iso: string | null): { txt: string; urgent: boolean; expired: boolean } {
+    if (!iso) return { txt: '—', urgent: false, expired: false };
     const ms = new Date(iso).getTime() - Date.now();
-    if (ms <= 0) return 'expired';
+    if (ms <= 0) return { txt: 'EXPIRED', urgent: true, expired: true };
     const mins = Math.floor(ms / 60000);
     const secs = Math.floor((ms % 60000) / 1000);
-    if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    return `${mins}m ${secs}s`;
+    const urgent = ms < 300_000;
+    if (mins >= 60) return { txt: `${Math.floor(mins / 60)}h ${mins % 60}m`, urgent, expired: false };
+    return { txt: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`, urgent, expired: false };
 }
 
 function profileName(p: Profile | null | undefined, fallbackId: string): string {
     return p?.displayName || p?.username || fallbackId.slice(0, 8);
 }
 
-const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
-    <div style={{
-        background: colors.surface, borderRadius: borderRadius.md,
-        padding: spacing.lg, marginBottom: spacing.md,
-        border: `1px solid ${colors.glassBorder}`,
+function Initials({ name }: { name: string }) {
+    const i = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+    return <>{i}</>;
+}
+
+// ── CSS injected once ──
+const ARENA_CSS = `
+@keyframes h2h-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.04); } }
+@keyframes h2h-glow-pulse { 0%,100% { box-shadow: 0 0 18px var(--glow-c, rgba(0,229,255,0.4)), 0 0 38px var(--glow-c, rgba(0,229,255,0.4)); } 50% { box-shadow: 0 0 28px var(--glow-c, rgba(0,229,255,0.4)), 0 0 60px var(--glow-c, rgba(0,229,255,0.4)); } }
+@keyframes h2h-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes h2h-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+@keyframes h2h-flicker { 0%,18%,22%,25%,53%,57%,100% { opacity: 1; } 20%,24%,55% { opacity: 0.4; } }
+@keyframes h2h-rise { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes h2h-spin { to { transform: rotate(360deg); } }
+@keyframes h2h-bg-pan { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes h2h-clash { 0%,100% { transform: translateX(0) rotate(-45deg); } 50% { transform: translateX(-4px) rotate(-45deg); } }
+@keyframes h2h-clash2 { 0%,100% { transform: translateX(0) rotate(135deg); } 50% { transform: translateX(4px) rotate(135deg); } }
+@keyframes h2h-spark { 0% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(0.4); } }
+
+.h2h-arena-root { animation: h2h-rise 0.4s ease-out; }
+.h2h-pulse { animation: h2h-pulse 1.4s ease-in-out infinite; }
+.h2h-glow-card { animation: h2h-glow-pulse 2.6s ease-in-out infinite; }
+.h2h-flicker { animation: h2h-flicker 5s linear infinite; }
+.h2h-spin { animation: h2h-spin 1s linear infinite; }
+.h2h-tab { transition: all 0.18s ease; position: relative; overflow: hidden; }
+.h2h-tab:hover { transform: translateY(-2px); }
+.h2h-btn-neon { position: relative; transition: all 0.15s ease; cursor: pointer; }
+.h2h-btn-neon:not(:disabled):hover { transform: translateY(-2px); filter: brightness(1.15); }
+.h2h-btn-neon:not(:disabled):active { transform: translateY(0); }
+.h2h-shimmer { background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.18) 50%, transparent 75%); background-size: 200% 100%; animation: h2h-shimmer 2s linear infinite; }
+.h2h-scanline { position: absolute; left: 0; right: 0; height: 40%; background: linear-gradient(180deg, transparent, rgba(0,229,255,0.08), transparent); animation: h2h-scan 4s linear infinite; pointer-events: none; }
+.h2h-bg-anim { background: linear-gradient(120deg, rgba(255,61,127,0.10), rgba(0,229,255,0.10), rgba(168,85,247,0.10), rgba(255,61,127,0.10)); background-size: 300% 300%; animation: h2h-bg-pan 12s ease infinite; }
+.h2h-vs-clash-l { animation: h2h-clash 1.2s ease-in-out infinite; }
+.h2h-vs-clash-r { animation: h2h-clash2 1.2s ease-in-out infinite; }
+.h2h-spark { animation: h2h-spark 1.2s ease-in-out infinite; }
+.h2h-row-hover:hover { background: rgba(255,255,255,0.05) !important; }
+
+@media (max-width: 720px) {
+    .h2h-vs-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .h2h-vs-divider { display: none !important; }
+    .h2h-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .h2h-hero-title { font-size: 28px !important; }
+}
+`;
+
+// ── Reusable bits ──
+const Panel: React.FC<{ children: React.ReactNode; style?: React.CSSProperties; className?: string; glowColor?: string }> = ({ children, style, className, glowColor }) => (
+    <div className={className} style={{
+        background: NEON.bgPanel,
+        backdropFilter: 'blur(8px)',
+        borderRadius: '14px',
+        padding: '18px',
+        marginBottom: '16px',
+        border: `1px solid ${glowColor ? glowColor + '55' : NEON.border}`,
+        boxShadow: glowColor ? `0 0 24px ${glowColor}33, inset 0 1px 0 rgba(255,255,255,0.04)` : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+        position: 'relative',
+        overflow: 'hidden',
         ...style,
     }}>{children}</div>
 );
 
-const PrimaryButton: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode; style?: React.CSSProperties }> = ({ onClick, disabled, children, style }) => (
-    <button onClick={onClick} disabled={disabled} style={{
-        background: disabled ? 'rgba(255,255,255,0.06)' : colors.primary,
-        color: disabled ? colors.textSecondary : '#fff',
-        border: 'none', padding: '10px 20px', borderRadius: borderRadius.md,
-        cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600,
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        ...style,
-    }}>{children}</button>
-);
+const NeonButton: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode; color?: string; size?: 'sm' | 'md' | 'lg'; style?: React.CSSProperties }> = ({ onClick, disabled, children, color = NEON.cyan, size = 'md', style }) => {
+    const sz = size === 'sm' ? { p: '7px 14px', f: 12 } : size === 'lg' ? { p: '14px 26px', f: 15 } : { p: '10px 20px', f: 13 };
+    return (
+        <button className="h2h-btn-neon" onClick={onClick} disabled={disabled} style={{
+            background: disabled ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg, ${color}cc, ${color}88)`,
+            color: disabled ? colors.textSecondary : '#fff',
+            border: `1px solid ${disabled ? 'transparent' : color}`,
+            padding: sz.p,
+            borderRadius: '8px',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            fontWeight: 800,
+            fontSize: sz.f,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            boxShadow: disabled ? 'none' : `0 0 14px ${color}55, inset 0 1px 0 rgba(255,255,255,0.2)`,
+            ...style,
+        }}>{children}</button>
+    );
+};
+
+const TierBadge: React.FC<{ elo: number; size?: 'sm' | 'md' }> = ({ elo, size = 'md' }) => {
+    const t = tierFor(elo);
+    const padding = size === 'sm' ? '3px 8px' : '4px 10px';
+    const fs = size === 'sm' ? 10 : 11;
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding, borderRadius: 999,
+            background: `${t.color}1a`,
+            border: `1px solid ${t.color}66`,
+            color: t.color,
+            fontWeight: 800, fontSize: fs,
+            letterSpacing: '0.08em',
+            textShadow: `0 0 10px ${t.glow}`,
+        }}>{t.icon} {t.name}</span>
+    );
+};
+
+const Avatar: React.FC<{ profile: Profile | null | undefined; userId: string; size?: number; ring?: string; ringPulse?: boolean }> = ({ profile, userId, size = 48, ring, ringPulse }) => {
+    const name = profileName(profile, userId);
+    return (
+        <div style={{
+            width: size, height: size, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+            border: ring ? `3px solid ${ring}` : '2px solid rgba(255,255,255,0.08)',
+            boxShadow: ring ? `0 0 ${ringPulse ? 22 : 14}px ${ring}88` : 'none',
+            background: `linear-gradient(135deg, ${NEON.purple}, ${NEON.pink})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: size * 0.36, color: '#fff',
+            ...(ringPulse ? { animation: 'h2h-glow-pulse 2s ease-in-out infinite', ['--glow-c' as any]: ring } : {}),
+        }}>
+            {profile?.avatar ? <img src={profile.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <Initials name={name} />}
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const HeadToHeadArenaPage: React.FC = () => {
     const [tab, setTab] = useState<'arena' | 'vote' | 'leaderboard'>('arena');
@@ -108,45 +243,95 @@ export const HeadToHeadArenaPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="h2h">
-        <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', color: colors.textPrimary }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                <Swords size={32} color={colors.primary} style={{ marginRight: '16px' }} />
-                <div>
-                    <h1 style={{ margin: 0 }}>Head-to-Head Arena</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>
-                        1v1 producer battles · curated samples · peer-judged · Elo ranked
-                    </p>
+            <style>{ARENA_CSS}</style>
+            <div className="h2h-arena-root" style={{
+                minHeight: 'calc(100vh - 120px)',
+                background: `radial-gradient(ellipse at 30% 0%, ${NEON.purple}22 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, ${NEON.pink}1f 0%, transparent 60%), ${NEON.bgDeep}`,
+                color: colors.textPrimary,
+            }}>
+                <div style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 20px 60px' }}>
+
+                    {/* ─── HERO BANNER ─── */}
+                    <div className="h2h-bg-anim" style={{
+                        position: 'relative',
+                        borderRadius: 18,
+                        padding: '28px 24px',
+                        marginBottom: 18,
+                        border: `1px solid ${NEON.pink}44`,
+                        boxShadow: `0 0 40px ${NEON.pink}33, 0 0 80px ${NEON.cyan}22`,
+                        overflow: 'hidden',
+                    }}>
+                        <div className="h2h-scanline" style={{ top: '-40%' }} />
+                        <div style={{ position: 'absolute', top: -30, right: -30, width: 200, height: 200, background: `radial-gradient(circle, ${NEON.pink}33, transparent 70%)`, filter: 'blur(20px)', pointerEvents: 'none' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 18, position: 'relative', zIndex: 1, flexWrap: 'wrap' }}>
+                            <div style={{
+                                width: 64, height: 64, borderRadius: 14,
+                                background: `linear-gradient(135deg, ${NEON.pink}, ${NEON.purple})`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: `0 0 24px ${NEON.pink}88, inset 0 0 12px rgba(255,255,255,0.2)`,
+                            }}>
+                                <Swords size={36} color="#fff" />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 240 }}>
+                                <h1 className="h2h-hero-title" style={{
+                                    margin: 0, fontSize: 36, fontWeight: 900,
+                                    letterSpacing: '0.04em',
+                                    background: `linear-gradient(135deg, ${NEON.pink}, ${NEON.cyan})`,
+                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                    lineHeight: 1.1,
+                                }}>1V1 ARENA</h1>
+                                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.7)', fontSize: 13, letterSpacing: '0.05em' }}>
+                                    Curated samples · Peer-judged · Elo ranked · Glory awaits
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <span className="h2h-flicker" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: `${NEON.green}22`, border: `1px solid ${NEON.green}66`, color: NEON.green, fontSize: 11, fontWeight: 800, letterSpacing: '0.08em' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: NEON.green, boxShadow: `0 0 8px ${NEON.green}` }} /> LIVE
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {settings && !settings.enabled && (
+                        <Panel glowColor={colors.warning}>
+                            <p style={{ margin: 0 }}>The Arena is currently closed by an administrator. Check back soon.</p>
+                        </Panel>
+                    )}
+
+                    {/* ─── TABS ─── */}
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 18, flexWrap: 'wrap' }}>
+                        {([
+                            ['arena', 'BATTLE', Swords, NEON.pink],
+                            ['vote', 'JUDGE', Vote, NEON.cyan],
+                            ['leaderboard', 'RANKS', Trophy, NEON.yellow],
+                        ] as const).map(([id, label, Icon, color]) => {
+                            const active = tab === id;
+                            return (
+                                <button key={id} className="h2h-tab" onClick={() => setTab(id)} style={{
+                                    background: active ? `linear-gradient(135deg, ${color}33, ${color}11)` : 'rgba(255,255,255,0.03)',
+                                    color: active ? color : 'rgba(255,255,255,0.55)',
+                                    border: `1px solid ${active ? color + '88' : 'rgba(255,255,255,0.08)'}`,
+                                    padding: '11px 22px', borderRadius: 10,
+                                    cursor: 'pointer', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em',
+                                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                                    boxShadow: active ? `0 0 16px ${color}55` : 'none',
+                                }}><Icon size={16} /> {label}</button>
+                            );
+                        })}
+                    </div>
+
+                    {tab === 'arena' && <ArenaTab settings={settings} />}
+                    {tab === 'vote' && <VoteTab />}
+                    {tab === 'leaderboard' && <LeaderboardTab />}
                 </div>
             </div>
-
-            {settings && !settings.enabled && (
-                <Card style={{ borderLeft: `4px solid ${colors.warning}` }}>
-                    <p style={{ margin: 0 }}>Head-to-Head is currently disabled by an administrator. Check back soon.</p>
-                </Card>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {([['arena', 'My Match', Swords], ['vote', 'Vote', Vote], ['leaderboard', 'Leaderboard', Trophy]] as const).map(([id, label, Icon]) => (
-                    <button key={id} onClick={() => setTab(id)} style={{
-                        background: tab === id ? colors.primary : 'transparent',
-                        color: tab === id ? '#fff' : colors.textSecondary,
-                        border: `1px solid ${tab === id ? colors.primary : colors.glassBorder}`,
-                        padding: '8px 16px', borderRadius: borderRadius.md,
-                        cursor: 'pointer', fontWeight: 600,
-                        display: 'flex', alignItems: 'center', gap: 6,
-                    }}><Icon size={16} /> {label}</button>
-                ))}
-            </div>
-
-            {tab === 'arena' && <ArenaTab settings={settings} />}
-            {tab === 'vote' && <VoteTab />}
-            {tab === 'leaderboard' && <LeaderboardTab />}
-        </div>
         </DiscoveryLayout>
     );
 };
 
-// ─── Arena tab: queue + my match ───────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Arena Tab
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [me, setMe] = useState<MeData | null>(null);
@@ -197,90 +382,220 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         await reload();
     };
 
-    if (!me) return <Loader className="spin" />;
+    if (!me) return (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+            <Loader className="h2h-spin" size={32} color={NEON.cyan} />
+        </div>
+    );
+
+    const tier = tierFor(me.globalRating.elo);
+    const next = nextTier(me.globalRating.elo);
+    const winRate = me.globalRating.matchesPlayed > 0 ? Math.round((me.globalRating.wins / me.globalRating.matchesPlayed) * 100) : 0;
 
     return (
         <div>
-            {/* Stats card */}
-            <Card>
-                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div>
-                        <div style={{ color: colors.textSecondary, fontSize: 12 }}>Your Elo</div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: colors.primary }}>{me.globalRating.elo}</div>
+            {/* ─── PLAYER STATS PANEL ─── */}
+            <Panel glowColor={tier.color}>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: me.genreRatings.length > 0 ? 14 : 0, flexWrap: 'wrap' }}>
+                    <div style={{
+                        width: 84, height: 84, borderRadius: 16,
+                        background: `linear-gradient(135deg, ${tier.color}cc, ${tier.color}66)`,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: `0 0 24px ${tier.glow}, inset 0 0 12px rgba(255,255,255,0.2)`,
+                        flexShrink: 0,
+                    }}>
+                        {React.cloneElement(tier.icon as any, { size: 28, color: '#fff' })}
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#fff', marginTop: 2 }}>{tier.name}</div>
                     </div>
-                    <div>
-                        <div style={{ color: colors.textSecondary, fontSize: 12 }}>Record</div>
-                        <div style={{ fontSize: 18 }}>{me.globalRating.wins}W · {me.globalRating.losses}L{me.globalRating.forfeits ? ` · ${me.globalRating.forfeits} forfeits` : ''}</div>
-                    </div>
-                    {me.genreRatings.length > 0 && (
-                        <div>
-                            <div style={{ color: colors.textSecondary, fontSize: 12 }}>Genre Elo</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                                {me.genreRatings.map(g => (
-                                    <span key={g.genreId} style={{ background: colors.surfaceLight, padding: '4px 8px', borderRadius: 4, fontSize: 12 }}>
-                                        {g.genreName} <strong>{g.elo}</strong>
-                                    </span>
-                                ))}
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', fontWeight: 700 }}>YOUR RATING</div>
+                        <div style={{ fontSize: 48, fontWeight: 900, color: tier.color, lineHeight: 1, textShadow: `0 0 20px ${tier.glow}`, fontVariantNumeric: 'tabular-nums' }}>
+                            {me.globalRating.elo}
+                        </div>
+                        {next && (
+                            <div style={{ marginTop: 8 }}>
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 4, letterSpacing: '0.08em' }}>
+                                    {next.min - me.globalRating.elo} TO <span style={{ color: next.color }}>{next.name}</span>
+                                </div>
+                                <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+                                    <div className="h2h-shimmer" style={{
+                                        width: `${Math.max(4, ((me.globalRating.elo - tier.min) / (next.min - tier.min)) * 100)}%`,
+                                        height: '100%',
+                                        background: `linear-gradient(90deg, ${tier.color}, ${next.color})`,
+                                        borderRadius: 999,
+                                        boxShadow: `0 0 10px ${tier.color}`,
+                                    }} />
+                                </div>
                             </div>
+                        )}
+                    </div>
+                    <div className="h2h-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(70px, 1fr))', gap: 10, minWidth: 240 }}>
+                        <StatTile label="WINS"   value={me.globalRating.wins} color={NEON.green} icon={<Trophy size={14} />} />
+                        <StatTile label="LOSSES" value={me.globalRating.losses} color={NEON.red} icon={<Skull size={14} />} />
+                        <StatTile label="WIN%"   value={`${winRate}%`} color={NEON.cyan} icon={<TrendingUp size={14} />} />
+                    </div>
+                </div>
+
+                {me.genreRatings.length > 0 && (
+                    <div style={{ borderTop: `1px solid ${NEON.border}`, paddingTop: 12 }}>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', fontWeight: 700, marginBottom: 8 }}>GENRE RATINGS</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                            {me.genreRatings.map(g => {
+                                const gt = tierFor(g.elo);
+                                return (
+                                    <span key={g.genreId} style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                                        padding: '6px 12px', borderRadius: 8,
+                                        background: 'rgba(255,255,255,0.04)',
+                                        border: `1px solid ${gt.color}44`, fontSize: 12,
+                                    }}>
+                                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{g.genreName}</span>
+                                        <strong style={{ color: gt.color, fontVariantNumeric: 'tabular-nums', textShadow: `0 0 8px ${gt.glow}` }}>{g.elo}</strong>
+                                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{g.wins}W·{g.losses}L</span>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </Panel>
+
+            {/* ─── ACTIVE MATCH or QUEUE ─── */}
+            {me.activeMatch ? (
+                <ActiveMatchPanel match={me.activeMatch} myUserId={me.userId} onChange={reload} onLeave={leaveQueue} />
+            ) : (
+                <Panel glowColor={NEON.cyan}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                        <Target size={20} color={NEON.cyan} />
+                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '0.06em' }}>FIND A MATCH</h3>
+                    </div>
+                    {error && (
+                        <div style={{ background: `${NEON.red}1a`, border: `1px solid ${NEON.red}66`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: NEON.red, fontSize: 13 }}>
+                            {error}
                         </div>
                     )}
-                </div>
-            </Card>
-
-            {/* Active match panel */}
-            {me.activeMatch ? (
-                <ActiveMatchPanel match={me.activeMatch} myUserId={me.userId} onChange={reload} />
-            ) : (
-                <Card>
-                    <h3 style={{ margin: '0 0 12px' }}>Join Queue</h3>
-                    {error && <p style={{ color: colors.error, margin: '0 0 8px' }}>{error}</p>}
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                        <div style={{ flex: 1, minWidth: 180 }}>
-                            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: colors.textSecondary }}>Genre</label>
-                            <select value={genreId} onChange={e => setGenreId(e.target.value)}
-                                style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6 }}>
-                                <option value="">Any genre (global pool)</option>
-                                {genres.map(g => <option key={g.id} value={g.id}>{g.name} ({g.sampleCount} samples)</option>)}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 16 }}>
+                        <FieldGroup label="GENRE" icon={<Headphones size={14} color={NEON.purple} />}>
+                            <select value={genreId} onChange={e => setGenreId(e.target.value)} style={selectStyle}>
+                                <option value="">⚡ Any genre (global pool)</option>
+                                {genres.map(g => <option key={g.id} value={g.id}>{g.name} · {g.sampleCount} samples</option>)}
                             </select>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 180 }}>
-                            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, color: colors.textSecondary }}>Production minutes</label>
-                            <select value={prodMin} onChange={e => setProdMin(Number(e.target.value))}
-                                style={{ width: '100%', padding: '8px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6 }}>
-                                {[15, 30, 45, 60, 90, 120, 180, 240, 360, 720].map(n => <option key={n} value={n}>{n} minutes</option>)}
+                        </FieldGroup>
+                        <FieldGroup label="PRODUCTION TIME" icon={<Clock size={14} color={NEON.yellow} />}>
+                            <select value={prodMin} onChange={e => setProdMin(Number(e.target.value))} style={selectStyle}>
+                                {[15, 30, 45, 60, 90, 120, 180, 240, 360, 720].map(n => (
+                                    <option key={n} value={n}>{n >= 60 ? `${n/60}h${n%60 ? ` ${n%60}m` : ''}` : `${n} min`}</option>
+                                ))}
                             </select>
-                        </div>
+                        </FieldGroup>
                     </div>
-                    <PrimaryButton onClick={joinQueue} disabled={busy || (settings ? !settings.enabled : false)}>
-                        <Play size={16} /> Join Queue
-                    </PrimaryButton>
-                </Card>
+                    <NeonButton onClick={joinQueue} disabled={busy || (settings ? !settings.enabled : false)} color={NEON.pink} size="lg">
+                        <Zap size={18} /> ENTER ARENA
+                    </NeonButton>
+                </Panel>
             )}
 
-            {/* Recent */}
+            {/* ─── RECENT MATCHES ─── */}
             {me.recentMatches.length > 0 && (
-                <Card>
-                    <h3 style={{ margin: '0 0 12px' }}>Recent Matches</h3>
-                    {me.recentMatches.map(m => {
-                        const won = m.winnerId === me.userId;
-                        return (
-                            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${colors.border}`, fontSize: 14 }}>
-                                <span>{m.genre?.name || 'Global'} — vs {m.opponentId ? profileName(m.opponentProfile, m.opponentId === me.userId ? m.challengerId : m.opponentId) : '—'}</span>
-                                <span style={{ color: won ? colors.success : colors.error, fontWeight: 600 }}>
-                                    {m.status === 'forfeited' ? (won ? 'Forfeit Win' : 'Forfeit Loss') : (won ? 'Win' : 'Loss')}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </Card>
+                <Panel>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                        <Radio size={18} color={NEON.purple} />
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, letterSpacing: '0.06em' }}>BATTLE HISTORY</h3>
+                    </div>
+                    <div>
+                        {me.recentMatches.map(m => {
+                            const won = m.winnerId === me.userId;
+                            const isCh = m.challengerId === me.userId;
+                            const oppId = isCh ? (m.opponentId || '') : m.challengerId;
+                            const oppProf = isCh ? m.opponentProfile : m.challengerProfile;
+                            const myEloAfter = isCh ? m.challengerEloAfter : m.opponentEloAfter;
+                            const myEloBefore = isCh ? m.challengerEloBefore : m.opponentEloBefore;
+                            const delta = (myEloAfter != null && myEloBefore != null) ? (myEloAfter - myEloBefore) : null;
+                            const isForfeit = m.status === 'forfeited';
+                            return (
+                                <div key={m.id} className="h2h-row-hover" style={{
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    padding: '10px 12px', borderRadius: 8,
+                                    borderLeft: `3px solid ${won ? NEON.green : NEON.red}`,
+                                    background: 'rgba(255,255,255,0.02)',
+                                    marginBottom: 6,
+                                    transition: 'background 0.15s',
+                                }}>
+                                    <span style={{
+                                        width: 40, fontWeight: 900, fontSize: 12, letterSpacing: '0.1em',
+                                        color: won ? NEON.green : NEON.red,
+                                        textShadow: `0 0 8px ${won ? NEON.green : NEON.red}66`,
+                                    }}>{won ? 'WIN' : 'LOSS'}</span>
+                                    <Avatar profile={oppProf} userId={oppId} size={32} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            vs {profileName(oppProf, oppId)}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                                            {m.genre?.name || 'Global'}{isForfeit ? ' · forfeit' : ''}
+                                        </div>
+                                    </div>
+                                    {delta != null && (
+                                        <span style={{
+                                            fontWeight: 800, fontSize: 13, fontVariantNumeric: 'tabular-nums',
+                                            color: delta >= 0 ? NEON.green : NEON.red,
+                                        }}>{delta >= 0 ? '+' : ''}{delta}</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Panel>
             )}
         </div>
     );
 };
 
-// ─── Active match panel ───────────────────────────────────────────────────
+const StatTile: React.FC<{ label: string; value: string | number; color: string; icon: React.ReactNode }> = ({ label, value, color, icon }) => (
+    <div style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${color}33`,
+        borderRadius: 10,
+        padding: '10px 12px',
+        textAlign: 'center',
+    }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, color, marginBottom: 2 }}>{icon}</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums', textShadow: `0 0 10px ${color}55` }}>{value}</div>
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.12em', fontWeight: 700, marginTop: 4 }}>{label}</div>
+    </div>
+);
 
-const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange: () => void }> = ({ match, myUserId, onChange }) => {
+const FieldGroup: React.FC<{ label: string; icon: React.ReactNode; children: React.ReactNode }> = ({ label, icon, children }) => (
+    <div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em', fontWeight: 700 }}>
+            {icon} {label}
+        </label>
+        {children}
+    </div>
+);
+
+const selectStyle: React.CSSProperties = {
+    width: '100%', padding: '10px 12px',
+    background: 'rgba(0,0,0,0.4)', color: '#fff',
+    border: `1px solid ${NEON.border}`, borderRadius: 8,
+    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    outline: 'none',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Active Match Panel — VS layout
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
+    queued:      { color: NEON.cyan,   label: 'SEARCHING',     icon: <Target size={14} /> },
+    ready_check: { color: NEON.yellow, label: 'READY UP',      icon: <CheckCircle size={14} /> },
+    producing:   { color: NEON.pink,   label: 'PRODUCING',     icon: <Headphones size={14} /> },
+    voting:      { color: NEON.purple, label: 'BEING JUDGED',  icon: <Vote size={14} /> },
+    completed:   { color: NEON.green,  label: 'COMPLETE',      icon: <Trophy size={14} /> },
+    forfeited:   { color: NEON.red,    label: 'FORFEITED',     icon: <Skull size={14} /> },
+};
+
+const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange: () => void; onLeave: () => void }> = ({ match, myUserId, onChange, onLeave }) => {
     const [, force] = useState(0);
     useEffect(() => { const t = setInterval(() => force(x => x + 1), 1000); return () => clearInterval(t); }, []);
 
@@ -292,6 +607,7 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
     const oppReady = isCh ? match.opponentReady : match.challengerReady;
     const oppId = isCh ? match.opponentId : match.challengerId;
     const oppProf = isCh ? match.opponentProfile : match.challengerProfile;
+    const myProf = isCh ? match.challengerProfile : match.opponentProfile;
     const mySubmitted = isCh ? !!match.challengerSubmissionUrl : !!match.opponentSubmissionUrl;
     const oppSubmitted = isCh ? !!match.opponentSubmissionUrl : !!match.challengerSubmissionUrl;
 
@@ -317,97 +633,213 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
         onChange();
     };
 
+    const meta = STATUS_META[match.status] || { color: NEON.cyan, label: match.status.toUpperCase(), icon: null };
+    const deadline = match.status === 'ready_check' ? match.readyDeadline
+                   : match.status === 'producing' ? match.producingDeadline
+                   : match.status === 'voting' ? match.votingEnd
+                   : null;
+    const tl = timeLeft(deadline);
+
     return (
-        <Card style={{ borderLeft: `4px solid ${colors.primary}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                <h3 style={{ margin: 0 }}>Your Match · <span style={{ color: colors.primary }}>{match.status.replace('_', ' ').toUpperCase()}</span></h3>
-                <span style={{ color: colors.textSecondary, fontSize: 13 }}>{match.genre?.name || 'Global'} · {match.productionMinutes}m</span>
+        <Panel glowColor={meta.color} className="h2h-glow-card" style={{ ['--glow-c' as any]: `${meta.color}55` }}>
+            {/* Status header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '6px 14px', borderRadius: 999,
+                    background: `${meta.color}22`, border: `1px solid ${meta.color}88`,
+                    color: meta.color, fontWeight: 800, fontSize: 12, letterSpacing: '0.12em',
+                    textShadow: `0 0 10px ${meta.color}66`,
+                }}>{meta.icon} {meta.label}</span>
+                {deadline && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Clock size={14} color={tl.urgent ? NEON.red : 'rgba(255,255,255,0.6)'} />
+                        <span className={tl.urgent ? 'h2h-pulse' : ''} style={{
+                            fontFamily: 'monospace', fontSize: 22, fontWeight: 800,
+                            color: tl.urgent ? NEON.red : '#fff',
+                            textShadow: tl.urgent ? `0 0 12px ${NEON.red}` : 'none',
+                            fontVariantNumeric: 'tabular-nums', letterSpacing: '0.08em',
+                        }}>{tl.txt}</span>
+                    </div>
+                )}
             </div>
 
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
-                <div style={{ flex: 1, minWidth: 200, background: colors.background, padding: 12, borderRadius: 8 }}>
-                    <div style={{ fontSize: 12, color: colors.textSecondary }}>You</div>
-                    <div style={{ fontWeight: 600 }}>{profileName(isCh ? match.challengerProfile : match.opponentProfile, myUserId)}</div>
+            {/* VS layout */}
+            <div className="h2h-vs-grid" style={{
+                display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+                gap: 18, alignItems: 'center', marginBottom: 18,
+            }}>
+                <FighterCard
+                    side="left"
+                    name={profileName(myProf, myUserId)}
+                    profile={myProf}
+                    userId={myUserId}
+                    color={NEON.cyan}
+                    isYou
+                    ready={match.status === 'ready_check' ? meReady : undefined}
+                    submitted={match.status === 'producing' ? mySubmitted : undefined}
+                />
+                <div className="h2h-vs-divider" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
+                    <div style={{ position: 'relative', width: 70, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Swords className="h2h-vs-clash-l" size={40} color={NEON.cyan} style={{ position: 'absolute', filter: `drop-shadow(0 0 8px ${NEON.cyan})` }} />
+                        <Swords className="h2h-vs-clash-r" size={40} color={NEON.pink} style={{ position: 'absolute', filter: `drop-shadow(0 0 8px ${NEON.pink})` }} />
+                        <div className="h2h-spark" style={{ position: 'absolute', width: 12, height: 12, borderRadius: '50%', background: NEON.yellow, boxShadow: `0 0 16px ${NEON.yellow}, 0 0 28px ${NEON.yellow}` }} />
+                    </div>
+                    <div style={{
+                        position: 'absolute', bottom: -8,
+                        fontSize: 18, fontWeight: 900, letterSpacing: '0.2em',
+                        background: `linear-gradient(135deg, ${NEON.cyan}, ${NEON.pink})`,
+                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    }}>VS</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 200, background: colors.background, padding: 12, borderRadius: 8 }}>
-                    <div style={{ fontSize: 12, color: colors.textSecondary }}>Opponent</div>
-                    <div style={{ fontWeight: 600 }}>{oppId ? profileName(oppProf, oppId) : 'Waiting…'}</div>
-                </div>
+                <FighterCard
+                    side="right"
+                    name={oppId ? profileName(oppProf, oppId) : 'WAITING…'}
+                    profile={oppProf}
+                    userId={oppId || ''}
+                    color={NEON.pink}
+                    isWaiting={!oppId}
+                    ready={match.status === 'ready_check' ? oppReady : undefined}
+                    submitted={match.status === 'producing' ? oppSubmitted : undefined}
+                />
             </div>
 
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 16 }}>
+                {match.genre?.name || 'GLOBAL'} · {match.productionMinutes} MIN PRODUCTION
+            </div>
+
+            {/* Status-specific content */}
             {match.status === 'queued' && (
-                <p style={{ margin: 0, color: colors.textSecondary }}>
-                    <Clock size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                    Searching for an opponent in your bucket… The page will update automatically.
-                </p>
+                <div style={{ textAlign: 'center', padding: '14px 0' }}>
+                    <Loader className="h2h-spin" size={28} color={NEON.cyan} style={{ marginBottom: 8 }} />
+                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+                        Scanning the arena for a worthy challenger…
+                    </p>
+                    <div style={{ marginTop: 14 }}>
+                        <NeonButton onClick={onLeave} color={NEON.red} size="sm">Leave Queue</NeonButton>
+                    </div>
+                </div>
             )}
 
             {match.status === 'ready_check' && (
-                <div>
-                    <p style={{ marginTop: 0 }}>
-                        Ready up before <strong>{timeLeft(match.readyDeadline)}</strong> — both players must confirm to start the production timer.
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: '0 0 14px', color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>
+                        Both fighters must lock in. The production timer starts when you both ready up.
                     </p>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <PrimaryButton onClick={ready} disabled={meReady || readying}>
-                            <CheckCircle size={16} /> {meReady ? 'You are ready' : 'Ready Up'}
-                        </PrimaryButton>
-                        <span style={{ color: colors.textSecondary, fontSize: 13 }}>
-                            Opponent: {oppReady ? '✓ Ready' : 'Not ready'}
-                        </span>
-                    </div>
+                    <NeonButton onClick={ready} disabled={meReady || readying} color={meReady ? NEON.green : NEON.yellow} size="lg">
+                        <CheckCircle size={18} /> {meReady ? 'LOCKED IN' : 'READY UP'}
+                    </NeonButton>
                 </div>
             )}
 
             {match.status === 'producing' && (
                 <div>
-                    <p style={{ marginTop: 0 }}>
-                        <Clock size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                        Submission deadline: <strong>{timeLeft(match.producingDeadline)}</strong>
-                    </p>
                     {match.samples && match.samples.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                            <h4 style={{ marginBottom: 8 }}>Your Samples</h4>
-                            {match.samples.map(s => (
-                                <a key={s.id} href={s.fileUrl} target="_blank" rel="noopener noreferrer" download style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                                    background: colors.background, color: colors.textPrimary, textDecoration: 'none',
-                                    padding: '6px 10px', borderRadius: 6, marginRight: 8, marginBottom: 8, fontSize: 13,
-                                    border: `1px solid ${colors.border}`,
-                                }}>{s.name}</a>
-                            ))}
+                        <div style={{ marginBottom: 18 }}>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.12em', fontWeight: 700, marginBottom: 8 }}>
+                                YOUR WEAPONS · {match.samples.length} SAMPLE{match.samples.length === 1 ? '' : 'S'}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {match.samples.map(s => (
+                                    <a key={s.id} href={s.fileUrl} target="_blank" rel="noopener noreferrer" download style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                                        background: `linear-gradient(135deg, ${NEON.purple}22, ${NEON.purple}11)`,
+                                        color: '#fff', textDecoration: 'none',
+                                        padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                                        border: `1px solid ${NEON.purple}66`,
+                                        boxShadow: `0 0 8px ${NEON.purple}33`,
+                                    }}>
+                                        <Headphones size={14} color={NEON.purple} /> {s.name}
+                                    </a>
+                                ))}
+                            </div>
                         </div>
                     )}
-                    <div style={{ marginBottom: 8, color: mySubmitted ? colors.success : colors.textSecondary }}>
-                        {mySubmitted ? '✓ Your track is submitted' : 'You have not submitted yet'} · Opponent: {oppSubmitted ? '✓' : 'pending'}
+                    <div style={{ textAlign: 'center' }}>
+                        <label style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 10,
+                            background: `linear-gradient(135deg, ${NEON.pink}cc, ${NEON.pink}88)`,
+                            color: '#fff', padding: '14px 28px',
+                            borderRadius: 10, cursor: submitting ? 'wait' : 'pointer',
+                            fontWeight: 800, fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            border: `1px solid ${NEON.pink}`,
+                            boxShadow: `0 0 18px ${NEON.pink}66`,
+                        }}>
+                            <Upload size={18} /> {submitting ? 'Uploading…' : (mySubmitted ? 'Replace Submission' : 'Submit Track')}
+                            <input type="file" accept="audio/*" style={{ display: 'none' }}
+                                disabled={submitting}
+                                onChange={e => e.target.files?.[0] && submit(e.target.files[0])} />
+                        </label>
                     </div>
-                    <label style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: colors.primary, color: '#fff', padding: '10px 20px',
-                        borderRadius: borderRadius.md, cursor: 'pointer', fontWeight: 600,
-                    }}>
-                        <Upload size={16} /> {submitting ? 'Uploading…' : (mySubmitted ? 'Replace Submission' : 'Submit Track')}
-                        <input type="file" accept="audio/*" style={{ display: 'none' }}
-                            disabled={submitting}
-                            onChange={e => e.target.files?.[0] && submit(e.target.files[0])} />
-                    </label>
                 </div>
             )}
 
             {match.status === 'voting' && (
-                <p style={{ marginTop: 0 }}>
-                    <Vote size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                    Voting closes in <strong>{timeLeft(match.votingEnd)}</strong>. Other competitors are judging your match now.
-                </p>
+                <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>
+                        Submissions locked. Other competitors are casting their votes.
+                    </p>
+                </div>
             )}
-        </Card>
+        </Panel>
     );
 };
 
-// ─── Vote tab ──────────────────────────────────────────────────────────────
+const FighterCard: React.FC<{
+    side: 'left' | 'right';
+    name: string;
+    profile: Profile | null | undefined;
+    userId: string;
+    color: string;
+    isYou?: boolean;
+    isWaiting?: boolean;
+    ready?: boolean;
+    submitted?: boolean;
+}> = ({ side, name, profile, userId, color, isYou, isWaiting, ready, submitted }) => (
+    <div style={{
+        background: `linear-gradient(${side === 'left' ? '90deg' : '270deg'}, ${color}1a, transparent)`,
+        border: `1px solid ${color}55`,
+        borderRadius: 12,
+        padding: '14px',
+        textAlign: side === 'left' ? 'left' : 'right',
+        position: 'relative',
+        overflow: 'hidden',
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexDirection: side === 'left' ? 'row' : 'row-reverse' }}>
+            <Avatar profile={profile} userId={userId} size={56} ring={color} ringPulse={!isWaiting} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, color: color, letterSpacing: '0.15em', fontWeight: 800 }}>
+                    {isYou ? 'YOU' : isWaiting ? 'OPPONENT' : 'CHALLENGER'}
+                </div>
+                <div style={{
+                    fontWeight: 800, fontSize: 16, color: '#fff',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    textShadow: `0 0 8px ${color}55`,
+                }}>{name}</div>
+                {ready != null && (
+                    <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', color: ready ? NEON.green : 'rgba(255,255,255,0.4)' }}>
+                        {ready ? '✓ LOCKED IN' : '○ NOT READY'}
+                    </div>
+                )}
+                {submitted != null && (
+                    <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', color: submitted ? NEON.green : 'rgba(255,255,255,0.4)' }}>
+                        {submitted ? '✓ SUBMITTED' : '○ PENDING'}
+                    </div>
+                )}
+            </div>
+        </div>
+    </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vote Tab
+// ─────────────────────────────────────────────────────────────────────────────
 
 const VoteTab: React.FC = () => {
     const [data, setData] = useState<{ eligible: boolean; reason?: string; matches: VotingMatch[] } | null>(null);
     const [loading, setLoading] = useState(true);
+    const [, force] = useState(0);
+    useEffect(() => { const t = setInterval(() => force(x => x + 1), 1000); return () => clearInterval(t); }, []);
 
     const reload = async () => {
         setLoading(true);
@@ -427,42 +859,99 @@ const VoteTab: React.FC = () => {
         await reload();
     };
 
-    if (loading || !data) return <Loader className="spin" />;
-    if (!data.eligible) return <Card><p style={{ margin: 0 }}>{data.reason}</p></Card>;
-    if (data.matches.length === 0) return <Card><p style={{ margin: 0 }}>No matches need votes right now. Check back soon.</p></Card>;
+    if (loading || !data) return (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+            <Loader className="h2h-spin" size={32} color={NEON.cyan} />
+        </div>
+    );
+    if (!data.eligible) return (
+        <Panel glowColor={NEON.yellow}>
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <Vote size={36} color={NEON.yellow} style={{ opacity: 0.6, marginBottom: 8 }} />
+                <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)' }}>{data.reason}</p>
+                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                    Only active competitors may judge other matches.
+                </p>
+            </div>
+        </Panel>
+    );
+    if (data.matches.length === 0) return (
+        <Panel>
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <Headphones size={36} color={NEON.cyan} style={{ opacity: 0.6, marginBottom: 8 }} />
+                <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)' }}>No matches need judges right now.</p>
+                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Check back soon — fresh battles drop constantly.</p>
+            </div>
+        </Panel>
+    );
 
     return (
         <div>
+            <div style={{ marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em' }}>
+                Vote for the better track. Your vote matters — only active competitors judge.
+            </div>
             {data.matches.map(m => {
                 const chName = profileName(m.challengerProfile, m.challengerId);
                 const opName = m.opponentId ? profileName(m.opponentProfile, m.opponentId) : '—';
+                const tl = timeLeft(m.votingEnd);
                 return (
-                    <Card key={m.id}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                            <h4 style={{ margin: 0 }}>{m.genre?.name || 'Global'} battle</h4>
-                            <span style={{ color: colors.textSecondary, fontSize: 13 }}>Closes in {timeLeft(m.votingEnd)}</span>
+                    <Panel key={m.id} glowColor={NEON.cyan}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: `${NEON.purple}22`, border: `1px solid ${NEON.purple}66`, color: NEON.purple, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
+                                    <Headphones size={12} /> {m.genre?.name || 'GLOBAL'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Clock size={12} color={tl.urgent ? NEON.red : 'rgba(255,255,255,0.5)'} />
+                                <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: tl.urgent ? NEON.red : 'rgba(255,255,255,0.7)' }}>{tl.txt}</span>
+                            </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-                            {[{ id: m.challengerId, name: chName, url: m.challengerSubmissionUrl }, { id: m.opponentId!, name: opName, url: m.opponentSubmissionUrl }].map(side => (
-                                <div key={side.id} style={{ background: colors.background, padding: 12, borderRadius: 8, border: m.myVote === side.id ? `2px solid ${colors.primary}` : `1px solid ${colors.border}` }}>
-                                    <div style={{ fontWeight: 600, marginBottom: 6 }}>{side.name}</div>
-                                    {side.url ? (
-                                        <audio controls src={side.url} style={{ width: '100%', marginBottom: 8 }} />
-                                    ) : <p style={{ color: colors.textSecondary, fontSize: 13 }}>No submission</p>}
-                                    <PrimaryButton onClick={() => vote(m.id, side.id)} disabled={m.myVote === side.id}>
-                                        <Award size={14} /> {m.myVote === side.id ? 'Your Vote' : 'Vote'}
-                                    </PrimaryButton>
-                                </div>
-                            ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                            {[
+                                { id: m.challengerId, name: chName, profile: m.challengerProfile, url: m.challengerSubmissionUrl, color: NEON.cyan },
+                                { id: m.opponentId!, name: opName, profile: m.opponentProfile, url: m.opponentSubmissionUrl, color: NEON.pink },
+                            ].map(side => {
+                                const isMine = m.myVote === side.id;
+                                return (
+                                    <div key={side.id} style={{
+                                        background: isMine ? `linear-gradient(135deg, ${side.color}22, ${side.color}11)` : 'rgba(255,255,255,0.03)',
+                                        padding: 14, borderRadius: 10,
+                                        border: isMine ? `2px solid ${side.color}` : `1px solid ${NEON.border}`,
+                                        boxShadow: isMine ? `0 0 18px ${side.color}55` : 'none',
+                                        position: 'relative',
+                                    }}>
+                                        {isMine && (
+                                            <span style={{ position: 'absolute', top: 10, right: 10, background: side.color, color: '#000', fontSize: 9, fontWeight: 900, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.1em' }}>
+                                                YOUR PICK
+                                            </span>
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                            <Avatar profile={side.profile} userId={side.id} size={40} ring={side.color} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{side.name}</div>
+                                            </div>
+                                        </div>
+                                        {side.url ? (
+                                            <audio controls src={side.url} style={{ width: '100%', marginBottom: 10 }} />
+                                        ) : <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, margin: '0 0 10px' }}>No submission</p>}
+                                        <NeonButton onClick={() => vote(m.id, side.id)} disabled={isMine} color={side.color} size="sm" style={{ width: '100%', justifyContent: 'center' }}>
+                                            <Award size={14} /> {isMine ? 'Voted' : `Vote ${side.name.split(/\s+/)[0]}`}
+                                        </NeonButton>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    </Card>
+                    </Panel>
                 );
             })}
         </div>
     );
 };
 
-// ─── Leaderboard tab ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Leaderboard Tab
+// ─────────────────────────────────────────────────────────────────────────────
 
 const LeaderboardTab: React.FC = () => {
     const [genres, setGenres] = useState<Genre[]>([]);
@@ -480,50 +969,112 @@ const LeaderboardTab: React.FC = () => {
 
     useEffect(() => {
         fetch(`${API}/api/head-to-head/genres`).then(r => r.json()).then(d => setGenres(d.genres || []));
+        load('');
     }, []);
+
     useEffect(() => { load(genreId); }, [genreId]);
+
+    const podium = rows.slice(0, 3);
+    const rest = rows.slice(3);
+    const podiumOrder = [podium[1], podium[0], podium[2]].filter(Boolean); // 2-1-3 layout
 
     return (
         <div>
-            <div style={{ marginBottom: 16 }}>
-                <select value={genreId} onChange={e => setGenreId(e.target.value)}
-                    style={{ padding: '8px 12px', background: colors.surface, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6 }}>
-                    <option value="">Global</option>
-                    {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-            </div>
-            {loading ? <Loader className="spin" /> : rows.length === 0 ? (
-                <Card><p style={{ margin: 0 }}>No ranked players in this category yet.</p></Card>
-            ) : (
-                <Card>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                                <th style={{ textAlign: 'left', padding: 8 }}>#</th>
-                                <th style={{ textAlign: 'left', padding: 8 }}>Producer</th>
-                                <th style={{ textAlign: 'right', padding: 8 }}>Elo</th>
-                                <th style={{ textAlign: 'right', padding: 8 }}>W/L</th>
-                                <th style={{ textAlign: 'right', padding: 8 }}>Matches</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map(r => (
-                                <tr key={`${r.userId}-${r.rank}`} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                                    <td style={{ padding: 8, fontWeight: 700, color: r.rank <= 3 ? colors.primary : colors.textPrimary }}>
-                                        {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
-                                    </td>
-                                    <td style={{ padding: 8 }}>{profileName(r.profile, r.userId)}</td>
-                                    <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{r.elo}</td>
-                                    <td style={{ padding: 8, textAlign: 'right', color: colors.textSecondary }}>{r.wins}/{r.losses}</td>
-                                    <td style={{ padding: 8, textAlign: 'right', color: colors.textSecondary }}>{r.matchesPlayed}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </Card>
-            )}
+            <Panel glowColor={NEON.yellow}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Trophy size={22} color={NEON.yellow} />
+                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '0.08em' }}>HALL OF CHAMPIONS</h3>
+                    </div>
+                    <select value={genreId} onChange={e => setGenreId(e.target.value)} style={{ ...selectStyle, width: 'auto', minWidth: 200 }}>
+                        <option value="">⚡ Global Rankings</option>
+                        {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                </div>
+
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+                        <Loader className="h2h-spin" size={28} color={NEON.cyan} />
+                    </div>
+                ) : rows.length === 0 ? (
+                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 20 }}>No rankings yet — be the first.</p>
+                ) : (
+                    <>
+                        {/* Podium */}
+                        {podium.length > 0 && (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${podiumOrder.length}, 1fr)`,
+                                gap: 12, marginBottom: 18, alignItems: 'end',
+                            }}>
+                                {podiumOrder.map(p => {
+                                    const isFirst = p.rank === 1;
+                                    const isSecond = p.rank === 2;
+                                    const podiumColor = isFirst ? NEON.yellow : isSecond ? '#C0C0C0' : '#CD7F32';
+                                    const height = isFirst ? 200 : isSecond ? 170 : 150;
+                                    return (
+                                        <div key={p.userId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <Avatar profile={p.profile} userId={p.userId} size={isFirst ? 72 : 56} ring={podiumColor} ringPulse={isFirst} />
+                                            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 13, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                                {profileName(p.profile, p.userId)}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{p.wins}W · {p.losses}L</div>
+                                            <div style={{
+                                                width: '100%', height,
+                                                background: `linear-gradient(180deg, ${podiumColor}cc, ${podiumColor}33)`,
+                                                borderRadius: '10px 10px 0 0',
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
+                                                paddingTop: 14,
+                                                boxShadow: `0 0 24px ${podiumColor}66, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                                                position: 'relative',
+                                            }}>
+                                                <div style={{ fontSize: isFirst ? 36 : 28, fontWeight: 900, color: '#fff', textShadow: `0 0 14px ${podiumColor}` }}>#{p.rank}</div>
+                                                <div style={{ fontSize: isFirst ? 22 : 18, fontWeight: 800, color: '#fff', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{p.elo}</div>
+                                                <div style={{ marginTop: 6 }}>
+                                                    <TierBadge elo={p.elo} size="sm" />
+                                                </div>
+                                                {isFirst && (
+                                                    <Crown size={28} color="#fff" style={{ position: 'absolute', top: -18, filter: `drop-shadow(0 0 8px ${podiumColor})` }} />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Rest of leaderboard */}
+                        {rest.length > 0 && (
+                            <div>
+                                {rest.map(r => {
+                                    const t = tierFor(r.elo);
+                                    return (
+                                        <div key={r.userId} className="h2h-row-hover" style={{
+                                            display: 'flex', alignItems: 'center', gap: 12,
+                                            padding: '10px 12px', borderRadius: 8,
+                                            background: 'rgba(255,255,255,0.02)',
+                                            marginBottom: 4,
+                                        }}>
+                                            <span style={{ width: 36, fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.45)', fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>#{r.rank}</span>
+                                            <Avatar profile={r.profile} userId={r.userId} size={36} ring={t.color} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {profileName(r.profile, r.userId)}
+                                                </div>
+                                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{r.wins}W · {r.losses}L · {r.matchesPlayed} battles</div>
+                                            </div>
+                                            <TierBadge elo={r.elo} size="sm" />
+                                            <span style={{ fontSize: 16, fontWeight: 800, color: t.color, fontVariantNumeric: 'tabular-nums', textShadow: `0 0 10px ${t.glow}`, minWidth: 50, textAlign: 'right' }}>
+                                                {r.elo}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </>
+                )}
+            </Panel>
         </div>
     );
 };
-
-export default HeadToHeadArenaPage;
