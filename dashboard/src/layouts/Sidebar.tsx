@@ -40,6 +40,7 @@ import {
   ClipboardCheck,
   Megaphone,
   GraduationCap,
+  Drum,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -421,6 +422,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
                 <span className="nav-label">Head-to-Head</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('drum-kit') && (
+            <button
+                className={`nav-item ${activeSection === 'drum-kit' ? 'active' : ''}`}
+                onClick={() => onNavigate('drum-kit')}
+                title={collapsed ? "Drum Kit Generator" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Drum} size={20} /></span>
+                <span className="nav-label">Drum Kit Generator</span>
             </button>
           )}
 

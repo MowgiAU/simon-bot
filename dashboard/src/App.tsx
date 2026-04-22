@@ -94,6 +94,7 @@ const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModa
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
 const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
+const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -148,7 +149,8 @@ type Section =
   | "voice-stats"
   | "spam-guard"
   | "track-announcer"
-  | "academy";
+  | "academy"
+  | "drum-kit";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -335,6 +337,7 @@ const AdminDashboard: React.FC = () => {
     'logs': 'logger',
     'beat-battle': 'beat-battle',
     'head-to-head': 'head-to-head',
+    'drum-kit': 'drum-kit',
     'battle-archive': 'beat-battle',
     'featured-content': 'featured-content',
     'fuji-radio': 'fuji-radio',
@@ -439,6 +442,8 @@ const AdminDashboard: React.FC = () => {
           return <BeatBattlePage />;
         case "head-to-head":
           return <HeadToHeadAdminPage />;
+        case "drum-kit":
+          return <DrumKitGeneratorPage />;
         case "battle-archive":
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":

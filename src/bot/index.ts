@@ -19,6 +19,7 @@ import { WordFilterPlugin } from './plugins/WordFilterPlugin';
 import { StatsPlugin } from './plugins/StatsPlugin';
 import { LoggerPlugin } from './plugins/LoggerPlugin';
 import { StagingTestPlugin } from './plugins/StagingTestPlugin';
+import { DrumKitPlugin } from './plugins/DrumKitPlugin';
 import { ModerationPlugin } from './plugins/ModerationPlugin';
 import { EconomyPlugin } from './plugins/EconomyPlugin';
 import { ProductionFeedbackPlugin } from './plugins/ProductionFeedbackPlugin';
@@ -123,6 +124,7 @@ export class SimonBot {
       this.pluginManager.register(new StatsPlugin());
       this.pluginManager.register(new LoggerPlugin());
       this.pluginManager.register(new StagingTestPlugin());
+      this.pluginManager.register(new DrumKitPlugin());
       this.pluginManager.register(new ModerationPlugin());
       this.pluginManager.register(new EconomyPlugin());
       this.pluginManager.register(new ProductionFeedbackPlugin());
