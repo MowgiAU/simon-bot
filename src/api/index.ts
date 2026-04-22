@@ -11528,14 +11528,29 @@ app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
             select: { userId: true, username: true, displayName: true, avatar: true },
         });
         const pmap = new Map(profiles.map(p => [p.userId, p]));
+        // Pre-load samples for any active/recent match that already has sampleIds.
+        const sampleIdSet = new Set<string>();
+        const collectIds = (m: any) => {
+            const ids = (m?.sampleIds as string[] | null) || [];
+            for (const id of ids) sampleIdSet.add(id);
+        };
+        if (activeMatch) collectIds(activeMatch);
+        for (const m of recent) collectIds(m);
+        const sampleRows = sampleIdSet.size
+            ? await db.h2HSample.findMany({ where: { id: { in: Array.from(sampleIdSet) } } })
+            : [];
+        const smap = new Map(sampleRows.map(s => [s.id, s]));
         const attach = (m: any) => {
             const reveal = H2H_REVEAL_STATUSES.has(m.status);
             const chReal = pmap.get(m.challengerId) || { userId: m.challengerId, username: null, displayName: null, avatar: null };
             const opReal = m.opponentId ? (pmap.get(m.opponentId) || { userId: m.opponentId, username: null, displayName: null, avatar: null }) : null;
             const chIsMe = m.challengerId === userId;
             const opIsMe = m.opponentId === userId;
+            const ids = (m.sampleIds as string[] | null) || [];
+            const samples = ids.map(id => smap.get(id)).filter(Boolean);
             return {
                 ...m,
+                samples,
                 challengerProfile: reveal || chIsMe ? chReal : anonProfile(m.challengerId),
                 opponentProfile: !m.opponentId ? null : (reveal || opIsMe ? opReal : anonProfile(m.opponentId)),
             };
@@ -11795,6 +11810,9 @@ async function advanceToProduction(match: any): Promise<void> {
         includeMelody: match.includeMelody !== false,
         includeChords: match.includeChords !== false,
     });
+    if (!sampleIds.length) {
+        logger.warn(`H2H match ${match.id} advancing to production with NO samples (genreId=${match.genreId ?? 'global'}). Check sample pools.`);
+    }
     const now = new Date();
     const deadline = new Date(now.getTime() + match.productionMinutes * 60 * 1000);
     await db.h2HMatch.update({
