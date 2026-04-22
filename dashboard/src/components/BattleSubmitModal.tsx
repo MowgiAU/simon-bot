@@ -92,8 +92,6 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     const [tracksLoading, setTracksLoading] = useState(false);
     const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
     const [libraryDescription, setLibraryDescription] = useState('');
-    const [libraryProjectFile, setLibraryProjectFile] = useState<File | null>(null);
-    const libraryProjectRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (open && tab === 'library') fetchTracks();
@@ -193,35 +191,25 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
         let scanTimer: ReturnType<typeof setTimeout> | null = null;
 
         try {
+            let trackId: string;
+
             if (tab === 'library') {
                 if (!selectedTrackId) { setError('Select a track from your library.'); setSubmitting(false); return; }
                 const selectedTrack = tracks.find(t => t.id === selectedTrackId);
                 const trackHasProject = !!selectedTrack?.projectFileUrl;
-                if (requireProjectFile && !trackHasProject && !libraryProjectFile) { setError('This battle requires a project file. The selected track has none — add one to your track page first.'); setSubmitting(false); return; }
-                const formData = new FormData();
-                formData.append('trackId', selectedTrackId);
-                formData.append('title', selectedTrack?.title || 'Untitled');
-                if (libraryDescription.trim()) formData.append('description', libraryDescription.trim());
-                if (libraryProjectFile) formData.append('project', libraryProjectFile);
-                setUploadStage('uploading');
-                await axios.post(`${API}/api/beat-battle/battles/${battleId}/submit`, formData, {
-                    withCredentials: true,
-                    onUploadProgress: (evt) => {
-                        if (evt.total) {
-                            const pct = Math.round((evt.loaded / evt.total) * 100);
-                            setUploadProgress(pct);
-                            if (pct >= 100) {
-                                setUploadStage('scanning');
-                                scanTimer = setTimeout(() => setUploadStage('converting'), 4000);
-                            }
-                        }
-                    },
-                });
+                if (requireProjectFile && !trackHasProject) {
+                    setError('This battle requires a project file. The selected track has none — add one to your track page first.');
+                    setSubmitting(false);
+                    return;
+                }
+                trackId = selectedTrackId;
             } else {
+                // Upload tab: first upload as a regular Track to the user's library, then submit it.
                 if (!audioFile) { setError('Please select an audio file.'); setSubmitting(false); return; }
                 if (!title.trim()) { setError('Please enter a track title.'); setSubmitting(false); return; }
                 if (!tosAgreed) { setError('You must confirm you own the rights to this audio.'); setSubmitting(false); return; }
                 if (requireProjectFile && !projectFile) { setError('This battle requires a project file (.flp or .zip).'); setSubmitting(false); return; }
+
                 const formData = new FormData();
                 formData.append('audio', audioFile);
                 formData.append('title', title.trim());
@@ -229,10 +217,11 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                 if (artist.trim()) formData.append('artist', artist.trim());
                 if (bpm) formData.append('bpm', bpm);
                 if (key) formData.append('key', key);
-                if (coverFile) formData.append('cover', coverFile);
+                if (coverFile) formData.append('artwork', coverFile);
                 if (projectFile) formData.append('project', projectFile);
+
                 setUploadStage('uploading');
-                await axios.post(`${API}/api/beat-battle/battles/${battleId}/submit`, formData, {
+                const uploadRes = await axios.post(`${API}/api/musician/tracks`, formData, {
                     withCredentials: true,
                     onUploadProgress: (evt) => {
                         if (evt.total) {
@@ -245,7 +234,17 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                         }
                     },
                 });
+                trackId = uploadRes.data?.id;
+                if (!trackId) throw new Error('Upload succeeded but no track id was returned.');
             }
+
+            // Link Track → Battle (the new slim submit endpoint)
+            await axios.post(
+                `${API}/api/beat-battle/battles/${battleId}/submit`,
+                { trackId },
+                { withCredentials: true },
+            );
+
             onSubmitted();
             onClose();
         } catch (err: any) {
@@ -521,27 +520,8 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                                     </div>
                                                 </div>
                                             );
-                                        } else {
-                                            return (
-                                                <div>
-                                                    <label style={labelStyle}>Project File (.flp, .zip) — optional</label>
-                                                    <input ref={libraryProjectRef} type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setLibraryProjectFile(e.target.files?.[0] || null)} />
-                                                    <label
-                                                        style={dragOver === 'project' ? fileZoneDragging : libraryProjectFile ? fileZoneActive : fileZone}
-                                                        onDragOver={e => { e.preventDefault(); setDragOver('project'); }}
-                                                        onDragLeave={() => setDragOver(null)}
-                                                        onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setLibraryProjectFile(f); }}
-                                                        onClick={() => libraryProjectRef.current?.click()}
-                                                    >
-                                                        <FileArchive size={16} color={libraryProjectFile ? colors.primary : colors.textSecondary} style={{ flexShrink: 0 }} />
-                                                        <span style={{ fontSize: '13px', color: libraryProjectFile ? colors.textPrimary : colors.textSecondary }}>
-                                                            {libraryProjectFile ? libraryProjectFile.name : 'Drop .flp or .zip here, or click to browse'}
-                                                        </span>
-                                                        {libraryProjectFile && <Check size={14} color={colors.primary} style={{ flexShrink: 0 }} />}
-                                                    </label>
-                                                </div>
-                                            );
                                         }
+                                        return null;
                                     })()}
                                 </div>
                             )}
@@ -569,7 +549,7 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     {/* Submit button */}
                     {(() => {
                         const selTrack = tab === 'library' ? tracks.find(t => t.id === selectedTrackId) : undefined;
-                        const libraryBlocked = tab === 'library' && !!selectedTrackId && requireProjectFile && !selTrack?.projectFileUrl && !libraryProjectFile;
+                        const libraryBlocked = tab === 'library' && !!selectedTrackId && requireProjectFile && !selTrack?.projectFileUrl;
                         const isDisabled = submitting || (tab === 'upload' && !tosAgreed) || libraryBlocked;
                         return (
                             <button onClick={handleSubmit} disabled={isDisabled}

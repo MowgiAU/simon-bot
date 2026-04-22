@@ -1231,38 +1231,45 @@ model BeatBattle {
 }
 
 model BattleEntry {
+  // Slim join row: links a Track to a Battle. Track is the single source of truth
+  // for content (title, audio, cover, bpm, etc.) — read those via `track`.
+  // Legacy content columns are kept as deprecated/nullable for backward compat;
+  // they will be dropped in a future migration once all readers are migrated.
   id          String   @id @default(cuid())
   battleId    String
-  userId      String   // Discord user ID
-  username    String   // Cached display name
-  trackTitle  String
-  audioUrl    String   // Path to uploaded audio
-  coverUrl    String?  // Optional cover art
-  avatarUrl   String?  // Submitter's Discord avatar URL
-  description String?  @db.Text // Optional description
-  projectUrl  String?  // Optional project file (.flp/.zip) URL
-  duration    Int      @default(0) // seconds
-  bpm         Int?
-  key         String?
-  artist      String?
-  arrangement Json?              // Parsed FLP arrangement data
-  waveformPeaks Json?            // number[] ~200 normalised RMS values for waveform display
+  userId      String   // Discord user ID (denormalized for the @@unique constraint)
+  trackId     String   // REQUIRED: FK to musician Track
   voteCount   Int      @default(0) // Denormalized for perf
-  trackId     String?  // FK to musician Track (library submission)
   source      String   @default("web")
   createdAt   DateTime @default(now())
+
+  // ── Deprecated content snapshots (no longer written; reads use `track.*`) ──
+  username      String?
+  trackTitle    String?
+  audioUrl      String?
+  coverUrl      String?
+  avatarUrl     String?
+  description   String?  @db.Text
+  projectUrl    String?
+  duration      Int?
+  bpm           Int?
+  key           String?
+  artist        String?
+  arrangement   Json?
+  waveformPeaks Json?
 
   // Soft delete
   deletedAt   DateTime?
 
   battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
-  track       Track?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
   votes       BattleVote[]
   comments    Comment[]
 
-  @@unique([battleId, userId]) // One entry per battle per user
+  @@unique([battleId, userId]) // One entry per user per battle
   @@index([battleId])
   @@index([userId])
+  @@index([trackId])
   @@map("battle_entries")
 }
 

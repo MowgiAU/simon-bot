@@ -11,6 +11,7 @@ import {
     LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -122,7 +123,14 @@ export const BattlesPage: React.FC = () => {
             ]);
             if (!battlesRes.ok) return;
             const data: Battle[] = await battlesRes.json();
-            setBattles(data);
+            // Flatten entries to legacy shape so existing render code works after the schema slim-down
+            const flattened = data.map(b => ({
+                ...b,
+                entries: Array.isArray((b as any).entries)
+                    ? (b as any).entries.map(flattenBattleEntry)
+                    : (b as any).entries,
+            }));
+            setBattles(flattened);
 
             if (pageSettingsRes.ok) {
                 const ps = await pageSettingsRes.json();

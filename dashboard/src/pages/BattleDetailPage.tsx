@@ -12,6 +12,7 @@ import {
     Download, Music, AlertCircle,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -248,7 +249,13 @@ export const BattleDetailPage: React.FC = () => {
         setLoading(true);
         fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setBattle(data); })
+            .then(data => {
+                if (!data) return;
+                if (Array.isArray(data.entries)) {
+                    data.entries = data.entries.map(flattenBattleEntry);
+                }
+                setBattle(data);
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [battleId]);
@@ -1009,7 +1016,13 @@ export const BattleDetailPage: React.FC = () => {
                 setLoading(true);
                 fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include', cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)
-                    .then(data => { if (data) setBattle(data); })
+                    .then(data => {
+                        if (!data) return;
+                        if (Array.isArray(data.entries)) {
+                            data.entries = data.entries.map(flattenBattleEntry);
+                        }
+                        setBattle(data);
+                    })
                     .catch(() => {})
                     .finally(() => setLoading(false));
             }} />}

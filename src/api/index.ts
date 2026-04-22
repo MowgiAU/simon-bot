@@ -7859,6 +7859,26 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(120), async (re
         if (track.allowAudioDownload === undefined) track.allowAudioDownload = true;
         if (track.allowProjectDownload === undefined) track.allowProjectDownload = true;
 
+        // Attach battle memberships (badge + leaderboard placement on track page)
+        try {
+            const battleEntries = await db.battleEntry.findMany({
+                where: { trackId: track.id, deletedAt: null },
+                select: {
+                    id: true, voteCount: true,
+                    battle: { select: { id: true, title: true, slug: true, status: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            track.battles = battleEntries.map((e: any) => ({
+                entryId: e.id,
+                voteCount: e.voteCount,
+                battleId: e.battle.id,
+                battleTitle: e.battle.title,
+                battleSlug: e.battle.slug,
+                battleStatus: e.battle.status,
+            }));
+        } catch { track.battles = []; }
+
         res.json(track);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -9567,7 +9587,19 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
                 entries: {
                     where: { deletedAt: null },
                     orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, description: true, projectUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
+                    select: {
+                        id: true, userId: true, voteCount: true, source: true, createdAt: true,
+                        track: {
+                            select: {
+                                id: true, title: true, slug: true, url: true, coverUrl: true,
+                                description: true, duration: true, bpm: true, key: true, artist: true,
+                                arrangement: true, waveformPeaks: true,
+                                projectFileUrl: true, projectZipUrl: true,
+                                allowAudioDownload: true, allowProjectDownload: true,
+                                profile: { select: { id: true, username: true, displayName: true, avatar: true, userId: true } },
+                            },
+                        },
+                    },
                 },
             },
         });
@@ -9610,6 +9642,29 @@ app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, r
     }
 });
 
+// --- Auth: List active battles a Track has been entered into (for submit modal warning) ---
+app.get('/api/beat-battle/tracks/:trackId/battles', requireAuth, async (req: any, res) => {
+    try {
+        const trackId = req.params.trackId;
+        const entries = await db.battleEntry.findMany({
+            where: { trackId, deletedAt: null },
+            select: {
+                id: true,
+                battle: { select: { id: true, title: true, slug: true, status: true } },
+            },
+        });
+        res.json(entries.map((e: any) => ({
+            entryId: e.id,
+            battleId: e.battle.id,
+            battleTitle: e.battle.title,
+            battleSlug: e.battle.slug,
+            battleStatus: e.battle.status,
+        })));
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Public: Get archive (completed battles) ---
 app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
     try {
@@ -9624,7 +9679,15 @@ app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
                     where: { deletedAt: null },
                     orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
                     take: 3,
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
+                    select: {
+                        id: true, userId: true, voteCount: true,
+                        track: {
+                            select: {
+                                id: true, title: true, url: true, coverUrl: true,
+                                profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+                            },
+                        },
+                    },
                 },
                 _count: { select: { entries: { where: { deletedAt: null } } } },
             },
@@ -9778,55 +9841,51 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
 });
 
 // --- Auth: Submit entry via web (upload or library track) ---
-app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUploadLimiter, upload.fields([
-    { name: 'audio', maxCount: 1 },
-    { name: 'cover', maxCount: 1 },
-    { name: 'project', maxCount: 1 },
-]), async (req: any, res) => {
+// Battle submission is now a thin "link a Track to a Battle" operation.
+// Clients upload new tracks via /api/musician/tracks first, then POST the trackId here.
+app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const battleId = req.params.battleId;
-        const title = req.body.title;
-        const trackId = req.body.trackId; // optional \u2014 library track submission
-        const description = req.body.description || null;
-        const bpm = req.body.bpm ? parseInt(req.body.bpm, 10) : null;
-        const key = req.body.key || null;
-        const artist = req.body.artist || null;
+        const { trackId } = req.body || {};
 
-        // Guild membership gate
+        if (!trackId || typeof trackId !== 'string') {
+            return res.status(400).json({ error: 'trackId is required' });
+        }
+
         if (process.env.GUILD_ID && !req.session.isGuildMember) {
             return res.status(403).json({ error: 'You must be a member of the Discord server to submit battle entries.' });
         }
-
-        if (!title) return res.status(400).json({ error: 'Title is required' });
 
         const battle = await db.beatBattle.findUnique({ where: { id: battleId } });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         if (battle.status !== 'active') return res.status(400).json({ error: 'This battle is not accepting submissions' });
 
-        // Check requireMusicianProfile setting
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            include: { profile: true },
+        });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (track.profile.userId !== userId) {
+            return res.status(403).json({ error: 'You can only submit your own tracks' });
+        }
+        if (track.status !== 'active' || track.deletedAt) {
+            return res.status(400).json({ error: 'This track is not eligible for submission' });
+        }
+        if (battle.requireProjectFile && !track.projectFileUrl && !track.projectZipUrl) {
+            return res.status(400).json({ error: 'This battle requires a project file. Add a .flp/.zip to your track first.' });
+        }
+
         const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-        if (guildSettings?.requireMusicianProfile) {
-            const profile = await db.musicianProfile.findFirst({ where: { userId } });
-            if (!profile) {
-                return res.status(403).json({ error: 'A musician profile is required to submit. Create one first.' });
-            }
+        if (guildSettings?.requireMusicianProfile && !track.profile) {
+            return res.status(403).json({ error: 'A musician profile is required to submit.' });
         }
 
-        // Check project file requirement
-        const files = (req.files || {}) as { [fieldname: string]: Express.Multer.File[] };
-        const projectFile = files['project']?.[0];
-        if (battle.requireProjectFile && !trackId && !projectFile) {
-            return res.status(400).json({ error: 'This battle requires a project file (.flp or .zip) upload.' });
-        }
-
-        // Check duplicate entry
         const existing = await db.battleEntry.findFirst({
             where: { battleId, userId, deletedAt: null },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
 
-        // Economy: charge entry fee if enabled (per-battle setting)
         if (battle.entryFeeEnabled && battle.entryFee > 0) {
             const account = await db.economyAccount.findUnique({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
@@ -9834,10 +9893,9 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             const balance = account?.balance ?? 0;
             if (balance < battle.entryFee) {
                 const economySettings = await db.economySettings.findUnique({ where: { guildId: battle.guildId } });
-                const emoji = economySettings?.currencyEmoji || '🪙';
+                const emoji = economySettings?.currencyEmoji || 'ðŸª™';
                 return res.status(400).json({ error: `You need ${emoji}${battle.entryFee} to enter this battle (you have ${emoji}${balance})` });
             }
-            // Deduct entry fee
             await db.economyAccount.update({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
                 data: { balance: { decrement: battle.entryFee } },
@@ -9853,173 +9911,15 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             });
         }
 
-        // Get username from Discord API
-        let username = 'Unknown';
-        let avatarUrl: string | undefined;
-        try {
-            const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                timeout: 5000,
-            });
-            username = userRes.data.global_name || userRes.data.username || 'Unknown';
-            if (userRes.data.avatar) {
-                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=256`;
-            }
-        } catch {}
-
-        let audioUrl: string;
-        let coverUrl: string | undefined;
-        let projectUrl: string | undefined;
-        let duration = 0;
-        let arrangement: object | null = null;
-        let waveformPeaks: number[] | undefined;
-
-        if (trackId) {
-            // â”€â”€â”€ Library track submission â”€â”€â”€
-            const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-            if (!track) return res.status(404).json({ error: 'Track not found' });
-            if (track.profile.userId !== userId) return res.status(403).json({ error: 'You can only submit your own tracks' });
-            audioUrl = track.url;
-            coverUrl = track.coverUrl || undefined;
-            duration = track.duration || 0;
-            arrangement = track.arrangement as object | null;
-            // Use profile display name if available
-            username = track.profile.displayName || track.profile.username || username;
-            avatarUrl = track.profile.avatar || avatarUrl;
-        } else {
-            // â”€â”€â”€ Direct upload submission â”€â”€â”€
-            const audioFile = files['audio']?.[0];
-            if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
-
-            const artworkFile = files['cover']?.[0] || files['artwork']?.[0];
-
-            // Magic byte validation — reject spoofed files
-            try {
-                FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
-                if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
-                if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
-            } catch (validationErr: any) {
-                try { fs.unlinkSync(audioFile.path); } catch {}
-                if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
-                if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
-                return res.status(400).json({ error: validationErr.message });
-            }
-
-            await scanFileForViruses(audioFile.path, 'audio');
-            if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
-            if (projectFile) await scanFileForViruses(projectFile.path, 'project');
-
-            // Parse FLP arrangement data
-            if (projectFile) {
-                const isZipProject = projectFile.originalname.toLowerCase().endsWith('.zip');
-                try {
-                    if (isZipProject) {
-                        // Extract the .flp from inside the zip and parse it
-                        const zip = new AdmZip(projectFile.path);
-                        const flpEntry = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.flp'));
-                        if (flpEntry) {
-                            arrangement = FLPParser.parse(flpEntry.getData());
-                        } else {
-                            logger.warn(`Battle entry ZIP has no .flp file: ${projectFile.originalname}`);
-                        }
-                    } else {
-                        const flpBuffer = fs.readFileSync(projectFile.path);
-                        arrangement = FLPParser.parse(flpBuffer);
-                    }
-                } catch (e) {
-                    logger.warn(`Failed to parse battle entry FLP: ${e}`);
-                }
-            }
-
-            // Parse audio metadata (duration)
-            try {
-                const parsed = await mm.parseFile(audioFile.path);
-                duration = Math.round(parsed.format.duration || 0);
-            } catch (err) {
-                logger.warn(`Failed to parse battle audio metadata: ${err}`);
-            }
-
-            // Convert audio to OGG Opus and optimize cover
-            const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
-            const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
-
-            // Extract waveform peaks for direct uploads (library submissions use the track's peaks)
-            try {
-                const peaks = await WaveformExtractor.extractPeaks(finalAudioPath, 200);
-                if (peaks && peaks.length > 0) {
-                    waveformPeaks = peaks;
-                }
-            } catch (e) {
-                logger.warn(`Failed to extract waveform peaks for battle entry: ${e}`);
-            }
-
-            // Set local URLs as fallback
-            audioUrl = `/uploads/tracks/${path.basename(finalAudioPath)}`;
-            coverUrl = finalArtworkPath ? `/uploads/artwork/${path.basename(finalArtworkPath)}` : undefined;
-        }
-
-        // Create entry first (need entry ID for R2 key paths)
         const entry = await db.battleEntry.create({
             data: {
                 battleId,
                 userId,
-                username,
-                trackTitle: title,
-                audioUrl,
-                coverUrl,
-                avatarUrl,
-                description,
-                duration,
-                bpm,
-                key,
-                artist,
-                trackId: trackId || null,
+                trackId,
                 source: 'web',
-                ...(arrangement ? { arrangement } : {}),
-                ...(waveformPeaks ? { waveformPeaks } : {}),
             },
+            include: { track: { include: { profile: true } } },
         });
-
-        // Upload files to R2 (only for direct uploads \u2014 library submissions already on R2)
-        if (!trackId) {
-            const r2UrlUpdates: any = {};
-            const r2Uploads: Promise<void>[] = [];
-
-            // Audio â†’ R2
-            const audioLocalPath = path.join(PROJECT_ROOT, 'public', audioUrl);
-            r2Uploads.push((async () => {
-                const r2AudioKey = `battles/${entry.id}/audio/${path.basename(audioUrl)}`;
-                const cdnAudioUrl = await uploadToR2OrLocal(audioLocalPath, r2AudioKey, 'audio/ogg', audioUrl);
-                if (cdnAudioUrl !== audioUrl) r2UrlUpdates.audioUrl = cdnAudioUrl;
-            })());
-
-            // Cover â†’ R2
-            if (coverUrl) {
-                const coverLocalPath = path.join(PROJECT_ROOT, 'public', coverUrl);
-                r2Uploads.push((async () => {
-                    const r2CoverKey = `battles/${entry.id}/artwork/${path.basename(coverUrl!)}`;
-                    const cdnCoverUrl = await uploadToR2OrLocal(coverLocalPath, r2CoverKey, 'image/webp', coverUrl!);
-                    if (cdnCoverUrl !== coverUrl) r2UrlUpdates.coverUrl = cdnCoverUrl;
-                })());
-            }
-
-            // Project file â†’ R2
-            if (projectFile) {
-                const projectLocalUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
-                r2Uploads.push((async () => {
-                    const r2ProjectKey = `battles/${entry.id}/project/${path.basename(projectFile.path)}`;
-                    const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectLocalUrl);
-                    r2UrlUpdates.projectUrl = cdnProjectUrl;
-                })());
-            }
-
-            await Promise.all(r2Uploads);
-
-            if (Object.keys(r2UrlUpdates).length > 0) {
-                await db.battleEntry.update({ where: { id: entry.id }, data: r2UrlUpdates });
-                Object.assign(entry, r2UrlUpdates);
-            }
-        }
 
         await db.battleAnalytics.create({
             data: { battleId, eventType: 'submission', userId },
@@ -10755,13 +10655,36 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
         let firstEntryId: string | null = null;
         for (let i = 0; i < validWinners.length; i++) {
             const w = validWinners[i];
+
+            // Ensure a MusicianProfile exists for this winner (backfill creates a stub if missing)
+            let profile = await db.musicianProfile.findUnique({ where: { userId: w.userId } });
+            if (!profile) {
+                const fallbackName = (w.username || `producer-${w.userId.slice(-6)}`)
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${w.userId.slice(-6)}`;
+                profile = await db.musicianProfile.create({
+                    data: {
+                        userId: w.userId,
+                        username: fallbackName,
+                        displayName: w.username || null,
+                    },
+                });
+            }
+
+            // Create the Track that this entry will reference
+            const track = await db.track.create({
+                data: {
+                    profileId: profile.id,
+                    title: w.trackTitle,
+                    url: w.audioUrl || '',
+                    isPublic: true,
+                },
+            });
+
             const entry = await db.battleEntry.create({
                 data: {
                     battleId: battle.id,
                     userId: w.userId,
-                    username: w.username || 'Unknown',
-                    trackTitle: w.trackTitle,
-                    audioUrl: w.audioUrl || '',
+                    trackId: track.id,
                     voteCount: validWinners.length - i, // 1st place gets highest count
                     source: 'backfill',
                 },

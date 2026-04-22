@@ -13,7 +13,7 @@ import {
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
     Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
-    SkipBack, SkipForward, Scale
+    SkipBack, SkipForward, Scale, Swords
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -540,6 +540,20 @@ export const TrackPage: React.FC = () => {
                                 )}
                                 <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(10,14,22,0.62)' }} />
                                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', textAlign: isMobile ? 'center' : 'left' }}>
+                                {Array.isArray((track as any).battles) && (track as any).battles.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                        {(track as any).battles.map((b: any) => (
+                                            <a key={b.entryId} href={`/battles/${b.battleSlug || b.battleId}`}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 12px', borderRadius: '20px', backgroundColor: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.4)', color: '#F97316', fontSize: '12px', fontWeight: 700, textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(249,115,22,0.25)'; }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(249,115,22,0.15)'; }}
+                                            >
+                                                <Swords size={12} /> Battle: {b.battleTitle}
+                                                {b.battleStatus === 'voting' && <span style={{ fontSize: '10px', opacity: 0.85 }}>· {b.voteCount ?? 0} votes</span>}
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                                 <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{track.title}</h1>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                     by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></a>

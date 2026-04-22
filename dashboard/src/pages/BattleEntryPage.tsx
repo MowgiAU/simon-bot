@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { FujiLogo } from '../components/FujiLogo';
@@ -228,7 +229,7 @@ export const BattleEntryPage: React.FC = () => {
                     axios.get(`/api/beat-battle/entries/${entryId}`),
                     axios.get('/api/musician/genres', { withCredentials: true }),
                 ]);
-                setEntry(res.data);
+                setEntry({ ...res.data, ...flattenBattleEntry(res.data) });
                 setAllGenres(genresRes.data);
                 // Load favourite and repost data for the linked track
                 if (res.data.track) {

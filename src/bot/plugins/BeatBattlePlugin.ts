@@ -138,7 +138,11 @@ export class BeatBattlePlugin implements IPlugin {
                 status: { in: ['active', 'voting', 'completed'] },
             },
             include: {
-                entries: { orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 10 },
+                entries: {
+                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
+                    take: 10,
+                    include: { track: { select: { title: true } } },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -148,9 +152,10 @@ export class BeatBattlePlugin implements IPlugin {
             return;
         }
 
-        const lines = battle.entries.map((e, i) => {
+        const lines = battle.entries.map((e: any, i: number) => {
             const medal = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `${i + 1}.`;
-            return `${medal} **${e.trackTitle}** by <@${e.userId}> - ${e.voteCount} votes`;
+            const title = e.track?.title || e.trackTitle || 'Untitled';
+            return `${medal} **${title}** by <@${e.userId}> - ${e.voteCount} votes`;
         });
 
         const embed = new EmbedBuilder()
@@ -202,7 +207,13 @@ export class BeatBattlePlugin implements IPlugin {
             // Voting -> Completed (voting period ended)
             const toComplete = await this.db.beatBattle.findMany({
                 where: { status: 'voting', votingEnd: { lte: now } },
-                include: { entries: { orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3 } },
+                include: {
+                    entries: {
+                        orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
+                        take: 3,
+                        include: { track: { select: { title: true } } },
+                    },
+                },
             });
             for (const battle of toComplete) {
                 const winner = battle.entries?.[0];
@@ -221,7 +232,7 @@ export class BeatBattlePlugin implements IPlugin {
 
     // ----- Economy Prize Distribution -----
 
-    private async awardPrizes(battle: { guildId: string; title: string; prizePoolEnabled: boolean; prizeFirst: number; prizeSecond: number; prizeThird: number }, topEntries: { userId: string; trackTitle: string }[]): Promise<void> {
+    private async awardPrizes(battle: { guildId: string; title: string; prizePoolEnabled: boolean; prizeFirst: number; prizeSecond: number; prizeThird: number }, topEntries: { userId: string }[]): Promise<void> {
         try {
             if (!battle.prizePoolEnabled) return;
 
@@ -273,6 +284,7 @@ export class BeatBattlePlugin implements IPlugin {
         } else if (battle.status === 'completed') {
             const winner = await this.db.battleEntry.findFirst({
                 where: { battleId: battle.id, id: battle.winnerEntryId ?? undefined },
+                include: { track: { select: { title: true } } },
             });
             await this.postWinnerAnnouncement(battle, winner);
         }
@@ -360,7 +372,7 @@ export class BeatBattlePlugin implements IPlugin {
 
             const embed = new EmbedBuilder()
                 .setTitle(`${battle.title} - Winner!`)
-                .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`)
+                .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.track?.title || winner.trackTitle || 'Untitled'}"** with **${winner.voteCount}** votes!`)
                 .setColor(0xFFD700)
                 .addFields({ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })
                 .setFooter({ text: 'Fuji Studio Beat Battle' })
