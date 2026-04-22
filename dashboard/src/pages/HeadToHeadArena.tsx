@@ -895,16 +895,33 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
 
             {match.status === 'melodics_vote' && (
                 <div>
-                    <p style={{ margin: '0 0 12px', color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center' }}>
-                        Both fighters vote — you only get the melodics you <b style={{ color: '#fff' }}>both agree on</b>.
-                        You'll always get kick, snare, hat, percussion & fx.
-                    </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
-                        {([
+                    {(() => {
+                        // A category is "unavailable" when the backend pre-set both players' votes
+                        // to false because no samples exist for it in the chosen genre.
+                        const unavailable = {
+                            bass:   match.challengerVoteBass   === false && match.opponentVoteBass   === false,
+                            melody: match.challengerVoteMelody === false && match.opponentVoteMelody === false,
+                            chords: match.challengerVoteChords === false && match.opponentVoteChords === false,
+                        };
+                        const allCats = ([
                             { key: 'bass',   label: 'BASS',   color: CATEGORY_COLORS.bass },
                             { key: 'melody', label: 'MELODY', color: CATEGORY_COLORS.melody },
                             { key: 'chords', label: 'CHORDS', color: CATEGORY_COLORS.chords },
-                        ] as const).map(c => {
+                        ] as const).filter(c => !unavailable[c.key]);
+                        if (allCats.length === 0) {
+                            return (
+                                <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center' }}>
+                                    No melodic categories are available for this genre — the match is starting with the standard kit.
+                                </p>
+                            );
+                        }
+                        return <>
+                            <p style={{ margin: '0 0 12px', color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center' }}>
+                                Both fighters vote — you only get the melodics you <b style={{ color: '#fff' }}>both agree on</b>.
+                                You'll always get kick, snare, hat, percussion & fx.
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
+                                {allCats.map(c => {
                             const my = draftM[c.key];
                             const opp = oppMVotes[c.key];
                             return (
@@ -955,19 +972,21 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                                 </div>
                             );
                         })}
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <NeonButton onClick={submitMelodics}
-                            disabled={myMSubmitted || submittingM}
-                            color={myMSubmitted ? NEON.green : NEON.purple} size="lg">
-                            <CheckCircle size={18} /> {myMSubmitted ? 'VOTE LOCKED' : (submittingM ? 'LOCKING…' : 'LOCK MY VOTE')}
-                        </NeonButton>
-                        <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>
-                            {myMSubmitted && !oppMSubmitted ? 'Waiting on opponent…'
-                                : !myMSubmitted ? 'Lock your vote before the timer runs out — unsubmitted votes count as NO.'
-                                : 'Both locked in — match is starting…'}
-                        </div>
-                    </div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <NeonButton onClick={submitMelodics}
+                                    disabled={myMSubmitted || submittingM}
+                                    color={myMSubmitted ? NEON.green : NEON.purple} size="lg">
+                                    <CheckCircle size={18} /> {myMSubmitted ? 'VOTE LOCKED' : (submittingM ? 'LOCKING…' : 'LOCK MY VOTE')}
+                                </NeonButton>
+                                <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.06em' }}>
+                                    {myMSubmitted && !oppMSubmitted ? 'Waiting on opponent…'
+                                        : !myMSubmitted ? 'Lock your vote before the timer runs out — unsubmitted votes count as NO.'
+                                        : 'Both locked in — match is starting…'}
+                                </div>
+                            </div>
+                        </>;
+                    })()}
                 </div>
             )}
 

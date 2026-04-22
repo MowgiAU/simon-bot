@@ -11694,18 +11694,47 @@ app.post('/api/head-to-head/match/:id/ready', requireAuth, async (req: any, res)
 const H2H_MELODICS_VOTE_SECONDS = 45;
 
 async function advanceToMelodicsVote(match: any): Promise<void> {
+    // Find which optional categories actually have samples in the chosen genre
+    // (or in a global pool as fallback). Categories that don't exist anywhere are
+    // pre-set as "no" votes for both players so we don't ask the users about
+    // melodics that can't be served.
+    const checkCat = async (cat: string): Promise<boolean> => {
+        const inGenre = await db.h2HSample.count({
+            where: { category: cat, pool: { isActive: true, ...(match.genreId ? { genreId: match.genreId } : {}) } },
+        });
+        if (inGenre > 0) return true;
+        if (!match.genreId) return false;
+        const inGlobal = await db.h2HSample.count({
+            where: { category: cat, pool: { isActive: true, genreId: null } },
+        });
+        return inGlobal > 0;
+    };
+    const [hasBass, hasMelody, hasChords] = await Promise.all([
+        checkCat('bass'),
+        checkCat('melody'),
+        checkCat('chords'),
+    ]);
+
     const now = new Date();
     const deadline = new Date(now.getTime() + H2H_MELODICS_VOTE_SECONDS * 1000);
-    await db.h2HMatch.update({
-        where: { id: match.id },
-        data: {
-            status: 'melodics_vote',
-            melodicsVoteDeadline: deadline,
-            // Reset any previous votes (defensive)
-            challengerVoteBass: null, challengerVoteMelody: null, challengerVoteChords: null,
-            opponentVoteBass: null, opponentVoteMelody: null, opponentVoteChords: null,
-        },
-    });
+    const data: any = {
+        status: 'melodics_vote',
+        melodicsVoteDeadline: deadline,
+        // Reset any previous votes
+        challengerVoteBass:   hasBass   ? null : false,
+        challengerVoteMelody: hasMelody ? null : false,
+        challengerVoteChords: hasChords ? null : false,
+        opponentVoteBass:     hasBass   ? null : false,
+        opponentVoteMelody:   hasMelody ? null : false,
+        opponentVoteChords:   hasChords ? null : false,
+    };
+    await db.h2HMatch.update({ where: { id: match.id }, data });
+
+    // If nothing is available to vote on, skip the vote entirely.
+    if (!hasBass && !hasMelody && !hasChords) {
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh) await resolveMelodicsAndProduce(fresh);
+    }
 }
 
 // Resolve melodics vote ? AND of both players' votes (null = no). Then advance to producing.
