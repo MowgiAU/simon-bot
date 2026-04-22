@@ -167,8 +167,11 @@ function adsrEnv(samples: number, attack: number, decay: number, sustain: number
     return env;
 }
 
+// Asymmetric soft saturation: warmer than tanh, adds 2nd-order harmonics.
 function softClip(x: number, drive: number) {
-    return Math.tanh(x * drive) / Math.tanh(drive);
+    const y = Math.tanh(x * drive) / Math.tanh(drive);
+    // Subtle 2nd-harmonic warmth (asymmetric)
+    return y - 0.04 * y * y;
 }
 
 function bitCrush(buf: Float32Array, bits: number, downsample = 1) {
@@ -206,6 +209,42 @@ function lowPass(buf: Float32Array, cutoff: number) {
     }
 }
 
+// Cascade of HP then LP for a basic band-pass.
+function bandPass(buf: Float32Array, lo: number, hi: number) {
+    highPass(buf, lo);
+    lowPass(buf, hi);
+}
+
+// Removes DC offset that filtering can introduce — keeps export clean.
+function dcBlock(buf: Float32Array) {
+    const R = 0.995;
+    let prevX = 0, prevY = 0;
+    for (let i = 0; i < buf.length; i++) {
+        const x = buf[i];
+        const y = x - prevX + R * prevY;
+        buf[i] = y;
+        prevX = x; prevY = y;
+    }
+}
+
+// Apply a short cosine attack ramp so transients don't pop on sample 0.
+function applyAttack(buf: Float32Array, ms = 0.6) {
+    const n = Math.min(buf.length, Math.floor(ms * 0.001 * SAMPLE_RATE));
+    if (n < 2) return;
+    for (let i = 0; i < n; i++) {
+        buf[i] *= 0.5 - 0.5 * Math.cos(Math.PI * (i / n));
+    }
+}
+
+// Apply a short cosine release ramp at the end so the tail doesn't click on cut.
+function applyRelease(buf: Float32Array, ms = 4) {
+    const n = Math.min(buf.length, Math.floor(ms * 0.001 * SAMPLE_RATE));
+    if (n < 2) return;
+    for (let i = 0; i < n; i++) {
+        buf[buf.length - 1 - i] *= 0.5 - 0.5 * Math.cos(Math.PI * (i / n));
+    }
+}
+
 function normalize(buf: Float32Array, target = 0.95) {
     let peak = 0;
     for (let i = 0; i < buf.length; i++) {
@@ -218,128 +257,223 @@ function normalize(buf: Float32Array, target = 0.95) {
     }
 }
 
+// Render a high-passed noise click of length `ms` mixed into `buf` at offset 0.
+function mixClick(buf: Float32Array, rng: RNG, ms: number, hp: number, amp: number) {
+    const n = Math.min(buf.length, Math.floor(ms * 0.001 * SAMPLE_RATE));
+    if (n < 2) return;
+    const click = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        // exponential decay across the click length
+        click[i] = (rng() * 2 - 1) * Math.exp(-i / (n * 0.3));
+    }
+    highPass(click, hp);
+    for (let i = 0; i < n; i++) buf[i] += click[i] * amp;
+}
+
 // ─── Synthesis ──────────────────────────────────────────────────────────────
+// Trap / 808-style kick: fast pitch sweep + sine body + filtered noise click.
 function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number): Float32Array {
     const N = Math.floor(totalSec * SAMPLE_RATE);
     const out = new Float32Array(N);
     const baseFreq = rangeR(rng, p.tuneLo, p.tuneHi);
     const decay    = rangeR(rng, p.decayLo, p.decayHi);
-    // Pitch envelope: starts ~5x base, exponentially drops to base
-    const pitchStart = baseFreq * (4 + rng() * 4);
-    const pitchTau   = 0.04 + rng() * 0.03;
+
+    // Pitch envelope: starts well above base and falls FAST (10–25ms) so it lands as a thump, not a tom.
+    const pitchStart = baseFreq * rangeR(rng, 6, 9);
+    const pitchTau   = 0.010 + rng() * 0.015;
+
+    // Body: pitched sine via integrated phase
     let phase = 0;
     for (let i = 0; i < N; i++) {
         const t = i / SAMPLE_RATE;
         const f = baseFreq + (pitchStart - baseFreq) * Math.exp(-t / pitchTau);
         phase += (2 * Math.PI * f) / SAMPLE_RATE;
-        // Body
-        let s = Math.sin(phase) * Math.exp(-t / decay);
-        // Sub layer
-        const sub = Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.4)) * p.subAmt * 0.6;
-        // Click transient (filtered noise burst, 8ms)
-        if (t < 0.008) {
-            s += (rng() * 2 - 1) * (1 - t / 0.008) * p.clickAmt * 0.8;
-        }
-        out[i] = softClip(s + sub, p.drive);
+        const env  = Math.exp(-t / decay);
+        const body = Math.sin(phase) * env;
+        // Sub: pure low sine, longer tail for weight
+        const sub  = Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 1.6)) * p.subAmt * 0.55;
+        out[i] = body + sub;
     }
+
+    // Click: short 2ms hi-passed noise burst (gives the "tick"); plus a 1.5ms hi-sine snap for definition.
+    if (p.clickAmt > 0) {
+        mixClick(out, rng, 2.0, 1500, p.clickAmt * 0.7);
+        const snapN = Math.min(N, Math.floor(0.0015 * SAMPLE_RATE));
+        const snapFreq = 2400 + rng() * 1600;
+        for (let i = 0; i < snapN; i++) {
+            const t = i / SAMPLE_RATE;
+            out[i] += Math.sin(2 * Math.PI * snapFreq * t) * Math.exp(-i / (snapN * 0.4)) * p.clickAmt * 0.35;
+        }
+    }
+
+    // Drive: saturate the BODY but keep transient dynamics — apply gently overall.
+    for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
     if (p.bitcrush) bitCrush(out, p.bitcrush);
-    normalize(out, 0.97);
+    dcBlock(out);
+    applyAttack(out, 0.3);
+    applyRelease(out, 8);
+    normalize(out, 0.94);
     return out;
 }
 
+// Snare: 2-osc tone "shell" + band-passed noise body + hi-passed noise snap + click.
 function synthSnare(rng: RNG, p: GenreProfile['snare'], totalSec: number): Float32Array {
     const N = Math.floor(totalSec * SAMPLE_RATE);
     const out = new Float32Array(N);
     const tone   = rangeR(rng, p.toneLo, p.toneHi);
-    const tone2  = tone * (1.45 + rng() * 0.2); // detuned partial
+    const tone2  = tone * rangeR(rng, 1.55, 1.78);                 // 2nd shell partial
     const decay  = rangeR(rng, p.decayLo, p.decayHi);
     const hp     = rangeR(rng, p.noiseHpLo, p.noiseHpHi);
 
-    // Tone layer
+    // Shell tone — short envelope (gives the "thock")
+    const toneTau = decay * 0.35;
     for (let i = 0; i < N; i++) {
         const t = i / SAMPLE_RATE;
-        const env = Math.exp(-t / (decay * 0.45));
-        out[i] += (Math.sin(2 * Math.PI * tone * t) + Math.sin(2 * Math.PI * tone2 * t) * 0.6) * env * p.toneAmt;
+        const env = Math.exp(-t / toneTau);
+        out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.7
+                 + Math.sin(2 * Math.PI * tone2 * t) * 0.4) * env * p.toneAmt;
     }
-    // Noise layer
-    const noise = new Float32Array(N);
-    for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
-    highPass(noise, hp);
+
+    // Noise body — band-passed (200Hz–6kHz) gives the "weight" of the snare wires
+    const body = new Float32Array(N);
+    for (let i = 0; i < N; i++) body[i] = rng() * 2 - 1;
+    bandPass(body, 200, 6000);
     for (let i = 0; i < N; i++) {
         const t = i / SAMPLE_RATE;
-        const env = Math.exp(-t / decay);
-        out[i] += noise[i] * env * 0.9;
+        body[i] *= Math.exp(-t / (decay * 0.7)) * 0.55;
     }
+
+    // Noise snap — high-passed white noise, longer tail (the "shhh")
+    const snap = new Float32Array(N);
+    for (let i = 0; i < N; i++) snap[i] = rng() * 2 - 1;
+    highPass(snap, hp);
+    for (let i = 0; i < N; i++) {
+        const t = i / SAMPLE_RATE;
+        snap[i] *= Math.exp(-t / decay) * 0.85;
+    }
+
+    for (let i = 0; i < N; i++) out[i] += body[i] + snap[i];
+    // Click for transient bite (1.5ms HP noise)
+    mixClick(out, rng, 1.5, 4000, 0.6);
+
     for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
     if (p.bitcrush) bitCrush(out, p.bitcrush);
-    normalize(out, 0.95);
+    dcBlock(out);
+    applyAttack(out, 0.3);
+    applyRelease(out, 6);
+    normalize(out, 0.93);
     return out;
 }
 
+// Classic 808/909-style hat: 6 inharmonic SQUARE waves through aggressive HP + dual envelope.
 function synthHat(rng: RNG, p: GenreProfile['hat'], totalSec: number, open = false): Float32Array {
     const N = Math.floor(totalSec * SAMPLE_RATE);
     const out = new Float32Array(N);
-    const decay = rangeR(rng, p.decayLo, p.decayHi) * (open ? 4 : 1);
+    const decay = rangeR(rng, p.decayLo, p.decayHi) * (open ? 4.5 : 1);
     const hp    = rangeR(rng, p.hpLo, p.hpHi);
 
-    // Metallic FM cluster — 6 inharmonic ratios summed
+    // Six inharmonic ratios from the 808 hi-hat (Roland classic).
+    // Using square waves (sign of sine) gives the characteristic metallic / ringing tone.
     const ratios = [2.0, 3.0, 4.16, 5.43, 6.79, 8.21];
-    const base = 320 + rng() * 240;
+    const base = rangeR(rng, 200, 280);
+
+    // Two-stage envelope: short attack snap (3ms) summed with slow body decay.
+    const snapTau = 0.003;
     for (let i = 0; i < N; i++) {
         const t = i / SAMPLE_RATE;
-        let s = 0;
-        for (const r of ratios) s += Math.sin(2 * Math.PI * base * r * t);
-        s = (s / ratios.length) * p.metallicAmt;
-        // Noise component
-        s += (rng() * 2 - 1) * (1 - p.metallicAmt);
-        const env = Math.exp(-t / decay);
-        out[i] = s * env;
+        let metal = 0;
+        for (const r of ratios) metal += Math.sign(Math.sin(2 * Math.PI * base * r * t));
+        metal /= ratios.length;
+        // Tiny noise overlay (hi-passed later) — adds airiness
+        const noise = (rng() * 2 - 1) * 0.35;
+        const sig = metal * p.metallicAmt + noise * (1 - p.metallicAmt);
+
+        const envBody = Math.exp(-t / decay);
+        const envSnap = Math.exp(-t / snapTau);
+        out[i] = sig * (envBody + envSnap * 0.6);
     }
+
+    // Hi-pass filter applied twice → effectively steeper rolloff (kills mud).
+    highPass(out, hp);
     highPass(out, hp);
     if (p.bitcrush) bitCrush(out, p.bitcrush);
-    normalize(out, 0.85);
+    dcBlock(out);
+    applyAttack(out, 0.2);
+    applyRelease(out, open ? 12 : 4);
+    normalize(out, 0.82);
     return out;
 }
 
+// Percussion: clap (multi-burst) | tonal (pitched tom) | fm (metallic) | mix (random).
 function synthPerc(rng: RNG, p: GenreProfile['perc'], totalSec: number): Float32Array {
     const N = Math.floor(totalSec * SAMPLE_RATE);
     const out = new Float32Array(N);
-    const freq = rangeR(rng, p.freqLo, p.freqHi);
+    const freq  = rangeR(rng, p.freqLo, p.freqHi);
     const decay = rangeR(rng, p.decayLo, p.decayHi);
 
-    if (p.mode === 'fm' || (p.mode === 'mix' && rng() < 0.5)) {
-        // FM: carrier + modulator
+    // Pick effective mode for this hit
+    let mode: 'fm' | 'tonal' | 'noise' = p.mode === 'mix'
+        ? choiceR(rng, ['fm', 'tonal', 'noise']) as any
+        : (p.mode as any);
+
+    if (mode === 'fm') {
+        // FM perc — carrier + modulator with envelope on mod index
         const modRatio = choiceR(rng, [1.41, 1.73, 2.13, 2.79, 3.51]);
-        const modFreq = freq * modRatio;
-        const modIdx  = 2 + rng() * 5;
+        const modFreq  = freq * modRatio;
+        const modIdx   = 3 + rng() * 6;
+        const modTau   = decay * 0.4;
         for (let i = 0; i < N; i++) {
             const t = i / SAMPLE_RATE;
-            const env = Math.exp(-t / decay);
-            const mod = Math.sin(2 * Math.PI * modFreq * t) * modIdx * env;
+            const env    = Math.exp(-t / decay);
+            const envMod = Math.exp(-t / modTau);
+            const mod    = Math.sin(2 * Math.PI * modFreq * t) * modIdx * envMod;
             out[i] = Math.sin(2 * Math.PI * freq * t + mod) * env;
         }
-    } else if (p.mode === 'tonal') {
-        // Pure tonal hit with body
+        // Subtle click for attack
+        mixClick(out, rng, 1.0, 3000, 0.3);
+    } else if (mode === 'tonal') {
+        // Pitched tom-style: pitch envelope + sine body + harmonic
+        const pitchStart = freq * rangeR(rng, 1.8, 3.0);
+        const pitchTau   = 0.020 + rng() * 0.015;
+        let phase = 0;
         for (let i = 0; i < N; i++) {
             const t = i / SAMPLE_RATE;
+            const f = freq + (pitchStart - freq) * Math.exp(-t / pitchTau);
+            phase += (2 * Math.PI * f) / SAMPLE_RATE;
             const env = Math.exp(-t / decay);
-            out[i] = (Math.sin(2 * Math.PI * freq * t) + Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.4) * env;
+            out[i] = (Math.sin(phase) + Math.sin(phase * 2) * 0.25) * env;
         }
-        lowPass(out, freq * 6);
+        mixClick(out, rng, 1.5, 1500, 0.35);
+        lowPass(out, freq * 8);
     } else {
-        // Noise-based shaker / clap
-        const burstN = Math.min(N, Math.floor(0.005 * SAMPLE_RATE));
-        for (let i = 0; i < N; i++) {
-            const t = i / SAMPLE_RATE;
-            const env = Math.exp(-t / decay);
-            out[i] = (rng() * 2 - 1) * env;
-            if (i < burstN) out[i] *= 0.4 + 0.6 * (i / burstN);
+        // Clap-style: 3–4 noise bursts spaced 8–14ms apart, plus a longer tail
+        const bursts = 3 + Math.floor(rng() * 2);
+        const spacing = 0.008 + rng() * 0.006;
+        const burstLen = 0.012;
+        const noise = new Float32Array(N);
+        for (let i = 0; i < N; i++) noise[i] = rng() * 2 - 1;
+        bandPass(noise, freq, freq * 5);
+        for (let b = 0; b < bursts; b++) {
+            const start = Math.floor((b * spacing) * SAMPLE_RATE);
+            const len = Math.floor(burstLen * SAMPLE_RATE);
+            for (let i = 0; i < len && start + i < N; i++) {
+                const env = Math.exp(-i / (len * 0.35));
+                out[start + i] += noise[start + i] * env * (b === bursts - 1 ? 1.0 : 0.55);
+            }
         }
-        highPass(out, freq);
+        // Longer reverb-like tail
+        const tailStart = Math.floor((bursts * spacing) * SAMPLE_RATE);
+        for (let i = tailStart; i < N; i++) {
+            const t = (i - tailStart) / SAMPLE_RATE;
+            out[i] += noise[i] * Math.exp(-t / decay) * 0.25;
+        }
     }
     for (let i = 0; i < N; i++) out[i] = softClip(out[i], p.drive);
     if (p.bitcrush) bitCrush(out, p.bitcrush);
-    normalize(out, 0.9);
+    dcBlock(out);
+    applyAttack(out, 0.3);
+    applyRelease(out, 6);
+    normalize(out, 0.88);
     return out;
 }
 
