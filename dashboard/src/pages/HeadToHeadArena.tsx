@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
-import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package } from 'lucide-react';
+import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package, BookOpen, Users, Sparkles } from 'lucide-react';
 import { colors } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
@@ -269,7 +269,7 @@ const Avatar: React.FC<{ profile: Profile | null | undefined; userId: string; si
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const HeadToHeadArenaPage: React.FC = () => {
-    const [tab, setTab] = useState<'arena' | 'vote' | 'leaderboard'>('arena');
+    const [tab, setTab] = useState<'arena' | 'vote' | 'leaderboard' | 'rules'>('arena');
     const [settings, setSettings] = useState<Settings | null>(null);
 
     useEffect(() => {
@@ -339,6 +339,7 @@ export const HeadToHeadArenaPage: React.FC = () => {
                             ['arena', 'BATTLE', Swords, NEON.pink],
                             ['vote', 'JUDGE', Vote, NEON.cyan],
                             ['leaderboard', 'RANKS', Trophy, NEON.yellow],
+                            ['rules', 'HOW IT WORKS', BookOpen, NEON.purple],
                         ] as const).map(([id, label, Icon, color]) => {
                             const active = tab === id;
                             return (
@@ -358,6 +359,7 @@ export const HeadToHeadArenaPage: React.FC = () => {
                     {tab === 'arena' && <ArenaTab settings={settings} />}
                     {tab === 'vote' && <VoteTab />}
                     {tab === 'leaderboard' && <LeaderboardTab />}
+                    {tab === 'rules' && <RulesTab settings={settings} />}
                 </div>
             </div>
         </DiscoveryLayout>
@@ -1609,6 +1611,147 @@ const VoteTab: React.FC = () => {
                     </Panel>
                 );
             })}
+        </div>
+    );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rules Tab — explains every phase of a 1v1
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
+    const ready = settings?.readyUpMinutes ?? 2;
+    const prod  = settings?.defaultProductionMinutes ?? 60;
+    const vote  = settings?.defaultVotingMinutes ?? 30;
+    const minVotes = settings?.minVotesToFinalize ?? 3;
+
+    const phase = (n: number, color: string, Icon: any, title: string, time: string, body: React.ReactNode) => (
+        <div style={{
+            display: 'grid', gridTemplateColumns: '60px 1fr', gap: 14, alignItems: 'flex-start',
+            background: 'rgba(255,255,255,0.02)',
+            border: `1px solid ${color}33`,
+            borderLeft: `3px solid ${color}`,
+            borderRadius: 10, padding: 14,
+        }}>
+            <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${color}33, ${color}11)`,
+                border: `1px solid ${color}88`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color, boxShadow: `0 0 14px ${color}44`,
+                position: 'relative',
+            }}>
+                <Icon size={22} />
+                <span style={{
+                    position: 'absolute', top: -6, right: -6,
+                    width: 22, height: 22, borderRadius: '50%',
+                    background: '#000', border: `1px solid ${color}`,
+                    color, fontSize: 11, fontWeight: 900,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{n}</span>
+            </div>
+            <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '0.08em', color }}>{title}</h4>
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.5)' }}>{time}</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', lineHeight: 1.55 }}>{body}</div>
+            </div>
+        </div>
+    );
+
+    const ruleCard = (Icon: any, color: string, title: string, body: React.ReactNode) => (
+        <div style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 10, padding: 14,
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Icon size={16} color={color} />
+                <h4 style={{ margin: 0, fontSize: 13, fontWeight: 800, letterSpacing: '0.1em', color: '#fff' }}>{title}</h4>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>{body}</div>
+        </div>
+    );
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <Panel glowColor={NEON.purple}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                    <BookOpen size={26} color={NEON.purple} />
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '0.06em' }}>HOW IT WORKS</h3>
+                        <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                            Two producers. One sample pack. May the best beat win.
+                        </p>
+                    </div>
+                </div>
+            </Panel>
+
+            <Panel glowColor={NEON.cyan}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 14, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.7)' }}>THE PHASES</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {phase(1, NEON.cyan, Target, 'Queue Up',
+                        'Instant',
+                        <>Pick a genre (or Global) and how long you want to produce. You\u2019ll be matched with the next producer who picks the same combo. The wait is usually seconds.</>)}
+
+                    {phase(2, NEON.yellow, CheckCircle, 'Ready Up',
+                        `${ready} min`,
+                        <>Both fighters must hit <b style={{ color: '#fff' }}>READY UP</b>. If one of you doesn\u2019t lock in, the other one wins by default. If neither readies, the match is cancelled.</>)}
+
+                    {phase(3, NEON.purple, Vote, 'Pick Melodics (Together)',
+                        '45 sec',
+                        <>You and your opponent each vote <b style={{ color: '#fff' }}>YES/NO</b> on Bass, Melody and Chords. You only get the categories you <b style={{ color: '#fff' }}>both</b> agree on. Kick, snare, hat, percussion and FX are always included. Unsubmitted votes count as NO.</>)}
+
+                    {phase(4, NEON.pink, Headphones, 'Production',
+                        `${prod} min`,
+                        <>The chosen sample pack drops in your arena \u2014 preview each sample (with full waveforms!) and download them individually or as a zip. Build your beat in the DAW of your choice and upload an audio file before the timer hits zero. The match auto-advances the moment <b style={{ color: '#fff' }}>both</b> tracks are in.</>)}
+
+                    {phase(5, NEON.purple, Award, 'Anonymous Judging',
+                        `${vote} min`,
+                        <>Both submissions go to the <b style={{ color: '#fff' }}>JUDGE</b> tab. Voters see them as MYSTERY PRODUCER A vs B \u2014 no names, no avatars \u2014 so it\u2019s the music that wins. You need at least <b style={{ color: '#fff' }}>{minVotes} votes</b> for the match to finalize; under-voted matches get a 50% time extension automatically.</>)}
+
+                    {phase(6, NEON.green, Trophy, 'Reveal & Elo',
+                        'Final',
+                        <>Most votes wins. Tie? Whoever submitted first takes it. Once the match completes, identities are revealed to everyone, Elo is updated, and the result lands in your match history.</>)}
+                </div>
+            </Panel>
+
+            <Panel glowColor={NEON.yellow}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 14, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.7)' }}>THE RULES</h3>
+                <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+                    {ruleCard(Sparkles, NEON.cyan, 'Use the Sample Pack',
+                        <>The provided samples are the spine of your track. Layer your own sounds on top, but the kit you were dealt should be recognizable in the final beat.</>)}
+                    {ruleCard(Users, NEON.purple, 'Stay Anonymous',
+                        <>Don\u2019t leak your identity in metadata, watermarks, voice tags, or DMs while voting is open. Anonymity protects the integrity of every battle.</>)}
+                    {ruleCard(Skull, NEON.red, 'Forfeits Count',
+                        <>You can forfeit any time before voting opens. Forfeit while your opponent has submitted = they win. Both no-shows = double forfeit. Forfeits hit your record.</>)}
+                    {ruleCard(Vote, NEON.cyan, 'Vote Honest',
+                        <>Vote on what you actually hear, not who you think made it. Vote brigading, sock-puppet accounts, or trades will get your votes nuked and your access to the Arena yanked.</>)}
+                    {ruleCard(Upload, NEON.pink, 'One Submission',
+                        <>You can re-upload to replace your file as many times as you want before the production timer ends. Once it ends, what\u2019s on the server is final.</>)}
+                    {ruleCard(TrendingUp, NEON.green, 'Elo & Ranks',
+                        <>Wins push your Elo up, losses pull it down. The further apart your ratings, the bigger the swing for the underdog. Genre Elos are tracked separately from your Global rating.</>)}
+                </div>
+            </Panel>
+
+            <Panel glowColor={NEON.pink}>
+                <h3 style={{ margin: '0 0 12px', fontSize: 14, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.7)' }}>QUICK FAQ</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {[
+                        ['Can I change my submission?', 'Yes, until the production timer hits zero. Just upload a new file \u2014 it overwrites the previous one.'],
+                        ['What audio formats are accepted?', 'Standard formats: MP3, WAV, FLAC, OGG. Aim for a clean stereo mix; no need for mastering chains.'],
+                        ['What if my opponent disappears?', 'If they don\u2019t ready up, vote on melodics, or submit before the deadline, you win automatically and they take a forfeit on their record.'],
+                        ['Can I vote on my own match?', 'No \u2014 participants are filtered out of their own match\u2019s judging pool.'],
+                        ['When are identities revealed?', 'Only after the match reaches a terminal state (completed, forfeited, or cancelled). Until then everyone sees Mystery Producer aliases.'],
+                    ].map(([q, a]) => (
+                        <div key={q}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: NEON.pink, marginBottom: 4 }}>{q}</div>
+                            <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55 }}>{a}</div>
+                        </div>
+                    ))}
+                </div>
+            </Panel>
         </div>
     );
 };
