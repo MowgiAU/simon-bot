@@ -9609,10 +9609,43 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
 
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
+        // Per-rank vote tallies for ranked voting (Lexicographical Positional Scoring)
+        const tallies = await db.battleVote.groupBy({
+            by: ['entryId', 'rank'],
+            where: { battleId: battle.id },
+            _count: { _all: true },
+        });
+        const tallyMap = new Map<string, { first: number; second: number; third: number }>();
+        for (const t of tallies as any[]) {
+            const cur = tallyMap.get(t.entryId) || { first: 0, second: 0, third: 0 };
+            if (t.rank === 1) cur.first = t._count._all;
+            else if (t.rank === 2) cur.second = t._count._all;
+            else if (t.rank === 3) cur.third = t._count._all;
+            tallyMap.set(t.entryId, cur);
+        }
+        const enrichedEntries = (battle as any).entries.map((e: any) => {
+            const t = tallyMap.get(e.id) || { first: 0, second: 0, third: 0 };
+            return { ...e, firstPlaceVotes: t.first, secondPlaceVotes: t.second, thirdPlaceVotes: t.third };
+        });
+
         // Include discordInviteUrl from guild settings
         const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } }).catch(() => null);
 
-        res.json({ ...battle, discordInviteUrl: guildSettings?.discordInviteUrl || null });
+        const suddenDeathEntryIds: string[] = Array.isArray((battle as any).suddenDeathEntryIds)
+            ? (battle as any).suddenDeathEntryIds
+            : [];
+        res.json({
+            ...battle,
+            entries: enrichedEntries,
+            discordInviteUrl: guildSettings?.discordInviteUrl || null,
+            suddenDeath: battle.status === 'sudden_death' ? {
+                active: true,
+                entryIds: suddenDeathEntryIds,
+                start: (battle as any).suddenDeathStart,
+                end: (battle as any).suddenDeathEnd,
+                durationMinutes: (battle as any).suddenDeathDurationMinutes,
+            } : null,
+        });
 
         // Fire-and-forget analytics (don't block the response)
         if (req.session?.user?.id) {
@@ -9625,7 +9658,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     }
 });
 
-// --- Auth: Get current user's voted entry IDs for a battle ---
+// --- Auth: Get current user's ranked votes for a battle ---
 app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
@@ -9636,10 +9669,14 @@ app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, r
         });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         const votes = await db.battleVote.findMany({
-            where: { userId, entry: { battleId: battle.id } },
-            select: { entryId: true },
+            where: { userId, battleId: battle.id },
+            select: { entryId: true, rank: true },
         });
-        res.json({ votedEntryIds: votes.map((v: { entryId: string }) => v.entryId) });
+        // Back-compat: include flat list of voted entry IDs
+        res.json({
+            votes,
+            votedEntryIds: votes.map((v: { entryId: string }) => v.entryId),
+        });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -9736,94 +9773,121 @@ app.get('/api/beat-battle/entries/:entryId', publicCache(60), async (req: any, r
     }
 });
 
-// --- Auth: Vote on an entry ---
+// --- Auth: Cast / change / clear a ranked vote on an entry ---
+// Body: { rank: 1 | 2 | 3 | null }
+//   rank=1|2|3 → assign that rank slot to this entry for the user.
+//                Any previous entry in the same rank slot is cleared.
+//                If the user previously had a different rank on this entry, it's updated.
+//   rank=null  → clear the user's vote on this entry entirely.
+// Sudden-death battles only accept rank=1 and only on tied entries.
 app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const entryId = req.params.entryId;
+        const rawRank = req.body?.rank;
+        const rank: 1 | 2 | 3 | null = rawRank === null || rawRank === undefined
+            ? null
+            : (rawRank === 1 || rawRank === 2 || rawRank === 3 ? rawRank : null);
+        if (rawRank !== null && rawRank !== undefined && rank === null) {
+            return res.status(400).json({ error: 'rank must be 1, 2, 3, or null' });
+        }
 
         const entry = await db.battleEntry.findUnique({
             where: { id: entryId },
             include: { battle: true },
         });
-
         if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
-        if (entry.battle.status !== 'voting') {
+        const isVoting = entry.battle.status === 'voting';
+        const isSuddenDeath = entry.battle.status === 'sudden_death';
+        if (!isVoting && !isSuddenDeath) {
             return res.status(400).json({ error: 'Voting is not open for this battle' });
         }
-
         if (entry.userId === userId) {
             return res.status(400).json({ error: 'You cannot vote for your own submission' });
         }
-
-        // Check duplicate vote \u2014 if exists, toggle (remove) it
-        const existingVote = await db.battleVote.findUnique({
-            where: { entryId_userId: { entryId, userId } },
-        });
-        if (existingVote) {
-            const updated = await db.$transaction(async (tx) => {
-                await tx.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
-                return tx.battleEntry.update({
-                    where: { id: entryId },
-                    data: { voteCount: { decrement: 1 } },
-                });
-            });
-            return res.json({ voteCount: updated.voteCount, voted: false });
-        }
-
-        // Check per-battle vote limit
-        if (entry.battle.maxVotesPerUser > 0) {
-            const userVoteCount = await db.battleVote.count({
-                where: {
-                    userId,
-                    entry: { battleId: entry.battleId },
-                },
-            });
-            if (userVoteCount >= entry.battle.maxVotesPerUser) {
-                return res.status(400).json({ error: `You've used all ${entry.battle.maxVotesPerUser} vote(s) for this battle. Remove a vote from another entry first.` });
+        if (isSuddenDeath) {
+            const tied: string[] = Array.isArray((entry.battle as any).suddenDeathEntryIds)
+                ? (entry.battle as any).suddenDeathEntryIds : [];
+            if (!tied.includes(entryId)) {
+                return res.status(400).json({ error: 'This entry is not part of the sudden-death runoff' });
+            }
+            if (rank !== null && rank !== 1) {
+                return res.status(400).json({ error: 'Sudden death only accepts a single (1st place) vote' });
             }
         }
 
-        const updated = await db.$transaction(async (tx) => {
-            await tx.battleVote.create({
-                data: { entryId, userId, source: 'web' },
+        // Clear path
+        if (rank === null) {
+            const existing = await db.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
+            if (!existing) return res.json({ cleared: true, votes: await fetchUserVotes(entry.battleId, userId) });
+            await db.$transaction(async (tx) => {
+                await tx.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
+                await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { decrement: 1 } } });
             });
-            const updatedEntry = await tx.battleEntry.update({
-                where: { id: entryId },
-                data: { voteCount: { increment: 1 } },
+            return res.json({ cleared: true, votes: await fetchUserVotes(entry.battleId, userId) });
+        }
+
+        // Assign / move rank
+        await db.$transaction(async (tx) => {
+            // 1. Remove any other entry currently holding this rank for this user in this battle
+            const conflict = await tx.battleVote.findUnique({
+                where: { battleId_userId_rank: { battleId: entry.battleId, userId, rank } },
             });
-            await tx.battleAnalytics.create({
-                data: { battleId: updatedEntry.battleId, eventType: 'vote_cast', userId },
-            });
-            return updatedEntry;
+            if (conflict && conflict.entryId !== entryId) {
+                await tx.battleVote.delete({ where: { id: conflict.id } });
+                await tx.battleEntry.update({ where: { id: conflict.entryId }, data: { voteCount: { decrement: 1 } } });
+            }
+            // 2. Upsert this user's vote on this entry
+            const existing = await tx.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
+            if (existing) {
+                if (existing.rank !== rank) {
+                    await tx.battleVote.update({ where: { id: existing.id }, data: { rank } });
+                }
+            } else {
+                await tx.battleVote.create({
+                    data: { entryId, battleId: entry.battleId, userId, rank, source: 'web' },
+                });
+                await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { increment: 1 } } });
+                await tx.battleAnalytics.create({
+                    data: { battleId: entry.battleId, eventType: 'vote_cast', userId },
+                });
+            }
         });
 
-        // Economy: voter reward (per-battle setting)
+        // Economy reward only on first-time vote in this battle
         try {
             if (entry.battle.voterReward && entry.battle.voterReward > 0) {
-                await db.economyAccount.upsert({
-                    where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
-                    update: {
-                        balance: { increment: entry.battle.voterReward },
-                        totalEarned: { increment: entry.battle.voterReward },
-                    },
-                    create: {
-                        guildId: entry.battle.guildId,
-                        userId,
-                        balance: entry.battle.voterReward,
-                        totalEarned: entry.battle.voterReward,
-                    },
-                });
+                const totalVotes = await db.battleVote.count({ where: { battleId: entry.battleId, userId } });
+                if (totalVotes === 1) {
+                    await db.economyAccount.upsert({
+                        where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
+                        update: {
+                            balance: { increment: entry.battle.voterReward },
+                            totalEarned: { increment: entry.battle.voterReward },
+                        },
+                        create: {
+                            guildId: entry.battle.guildId, userId,
+                            balance: entry.battle.voterReward, totalEarned: entry.battle.voterReward,
+                        },
+                    });
+                }
             }
         } catch { /* non-critical */ }
 
-        res.json({ voteCount: updated.voteCount, voted: true });
+        res.json({ rank, votes: await fetchUserVotes(entry.battleId, userId) });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+async function fetchUserVotes(battleId: string, userId: string) {
+    return db.battleVote.findMany({
+        where: { battleId, userId },
+        select: { entryId: true, rank: true },
+    });
+}
 
 // --- Admin: Delete a battle entry ---
 app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, res) => {
@@ -9945,7 +10009,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -9986,6 +10050,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 prizeSecond: prizeSecond != null ? Number(prizeSecond) : 0,
                 prizeThird: prizeThird != null ? Number(prizeThird) : 0,
                 voterReward: voterReward != null ? Number(voterReward) : 0,
+                suddenDeathDurationMinutes: suddenDeathDurationMinutes != null && Number(suddenDeathDurationMinutes) > 0 ? Number(suddenDeathDurationMinutes) : 60,
                 createdBy: req.session.user.id,
             },
             include: { sponsor: { include: { links: true } } },
@@ -10014,7 +10079,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -10056,6 +10121,10 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (prizeSecond !== undefined) data.prizeSecond = Number(prizeSecond);
         if (prizeThird !== undefined) data.prizeThird = Number(prizeThird);
         if (voterReward !== undefined) data.voterReward = Number(voterReward);
+        if (suddenDeathDurationMinutes !== undefined) {
+            const v = Number(suddenDeathDurationMinutes);
+            data.suddenDeathDurationMinutes = Number.isFinite(v) && v > 0 ? v : 60;
+        }
 
         const battle = await db.beatBattle.update({
             where: { id: req.params.id },
@@ -10745,6 +10814,7 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             featuredBattleId: null,
             sponsorSectionTitle: null,
             requireMusicianProfile: false,
+            suddenDeathDurationMinutes: 60,
         });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -10759,7 +10829,8 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         }
 
         const { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId, sponsorSectionTitle, requireMusicianProfile,
-                entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+                entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward,
+                suddenDeathDurationMinutes } = req.body;
 
         const updateData: any = {
             announcementChannelId, chatChannelId, discordInviteUrl,
@@ -10775,6 +10846,10 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         if (prizeSecond !== undefined) updateData.prizeSecond = parseInt(prizeSecond) || 0;
         if (prizeThird !== undefined) updateData.prizeThird = parseInt(prizeThird) || 0;
         if (voterReward !== undefined) updateData.voterReward = parseInt(voterReward) || 0;
+        if (suddenDeathDurationMinutes !== undefined) {
+            const v = parseInt(suddenDeathDurationMinutes);
+            updateData.suddenDeathDurationMinutes = Number.isFinite(v) && v > 0 ? v : 60;
+        }
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
@@ -11060,30 +11135,135 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 3. Voting â†’ Completed (votingEnd passed) ----------
+        // ---------- 3. Voting -> Completed OR Sudden Death (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
-            include: { entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 1 } },
         });
-        if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) completing`);
+        if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) finishing voting`);
 
         for (const battle of toComplete) {
             try {
-                logger.info(`Beat Battle lifecycle: completing "${battle.title}"`);
-                const winner = (battle as any).entries?.[0];
-                await db.beatBattle.update({
-                    where: { id: battle.id },
-                    data: { status: 'completed', winnerEntryId: winner?.id || null },
-                });
-                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-                await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
+                const result = await resolveBattleRanking(battle.id);
+                if (result.tied.length > 1) {
+                    const durationMin = (battle as any).suddenDeathDurationMinutes || 60;
+                    const start = new Date();
+                    const end = new Date(start.getTime() + durationMin * 60_000);
+                    logger.info(`Beat Battle lifecycle: "${battle.title}" -> sudden_death (${result.tied.length} entries, ${durationMin}min)`);
+                    await db.beatBattle.update({
+                        where: { id: battle.id },
+                        data: {
+                            status: 'sudden_death',
+                            suddenDeathStart: start,
+                            suddenDeathEnd: end,
+                            suddenDeathEntryIds: result.tied,
+                        },
+                    });
+                    const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                    await postBattleAnnouncement({ ...battle, status: 'sudden_death' }, settings);
+                } else {
+                    const winnerId = result.winnerEntryId;
+                    logger.info(`Beat Battle lifecycle: completing "${battle.title}" (winner: ${winnerId || 'none'})`);
+                    await db.beatBattle.update({
+                        where: { id: battle.id },
+                        data: { status: 'completed', winnerEntryId: winnerId },
+                    });
+                    const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                    await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winnerId }, settings);
+                }
             } catch (err: any) {
                 logger.error(`Beat Battle lifecycle: failed to complete "${battle.title}": ${err.message}`);
+            }
+        }
+
+        // ---------- 4. Sudden Death -> Completed (suddenDeathEnd passed) ----------
+        const sdToComplete = await db.beatBattle.findMany({
+            where: { status: 'sudden_death', suddenDeathEnd: { not: null, lte: now } },
+        });
+        for (const battle of sdToComplete) {
+            try {
+                const tied: string[] = Array.isArray((battle as any).suddenDeathEntryIds) ? (battle as any).suddenDeathEntryIds : [];
+                let winnerId: string | null = null;
+                if (tied.length > 0) {
+                    const sdVotes = await db.battleVote.groupBy({
+                        by: ['entryId'],
+                        where: {
+                            battleId: battle.id,
+                            entryId: { in: tied },
+                            createdAt: { gte: (battle as any).suddenDeathStart || new Date(0) },
+                        },
+                        _count: { _all: true },
+                    });
+                    const sorted = (sdVotes as any[]).map(v => ({ id: v.entryId, count: v._count._all }))
+                        .sort((a, b) => b.count - a.count);
+                    if (sorted.length > 0 && (sorted.length === 1 || sorted[0].count > sorted[1].count)) {
+                        winnerId = sorted[0].id;
+                    } else {
+                        // Still tied after sudden death -> earliest entry wins
+                        const stillTied = sorted.length > 0
+                            ? sorted.filter(s => s.count === sorted[0].count).map(s => s.id)
+                            : tied;
+                        const fallback = await db.battleEntry.findFirst({
+                            where: { id: { in: stillTied } },
+                            orderBy: { createdAt: 'asc' },
+                            select: { id: true },
+                        });
+                        winnerId = fallback?.id || stillTied[0] || null;
+                    }
+                }
+                logger.info(`Beat Battle lifecycle: completing sudden death for "${battle.title}" (winner: ${winnerId || 'none'})`);
+                await db.beatBattle.update({
+                    where: { id: battle.id },
+                    data: { status: 'completed', winnerEntryId: winnerId },
+                });
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winnerId }, settings);
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed sudden-death completion for "${battle.title}": ${err.message}`);
             }
         }
     } catch (err: any) {
         logger.error(`Beat Battle lifecycle error: ${err.message}`);
     }
+}
+
+// Lexicographical Positional Scoring: compare 1st-place counts, then 2nd, then 3rd.
+// Returns either a unique winnerEntryId or the set of tied entry IDs (>1 means sudden death).
+async function resolveBattleRanking(battleId: string): Promise<{ winnerEntryId: string | null; tied: string[] }> {
+    const entries = await db.battleEntry.findMany({
+        where: { battleId, deletedAt: null },
+        select: { id: true, createdAt: true },
+    });
+    if (entries.length === 0) return { winnerEntryId: null, tied: [] };
+    if (entries.length === 1) return { winnerEntryId: entries[0].id, tied: [] };
+
+    const tallies = await db.battleVote.groupBy({
+        by: ['entryId', 'rank'],
+        where: { battleId },
+        _count: { _all: true },
+    });
+    const map = new Map<string, [number, number, number]>();
+    for (const e of entries) map.set(e.id, [0, 0, 0]);
+    for (const t of tallies as any[]) {
+        const arr = map.get(t.entryId);
+        if (!arr) continue;
+        if (t.rank === 1) arr[0] = t._count._all;
+        else if (t.rank === 2) arr[1] = t._count._all;
+        else if (t.rank === 3) arr[2] = t._count._all;
+    }
+    const sorted = entries.map(e => ({ id: e.id, score: map.get(e.id)! }))
+        .sort((a, b) => (b.score[0] - a.score[0]) || (b.score[1] - a.score[1]) || (b.score[2] - a.score[2]));
+    const top = sorted[0];
+    const tied = sorted.filter(s =>
+        s.score[0] === top.score[0] &&
+        s.score[1] === top.score[1] &&
+        s.score[2] === top.score[2]
+    ).map(s => s.id);
+    if (tied.length > 1 && top.score[0] === 0 && top.score[1] === 0 && top.score[2] === 0) {
+        const earliest = entries.slice().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+        return { winnerEntryId: earliest.id, tied: [] };
+    }
+    if (tied.length === 1) return { winnerEntryId: tied[0], tied: [] };
+    return { winnerEntryId: null, tied };
 }
 
 // Run lifecycle immediately on start, then every 60 seconds

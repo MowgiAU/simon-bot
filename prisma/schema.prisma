@@ -1191,6 +1191,12 @@ model BeatBattle {
   // Voting
   maxVotesPerUser     Int      @default(0) // 0 = unlimited, 1+ = max entries a single user can vote on
 
+  // Sudden Death tie-breaker (Lexicographical Positional Scoring)
+  suddenDeathDurationMinutes Int      @default(60) // How long the runoff stays open
+  suddenDeathStart           DateTime?
+  suddenDeathEnd             DateTime?
+  suddenDeathEntryIds        Json?    // Array of tied entry IDs in the runoff
+
   // Announcement
   pendingAnnouncement Boolean  @default(false) // Set true to trigger bot announcement on next lifecycle check
 
@@ -1276,14 +1282,18 @@ model BattleEntry {
 model BattleVote {
   id        String   @id @default(cuid())
   entryId   String
+  battleId  String   // Denormalized for unique-per-rank constraint
   userId    String   // Discord user ID
+  rank      Int      @default(1) // 1 = 1st choice, 2 = 2nd, 3 = 3rd. Sudden death always uses 1.
   source    String   @default("web") // web | discord
   createdAt DateTime @default(now())
 
   entry     BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
-  @@unique([entryId, userId]) // One vote per entry per user
+  @@unique([entryId, userId]) // One rank per (entry,user) — user can't double-rank the same entry
+  @@unique([battleId, userId, rank]) // Each rank slot per battle is exclusive per user
   @@index([entryId])
+  @@index([battleId])
   @@map("battle_votes")
 }
 
@@ -1354,6 +1364,9 @@ model BeatBattleSettings {
   prizeSecond           Int      @default(0)    // Coin prize for 2nd place
   prizeThird            Int      @default(0)    // Coin prize for 3rd place
   voterReward           Int      @default(0)    // Coins for each vote cast
+
+  // Default sudden-death duration (minutes) for new battles
+  suddenDeathDurationMinutes Int  @default(60)
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

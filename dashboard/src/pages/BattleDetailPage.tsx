@@ -19,11 +19,18 @@ const ACCENT = '#F97316';
 
 // localStorage helpers — keyed per entry ID
 const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
-const lsSetVote = (entryId: string, voted: boolean) => {
-    try { if (voted) localStorage.setItem(lsVoteKey(entryId), '1'); else localStorage.removeItem(lsVoteKey(entryId)); } catch {}
+const lsSetVote = (entryId: string, rank: number | null) => {
+    try {
+        if (rank === null || rank === 0) localStorage.removeItem(lsVoteKey(entryId));
+        else localStorage.setItem(lsVoteKey(entryId), String(rank));
+    } catch {}
 };
-const lsIsVoted = (entryId: string): boolean => {
-    try { return localStorage.getItem(lsVoteKey(entryId)) === '1'; } catch { return false; }
+const lsGetVote = (entryId: string): number | null => {
+    try {
+        const v = localStorage.getItem(lsVoteKey(entryId));
+        if (v === '1' || v === '2' || v === '3') return Number(v);
+        return null;
+    } catch { return null; }
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -105,6 +112,7 @@ interface Battle {
     winnerEntryId: string | null;
     bannerUrl: string | null;
     requireProjectFile?: boolean;
+    suddenDeath?: { active: boolean; entryIds: string[]; start: string | null; end: string | null; durationMinutes: number } | null;
     discordInviteUrl: string | null;
     sponsor: {
         id: string;
@@ -131,6 +139,9 @@ interface Entry {
     projectUrl?: string | null;
     duration?: number;
     voteCount: number;
+    firstPlaceVotes?: number;
+    secondPlaceVotes?: number;
+    thirdPlaceVotes?: number;
     source: string;
     createdAt: string;
 }
@@ -143,6 +154,7 @@ export const BattleDetailPage: React.FC = () => {
     const [battle, setBattle] = useState<Battle | null>(null);
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
+    const [myRanks, setMyRanks] = useState<Record<string, number>>({});
     const [votingId, setVotingId] = useState<string | null>(null);
     const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
@@ -193,18 +205,22 @@ export const BattleDetailPage: React.FC = () => {
     useEffect(() => {
         const entries = battle?.entries;
         if (!entries?.length) return;
-        const localVoted = new Set(entries.filter((e: any) => lsIsVoted(e.id)).map((e: any) => e.id));
-        setVotedIds(localVoted);
+        const localRanks: Record<string, number> = {};
+        entries.forEach((e: any) => { const r = lsGetVote(e.id); if (r) localRanks[e.id] = r; });
+        setMyRanks(localRanks);
+        setVotedIds(new Set(Object.keys(localRanks)));
         if (!user || !battleId) return;
         const fetchMyVotes = async () => {
             try {
                 const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/my-votes`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    const serverVoted: string[] = data.votedEntryIds;
-                    // Server is the source of truth — overwrite localStorage
-                    entries.forEach((e: any) => lsSetVote(e.id, serverVoted.includes(e.id)));
-                    setVotedIds(new Set(serverVoted));
+                    const serverVotes: { entryId: string; rank: number }[] = Array.isArray(data.votes) ? data.votes : [];
+                    const next: Record<string, number> = {};
+                    serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                    entries.forEach((e: any) => lsSetVote(e.id, next[e.id] ?? null));
+                    setMyRanks(next);
+                    setVotedIds(new Set(Object.keys(next)));
                 }
             } catch {}
         };
@@ -221,10 +237,12 @@ export const BattleDetailPage: React.FC = () => {
     useEffect(() => {
         if (!battle) return;
         const target =
+            battle.status === 'sudden_death' ? battle.suddenDeath?.end || null :
             battle.status === 'voting'   ? battle.votingEnd :
             battle.status === 'active'   ? battle.submissionEnd :
             battle.status === 'upcoming' ? battle.submissionStart : null;
         const label =
+            battle.status === 'sudden_death' ? 'Sudden Death ends in' :
             battle.status === 'voting'   ? 'Voting ends in' :
             battle.status === 'active'   ? 'Submissions close in' :
             battle.status === 'upcoming' ? 'Submissions open in' : '';
@@ -296,37 +314,51 @@ export const BattleDetailPage: React.FC = () => {
         }
     };
 
-    const vote = async (entryId: string) => {
+    const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
         setVotingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
                 method: 'POST',
                 credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rank }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const voted: boolean = (data as any).voted;
-                lsSetVote(entryId, voted);
-                setVotedIds(prev => {
-                    const next = new Set(prev);
-                    if (voted) next.add(entryId); else next.delete(entryId);
-                    return next;
+                const serverVotes: { entryId: string; rank: number }[] = Array.isArray((data as any).votes) ? (data as any).votes : [];
+                const next: Record<string, number> = {};
+                serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                (battle?.entries || []).forEach((e: any) => lsSetVote(e.id, next[e.id] ?? null));
+                setMyRanks(next);
+                setVotedIds(new Set(Object.keys(next)));
+                setVoteNotification({
+                    message: rank === null
+                        ? 'Vote removed.'
+                        : `🔥 Marked as your ${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'} place pick!`,
                 });
-                // Update vote count in place and re-sort
-                setBattle(prev => {
-                    if (!prev?.entries) return prev;
-                    const updated = prev.entries
-                        .map((e: any) => e.id === entryId ? { ...e, voteCount: (data as any).voteCount } : e);
-                    return { ...prev, entries: updated };
-                });
-                setVoteNotification({ message: voted ? '🔥 Vote cast!' : 'Vote removed.' });
+                if (battleId) {
+                    fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
+                        .then(r => r.ok ? r.json() : null)
+                        .then(b => {
+                            if (!b) return;
+                            if (Array.isArray(b.entries)) b.entries = b.entries.map(flattenBattleEntry);
+                            setBattle(b);
+                        })
+                        .catch(() => {});
+                }
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
         } catch {
             setVoteNotification({ message: 'Something went wrong. Please try again.' });
         } finally { setVotingId(null); }
+    };
+    const vote = (entryId: string) => {
+        const current = myRanks[entryId];
+        if (!current) return castVote(entryId, 1);
+        if (current === 1) return castVote(entryId, null);
+        return castVote(entryId, 1);
     };
 
     if (loading) return (
@@ -853,6 +885,31 @@ export const BattleDetailPage: React.FC = () => {
                         )}
                     </div>
 
+                    {/* Voting explainer */}
+                    {(battle.status === 'voting' || battle.status === 'sudden_death') && entries.length > 0 && (
+                        <div style={{ backgroundColor: colors.surface, padding: '16px 18px', borderRadius: borderRadius.md, marginBottom: '20px', borderLeft: `4px solid ${colors.primary}` }}>
+                            {battle.status === 'sudden_death' ? (
+                                <>
+                                    <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px', fontWeight: 700 }}>
+                                        ⚡ Sudden Death is live
+                                    </p>
+                                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
+                                        The leading entries finished with an identical 1st/2nd/3rd vote distribution. Cast a single vote for the entry you want to win — only the entries below are eligible. Voting closes {battle.suddenDeath?.end ? new Date(battle.suddenDeath.end).toLocaleString() : 'shortly'}.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px', fontWeight: 700 }}>
+                                        🏆 How voting works — Lexicographical Positional Scoring
+                                    </p>
+                                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
+                                        Every voter picks their <strong>1st</strong>, <strong>2nd</strong> and <strong>3rd</strong> place entries. The winner is the entry with the most 1st-place votes. Ties are broken by 2nd-place votes, then by 3rd-place votes. If three entries are still perfectly tied across all tiers, the battle moves into <strong>Sudden Death</strong> — a short runoff vote between only the tied entries.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {/* Empty state */}
                     {entries.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -875,8 +932,12 @@ export const BattleDetailPage: React.FC = () => {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {sortedEntries.map((entry, i) => {
-                                const hasVoted = votedIds.has(entry.id);
+                                const myRank = myRanks[entry.id] || 0;
+                                const hasVoted = myRank > 0;
                                 const isVoting = votingId === entry.id;
+                                const sdActive = battle.status === 'sudden_death';
+                                const sdEntries: string[] = battle.suddenDeath?.entryIds || [];
+                                const sdEligible = !sdActive || sdEntries.includes(entry.id);
                                 const trackId = `battle-entry-${entry.id}`;
                                 const isCurrentlyPlaying = player.currentTrack?.id === trackId && player.isPlaying;
                                 const bars = waveHeights(entry.id);
@@ -969,24 +1030,52 @@ export const BattleDetailPage: React.FC = () => {
                                                             {isCurrentlyPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} fill="currentColor" /> Play</>}
                                                         </button>
                                                     )}
-                                                    {battle.status === 'voting' && (
-                                                        <button onClick={() => vote(entry.id)} disabled={isVoting}
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: '6px',
-                                                                padding: '8px 22px',
-                                                                backgroundColor: hasVoted ? `${colors.primary}22` : colors.primary,
-                                                                color: hasVoted ? colors.primary : '#fff',
-                                                                borderRadius: '8px', border: hasVoted ? `1px solid ${colors.primary}40` : 'none',
-                                                                cursor: isVoting ? 'not-allowed' : 'pointer',
-                                                                fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
-                                                                boxShadow: hasVoted ? 'none' : `0 4px 14px ${colors.primary}40`,
-                                                                textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                            }}>
-                                                            <Vote size={14} />
-                                                            {hasVoted ? 'Voted ✓' : isVoting ? '…' : 'Vote'}
-                                                        </button>
+                                                    {(battle.status === 'voting' || sdActive) && sdEligible && (
+                                                        (sdActive ? [1] : [1, 2, 3]).map(r => {
+                                                            const isThis = myRank === r;
+                                                            const label = sdActive ? 'Vote' : (r === 1 ? '1st' : r === 2 ? '2nd' : '3rd');
+                                                            return (
+                                                                <button
+                                                                    key={r}
+                                                                    onClick={() => castVote(entry.id, isThis ? null : (r as 1 | 2 | 3))}
+                                                                    disabled={isVoting}
+                                                                    title={isThis ? 'Click to remove this vote' : `Mark as your ${label}${sdActive ? '' : ' place'} pick`}
+                                                                    style={{
+                                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                                        padding: '8px 16px',
+                                                                        backgroundColor: isThis ? colors.primary : 'rgba(255,255,255,0.05)',
+                                                                        color: isThis ? '#fff' : colors.textPrimary,
+                                                                        borderRadius: '8px',
+                                                                        border: isThis ? `1px solid ${colors.primary}` : '1px solid rgba(255,255,255,0.1)',
+                                                                        cursor: isVoting ? 'not-allowed' : 'pointer',
+                                                                        fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
+                                                                        boxShadow: isThis ? `0 4px 14px ${colors.primary}40` : 'none',
+                                                                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                                    }}>
+                                                                    {isThis ? <Flame size={13} /> : <Vote size={13} />}
+                                                                    {label}
+                                                                </button>
+                                                            );
+                                                        })
                                                     )}
-                                                    {!user && battle.status === 'voting' && (
+                                                    {sdActive && !sdEligible && (
+                                                        <span style={{ fontSize: '12px', color: colors.textSecondary, fontStyle: 'italic', padding: '8px 0' }}>
+                                                            Eliminated in sudden death
+                                                        </span>
+                                                    )}
+                                                    {hasVoted && (battle.status === 'voting' || sdActive) && (
+                                                        <span style={{ fontSize: '11px', color: colors.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            Your {myRank === 1 ? '1st' : myRank === 2 ? '2nd' : '3rd'} pick
+                                                        </span>
+                                                    )}
+                                                    {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
+                                                        <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary, fontWeight: 600, display: 'flex', gap: '8px' }}>
+                                                            <span title="1st place votes">🥇 {entry.firstPlaceVotes || 0}</span>
+                                                            <span title="2nd place votes">🥈 {entry.secondPlaceVotes || 0}</span>
+                                                            <span title="3rd place votes">🥉 {entry.thirdPlaceVotes || 0}</span>
+                                                        </span>
+                                                    )}
+                                                    {!user && (battle.status === 'voting' || sdActive) && (
                                                         <a href="/api/auth/discord/login"
                                                             style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '8px 14px', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', textDecoration: 'none', fontSize: '12px' }}>
                                                             <LogIn size={12} /> Log in to vote

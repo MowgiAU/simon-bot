@@ -122,6 +122,7 @@ export const BeatBattlePage: React.FC = () => {
         entryFeeEnabled: false, entryFee: 0,
         prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0,
         voterReward: 0,
+        suddenDeathDurationMinutes: 60,
     });
     const [uploadingPrizeIdx, setUploadingPrizeIdx] = useState<number | null>(null);
     const [uploadingRuleIdx, setUploadingRuleIdx] = useState<number | null>(null);
@@ -146,6 +147,7 @@ export const BeatBattlePage: React.FC = () => {
     // Settings state
     const [settings, setSettings] = useState({
         announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
+        suddenDeathDurationMinutes: 60,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'battle' | 'sponsor'; id: string } | null>(null);
@@ -179,6 +181,7 @@ export const BeatBattlePage: React.FC = () => {
                     featuredBattleId: data.featuredBattleId || '',
                     sponsorSectionTitle: data.sponsorSectionTitle || '',
                     requireMusicianProfile: data.requireMusicianProfile ?? false,
+                    suddenDeathDurationMinutes: typeof data.suddenDeathDurationMinutes === 'number' ? data.suddenDeathDurationMinutes : 60,
                 });
             }
         } catch {}
@@ -205,7 +208,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0 });
+    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -303,6 +306,7 @@ export const BeatBattlePage: React.FC = () => {
                     prizeSecond: form.prizeSecond,
                     prizeThird: form.prizeThird,
                     voterReward: form.voterReward,
+                    suddenDeathDurationMinutes: form.suddenDeathDurationMinutes,
                 }),
             });
             if (res.ok) {
@@ -536,6 +540,7 @@ export const BeatBattlePage: React.FC = () => {
             prizeSecond: (b as any).prizeSecond || 0,
             prizeThird: (b as any).prizeThird || 0,
             voterReward: (b as any).voterReward || 0,
+            suddenDeathDurationMinutes: (b as any).suddenDeathDurationMinutes || 60,
         });
         setBannerFile(null);
         setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
@@ -848,6 +853,11 @@ export const BeatBattlePage: React.FC = () => {
                                     <label style={labelStyle}>Max Votes Per User</label>
                                     <input type="number" min={0} style={inputStyle} value={form.maxVotesPerUser} onChange={(e) => setForm({ ...form, maxVotesPerUser: Number(e.target.value) })} placeholder="0 = unlimited" />
                                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>0 = unlimited votes</p>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Sudden Death Duration (minutes)</label>
+                                    <input type="number" min={1} style={inputStyle} value={form.suddenDeathDurationMinutes} onChange={(e) => setForm({ ...form, suddenDeathDurationMinutes: Number(e.target.value) || 60 })} placeholder="60" />
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>How long the runoff stays open if entries are lex-tied at all 3 ranks</p>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Require Project File Upload</label>
@@ -1282,6 +1292,18 @@ export const BeatBattlePage: React.FC = () => {
                                     </div>
                                     {settings.requireMusicianProfile ? 'Required' : 'Not Required'}
                                 </button>
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={labelStyle}>Default Sudden Death Duration (minutes)</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Default runoff window when battles end with a perfect lex tie at all 3 ranks. Per-battle overrides are available in each battle's settings.</p>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    style={{ ...inputStyle, maxWidth: '200px' }}
+                                    value={settings.suddenDeathDurationMinutes}
+                                    onChange={(e) => setSettings({ ...settings, suddenDeathDurationMinutes: Number(e.target.value) || 60 })}
+                                    placeholder="60"
+                                />
                             </div>
                             <div style={{ gridColumn: '1 / -1' }}>
                                 <label style={labelStyle}>Discord Server Invite URL</label>
