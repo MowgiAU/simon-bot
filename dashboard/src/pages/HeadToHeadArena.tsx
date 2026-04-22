@@ -390,9 +390,11 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
 
     useEffect(() => { reload(); }, [reload]);
     useEffect(() => {
-        const t = setInterval(reload, 15000);
+        // Poll fast (3s) when actively waiting for a match / opponent action; slow (15s) otherwise.
+        const fast = !!me?.activeMatch && ['queued', 'ready_check', 'melodics_vote'].includes(me.activeMatch.status);
+        const t = setInterval(reload, fast ? 3000 : 15000);
         return () => clearInterval(t);
-    }, [reload]);
+    }, [reload, me?.activeMatch?.status]);
     useEffect(() => { if (settings) setProdMin(settings.defaultProductionMinutes); }, [settings]);
 
     const joinQueue = async () => {

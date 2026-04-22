@@ -779,7 +779,7 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
-// Write-only limiter — only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
+// Write-only limiter ï¿½ only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
 const writeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -884,7 +884,7 @@ const requireAdmin: RequestHandler = (req, res, next) => {
 const requireInvited: RequestHandler = (req, res, next) => {
     // If invite-only mode is disabled, let everyone through
     if (process.env.INVITE_ONLY !== 'true') return next();
-    // Not logged in — block
+    // Not logged in ï¿½ block
     if (!req.session.user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -1076,7 +1076,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
                         if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
                             await db.user.update({ where: { id: req.session.user._localId }, data: { invited: true } });
                             req.session.user._invited = true;
-                            logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) via Discord link — has beta role`);
+                            logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) via Discord link ï¿½ has beta role`);
                         }
                     }
                 } catch (e) {
@@ -1202,7 +1202,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
                 if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
                     await db.user.update({ where: { id: user._localId }, data: { invited: true } });
                     user._invited = true;
-                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) — has beta role`);
+                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) ï¿½ has beta role`);
                 }
             }
         } catch (e) {
@@ -1809,7 +1809,7 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
 });
 
 // =============================================
-// SET EMAIL (first-time setup — Discord-created accounts without email)
+// SET EMAIL (first-time setup ï¿½ Discord-created accounts without email)
 // =============================================
 app.post('/api/auth/set-email', requireAuth, async (req: any, res) => {
     try {
@@ -2100,7 +2100,7 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
 });
 
 // =============================================
-// CONFIRM EMAIL CHANGE (via token link – GET for email links)
+// CONFIRM EMAIL CHANGE (via token link ï¿½ GET for email links)
 // =============================================
 app.get('/api/auth/confirm-email-change', async (req, res) => {
     try {
@@ -2145,7 +2145,7 @@ app.get('/api/auth/confirm-email-change', async (req, res) => {
     }
 });
 
-// CONFIRM EMAIL CHANGE (POST – legacy/API usage)
+// CONFIRM EMAIL CHANGE (POST ï¿½ legacy/API usage)
 app.post('/api/auth/confirm-email-change', async (req: any, res) => {
     try {
         const { token } = req.body;
@@ -2332,11 +2332,11 @@ async function refreshSessionGuilds(req: any): Promise<void> {
             // Check admin status
             let isAdmin = false;
             if (oauthGuild) {
-                // OAuth login — use cached permissions from Discord
+                // OAuth login ï¿½ use cached permissions from Discord
                 const perms = BigInt(oauthGuild.permissions);
                 isAdmin = oauthGuild.owner || (perms & BigInt(0x8)) === BigInt(0x8);
             } else {
-                // Email login — preserve previous admin status (can't re-check without OAuth token)
+                // Email login ï¿½ preserve previous admin status (can't re-check without OAuth token)
                 isAdmin = prevAdminIds.has(botGuild.id);
             }
 
@@ -2367,7 +2367,7 @@ async function refreshSessionGuilds(req: any): Promise<void> {
                     }
                 }
             } catch {
-                // Skip — user may not be a member of this guild
+                // Skip ï¿½ user may not be a member of this guild
             }
         }
 
@@ -2901,7 +2901,7 @@ app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
     const page = Math.max(0, parseInt(req.query.page as string) || 0);
     const perPage = 20;
 
-    // Power Score leaderboard — computed in-memory
+    // Power Score leaderboard ï¿½ computed in-memory
     if (type === 'power') {
       const allMembers = await db.member.findMany({
         where: { guildId },
@@ -3465,9 +3465,9 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.welcomeGateSettings.findUnique({ where: { guildId } }),
       // 10. Filter Settings
       db.filterSettings.findUnique({ where: { guildId } }),
-      // 11. Artist count (global — platform-wide Fuji Studio profiles)
+      // 11. Artist count (global ï¿½ platform-wide Fuji Studio profiles)
       db.musicianProfile.count({ where: { status: 'active', deletedAt: null } }),
-      // 12. Track count (global — platform-wide public tracks)
+      // 12. Track count (global ï¿½ platform-wide public tracks)
       db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
     ]);
 
@@ -4502,7 +4502,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     }
 });
 
-// Apply channel permissions — deny ViewChannel for unverified role on all channels except whitelist
+// Apply channel permissions ï¿½ deny ViewChannel for unverified role on all channels except whitelist
 app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
     const { guildId } = req.params;
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -4682,7 +4682,7 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
     verifyAllJobs.set(guildId, { status: 'running', verified: 0, failed: 0, total: 0 });
     res.json({ jobId: guildId, status: 'running' });
 
-    // Run asynchronously — don't await
+    // Run asynchronously ï¿½ don't await
     (async () => {
         logger.info(`Verify-all job started for guild ${guildId}`);
         const botToken = process.env.DISCORD_TOKEN;
@@ -4757,7 +4757,7 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
                     logger.warn(`Verify-all: failed to patch ${m.user.id}: ${e.response?.status} ${e.message}`);
                     job.failed++;
                 }
-                // 300ms base pace — 429 retry handler will back off if needed
+                // 300ms base pace ï¿½ 429 retry handler will back off if needed
                 await new Promise(r => setTimeout(r, 300));
             }
 
@@ -4918,7 +4918,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
             }
         }
 
-        // Parse request body — express.text() always gives us a string
+        // Parse request body ï¿½ express.text() always gives us a string
         let bodyObj: any = null;
         if (typeof req.body === 'string') {
             try { bodyObj = JSON.parse(req.body); } catch {}
@@ -4938,7 +4938,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
         const savedAttachments: Array<{ filename: string; path: string }> = [];
 
         // Resend inbound format: { type: "email.received", data: { email_id, from, to, subject, ... } }
-        // Body is NOT included in the webhook — must be fetched via Resend API using email_id
+        // Body is NOT included in the webhook ï¿½ must be fetched via Resend API using email_id
         const resendData = bodyObj?.data || (bodyObj?.type === 'email.received' ? bodyObj : null);
         if (resendData?.email_id !== undefined || resendData?.from !== undefined) {
             logger.info(`[Email Webhook] Detected Resend structured format, email_id: ${resendData.email_id}`);
@@ -5232,7 +5232,7 @@ app.get('/api/bot-messenger/:guildId/stickers', async (req, res) => {
     }
 });
 
-// Upload an image for embed use — returns full-size CDN URL + auto-generated thumbnail
+// Upload an image for embed use ï¿½ returns full-size CDN URL + auto-generated thumbnail
 app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage'), async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
@@ -5253,7 +5253,7 @@ app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage')
             .resize(200, null, { withoutEnlargement: true })
             .toBuffer();
 
-        // Full-size image — upload to R2
+        // Full-size image ï¿½ upload to R2
         const imageKey = `embed-images/${baseName}${ext}`;
         const imageUrl = await uploadToR2OrLocal(
             file.path,
@@ -5644,13 +5644,13 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord'];
         const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
 
-        // Validate regex if regex type (strip unsupported inline flags like (?i) — JS applies 'i' flag natively)
+        // Validate regex if regex type (strip unsupported inline flags like (?i) ï¿½ JS applies 'i' flag natively)
         if (type === 'regex' && trigger) {
             const sanitizedTrigger = String(trigger).replace(/^\(\?[imsxUu-]+\)/g, '');
             try { new RegExp(sanitizedTrigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
         }
 
-        // Validate categoryId if provided — must belong to the same guild
+        // Validate categoryId if provided ï¿½ must belong to the same guild
         if (categoryId !== undefined && categoryId !== null) {
             const cat = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
             if (!cat) return res.status(400).json({ error: 'Category not found in this guild' });
@@ -6583,7 +6583,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Magic byte validation — reject spoofed files before further processing
+        // Magic byte validation ï¿½ reject spoofed files before further processing
         try {
             FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -6668,7 +6668,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
-        // Create slug from title — fall back to cuid when Unicode title produces empty string
+        // Create slug from title ï¿½ fall back to cuid when Unicode title produces empty string
         const slug = safeTrackSlug(metadata.title);
 
         // 3. Save to database
@@ -7021,7 +7021,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation — reject spoofed files
+        // Magic byte validation ï¿½ reject spoofed files
         try {
             if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -7197,7 +7197,7 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation — reject spoofed files
+        // Magic byte validation ï¿½ reject spoofed files
         try {
             if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -7911,7 +7911,7 @@ function validateSocialUrls(data: any): string | null {
             return `Invalid URL for ${platform}. Must be a valid ${rule.label} link.`;
         }
     }
-    // Discord is a username/handle, not a URL — just validate length
+    // Discord is a username/handle, not a URL ï¿½ just validate length
     if (data.discordUrl && data.discordUrl.trim().length > 100) {
         return 'Discord username must be 100 characters or fewer.';
     }
@@ -8560,7 +8560,7 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
             return res.status(400).json({ error: 'Avatar file is required' });
         }
 
-        // Magic byte validation — reject spoofed images
+        // Magic byte validation ï¿½ reject spoofed images
         try {
             FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
         } catch (validationErr: any) {
@@ -8604,7 +8604,7 @@ app.post('/api/musician/profile/:userId/banner', generalUploadLimiter, upload.si
     try {
         const { userId } = req.params;
 
-        // Ownership check — only profile owner or admin
+        // Ownership check ï¿½ only profile owner or admin
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -11364,7 +11364,7 @@ void pickRandomSamples;
 
 // Mandatory categories every match always gets one of (if available).
 const H2H_MANDATORY_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx'] as const;
-// Optional categories — included only when the match's include* flag is true.
+// Optional categories ï¿½ included only when the match's include* flag is true.
 const H2H_OPTIONAL_CATEGORIES = ['bass', 'melody', 'chords'] as const;
 const H2H_ALL_CATEGORIES = [...H2H_MANDATORY_CATEGORIES, ...H2H_OPTIONAL_CATEGORIES] as const;
 
@@ -11395,7 +11395,7 @@ async function pickCategorizedSamples(
                 select: { id: true },
             });
         }
-        if (!candidates.length) continue; // category has no samples anywhere — skip silently
+        if (!candidates.length) continue; // category has no samples anywhere ï¿½ skip silently
         const chosen = candidates[Math.floor(Math.random() * candidates.length)];
         picked.push(chosen.id);
     }
@@ -11585,6 +11585,9 @@ app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
             },
         });
         res.json({ matchId: match.id, status: match.status });
+        // Kick the lifecycle right away so the second player into the queue gets paired instantly
+        // instead of waiting for the next interval tick.
+        runHeadToHeadLifecycle().catch(() => {});
     } catch (e: any) {
         logger.error('H2H queue failed', e);
         res.status(500).json({ error: 'Internal server error' });
@@ -11672,7 +11675,7 @@ app.post('/api/head-to-head/match/:id/ready', requireAuth, async (req: any, res)
     }
 });
 
-// Melodics vote window length — short, since it's a single click per category.
+// Melodics vote window length ï¿½ short, since it's a single click per category.
 const H2H_MELODICS_VOTE_SECONDS = 45;
 
 async function advanceToMelodicsVote(match: any): Promise<void> {
@@ -11702,7 +11705,7 @@ async function resolveMelodicsAndProduce(match: any): Promise<void> {
     await advanceToProduction({ ...match, includeBass, includeMelody, includeChords });
 }
 
-// Melodics vote — each player picks bass/melody/chords yes/no. Both must agree
+// Melodics vote ï¿½ each player picks bass/melody/chords yes/no. Both must agree
 // on a category for it to be included. Auto-resolves when both submitted, or on timeout.
 app.post('/api/head-to-head/match/:id/melodics-vote', requireAuth, async (req: any, res) => {
     try {
@@ -11737,7 +11740,7 @@ app.post('/api/head-to-head/match/:id/melodics-vote', requireAuth, async (req: a
     }
 });
 
-// Manual forfeit — allowed during ready_check / melodics_vote / producing.
+// Manual forfeit ï¿½ allowed during ready_check / melodics_vote / producing.
 app.post('/api/head-to-head/match/:id/forfeit', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
@@ -11750,7 +11753,7 @@ app.post('/api/head-to-head/match/:id/forfeit', requireAuth, async (req: any, re
             return res.status(400).json({ error: 'Cannot forfeit from this phase' });
         }
         if (!match.opponentId) {
-            // Solo queue — just cancel
+            // Solo queue ï¿½ just cancel
             await db.h2HMatch.update({
                 where: { id: match.id },
                 data: { status: 'cancelled', forfeitReason: 'Forfeited before opponent matched' },
@@ -11766,9 +11769,9 @@ app.post('/api/head-to-head/match/:id/forfeit', requireAuth, async (req: any, re
         let winnerId = opponentId;
         let loserId  = userId;
         // Edge case: if the forfeiter actually submitted but the opponent didn't,
-        // forfeiting still means they want out — opponent wins.
+        // forfeiting still means they want out ï¿½ opponent wins.
         if (youSubmitted && !opponentSubmitted) {
-            // Same outcome — opponent gets the W because the forfeiter quit.
+            // Same outcome ï¿½ opponent gets the W because the forfeiter quit.
         }
         await db.h2HMatch.update({
             where: { id: match.id },
@@ -11868,7 +11871,7 @@ async function openVoting(match: any): Promise<void> {
     });
 }
 
-// Voting queue: peer-reviewed — only return matches where the viewer also has an active or recently-completed match.
+// Voting queue: peer-reviewed ï¿½ only return matches where the viewer also has an active or recently-completed match.
 app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
@@ -11906,7 +11909,7 @@ app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => 
             matches: matches.map(m => ({
                 ...m,
                 myVote: m.votes[0]?.voteFor ?? null,
-                // Anonymous voting — voters cannot see the producers' identities until the match completes
+                // Anonymous voting ï¿½ voters cannot see the producers' identities until the match completes
                 challengerProfile: anonProfile(m.challengerId),
                 opponentProfile: m.opponentId ? anonProfile(m.opponentId) : null,
                 votes: undefined,
@@ -12162,7 +12165,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
         if (!settings.enabled) return;
         const now = new Date();
 
-        // 1. Matchmaking — pair queued players within the same genre + production length, prefer closest Elo.
+        // 1. Matchmaking ï¿½ pair queued players within the same genre + production length, prefer closest Elo.
         const queued = await db.h2HMatch.findMany({
             where: { status: 'queued', opponentId: null },
             orderBy: { createdAt: 'asc' },
@@ -12178,7 +12181,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
                 b.productionMinutes === a.productionMinutes
             );
             if (!candidate) continue;
-            // Elo distance is informational — we still match within bucket since the queue is small.
+            // Elo distance is informational ï¿½ we still match within bucket since the queue is small.
             const readyDeadline = new Date(now.getTime() + settings.readyUpMinutes * 60 * 1000);
             await db.h2HMatch.update({
                 where: { id: a.id },
@@ -12189,7 +12192,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
                     readyDeadline,
                 },
             });
-            // Mark candidate as cancelled (it was a placeholder queue row) — its user is now opponent on `a`.
+            // Mark candidate as cancelled (it was a placeholder queue row) ï¿½ its user is now opponent on `a`.
             await db.h2HMatch.update({
                 where: { id: candidate.id },
                 data: { status: 'cancelled', forfeitReason: 'Merged into match ' + a.id },
@@ -12227,7 +12230,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
             }
         }
 
-        // 2b. Melodics vote timeouts — anyone who didn't vote on a category counts as "no".
+        // 2b. Melodics vote timeouts ï¿½ anyone who didn't vote on a category counts as "no".
         const melodicsVotes = await db.h2HMatch.findMany({
             where: { status: 'melodics_vote', melodicsVoteDeadline: { lte: now } },
         });
@@ -12279,7 +12282,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
             const opVotes = m.votes.filter(v => v.voteFor === m.opponentId).length;
             const total = chVotes + opVotes;
             if (total < settings.minVotesToFinalize) {
-                // Extend by 50% of voting window if under-voted (max one extension per cycle is fine — idempotent)
+                // Extend by 50% of voting window if under-voted (max one extension per cycle is fine ï¿½ idempotent)
                 const ext = new Date(now.getTime() + Math.ceil((m.votingMinutes || settings.defaultVotingMinutes) * 30 * 1000));
                 await db.h2HMatch.update({ where: { id: m.id }, data: { votingEnd: ext } });
                 continue;
@@ -12316,9 +12319,9 @@ async function runHeadToHeadLifecycle(): Promise<void> {
     }
 }
 
-// Run lifecycle immediately on start, then every 30 seconds (faster cadence than weekly battles).
+// Run lifecycle immediately on start, then every 5 seconds (matchmaking + ready/vote/production timers).
 runHeadToHeadLifecycle();
-setInterval(runHeadToHeadLifecycle, 30_000);
+setInterval(runHeadToHeadLifecycle, 5_000);
 
 // --- Anti-External Forward --------------------------------------------------
 
@@ -12532,7 +12535,7 @@ app.get('/api/comments', async (req: any, res) => {
             allUserIds.add((c as any).userId);
             for (const r of (c as any).replies || []) allUserIds.add(r.userId);
         }
-        // Fetch profiles for all commenters — profile avatar/displayName take priority
+        // Fetch profiles for all commenters ï¿½ profile avatar/displayName take priority
         const profiles = allUserIds.size > 0
             ? await db.musicianProfile.findMany({
                 where: { userId: { in: [...allUserIds] } },
@@ -12596,7 +12599,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, or battleEntryId' });
         }
 
-        // Resolve username and avatar — prefer MusicianProfile over Discord
+        // Resolve username and avatar ï¿½ prefer MusicianProfile over Discord
         let username = req.session.user.username || 'Unknown';
         let avatarUrl: string | null = null;
         const profile = await db.musicianProfile.findUnique({
@@ -12658,7 +12661,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             try {
                 const snippet = (content || '').trim().slice(0, 80) || '(GIF)';
                 if (parentId) {
-                    // Reply notification — notify the parent comment author
+                    // Reply notification ï¿½ notify the parent comment author
                     const parentComment = await db.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
                     if (parentComment && parentComment.userId !== userId) {
                         let link: string | null = null;
@@ -12676,7 +12679,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                         });
                     }
                 } else {
-                    // Top-level comment notification — notify the content owner
+                    // Top-level comment notification ï¿½ notify the content owner
                     let ownerId: string | null = null;
                     let link: string | null = null;
                     if (resolvedTrackId) {
@@ -12898,7 +12901,7 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
             take: 50,
         });
 
-        // Check if user has a musician profile — if not, prepend a prompt notification
+        // Check if user has a musician profile ï¿½ if not, prepend a prompt notification
         try {
             const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
             if (!profile) {
@@ -13478,7 +13481,7 @@ app.post('/api/playlists/:playlistId/cover', requireAuth, generalUploadLimiter, 
         const coverFile = req.file as Express.Multer.File | undefined;
         if (!coverFile) return res.status(400).json({ error: 'No cover image provided' });
 
-        // Magic byte validation — reject spoofed images
+        // Magic byte validation ï¿½ reject spoofed images
         try {
             FileValidator.validateImage(fs.readFileSync(coverFile.path), coverFile.originalname);
         } catch (validationErr: any) {
@@ -13838,7 +13841,7 @@ app.post('/api/radio/control/:guildId', async (req, res) => {
       },
     });
 
-    // Poll for completion (bot processes commands every 2s) — wait up to 6s
+    // Poll for completion (bot processes commands every 2s) ï¿½ wait up to 6s
     const deadline = Date.now() + 6000;
     while (Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -14466,7 +14469,7 @@ app.post('/api/booster-color/settings/:guildId', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// PRIVATE MESSAGING — Encrypted 1:1 & Group Chats
+// PRIVATE MESSAGING ï¿½ Encrypted 1:1 & Group Chats
 // ---------------------------------------------------------------------------
 const msgEnc = new MessageEncryption();
 
@@ -14533,7 +14536,7 @@ app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
                 lastMessageSenderId = msg.senderId;
                 if (!msg.deleted) {
                     try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
-                    if (lastMessagePreview && lastMessagePreview.length > 80) lastMessagePreview = lastMessagePreview.slice(0, 80) + '…';
+                    if (lastMessagePreview && lastMessagePreview.length > 80) lastMessagePreview = lastMessagePreview.slice(0, 80) + 'ï¿½';
                 } else {
                     lastMessagePreview = '[deleted]';
                 }
@@ -14573,7 +14576,7 @@ app.post('/api/messages/conversations', requireAuth, async (req: any, res) => {
         const me = req.session.user.id;
         const { participantIds, name, isGroup } = req.body;
         if (!Array.isArray(participantIds) || participantIds.length === 0) return res.status(400).json({ error: 'participantIds required' });
-        // Sanitize — remove self, deduplicate
+        // Sanitize ï¿½ remove self, deduplicate
         const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
         if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
         // Verify all participant IDs are real users
@@ -14859,7 +14862,7 @@ app.get('/api/messages/conversations/:id', requireAuth, async (req: any, res) =>
 });
 
 // ---------------------------------------------------------------------------
-// ADMIN — Private Messaging Dashboard
+// ADMIN ï¿½ Private Messaging Dashboard
 // ---------------------------------------------------------------------------
 
 // Admin: list all conversations with stats
@@ -14889,7 +14892,7 @@ app.get('/api/admin/messages/conversations', requireAdmin, async (_req: any, res
                 lastMessageAt = msg.createdAt.toISOString();
                 if (!msg.deleted) {
                     try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
-                    if (lastMessagePreview && lastMessagePreview.length > 100) lastMessagePreview = lastMessagePreview.slice(0, 100) + '…';
+                    if (lastMessagePreview && lastMessagePreview.length > 100) lastMessagePreview = lastMessagePreview.slice(0, 100) + 'ï¿½';
                 } else {
                     lastMessagePreview = '[deleted]';
                 }
@@ -15195,7 +15198,7 @@ app.patch('/api/admin/reports/:reportId', requireAdmin, async (req: any, res) =>
 });
 
 // -------------------------------------------------------------------------------
-// ¦¦  ARTICLES / NEWS PLUGIN ENDPOINTS
+// ï¿½ï¿½  ARTICLES / NEWS PLUGIN ENDPOINTS
 // -------------------------------------------------------------------------------
 
 // Helper: generate URL-safe slug from title
@@ -15263,7 +15266,7 @@ app.get('/api/articles/:slug', async (req: any, res) => {
 });
 
 // -------------------------------------------------------------------------------
-// ¦¦  WRITER ARTICLE ENDPOINTS (any authenticated user)
+// ï¿½ï¿½  WRITER ARTICLE ENDPOINTS (any authenticated user)
 // -------------------------------------------------------------------------------
 
 // -- Writer: List own articles -------------------------------------------------
@@ -15318,7 +15321,7 @@ app.post('/api/my/articles', requireAuth, async (req: any, res) => {
             slug = `${baseSlug}-${suffix++}`;
         }
 
-        // Writers can only create as draft or pending — never published directly
+        // Writers can only create as draft or pending ï¿½ never published directly
         const articleStatus = status === 'pending' ? 'pending' : 'draft';
 
         // Use the first guild the bot + user share
@@ -15382,7 +15385,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
         if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
         if (metaDescription !== undefined) data.metaDescription = metaDescription?.slice(0, 300) || null;
 
-        // Writers can re-submit for review or save as draft — never publish directly
+        // Writers can re-submit for review or save as draft ï¿½ never publish directly
         if (status === 'pending' || status === 'draft') {
             data.status = status;
             if (status === 'pending') {
@@ -15478,7 +15481,7 @@ app.post('/api/my/articles/upload-preset', requireAuth, upload.single('articlePr
 });
 
 // -------------------------------------------------------------------------------
-// ¦¦  ADMIN ARTICLE REVIEW ENDPOINTS
+// ï¿½ï¿½  ADMIN ARTICLE REVIEW ENDPOINTS
 // -------------------------------------------------------------------------------
 
 // -- Admin: List all articles (any status) -------------------------------------
@@ -15873,7 +15876,7 @@ app.post('/api/spam-guard/hashes/:guildId', async (req, res) => {
 
         const { hash, description } = req.body;
         if (!hash || typeof hash !== 'string' || hash.length !== 16) {
-            return res.status(400).json({ error: 'Invalid hash — must be 16-char hex string' });
+            return res.status(400).json({ error: 'Invalid hash ï¿½ must be 16-char hex string' });
         }
 
         await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
@@ -16040,7 +16043,7 @@ app.get('/api/profile-styles/users/search', async (req: any, res) => {
     }
 });
 
-// Public: fetch style for a single user (no guild needed – returns first match across guilds)
+// Public: fetch style for a single user (no guild needed ï¿½ returns first match across guilds)
 app.get('/api/profile-styles/:userId', publicCache(120), async (req: any, res) => {
     try {
         const { userId } = req.params;
@@ -16387,9 +16390,9 @@ app.listen(PORT, async () => {
       doBackup();
       setInterval(doBackup, BACKUP_INTERVAL_MS);
     }, 60_000);
-    logger.info('[Scheduled Backup] Enabled — every 6 hours, 30-backup retention');
+    logger.info('[Scheduled Backup] Enabled ï¿½ every 6 hours, 30-backup retention');
   } else {
-    logger.warn('[Scheduled Backup] Disabled — R2 not configured');
+    logger.warn('[Scheduled Backup] Disabled ï¿½ R2 not configured');
   }
 
   // Backfill slugs for any battles that don't have one yet
@@ -16414,7 +16417,7 @@ app.listen(PORT, async () => {
 // On SIGTERM/SIGINT (PM2 restart, deploy, etc.) drain the Prisma connection pool
 // before the process exits so no in-flight queries are cut mid-write.
 async function gracefulShutdown(signal: string) {
-    logger.info(`[Shutdown] Received ${signal} — closing database connections…`);
+    logger.info(`[Shutdown] Received ${signal} ï¿½ closing database connectionsï¿½`);
     try {
         await db.$disconnect();
         logger.info('[Shutdown] Prisma disconnected cleanly');
