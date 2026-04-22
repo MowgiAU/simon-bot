@@ -54,10 +54,10 @@ interface GenreProfile {
 const GENRE_PROFILES: Record<GenreId, GenreProfile> = {
     // ─── Trap: deep 808 sub kicks (tuned bass notes), snappy clap-snare, ticky pitched hats ──
     trap: {
-        id: 'trap', label: 'Trap', blurb: 'Short knock kick (sub-100ms) + tuned 808 sub bass · high-pitched crack snare · ticky 808-derived hats',
-        kick:  { style: 'trap-knock',    freqLo: 50, freqHi: 90, decayLo: 0.10, decayHi: 0.22, drive: 1.8, clickAmt: 1.0, subAmt: 0.4 },
+        id: 'trap', label: 'Trap', blurb: 'Short knock kick (sub-150ms) + tuned 808 sub bass · short punchy snare · ticky 808-derived hats',
+        kick:  { style: 'trap-knock',    freqLo: 50, freqHi: 90, decayLo: 0.06, decayHi: 0.13, drive: 1.8, clickAmt: 1.0, subAmt: 0.4 },
         bass808: { freqLo: 36, freqHi: 50, decayLo: 1.6, decayHi: 2.8, drive: 1.3, glide: 1.8 },
-        snare: { style: 'trap-snap',     toneLo: 220, toneHi: 380, decayLo: 0.10, decayHi: 0.18, drive: 1.4, bodyAmt: 0.55 },
+        snare: { style: 'trap-snap',     toneLo: 220, toneHi: 380, decayLo: 0.06, decayHi: 0.10, drive: 1.4, bodyAmt: 0.55 },
         hat:   { style: '808-tick',      decayLo: 0.020, decayHi: 0.06, hpLo: 7500, hpHi: 10500, drive: 1.0 },
         perc:  { style: 'rim-click',     freqLo: 600, freqHi: 1600, decayLo: 0.05, decayHi: 0.18, drive: 1.0 },
         fxSlot: { style: 'zap',          durationLo: 0.18, durationHi: 0.45 },
@@ -441,12 +441,10 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
         }
         case 'trap-knock': {
             // Modern Trap "Top Kick" / "Punch Kick": its job is IMPACT, not melody.
-            // Spec: 100-250ms total, root 50-90Hz, transient click 2-5kHz, soft-clipped + saturated, dry.
-            // Sounds like a "thud"/"knock" — sits ABOVE the 808 in the mix.
-            const tightDecay = Math.min(decay, 0.22);
-            // Quick pitch drop: 4-6x for the punch (gives the "thwock")
+            // Spec: 60-150ms total, root 50-90Hz, transient click 2-5kHz, soft-clipped + saturated, dry.
+            const tightDecay = Math.min(decay, 0.13);
             const pitchStart = baseFreq * rangeR(rng, 4, 6);
-            const pitchTau   = 0.005 + rng() * 0.004;        // ~5-9ms drop
+            const pitchTau   = 0.005 + rng() * 0.004;
             let phase = 0;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
@@ -455,18 +453,17 @@ function synthKick(rng: RNG, p: GenreProfile['kick'], totalSec: number, fx: Genr
                 const env = Math.exp(-t / tightDecay);
                 out[i] = Math.sin(phase) * env;
             }
-            // Small sub layer for weight (kept short so 808 still owns the low end)
+            // Sub layer kept SHORT — trap kick should not bleed into the 808.
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (decay * 0.8)) * p.subAmt * 0.6;
+                out[i] += Math.sin(2 * Math.PI * baseFreq * t) * Math.exp(-t / (tightDecay * 0.6)) * p.subAmt * 0.5;
             }
             // The defining transient: layered clicks at 2k / 3.5k / 5kHz so the kick reads on phone speakers.
             mixClick(out, rng, 2.0, 2000, p.clickAmt * 0.9);
             mixClick(out, rng, 1.2, 3500, p.clickAmt * 0.7);
             mixClick(out, rng, 0.6, 5000, p.clickAmt * 0.4);
-            // Heavy soft-clip + saturation for that "mean / expensive" trap feel
+            // Heavy soft-clip + saturation
             for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * (1.6 + p.drive * 0.4));
-            // Roll off ultra-low junk so it doesn't fight the 808 below 50Hz
             highPass(out, 45);
             break;
         }
@@ -753,57 +750,54 @@ function synthSnare(rng: RNG, p: GenreProfile['snare'], totalSec: number, fx: Ge
             break;
         }
         case 'trap-snap': {
-            // Modern Trap snare/clap hybrid — the genre's "anchor."
-            // Spec: body sits 200-400Hz, snap energy 2-8kHz, low end (<150Hz) rolled OFF,
-            // pre-shifted clap layer ~4ms before the main snare hit for a wider "splat".
+            // Modern Trap snare/clap hybrid — SHORT and SNAPPY. Total length ~80-120ms.
+            // Spec: body 200-400Hz, snap 2-8kHz, low end <150Hz rolled OFF, pre-shifted clap layer.
 
-            // 1) Pre-shifted clap layer (sounds 4ms BEFORE the main hit)
+            // 1) Pre-shifted clap layer (3 quick bursts, ~12ms cluster)
             const claps = 3;
-            const clapSpacing = 0.004;        // 4ms apart
+            const clapSpacing = 0.004;
             const clapNoise = new Float32Array(N);
             for (let i = 0; i < N; i++) clapNoise[i] = rng() * 2 - 1;
             bandPass(clapNoise, 1500, 4500);
             for (let b = 0; b < claps; b++) {
                 const start = Math.floor((b * clapSpacing) * SAMPLE_RATE);
-                const len = Math.floor(0.004 * SAMPLE_RATE);
+                const len = Math.floor(0.003 * SAMPLE_RATE);
                 const gain = b === claps - 1 ? 0.85 : 0.45 + b * 0.18;
                 for (let i = 0; i < len && start + i < N; i++) {
-                    const env = Math.exp(-i / (len * 0.35));
+                    const env = Math.exp(-i / (len * 0.3));
                     out[start + i] += clapNoise[start + i] * env * gain * 0.6;
                 }
             }
 
-            // 2) Main snare body — 200-400Hz pitched hit, short and tight
-            // tone is in the new range 220-380 (we updated the profile)
+            // 2) Body — short pitched smack that decays in ~25-40ms
+            const bodyTau = decay * 0.25;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                const env = Math.exp(-t / (decay * 0.35));
+                const env = Math.exp(-t / bodyTau);
                 out[i] += (Math.sin(2 * Math.PI * tone * t) * 0.7
                          + Math.sin(2 * Math.PI * tone * 1.6 * t) * 0.3) * env * p.bodyAmt;
             }
 
-            // 3) High-end "crack" / "snap" — the 2-8kHz energy that defines a trap snare
+            // 3) High-end crack 2-8kHz — SHORT tail (cut tight)
             const snapNoise = new Float32Array(N);
             for (let i = 0; i < N; i++) snapNoise[i] = rng() * 2 - 1;
             bandPass(snapNoise, 2000, 8000);
+            const snapTau = decay * 0.35;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                // Sharp attack into a controlled tail (gated short)
-                const env = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / (decay * 0.55));
+                const env = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / snapTau);
                 out[i] += snapNoise[i] * env * 1.0;
             }
 
-            // 4) Tiny metallic "chop" ping at ~3-5kHz for the Young-Chop whip character
+            // 4) Metallic "chop" ping (very short)
             const ping = 3000 + rng() * 2000;
             for (let i = 0; i < N; i++) {
                 const t = i / SAMPLE_RATE;
-                const env = Math.exp(-t / 0.012);
+                const env = Math.exp(-t / 0.008);
                 out[i] += Math.sin(2 * Math.PI * ping * t) * env * 0.25;
             }
 
-            // 5) Roll off everything below 150Hz — trap snares are NEVER beefy down low
             highPass(out, 150);
-            // Tame piercing top end
             lowPass(out, 9000);
             break;
         }
