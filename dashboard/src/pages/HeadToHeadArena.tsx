@@ -1045,7 +1045,9 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [progress, setProgress] = useState<{ id: string; cur: number; dur: number } | null>(null);
     const [zipping, setZipping] = useState(false);
+    const [peaksMap, setPeaksMap] = useState<Record<string, number[] | 'loading' | 'failed'>>({});
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const audioCtxRef = useRef<AudioContext | null>(null);
 
     const stop = () => {
         const a = audioRef.current;
@@ -1089,6 +1091,44 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
     };
 
     const proxyUrl = (s: Sample) => `${API}/api/head-to-head/match/${matchId}/sample/${s.id}`;
+
+    // Decode each sample to a peak array for waveform rendering. Runs once per sample.
+    useEffect(() => {
+        let cancelled = false;
+        const ctx = audioCtxRef.current ?? (audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)());
+        const PEAK_BARS = 56;
+        const decode = async (s: Sample) => {
+            setPeaksMap(prev => ({ ...prev, [s.id]: 'loading' }));
+            try {
+                const r = await fetch(proxyUrl(s), { credentials: 'include' });
+                if (!r.ok) throw new Error('fetch failed');
+                const buf = await r.arrayBuffer();
+                const audio = await ctx.decodeAudioData(buf.slice(0));
+                const ch = audio.getChannelData(0);
+                const blockSize = Math.max(1, Math.floor(ch.length / PEAK_BARS));
+                const peaks: number[] = [];
+                let max = 0;
+                for (let i = 0; i < PEAK_BARS; i++) {
+                    const start = i * blockSize;
+                    const end = Math.min(ch.length, start + blockSize);
+                    let sum = 0;
+                    for (let j = start; j < end; j++) sum += Math.abs(ch[j]);
+                    const v = sum / Math.max(1, end - start);
+                    peaks.push(v);
+                    if (v > max) max = v;
+                }
+                const norm = max > 0 ? peaks.map(p => p / max) : peaks;
+                if (!cancelled) setPeaksMap(prev => ({ ...prev, [s.id]: norm }));
+            } catch {
+                if (!cancelled) setPeaksMap(prev => ({ ...prev, [s.id]: 'failed' }));
+            }
+        };
+        for (const s of samples) {
+            if (peaksMap[s.id] === undefined) decode(s);
+        }
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [samples.map(s => s.id).join('|')]);
 
     const downloadOne = async (s: Sample) => {
         try {
@@ -1238,17 +1278,64 @@ Use these in your DAW. Build something fierce.`);
                                     <Download size={13} />
                                 </button>
                             </div>
-                            <div style={{
-                                position: 'relative', height: 4, borderRadius: 2,
-                                background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
-                            }}>
-                                <div style={{
-                                    position: 'absolute', left: 0, top: 0, bottom: 0,
-                                    width: `${pct}%`,
-                                    background: `linear-gradient(90deg, ${catColor}, ${catColor}aa)`,
-                                    boxShadow: isPlaying ? `0 0 8px ${catColor}` : 'none',
-                                    transition: 'width 0.1s linear',
-                                }} />
+                            <div
+                                onClick={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                                    const a = audioRef.current;
+                                    if (isPlaying && a && a.duration) {
+                                        a.currentTime = ratio * a.duration;
+                                    } else {
+                                        play(s);
+                                    }
+                                }}
+                                style={{
+                                    position: 'relative', height: 38, cursor: 'pointer',
+                                    background: 'rgba(0,0,0,0.25)',
+                                    borderRadius: 6, overflow: 'hidden',
+                                    border: '1px solid rgba(255,255,255,0.04)',
+                                }}
+                            >
+                                {(() => {
+                                    const entry = peaksMap[s.id];
+                                    if (entry === 'loading' || entry === undefined) {
+                                        return (
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.35)' }}>
+                                                ANALYZING…
+                                            </div>
+                                        );
+                                    }
+                                    if (entry === 'failed') {
+                                        // Fallback: thin progress bar
+                                        return (
+                                            <div style={{
+                                                position: 'absolute', left: 0, top: '50%', height: 2, width: `${pct}%`,
+                                                background: catColor, transform: 'translateY(-50%)',
+                                                boxShadow: isPlaying ? `0 0 8px ${catColor}` : 'none',
+                                            }} />
+                                        );
+                                    }
+                                    const peaks = entry;
+                                    return (
+                                        <svg width="100%" height="100%" viewBox={`0 0 ${peaks.length} 100`} preserveAspectRatio="none" style={{ display: 'block' }}>
+                                            {peaks.map((p, i) => {
+                                                const h = Math.max(2, p * 92);
+                                                const passed = (i / peaks.length) * 100 < pct;
+                                                return (
+                                                    <rect
+                                                        key={i}
+                                                        x={i + 0.15}
+                                                        y={50 - h / 2}
+                                                        width={0.7}
+                                                        height={h}
+                                                        fill={passed ? catColor : 'rgba(255,255,255,0.22)'}
+                                                        style={passed && isPlaying ? { filter: `drop-shadow(0 0 1.5px ${catColor})` } : undefined}
+                                                    />
+                                                );
+                                            })}
+                                        </svg>
+                                    );
+                                })()}
                             </div>
                             <div style={{
                                 display: 'flex', justifyContent: 'space-between',
