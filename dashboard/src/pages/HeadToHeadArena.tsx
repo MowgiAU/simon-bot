@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Swords, Trophy, Clock, CheckCircle, Upload, Users, Loader, Play, Award, Vote } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 const API = '';
 
@@ -106,6 +107,7 @@ export const HeadToHeadArenaPage: React.FC = () => {
     }, []);
 
     return (
+        <DiscoveryLayout activeTab="h2h">
         <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', color: colors.textPrimary }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Swords size={32} color={colors.primary} style={{ marginRight: '16px' }} />
@@ -140,6 +142,7 @@ export const HeadToHeadArenaPage: React.FC = () => {
             {tab === 'vote' && <VoteTab />}
             {tab === 'leaderboard' && <LeaderboardTab />}
         </div>
+        </DiscoveryLayout>
     );
 };
 

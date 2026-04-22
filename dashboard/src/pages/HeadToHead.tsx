@@ -121,7 +121,7 @@ const PoolsTab: React.FC = () => {
         setLoading(true);
         const [pRes, gRes] = await Promise.all([
             fetch(`${API}/api/head-to-head/admin/pools`, { credentials: 'include' }),
-            fetch(`${API}/api/genres`, { credentials: 'include' }),
+            fetch(`${API}/api/musician/genres`, { credentials: 'include' }),
         ]);
         if (pRes.ok) setPools(await pRes.json());
         if (gRes.ok) setGenres(await gRes.json());
