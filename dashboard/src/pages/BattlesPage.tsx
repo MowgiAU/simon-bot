@@ -157,7 +157,13 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const detailData = await detail.json();
+                        if (Array.isArray(detailData.entries)) {
+                            detailData.entries = detailData.entries.map((e: any) => ({ ...flattenBattleEntry(e), firstPlaceVotes: e.firstPlaceVotes, secondPlaceVotes: e.secondPlaceVotes, thirdPlaceVotes: e.thirdPlaceVotes }));
+                        }
+                        setCurrentBattle(detailData);
+                    }
                 }
             } else {
                 if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
@@ -166,7 +172,13 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const detailData = await detail.json();
+                        if (Array.isArray(detailData.entries)) {
+                            detailData.entries = detailData.entries.map((e: any) => ({ ...flattenBattleEntry(e), firstPlaceVotes: e.firstPlaceVotes, secondPlaceVotes: e.secondPlaceVotes, thirdPlaceVotes: e.thirdPlaceVotes }));
+                        }
+                        setCurrentBattle(detailData);
+                    }
                 }
             }
         } catch {} finally { setLoading(false); }
@@ -246,7 +258,8 @@ export const BattlesPage: React.FC = () => {
                     const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`);
                     if (!res.ok) return { battle: b, winner: null };
                     const data: Battle = await res.json();
-                    const winner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    const rawWinner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    const winner = rawWinner ? flattenBattleEntry(rawWinner) : null;
                     return { battle: data, winner };
                 } catch { return { battle: b, winner: null }; }
             })

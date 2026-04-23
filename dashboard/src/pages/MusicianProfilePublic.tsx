@@ -354,9 +354,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, color: '#E1306C', isHandle: false },
     ];
 
-    const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username } : null;
+    const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username, artist: profile.displayName || profile.username, profile: { displayName: profile.displayName, username: profile.username } } : null;
     const featuredPlaylist = profile.featuredPlaylist || null;
-    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => ({ ...pt.track, username: pt.track.profile?.username || profile.username })) || [];
+    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => ({ ...pt.track, username: pt.track.profile?.username || profile.username, artist: pt.track.profile?.displayName || pt.track.profile?.username || profile.displayName || profile.username, profile: pt.track.profile || { displayName: profile.displayName, username: profile.username } })) || [];
     
     // Fallback logic for avatar:
     // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
