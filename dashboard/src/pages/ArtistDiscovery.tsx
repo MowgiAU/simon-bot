@@ -146,6 +146,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
     const [featuredArticle, setFeaturedArticle] = useState<any>(null);
+    const [h2hChampion, setH2hChampion] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
@@ -158,6 +159,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
         axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
         axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
         axios.get('/api/articles/featured/current').then(r => setFeaturedArticle(r.data)).catch(() => {});
+        axios.get('/api/head-to-head/leaderboard?limit=1').then(r => setH2hChampion(Array.isArray(r.data) && r.data.length > 0 ? r.data[0] : null)).catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -648,7 +650,116 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Featured Content — 2 cols wide */}
+                    {/* 1v1 Arena — Beat Battles head-to-head */}
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(139,92,246,0.18)', gridColumn: isMobile ? undefined : 'span 2' }}>
+                        {/* Animated diagonal gradient background */}
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 35%, #3d0f2e 70%, #2a0f1a 100%)',
+                            pointerEvents: 'none',
+                        }} />
+                        {/* Purple glow top-left */}
+                        <div style={{ position: 'absolute', top: '-30%', left: '-15%', width: '70%', height: '90%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        {/* Pink glow bottom-right */}
+                        <div style={{ position: 'absolute', bottom: '-25%', right: '-10%', width: '60%', height: '85%', background: 'radial-gradient(ellipse, rgba(236,72,153,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        {/* Subtle scan-line texture */}
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)', pointerEvents: 'none' }} />
+
+                        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', padding: isMobile ? '20px' : '22px 26px', boxSizing: 'border-box', gap: isMobile ? '18px' : '24px', alignItems: isMobile ? 'stretch' : 'center' }}>
+
+                            {/* Left: Branding */}
+                            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
+                                {/* Label row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Swords size={13} color="#EC4899" />
+                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.15em', textTransform: 'uppercase' }}>1v1 Arena</span>
+                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
+                                </div>
+                                {/* Title */}
+                                <div style={{ fontWeight: 900, fontSize: isMobile ? '22px' : '26px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
+                                    Producer vs<br/>Producer
+                                </div>
+                                {/* Subtitle */}
+                                <p style={{ fontSize: '12px', color: 'rgba(220,220,240,0.7)', margin: 0, lineHeight: 1.5, maxWidth: '260px' }}>
+                                    Get matched. Get a sample pack. Build a beat. Anonymous voters pick the winner.
+                                </p>
+                                {/* CTA */}
+                                <Link to="/arena" style={{
+                                    marginTop: '4px',
+                                    display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                    padding: '10px 22px', borderRadius: '999px', textDecoration: 'none',
+                                    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                                    color: 'white', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em',
+                                    boxShadow: '0 6px 20px rgba(139,92,246,0.45)',
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(236,72,153,0.55)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(139,92,246,0.45)'; }}
+                                >
+                                    <Swords size={14} /> Enter the Arena
+                                </Link>
+                            </div>
+
+                            {/* Right: Reigning champion or VS graphic */}
+                            <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: isMobile ? 'auto' : '180px' }}>
+                                {h2hChampion ? (
+                                    <Link to={h2hChampion.profile?.username ? `/profile/${h2hChampion.profile.username}` : '/arena'} style={{ textDecoration: 'none' }}>
+                                        <div style={{
+                                            position: 'relative', padding: '14px 16px',
+                                            borderRadius: '14px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(251,191,36,0.35)',
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 0 24px rgba(251,191,36,0.08)',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                            minWidth: '160px',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <Trophy size={11} color="#FBBF24" />
+                                                <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Reigning Champ</span>
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'conic-gradient(from 90deg, #FBBF24, #EC4899, #8B5CF6, #FBBF24)', opacity: 0.85, filter: 'blur(1px)' }} />
+                                                <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(20,12,30,0.85)' }} />
+                                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                                                    {h2hChampion.profile?.avatar ? (
+                                                        <img src={getAvatarUrl(h2hChampion.profile.avatar, h2hChampion.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                                    ) : (
+                                                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 900, fontSize: '22px' }}>
+                                                            {(h2hChampion.profile?.displayName || h2hChampion.profile?.username || '?')[0].toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontWeight: 800, fontSize: '13px', color: '#fff', textAlign: 'center', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {h2hChampion.profile?.displayName || h2hChampion.profile?.username || 'Anonymous'}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+                                                <span style={{ fontSize: '18px', fontWeight: 900, color: '#FBBF24', lineHeight: 1, letterSpacing: '-0.02em' }}>{h2hChampion.elo}</span>
+                                                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Elo</span>
+                                                <span style={{ fontSize: '10px', color: '#34D399', fontWeight: 700 }}>{h2hChampion.wins}W</span>
+                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>·</span>
+                                                <span style={{ fontSize: '10px', color: 'rgba(248,113,113,0.85)', fontWeight: 700 }}>{h2hChampion.losses}L</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ) : (
+                                    /* Fallback: VS hero graphic */
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6, #6366F1)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(139,92,246,0.45)' }}>
+                                            <Mic2 size={26} color="white" />
+                                        </div>
+                                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#fff', letterSpacing: '0.1em', textShadow: '0 2px 12px rgba(236,72,153,0.5)' }}>VS</div>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #EC4899, #F43F5E)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(236,72,153,0.45)' }}>
+                                            <Mic2 size={26} color="white" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Featured Content — full width below */}
                     {(() => {
                         const contentType = featured?.featuredContentType || 'video';
                         const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
@@ -659,7 +770,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', height: isMobile ? 'auto' : '220px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
