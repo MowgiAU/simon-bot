@@ -137,8 +137,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 const isBattleHighlight = item.key === 'battles' && hasActiveBattle && activeTab !== 'battles';
                                 const navStyle: React.CSSProperties = {
                                     padding: '6px 16px', borderRadius: '4px',
-                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(52,211,153,0.12)' : 'transparent',
-                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#34D399' : '#B9C3CE',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(245,158,11,0.12)' : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#F59E0B' : '#B9C3CE',
                                     fontSize: '10px', fontWeight: 'bold',
                                     display: 'flex', alignItems: 'center', gap: '8px',
                                     position: 'relative' as const,
@@ -151,7 +151,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                     <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>
                                         {item.icon} {item.label}
                                         {isBattleHighlight && (
-                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34D399', flexShrink: 0 }} />
+                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
                                         )}
                                     </Link>
                                 );
@@ -426,16 +426,16 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 >
                                     <div style={{
                                         width: '54px', height: '54px', borderRadius: '50%',
-                                        backgroundColor: isActive ? colors.primary : isBattleHighlight ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.07)',
-                                        border: `2px solid ${isActive ? colors.primary : isBattleHighlight ? '#34D39966' : 'rgba(255,255,255,0.12)'}`,
+                                        backgroundColor: isActive ? colors.primary : isBattleHighlight ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.07)',
+                                        border: `2px solid ${isActive ? colors.primary : isBattleHighlight ? '#F59E0B66' : 'rgba(255,255,255,0.12)'}`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: isActive ? 'white' : isBattleHighlight ? '#34D399' : '#B9C3CE',
-                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : isBattleHighlight ? '0 0 12px rgba(52,211,153,0.3)' : 'none',
+                                        color: isActive ? 'white' : isBattleHighlight ? '#F59E0B' : '#B9C3CE',
+                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : isBattleHighlight ? '0 0 12px rgba(245,158,11,0.3)' : 'none',
                                         position: 'relative' as const,
                                     }}>
                                         {item.icon}
                                         {isBattleHighlight && (
-                                            <span className="new-drops-pulse" style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34D399', border: '2px solid #161925' }} />
+                                            <span className="new-drops-pulse" style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', border: '2px solid #161925' }} />
                                         )}
                                     </div>
                                     <span style={{
