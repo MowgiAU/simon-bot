@@ -201,7 +201,10 @@ export const BattleDetailPage: React.FC = () => {
         return () => clearTimeout(t);
     }, [voteNotification]);
 
-    // Restore voted state from localStorage + server
+    // Restore voted state from localStorage + server.
+    // Intentionally depends on battleId (not battle?.entries) so the post-vote
+    // refresh of `battle` doesn't re-fire this effect and race against the
+    // /my-votes fetch, which would clobber the freshly-set highlight.
     useEffect(() => {
         const entries = battle?.entries;
         if (!entries?.length) return;
@@ -225,7 +228,8 @@ export const BattleDetailPage: React.FC = () => {
             } catch {}
         };
         fetchMyVotes();
-    }, [battle?.entries, user, battleId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [battleId, user]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);

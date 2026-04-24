@@ -186,7 +186,10 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    // Restore voted state whenever entries load or change
+    // Restore voted state when the battle FIRST loads (or when user logs in).
+    // Intentionally NOT depending on `currentBattle?.entries` reference, otherwise
+    // every post-vote refresh would re-fire this effect and race with /my-votes,
+    // causing the highlight to flicker / disappear.
     useEffect(() => {
         const entries = currentBattle?.entries;
         if (!entries?.length) return;
@@ -216,7 +219,8 @@ export const BattlesPage: React.FC = () => {
             } catch {}
         };
         fetchMyVotes();
-    }, [currentBattle?.entries, user]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentBattle?.id, user]);
 
     // Auto-dismiss vote notifications
     useEffect(() => {

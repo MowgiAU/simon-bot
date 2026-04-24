@@ -9564,8 +9564,12 @@ app.get('/api/oembed', async (req: any, res) => {
 // ═══════════════════════════════════════════════════
 
 // --- Public: List battles (with filtering) ---
-app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
+// NOTE: NOT cached. Vote tallies and entry counts must update in real time so users
+// see immediate feedback after voting. Caching here causes stale highlight/score state.
+app.get('/api/beat-battle/battles', async (req: any, res) => {
     try {
+        // Explicit no-store: prevents Cloudflare/browser from holding a stale snapshot
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         const guildId = req.query.guildId as string | undefined;
         const status = req.query.status as string | undefined;
 
@@ -9573,25 +9577,6 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
         const where: any = {};
         if (guildId && guildId !== 'default-guild') where.guildId = guildId;
         if (status) where.status = status;
-
-        // Cache default (unfiltered) battle list
-        const isDefaultQuery = (!guildId || guildId === 'default-guild') && !status;
-        if (isDefaultQuery) {
-            const cached = getCachedResponse('battles-list');
-            if (cached) {
-                res.json(cached);
-                // Still track analytics fire-and-forget
-                if (req.session?.user?.id) {
-                    const activeBattle = cached.find((b: any) => b.status !== 'completed');
-                    if (activeBattle) {
-                        db.battleAnalytics.create({
-                            data: { battleId: activeBattle.id, eventType: 'page_view', userId: req.session.user.id },
-                        }).catch(() => {});
-                    }
-                }
-                return;
-            }
-        }
 
         const battles = await db.beatBattle.findMany({
             where,
@@ -9601,8 +9586,6 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
             },
             orderBy: { createdAt: 'desc' },
         });
-
-        if (isDefaultQuery) setCachedResponse('battles-list', battles);
 
         res.json(battles);
 
@@ -9622,8 +9605,10 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
 });
 
 // --- Public: Get single battle with entries ---
+// NOT cached — vote tallies must update in real time.
 app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
             where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
