@@ -229,7 +229,7 @@ export const BattleDetailPage: React.FC = () => {
         };
         fetchMyVotes();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [battleId, user]);
+    }, [battleId, battle?.id, user]);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);

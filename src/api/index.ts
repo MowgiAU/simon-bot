@@ -9688,6 +9688,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
 // --- Auth: Get current user's ranked votes for a battle ---
 app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         const userId = req.session.user.id;
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
