@@ -7,7 +7,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
-    ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
+    ArrowLeft, Swords, Play, Pause, Vote, Medal, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
     Download, Music, AlertCircle,
 } from 'lucide-react';
@@ -1038,6 +1038,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         (sdActive ? [1] : [1, 2, 3]).map(r => {
                                                             const isThis = myRank === r;
                                                             const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
+                                                            const medalColor = sdActive ? colors.primary : (r === 1 ? '#FFD700' : r === 2 ? '#C0C0C0' : '#CD7F32');
                                                             return (
                                                                 <button
                                                                     key={r}
@@ -1047,16 +1048,16 @@ export const BattleDetailPage: React.FC = () => {
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: '6px',
                                                                         padding: '8px 16px',
-                                                                        backgroundColor: isThis ? colors.primary : 'rgba(255,255,255,0.05)',
-                                                                        color: isThis ? '#fff' : colors.textPrimary,
+                                                                        backgroundColor: isThis ? medalColor : `${medalColor}1A`,
+                                                                        color: isThis ? '#0A0E1A' : medalColor,
                                                                         borderRadius: '8px',
-                                                                        border: isThis ? `1px solid ${colors.primary}` : '1px solid rgba(255,255,255,0.1)',
+                                                                        border: `1px solid ${isThis ? medalColor : `${medalColor}55`}`,
                                                                         cursor: isVoting ? 'not-allowed' : 'pointer',
                                                                         fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
-                                                                        boxShadow: isThis ? `0 4px 14px ${colors.primary}40` : 'none',
+                                                                        boxShadow: isThis ? `0 4px 14px ${medalColor}55` : 'none',
                                                                         textTransform: 'uppercase', letterSpacing: '0.05em',
                                                                     }}>
-                                                                    {isThis ? <Flame size={13} /> : <Vote size={13} />}
+                                                                    <Medal size={14} />
                                                                     {label}
                                                                 </button>
                                                             );

@@ -7,7 +7,7 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
-    Swords, Trophy, Users, Play, Pause, Vote,
+    Swords, Trophy, Users, Play, Pause, Vote, Medal,
     LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
