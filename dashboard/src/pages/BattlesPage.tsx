@@ -690,10 +690,12 @@ export const BattlesPage: React.FC = () => {
                                                                 {entry.username}
                                                             </Link>
                                                         </div>
-                                                        {/* Vote fire count */}
-                                                        <span style={{ fontSize: '12px', color: colors.primary, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-                                                            {FIRE} {entry.voteCount}
-                                                        </span>
+                                                        {/* Vote fire count — hidden during voting to avoid influencing voters */}
+                                                        {currentBattle.status === 'completed' && (
+                                                            <span style={{ fontSize: '12px', color: colors.primary, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                                {FIRE} {entry.voteCount}
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     {/* Track title */}

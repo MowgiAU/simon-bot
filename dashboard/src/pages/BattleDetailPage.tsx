@@ -387,7 +387,7 @@ export const BattleDetailPage: React.FC = () => {
 
     const cfg = statusConfig[battle.status] || statusConfig.upcoming;
     const entries = battle.entries || [];
-    const sortedEntries = sortOrder === 'top'
+    const sortedEntries = (sortOrder === 'top' && isCompleted)
         ? [...entries].sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         : [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -843,10 +843,12 @@ export const BattleDetailPage: React.FC = () => {
                                                     <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                 </Link>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <Flame size={12} color={ACCENT} />
-                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
-                                                    </div>
+                                                    {isCompleted ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                            <Flame size={12} color={ACCENT} />
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
+                                                        </div>
+                                                    ) : <span />}
                                                     <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
                                                         <Play size={11} fill="#1a1a1a" /> Listen
@@ -870,7 +872,7 @@ export const BattleDetailPage: React.FC = () => {
                             <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>Community Submissions</h2>
                             <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>Discover and vote for your favourite entries.</p>
                         </div>
-                        {entries.length > 0 && (
+                        {entries.length > 0 && isCompleted && (
                             <div style={{ display: 'flex', gap: '6px' }}>
                                 {(['recent', 'top'] as const).map(s => (
                                     <button key={s} onClick={() => setSortOrder(s)}
@@ -993,10 +995,12 @@ export const BattleDetailPage: React.FC = () => {
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                     </Link>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <Flame size={11} color={ACCENT} />
-                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
-                                                    </div>
+                                                    {isCompleted && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                            <Flame size={11} color={ACCENT} />
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
