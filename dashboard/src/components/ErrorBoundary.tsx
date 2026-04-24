@@ -36,10 +36,9 @@ async function hardReload(): Promise<void> {
       await Promise.all(regs.map(r => r.unregister()));
     }
   } catch {}
-  // Cache-bust the document itself. A plain reload() can serve cached HTML.
-  const url = new URL(window.location.href);
-  url.searchParams.set('_cb', Date.now().toString(36));
-  window.location.replace(url.toString());
+  // Caches and service workers have been cleared above; a normal reload will
+  // now refetch the document and chunks fresh from the server.
+  window.location.reload();
 }
 
 export class ErrorBoundary extends Component<Props, State> {
