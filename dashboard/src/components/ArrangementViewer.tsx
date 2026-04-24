@@ -304,7 +304,7 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
                             }
                             {audioDuration > 0 && <line x1={playheadX} y1={0} x2={playheadX} y2={40} stroke="white" strokeWidth="0.5" opacity="0.9" />}
                         </svg>
-                        {!hasPeaks && <div style={{ textAlign: 'center', fontSize: '0.65rem', color: colors.textSecondary, marginTop: '4px' }}>Upload a ZIP bundle to see the real waveform</div>}
+                        {!hasPeaks && <div style={{ textAlign: 'center', fontSize: '0.65rem', color: colors.textSecondary, marginTop: '4px' }}>Waveform unavailable for this sample</div>}
                     </div>
                 </div>
                 {clip.oggUrl && (
@@ -499,7 +499,7 @@ export const ArrangementViewer: React.FC<{
                                     )}
                                     {clip.type === 'audio' && (
                                         <MiniWaveform color={trackColor} clipId={clip.id}
-                                            peaks={clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined} />
+                                            peaks={(clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined) ?? clip.peaks} />
                                     )}
                                 </div>
                             );
@@ -558,7 +558,7 @@ export const ArrangementViewer: React.FC<{
             )}
             {selectedClip && selectedClip.clip.type === 'audio' && (
                 <SampleInfoModal clip={selectedClip.clip} color={selectedClip.color}
-                    peaks={selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined}
+                    peaks={(selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined) ?? selectedClip.clip.peaks}
                     projectZipUrl={projectZipUrl} trackId={trackId} onClose={() => setSelectedClip(null)} />
             )}
         </div>
