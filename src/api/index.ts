@@ -8425,23 +8425,22 @@ app.post('/api/admin/migrate-uploads-to-r2', requireAdmin, async (req, res) => {
 // Re-process all FLP files (Admin operation)
 app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
     try {
-        // Find all tracks that have a projectFileUrl
+        // ── Pass 1: Re-parse plain .flp files ─────────────────────────────────
         const tracksWithFlps = await db.track.findMany({
             where: { projectFileUrl: { not: null } }
         });
 
         const results = {
-            total: tracksWithFlps.length,
-            success: 0,
+            flpTotal: tracksWithFlps.length,
+            flpSuccess: 0,
+            zipTotal: 0,
+            zipSuccess: 0,
             failed: 0,
             errors: [] as string[]
         };
 
         for (const track of tracksWithFlps) {
             try {
-                // projectFileUrl is like /uploads/projects/project-123.flp
-                // The actual file is stored in public/uploads/projects/project-123.flp
-                // We need to resolve this correctly relative to PROJECT_ROOT
                 const relativePath = track.projectFileUrl!.startsWith('/') ? track.projectFileUrl!.substring(1) : track.projectFileUrl!;
                 const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
 
@@ -8450,27 +8449,63 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                 if (fs.existsSync(absolutePath)) {
                     const flpBuffer = fs.readFileSync(absolutePath);
                     const arrangement = FLPParser.parse(flpBuffer);
-                    
-                    // If the track already has a user-entered BPM, use that for the arrangement display
-                    // The FLP parser's BPM detection is unreliable (FL often stores default 140)
                     if (track.bpm && track.bpm > 0) {
                         (arrangement as any).bpm = track.bpm;
                     }
-
-                    logger.info(`Track: ${track.title} | User BPM: ${track.bpm} | Parser BPM: ${(arrangement as any).bpm} | Final arrangement BPM: ${(arrangement as any).bpm}`);
-
-                    await db.track.update({
-                        where: { id: track.id },
-                        data: { arrangement: arrangement as any }
-                    });
-                    results.success++;
+                    logger.info(`FLP re-parse: ${track.title} | BPM: ${(arrangement as any).bpm}`);
+                    await db.track.update({ where: { id: track.id }, data: { arrangement: arrangement as any } });
+                    results.flpSuccess++;
                 } else {
                     results.failed++;
-                    results.errors.push(`File not found for track: ${track.title} (Expected at: ${absolutePath})`);
+                    results.errors.push(`FLP file not found: ${track.title} (${absolutePath})`);
                 }
             } catch (err: any) {
                 results.failed++;
-                results.errors.push(`Error processing ${track.title}: ${err.message}`);
+                results.errors.push(`FLP error for ${track.title}: ${err.message}`);
+            }
+        }
+
+        // ── Pass 2: Re-enrich ZIP bundle tracks from TrackSample DB rows ──────
+        // The original ZIP processing stores peaks/oggUrl/duration both in TrackSample rows
+        // AND embedded in arrangement clip objects. If clip.peaks is missing (e.g. background
+        // processing failed or was interrupted), this re-injects them from the DB rows.
+        const tracksWithZips = await db.track.findMany({
+            where: { projectZipUrl: { not: null }, arrangement: { not: undefined } },
+            include: { samples: true }
+        }) as any[];
+
+        results.zipTotal = tracksWithZips.length;
+
+        for (const track of tracksWithZips) {
+            if (!track.arrangement || !(track.samples as any[]).length) {
+                results.failed++;
+                results.errors.push(`ZIP track "${track.title}" — no arrangement or no TrackSample rows found`);
+                continue;
+            }
+            try {
+                const arr = JSON.parse(JSON.stringify(track.arrangement));
+                const sampleMap = new Map<string, any>(
+                    (track.samples as any[]).map((s: any) => [s.originalFilename.toLowerCase(), s])
+                );
+                const clips: any[] = arr.tracks?.flatMap((t: any) => t.clips ?? []) ?? [];
+                let enriched = 0;
+                for (const clip of clips) {
+                    if (clip.type !== 'audio' || !clip.sampleFileName) continue;
+                    const sample = sampleMap.get(clip.sampleFileName.toLowerCase());
+                    if (sample) {
+                        clip.peaks = sample.peaks;
+                        clip.oggUrl = sample.oggUrl;
+                        clip.duration = sample.duration ?? clip.duration;
+                        enriched++;
+                    }
+                }
+                if (track.bpm && track.bpm > 0) arr.bpm = track.bpm;
+                await db.track.update({ where: { id: track.id }, data: { arrangement: arr } });
+                results.zipSuccess++;
+                logger.info(`ZIP re-enrich: "${track.title}" — ${enriched} clips enriched from ${(track.samples as any[]).length} samples`);
+            } catch (err: any) {
+                results.failed++;
+                results.errors.push(`ZIP error for "${track.title}": ${err.message}`);
             }
         }
 

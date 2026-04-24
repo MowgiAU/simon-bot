@@ -553,9 +553,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                 setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
                 try {
                     const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
+                    const d = res.data;
                     setMsg({ 
                         type: 'success', 
-                        text: `Successfully re-processed ${res.data.success} tracks! ${res.data.failed > 0 ? `(${res.data.failed} failed: ${res.data.errors[0] || 'Check logs'})` : ''}` 
+                        text: `Done! FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed. ZIP: ${d.zipSuccess}/${d.zipTotal} re-enriched.${d.failed > 0 ? ` (${d.failed} failed — check logs)` : ''}` 
                     });
                 } catch (err: any) {
                     setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
@@ -1263,8 +1264,8 @@ export const MusicianProfileAdmin: React.FC = () => {
                         {/* Re-process FLPs */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(255,152,0,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,152,0,0.15)' }}>
                             <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse FLP files</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all project files in the database.</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse / Re-enrich project files</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all .flp files, and re-inject waveform peaks from the database into all ZIP bundle tracks.</div>
                             </div>
                             <button
                                 onClick={handleReprocessFlps}
