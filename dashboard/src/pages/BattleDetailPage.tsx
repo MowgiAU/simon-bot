@@ -449,8 +449,22 @@ export const BattleDetailPage: React.FC = () => {
                     75%, 100% { transform: scale(2); opacity: 0; }
                 }
                 .hd-ping { animation: hd-ping 1.4s cubic-bezier(0,0,0.2,1) infinite; }
-                .hd-entry-card { transition: border-color 0.2s; }
-                .hd-entry-card:hover { border-color: rgba(43,140,113,0.4) !important; }
+
+                .hd-entry-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; position: relative; }
+                .hd-entry-card:hover { transform: translateY(-2px); border-color: rgba(43,140,113,0.45) !important; box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(43,140,113,0.08); }
+                .hd-entry-card:hover .hd-cover-overlay { opacity: 1; }
+                .hd-cover-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.25)); opacity: 0; transition: opacity 0.18s ease; cursor: pointer; }
+                .hd-cover-overlay-playing { opacity: 1 !important; background: linear-gradient(135deg, rgba(43,140,113,0.55), rgba(0,0,0,0.35)); }
+                .hd-cover-play-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #0A0E1A; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+                @keyframes hd-bar-pulse {
+                    0%, 100% { transform: scaleY(0.55); }
+                    50% { transform: scaleY(1); }
+                }
+                .hd-wave { display: flex; align-items: center; gap: 2px; height: 56px; width: 100%; cursor: pointer; padding: 0 2px; }
+                .hd-bar { flex: 1; min-width: 2px; border-radius: 3px; background: linear-gradient(180deg, rgba(43,140,113,0.35) 0%, rgba(43,140,113,0.18) 100%); transform-origin: center; transition: background 0.15s ease; }
+                .hd-wave-playing .hd-bar { background: linear-gradient(180deg, #34D399 0%, rgba(43,140,113,0.7) 100%); animation: hd-bar-pulse 0.9s ease-in-out infinite; }
+
                 .hd-sponsor-bar { opacity: 0.55; filter: grayscale(1); transition: all 0.4s; }
                 .hd-sponsor-bar:hover { opacity: 1; filter: grayscale(0); }
             `}</style>
@@ -947,8 +961,6 @@ export const BattleDetailPage: React.FC = () => {
                                 const trackId = `battle-entry-${entry.id}`;
                                 const isCurrentlyPlaying = player.currentTrack?.id === trackId && player.isPlaying;
                                 const bars = waveHeights(entry.id);
-                                // Color bars based on play state (first ~45% highlighted when playing)
-                                const playedCount = isCurrentlyPlaying ? Math.floor(bars.length * 0.45) : 0;
                                 const isWinner = isCompleted && winnerEntry?.id === entry.id;
                                 const podiumIdx = isCompleted ? podiumEntries.findIndex(e => e?.id === entry.id) : -1;
                                 const podiumRank = podiumIdx >= 0 ? podiumIdx + 1 : null; // 1 | 2 | 3 | null
@@ -973,32 +985,48 @@ export const BattleDetailPage: React.FC = () => {
                                         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '14px' : '28px' }}>
 
                                             {/* Cover + title */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : '300px', flexShrink: 0 }}>
-                                                <div style={{ width: '72px', height: '72px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: rankColor ? `0 0 16px ${rankColor}33` : '0 4px 12px rgba(0,0,0,0.3)', border: rankColor ? `2px solid ${rankColor}66` : 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: isMobile ? '100%' : '320px', flexShrink: 0 }}>
+                                                <div
+                                                    onClick={() => {
+                                                        if (player.currentTrack?.id === trackId) { togglePlay(); return; }
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
+                                                    }}
+                                                    style={{ position: 'relative', width: '92px', height: '92px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: rankColor ? `0 0 24px ${rankColor}55, 0 6px 18px rgba(0,0,0,0.45)` : '0 6px 18px rgba(0,0,0,0.4)', border: rankColor ? `2px solid ${rankColor}88` : '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}>
                                                     {(entry.coverUrl || entry.avatarUrl) ? (
                                                         <img src={(entry.coverUrl || entry.avatarUrl)!.startsWith('http') ? (entry.coverUrl || entry.avatarUrl)! : `${API}${entry.coverUrl || entry.avatarUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
-                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Swords size={24} color={colors.textSecondary} style={{ opacity: 0.3 }} />
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${colors.primary}30, ${colors.primary}10)` }}>
+                                                            <Swords size={32} color={colors.primary} style={{ opacity: 0.5 }} />
+                                                        </div>
+                                                    )}
+                                                    <div className={`hd-cover-overlay${isCurrentlyPlaying ? ' hd-cover-overlay-playing' : ''}`}>
+                                                        <div className="hd-cover-play-icon">
+                                                            {isCurrentlyPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />}
+                                                        </div>
+                                                    </div>
+                                                    {isCurrentlyPlaying && (
+                                                        <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', alignItems: 'center', gap: '3px', padding: '3px 7px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '9999px', fontSize: '9px', fontWeight: 700, color: '#34D399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#34D399' }} />
+                                                            Live
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div style={{ minWidth: 0 }}>
+                                                <div style={{ minWidth: 0, flex: 1 }}>
                                                     {rankLabel && rankColor && (
-                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', backgroundColor: `${rankColor}22`, border: `1px solid ${rankColor}55`, borderRadius: '9999px', fontSize: '10px', fontWeight: 700, color: rankColor, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', backgroundColor: `${rankColor}22`, border: `1px solid ${rankColor}55`, borderRadius: '9999px', fontSize: '10px', fontWeight: 700, color: rankColor, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
                                                             {rankLabel}
                                                         </div>
                                                     )}
-                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '17px', fontWeight: 800, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block', letterSpacing: '-0.01em' }}>
                                                         {entry.trackTitle}
                                                     </Link>
-                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
+                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 6px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                     </Link>
                                                     {isCompleted && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px', backgroundColor: `${ACCENT}15`, borderRadius: '9999px', border: `1px solid ${ACCENT}30` }}>
                                                             <Flame size={11} color={ACCENT} />
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
+                                                            <span style={{ fontSize: '11px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1013,15 +1041,11 @@ export const BattleDetailPage: React.FC = () => {
                                                         if (player.currentTrack?.id === trackId) { togglePlay(); return; }
                                                         setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                                     }}
-                                                    style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '48px', width: '100%', cursor: 'pointer' }}>
+                                                    className={`hd-wave${isCurrentlyPlaying ? ' hd-wave-playing' : ''}`}>
                                                     {bars.map((h, bi) => (
-                                                        <div key={bi} style={{
-                                                            flex: 1, borderRadius: '2px 2px 0 0',
+                                                        <div key={bi} className="hd-bar" style={{
                                                             height: `${h}%`,
-                                                            backgroundColor: bi < playedCount || isCurrentlyPlaying
-                                                                ? colors.primary
-                                                                : `${colors.primary}28`,
-                                                            transition: 'background-color 0.15s',
+                                                            animationDelay: isCurrentlyPlaying ? `${(bi % 8) * 0.07}s` : undefined,
                                                         }} />
                                                     ))}
                                                 </div>
