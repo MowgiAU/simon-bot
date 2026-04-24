@@ -1039,6 +1039,17 @@ export const BattleDetailPage: React.FC = () => {
                                                             const isThis = myRank === r;
                                                             const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
                                                             const medalColor = sdActive ? colors.primary : (r === 1 ? '#FFD700' : r === 2 ? '#C0C0C0' : '#CD7F32');
+                                                            // Once this entry has been voted on, selected button is primary green; others go neutral.
+                                                            // Before voting, all show their medal-coloured tint.
+                                                            const bg = isThis
+                                                                ? colors.primary
+                                                                : hasVoted ? 'rgba(255,255,255,0.05)' : `${medalColor}1A`;
+                                                            const border = isThis
+                                                                ? colors.primary
+                                                                : hasVoted ? 'rgba(255,255,255,0.1)' : `${medalColor}55`;
+                                                            const fg = isThis
+                                                                ? '#fff'
+                                                                : hasVoted ? colors.textSecondary : medalColor;
                                                             return (
                                                                 <button
                                                                     key={r}
@@ -1048,13 +1059,13 @@ export const BattleDetailPage: React.FC = () => {
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: '6px',
                                                                         padding: '8px 16px',
-                                                                        backgroundColor: isThis ? medalColor : `${medalColor}1A`,
-                                                                        color: isThis ? '#0A0E1A' : medalColor,
+                                                                        backgroundColor: bg,
+                                                                        color: fg,
                                                                         borderRadius: '8px',
-                                                                        border: `1px solid ${isThis ? medalColor : `${medalColor}55`}`,
+                                                                        border: `1px solid ${border}`,
                                                                         cursor: isVoting ? 'not-allowed' : 'pointer',
                                                                         fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
-                                                                        boxShadow: isThis ? `0 4px 14px ${medalColor}55` : 'none',
+                                                                        boxShadow: isThis ? `0 4px 14px ${colors.primary}55` : 'none',
                                                                         textTransform: 'uppercase', letterSpacing: '0.05em',
                                                                     }}>
                                                                     <Medal size={14} />

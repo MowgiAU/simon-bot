@@ -716,24 +716,36 @@ export const BattlesPage: React.FC = () => {
                                                             <>
                                                                 {(sdActive ? [1] : [1, 2, 3]).map(r => {
                                                                     const isThis = myRank === r;
-                                                                    const label = sdActive ? 'Vote' : (r === 1 ? '1st' : r === 2 ? '2nd' : '3rd');
+                                                                    const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
+                                                                    const medalColor = sdActive ? colors.primary : (r === 1 ? '#FFD700' : r === 2 ? '#C0C0C0' : '#CD7F32');
+                                                                    // Once a vote is cast on this entry, selected button is primary green; others go neutral.
+                                                                    // Before any vote, all buttons display their medal-coloured tint to invite the user.
+                                                                    const bg = isThis
+                                                                        ? colors.primary
+                                                                        : hasVoted ? 'transparent' : `${medalColor}1A`;
+                                                                    const border = isThis
+                                                                        ? colors.primary
+                                                                        : hasVoted ? 'rgba(255,255,255,0.12)' : `${medalColor}55`;
+                                                                    const fg = isThis
+                                                                        ? '#fff'
+                                                                        : hasVoted ? colors.textSecondary : medalColor;
                                                                     return (
                                                                         <button
                                                                             key={r}
                                                                             onClick={() => castVote(entry.id, isThis ? null : (r as 1 | 2 | 3))}
                                                                             disabled={isVoting}
-                                                                            title={isThis ? 'Click to remove this vote' : `Mark as your ${label} place pick`}
+                                                                            title={isThis ? 'Click to remove this vote' : `Assign ${r === 1 ? 3 : r === 2 ? 2 : 1} point${r === 3 ? '' : 's'} to this entry`}
                                                                             style={{
                                                                                 display: 'flex', alignItems: 'center', gap: '4px',
                                                                                 padding: '5px 10px', borderRadius: '6px',
-                                                                                border: `1px solid ${isThis ? colors.primary : 'rgba(255,255,255,0.12)'}`,
+                                                                                border: `1px solid ${border}`,
                                                                                 cursor: 'pointer',
-                                                                                backgroundColor: isThis ? colors.primary : 'transparent',
-                                                                                color: isThis ? '#fff' : colors.textPrimary,
+                                                                                backgroundColor: bg,
+                                                                                color: fg,
                                                                                 fontSize: '11px', fontWeight: 700, opacity: isVoting ? 0.6 : 1,
                                                                             }}
                                                                         >
-                                                                            {isThis ? <Flame size={11} /> : null}
+                                                                            <Medal size={11} />
                                                                             {label}
                                                                         </button>
                                                                     );
