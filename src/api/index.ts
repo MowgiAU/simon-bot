@@ -8433,6 +8433,7 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
         const results = {
             flpTotal: tracksWithFlps.length,
             flpSuccess: 0,
+            flpSkippedCloud: 0,
             zipTotal: 0,
             zipSuccess: 0,
             failed: 0,
@@ -8441,7 +8442,13 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
 
         for (const track of tracksWithFlps) {
             try {
-                const relativePath = track.projectFileUrl!.startsWith('/') ? track.projectFileUrl!.substring(1) : track.projectFileUrl!;
+                const url = track.projectFileUrl!;
+                // Skip cloud-hosted FLPs (R2/CDN) — can't parse without downloading
+                if (url.startsWith('http')) {
+                    results.flpSkippedCloud++;
+                    continue;
+                }
+                const relativePath = url.startsWith('/') ? url.substring(1) : url;
                 const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
 
                 logger.info(`Checking FLP at: ${absolutePath}`);

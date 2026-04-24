@@ -556,7 +556,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     const d = res.data;
                     setMsg({ 
                         type: 'success', 
-                        text: `Done! FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed. ZIP: ${d.zipSuccess}/${d.zipTotal} re-enriched.${d.failed > 0 ? ` (${d.failed} failed — check logs)` : ''}` 
+                        text: `Done! FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed${d.flpSkippedCloud ? ` (${d.flpSkippedCloud} cloud-hosted, skipped)` : ''}. ZIP: ${d.zipSuccess}/${d.zipTotal} re-enriched.${d.failed > 0 ? ` (${d.failed} failed — check logs)` : ''}` 
                     });
                 } catch (err: any) {
                     setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
