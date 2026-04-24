@@ -108,6 +108,10 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
     }, [open]);
 
     const handleCoverSelect = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setError(`"${file.name}" is not an image. Please use JPG, PNG, GIF, or WEBP.`);
+            return;
+        }
         setCoverFile(file);
         const reader = new FileReader();
         reader.onload = (e) => setCoverPreview(e.target?.result as string ?? '');

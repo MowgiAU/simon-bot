@@ -454,6 +454,10 @@ export const MyTracksPage: React.FC = () => {
 
     /* ─── Artwork helpers ─── */
     const handleArtworkSelect = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: `"${file.name}" is not an image. Please use JPG, PNG, GIF, or WEBP.` });
+            return;
+        }
         setArtworkFile(file);
         const reader = new FileReader();
         reader.onload = (e) => setArtworkPreviewUrl((e.target?.result as string) ?? null);
@@ -589,7 +593,7 @@ export const MyTracksPage: React.FC = () => {
                                 {isEdit ? 'Replace Audio' : 'Audio File *'}
                             </div>
                             <div style={{ fontSize: '11px', color: audioFile ? colors.primary : dragOver === 'audio' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace' : 'Drop audio here or click — MP3, WAV, FLAC, OGG')}
+                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace — Max 300MB' : 'Drop audio here or click — MP3, WAV, FLAC, OGG · Max 300MB')}
                             </div>
                         </div>
                         <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
@@ -646,7 +650,7 @@ export const MyTracksPage: React.FC = () => {
                                     {isEdit ? 'Replace Art' : 'Artwork'}
                                 </div>
                                 <div style={{ fontSize: '11px', color: dragOver === 'art' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, WEBP')}
+                                    {dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, GIF, WEBP')}
                                 </div>
                             </div>
                             <input ref={artworkInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkSelect(f); }} style={{ display: 'none' }} />
@@ -679,7 +683,7 @@ export const MyTracksPage: React.FC = () => {
                     </label>
                 </div>
 
-                {!isEdit && audioFile && (
+                {!isEdit && (
                     <p style={{ margin: '-8px 0 16px', fontSize: '11px', color: colors.textTertiary }}>
                         Max 300MB. Large WAV files will be auto-converted to 320kbps MP3.
                     </p>
