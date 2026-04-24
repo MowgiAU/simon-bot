@@ -335,7 +335,7 @@ export const BattleDetailPage: React.FC = () => {
                 setVoteNotification({
                     message: rank === null
                         ? 'Vote removed.'
-                        : `🔥 Marked as your ${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'} place pick!`,
+                        : `🔥 ${rank === 1 ? '+3 points' : rank === 2 ? '+2 points' : '+1 point'} assigned!`,
                 });
                 if (battleId) {
                     fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
@@ -894,16 +894,16 @@ export const BattleDetailPage: React.FC = () => {
                                         ⚡ Sudden Death is live
                                     </p>
                                     <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
-                                        The leading entries finished with an identical 1st/2nd/3rd vote distribution. Cast a single vote for the entry you want to win — only the entries below are eligible. Voting closes {battle.suddenDeath?.end ? new Date(battle.suddenDeath.end).toLocaleString() : 'shortly'}.
+                                        The leading entries finished level on points. Cast a single vote for the entry you want to win — only the entries below are eligible. Voting closes {battle.suddenDeath?.end ? new Date(battle.suddenDeath.end).toLocaleString() : 'shortly'}.
                                     </p>
                                 </>
                             ) : (
                                 <>
                                     <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px', fontWeight: 700 }}>
-                                        🏆 How voting works — Lexicographical Positional Scoring
+                                        🏆 How voting works
                                     </p>
                                     <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
-                                        Every voter picks their <strong>1st</strong>, <strong>2nd</strong> and <strong>3rd</strong> place entries. The winner is the entry with the most 1st-place votes. Ties are broken by 2nd-place votes, then by 3rd-place votes. If three entries are still perfectly tied across all tiers, the battle moves into <strong>Sudden Death</strong> — a short runoff vote between only the tied entries.
+                                        Assign <strong>+3 pts</strong> to your favourite beat, <strong>+2 pts</strong> to your second pick, and <strong>+1 pt</strong> to your third. The entry with the most total points wins. Ties are broken by who has more +3 pt votes, then +2 pt votes. If it's still a deadlock, the battle enters <strong>Sudden Death</strong> — a short runoff between only the tied entries.
                                     </p>
                                 </>
                             )}
@@ -1033,13 +1033,13 @@ export const BattleDetailPage: React.FC = () => {
                                                     {(battle.status === 'voting' || sdActive) && sdEligible && (
                                                         (sdActive ? [1] : [1, 2, 3]).map(r => {
                                                             const isThis = myRank === r;
-                                                            const label = sdActive ? 'Vote' : (r === 1 ? '1st' : r === 2 ? '2nd' : '3rd');
+                                                            const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
                                                             return (
                                                                 <button
                                                                     key={r}
                                                                     onClick={() => castVote(entry.id, isThis ? null : (r as 1 | 2 | 3))}
                                                                     disabled={isVoting}
-                                                                    title={isThis ? 'Click to remove this vote' : `Mark as your ${label}${sdActive ? '' : ' place'} pick`}
+                                                                    title={isThis ? 'Click to remove this vote' : sdActive ? 'Cast your vote' : `Assign ${r === 1 ? 3 : r === 2 ? 2 : 1} point${r === 3 ? '' : 's'} to this entry`}
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: '6px',
                                                                         padding: '8px 16px',
@@ -1065,7 +1065,7 @@ export const BattleDetailPage: React.FC = () => {
                                                     )}
                                                     {hasVoted && (battle.status === 'voting' || sdActive) && (
                                                         <span style={{ fontSize: '11px', color: colors.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            Your {myRank === 1 ? '1st' : myRank === 2 ? '2nd' : '3rd'} pick
+                                                            Your pick · {myRank === 1 ? 3 : myRank === 2 ? 2 : 1} pts
                                                         </span>
                                                     )}
                                                     {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
