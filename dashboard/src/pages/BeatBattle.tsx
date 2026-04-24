@@ -93,6 +93,26 @@ interface AnalyticsReport {
     sponsorLinkBreakdown: { label: string; url: string; clicks: number }[];
 }
 
+interface VoterInfo { userId: string; username: string; avatar: string | null; source: string; createdAt: string; }
+interface VoteEntry {
+    entryId: string;
+    submitterUserId: string;
+    submitterUsername: string;
+    trackTitle: string;
+    voteCount: number;
+    pointTotal: number;
+    firstPlaceVotes: VoterInfo[];
+    secondPlaceVotes: VoterInfo[];
+    thirdPlaceVotes: VoterInfo[];
+}
+interface VoteReport {
+    battleId: string;
+    battleTitle: string;
+    totalVotes: number;
+    uniqueVoters: number;
+    entries: VoteEntry[];
+}
+
 type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
 
 export const BeatBattlePage: React.FC = () => {
@@ -109,6 +129,8 @@ export const BeatBattlePage: React.FC = () => {
     const [editingBattle, setEditingBattle] = useState<Battle | null>(null);
     const [analyticsReport, setAnalyticsReport] = useState<AnalyticsReport | null>(null);
     const [analyticsFor, setAnalyticsFor] = useState<string | null>(null);
+    const [voteReport, setVoteReport] = useState<VoteReport | null>(null);
+    const [votesFor, setVotesFor] = useState<string | null>(null);
 
     // Form state
     const [form, setForm] = useState({
@@ -413,6 +435,17 @@ export const BeatBattlePage: React.FC = () => {
             if (res.ok) {
                 setAnalyticsReport(await res.json());
                 setAnalyticsFor(battleId);
+            }
+        } catch {}
+    };
+
+    const fetchVotes = async (battleId: string) => {
+        if (votesFor === battleId) { setVotesFor(null); setVoteReport(null); return; }
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${battleId}/votes`, { credentials: 'include' });
+            if (res.ok) {
+                setVoteReport(await res.json());
+                setVotesFor(battleId);
             }
         } catch {}
     };
@@ -1010,6 +1043,9 @@ export const BeatBattlePage: React.FC = () => {
                                         <button onClick={() => fetchAnalytics(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Analytics">
                                             <BarChart3 size={14} />
                                         </button>
+                                        <button onClick={() => fetchVotes(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Vote breakdown (who voted for what)">
+                                            <Vote size={14} />
+                                        </button>
                                         <button onClick={() => startEdit(b)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit">
                                             <Edit size={14} />
                                         </button>
@@ -1053,6 +1089,71 @@ export const BeatBattlePage: React.FC = () => {
                                                         <span style={{ color: colors.primary, fontWeight: 600 }}>{l.clicks} clicks</span>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Vote Breakdown Inline */}
+                                {votesFor === b.id && voteReport && (
+                                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: colors.background, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <h4 style={{ margin: 0, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <Vote size={16} color={colors.primary} /> Vote Breakdown
+                                                <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 400 }}>
+                                                    {voteReport.totalVotes} votes from {voteReport.uniqueVoters} unique voters
+                                                </span>
+                                            </h4>
+                                            <button onClick={() => { setVotesFor(null); setVoteReport(null); }} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={16} /></button>
+                                        </div>
+                                        {voteReport.entries.length === 0 ? (
+                                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>No entries yet.</p>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {voteReport.entries.map((e, idx) => {
+                                                    const tiers: { label: string; color: string; voters: VoterInfo[]; pts: number }[] = [
+                                                        { label: '+3 pts', color: '#FFD700', voters: e.firstPlaceVotes, pts: 3 },
+                                                        { label: '+2 pts', color: '#C0C0C0', voters: e.secondPlaceVotes, pts: 2 },
+                                                        { label: '+1 pt',  color: '#CD7F32', voters: e.thirdPlaceVotes, pts: 1 },
+                                                    ];
+                                                    return (
+                                                        <div key={e.entryId} style={{ padding: '12px', backgroundColor: colors.surface, borderRadius: borderRadius.md, border: `1px solid ${idx === 0 ? '#FFD70033' : 'rgba(255,255,255,0.05)'}` }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                <div style={{ minWidth: 0 }}>
+                                                                    <div style={{ color: colors.textPrimary, fontWeight: 700, fontSize: '14px' }}>{e.trackTitle}</div>
+                                                                    <div style={{ color: colors.textSecondary, fontSize: '12px' }}>by @{e.submitterUsername}</div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
+                                                                    <span style={{ color: colors.textSecondary }}>{e.voteCount} votes</span>
+                                                                    <span style={{ color: colors.primary, fontWeight: 700 }}>{e.pointTotal} pts</span>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                                                                {tiers.map(tier => (
+                                                                    <div key={tier.label} style={{ padding: '8px 10px', backgroundColor: `${tier.color}10`, borderRadius: '6px', borderLeft: `3px solid ${tier.color}` }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                                            <span style={{ color: tier.color, fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em' }}>{tier.label}</span>
+                                                                            <span style={{ color: colors.textSecondary, fontSize: '11px' }}>{tier.voters.length} voter{tier.voters.length === 1 ? '' : 's'}</span>
+                                                                        </div>
+                                                                        {tier.voters.length === 0 ? (
+                                                                            <div style={{ color: colors.textSecondary, fontSize: '11px', fontStyle: 'italic' }}>—</div>
+                                                                        ) : (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                                {tier.voters.map(v => (
+                                                                                    <div key={v.userId} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textPrimary }}>
+                                                                                        <span style={{ color: tier.color }}>•</span>
+                                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{v.username}</span>
+                                                                                        {v.source === 'discord' && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#5865F222', color: '#7984F5' }}>discord</span>}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>

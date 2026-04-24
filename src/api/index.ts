@@ -10736,6 +10736,87 @@ app.get('/api/beat-battle/admin/battles/:id/analytics', requireAdmin, async (req
     }
 });
 
+// --- Admin: Per-battle vote breakdown (who voted for what) ---
+app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: any, res) => {
+    try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        const battleId = req.params.id;
+
+        const battle = await db.beatBattle.findUnique({
+            where: { id: battleId },
+            select: {
+                id: true, title: true,
+                entries: {
+                    where: { deletedAt: null },
+                    select: {
+                        id: true, userId: true, voteCount: true,
+                        track: { select: { title: true, profile: { select: { username: true, displayName: true } } } },
+                        votes: {
+                            orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+                            select: { userId: true, rank: true, source: true, createdAt: true },
+                        },
+                    },
+                },
+            },
+        });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+
+        // Resolve voter usernames in one query
+        const voterIds = Array.from(new Set(battle.entries.flatMap(e => e.votes.map(v => v.userId))));
+        const voterProfiles = voterIds.length
+            ? await db.musicianProfile.findMany({
+                where: { userId: { in: voterIds } },
+                select: { userId: true, username: true, displayName: true, avatar: true },
+            })
+            : [];
+        const profileMap = new Map(voterProfiles.map(p => [p.userId, p]));
+
+        const RANK_POINTS = { 1: 3, 2: 2, 3: 1 } as const;
+
+        const entries = battle.entries
+            .map(entry => {
+                const submitterProfile = entry.track?.profile;
+                const votersByRank: Record<1 | 2 | 3, any[]> = { 1: [], 2: [], 3: [] };
+                let pointTotal = 0;
+                for (const v of entry.votes) {
+                    if (v.rank !== 1 && v.rank !== 2 && v.rank !== 3) continue;
+                    const p = profileMap.get(v.userId);
+                    votersByRank[v.rank as 1 | 2 | 3].push({
+                        userId: v.userId,
+                        username: p?.username || p?.displayName || v.userId,
+                        avatar: p?.avatar || null,
+                        source: v.source,
+                        createdAt: v.createdAt,
+                    });
+                    pointTotal += RANK_POINTS[v.rank as 1 | 2 | 3];
+                }
+                return {
+                    entryId: entry.id,
+                    submitterUserId: entry.userId,
+                    submitterUsername: submitterProfile?.username || submitterProfile?.displayName || entry.userId,
+                    trackTitle: entry.track?.title || 'Untitled',
+                    voteCount: entry.voteCount,
+                    pointTotal,
+                    firstPlaceVotes: votersByRank[1],
+                    secondPlaceVotes: votersByRank[2],
+                    thirdPlaceVotes: votersByRank[3],
+                };
+            })
+            .sort((a, b) => b.pointTotal - a.pointTotal);
+
+        res.json({
+            battleId: battle.id,
+            battleTitle: battle.title,
+            totalVotes: entries.reduce((s, e) => s + e.firstPlaceVotes.length + e.secondPlaceVotes.length + e.thirdPlaceVotes.length, 0),
+            uniqueVoters: voterIds.length,
+            entries,
+        });
+    } catch (e: any) {
+        logger.error('Beat Battle API: admin votes failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Admin: Backfill old battle data ---
 app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) => {
     try {
