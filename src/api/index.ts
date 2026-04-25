@@ -12830,12 +12830,20 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         let resolvedTrackId = trackId;
         let resolvedProfileId = profileId;
         let resolvedBattleEntryId = battleEntryId;
+        // The actual parent stored in the DB. If the client passed a reply's id
+        // as parentId, we roll up to the top-level comment so threading stays
+        // flat (single reply level) — the user can still "reply to" a reply.
+        let effectiveParentId: string | null = parentId || null;
 
         if (parentId) {
-            // Reply \u2014 inherit context from parent, prevent nested replies
+            // Reply — inherit context from parent. If the parent is itself a
+            // reply, walk up to the top-level grandparent so we never create
+            // nested threads (UI only renders one level of replies).
             const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
-            if (parent.parentId) return res.status(400).json({ error: 'Cannot reply to a reply' });
+            if (parent.parentId) {
+                effectiveParentId = parent.parentId;
+            }
             resolvedTrackId = parent.trackId;
             resolvedProfileId = parent.profileId;
             resolvedBattleEntryId = parent.battleEntryId;
@@ -12878,8 +12886,8 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
                 ...(resolvedBattleEntryId ? { battleEntryId: resolvedBattleEntryId } : {}),
-                ...(parentId ? { parentId } : {}),
-                ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !parentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
+                ...(effectiveParentId ? { parentId: effectiveParentId } : {}),
+                ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !effectiveParentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
         });
 
