@@ -296,13 +296,12 @@ export const BattlesPage: React.FC = () => {
                         ? 'Vote removed.'
                         : `🔥 ${rank === 1 ? '+3 points' : rank === 2 ? '+2 points' : '+1 point'} assigned!`,
                 });
-                // Refresh battle entries to update tallies
-                if (currentBattle) {
-                    fetch(`${API}/api/beat-battle/battles/${currentBattle.id}`, { credentials: 'include' })
-                        .then(r => r.ok ? r.json() : null)
-                        .then(b => { if (b) setCurrentBattle(b); })
-                        .catch(() => {});
-                }
+                // Note: we intentionally do NOT refetch the battle here. Vote
+                // counts are hidden during voting, and the POST response already
+                // returns the user's full vote map for `myRanks`. Refetching
+                // without re-running flattenBattleEntry would replace entries
+                // with the raw API shape (missing trackTitle/username), blanking
+                // every card.
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }

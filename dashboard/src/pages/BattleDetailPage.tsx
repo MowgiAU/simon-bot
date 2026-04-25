@@ -341,16 +341,12 @@ export const BattleDetailPage: React.FC = () => {
                         ? 'Vote removed.'
                         : `🔥 ${rank === 1 ? '+3 points' : rank === 2 ? '+2 points' : '+1 point'} assigned!`,
                 });
-                if (battleId) {
-                    fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
-                        .then(r => r.ok ? r.json() : null)
-                        .then(b => {
-                            if (!b) return;
-                            if (Array.isArray(b.entries)) b.entries = b.entries.map(flattenBattleEntry);
-                            setBattle(b);
-                        })
-                        .catch(() => {});
-                }
+                // Note: we intentionally do NOT refetch the battle here. Vote counts
+                // are hidden during voting (see BattleDetailPage submissions section),
+                // and the POST response already returns the user's full vote map for
+                // `myRanks`. Refetching risked blanking the entries if the response
+                // came back without the `track` join (which falls back to "Untitled"
+                // / "Producer" defaults in flattenBattleEntry).
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
