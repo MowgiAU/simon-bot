@@ -434,12 +434,16 @@ export const MyTracksPage: React.FC = () => {
                     {standaloneGenres.filter(g => !selected.includes(g.id) && matchesSearch(g)).map(g => (
                         <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
                     ))}
-                    {/* Parent genres with children grouped in optgroups */}
+                    {/* Parent genres with children grouped in optgroups (parent itself selectable) */}
                     {parentsWithChildren.map(parent => {
                         const children = childGenres.filter(c => c.parentId === parent.id && !selected.includes(c.id) && matchesSearch(c));
-                        if (children.length === 0) return null;
+                        const parentMatch = !selected.includes(parent.id) && matchesSearch(parent);
+                        if (children.length === 0 && !parentMatch) return null;
                         return (
                             <optgroup key={parent.id} label={parent.name} style={{ backgroundColor: colors.surface }}>
+                                {parentMatch && (
+                                    <option value={parent.id} style={{ backgroundColor: colors.surface }}>All {parent.name}</option>
+                                )}
                                 {children.map(c => (
                                     <option key={c.id} value={c.id} style={{ backgroundColor: colors.surface }}>{c.name}</option>
                                 ))}
