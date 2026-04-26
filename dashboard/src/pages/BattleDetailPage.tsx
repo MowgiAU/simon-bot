@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { colors, borderRadius } from '../theme/theme';
+import { colors, borderRadius, spacing } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
@@ -832,6 +832,22 @@ export const BattleDetailPage: React.FC = () => {
                                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#FFD700' }}>Battle Results</h2>
                                 <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textSecondary }}>Final standings for this battle.</p>
                             </div>
+                        </div>
+
+                        {/* How votes are tallied */}
+                        <div style={{
+                            backgroundColor: colors.surface,
+                            padding: spacing.md,
+                            borderRadius: borderRadius.md,
+                            marginBottom: spacing.lg,
+                            borderLeft: `4px solid #FFD700`,
+                        }}>
+                            <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.5 }}>
+                                <strong>How votes are tallied:</strong> each voter ranks their top 3 entries.
+                                A 1st-place vote is worth <strong>3 pts</strong>, a 2nd-place vote is worth <strong>2 pts</strong>,
+                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points.
+                                Ties are broken by most 1st-place votes, then most 2nd-place votes, then earliest submission.
+                            </p>
                         </div>
 
                         {/* Podium cards */}
