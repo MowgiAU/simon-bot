@@ -26,6 +26,9 @@ export interface FlatBattleEntry {
     arrangement?: any;
     waveformPeaks?: number[] | null;
     track?: any;
+    firstPlaceVotes?: number;
+    secondPlaceVotes?: number;
+    thirdPlaceVotes?: number;
     /** Public route to the underlying Track page (preferred over /battles/entry/:id). */
     trackRoute: string;
 }
@@ -69,6 +72,9 @@ export function flattenBattleEntry(e: any): FlatBattleEntry {
         arrangement: t.arrangement ?? e.arrangement ?? null,
         waveformPeaks: t.waveformPeaks ?? e.waveformPeaks ?? null,
         track: t.id ? t : undefined,
+        firstPlaceVotes: e.firstPlaceVotes ?? 0,
+        secondPlaceVotes: e.secondPlaceVotes ?? 0,
+        thirdPlaceVotes: e.thirdPlaceVotes ?? 0,
         trackRoute: battleEntryRoute(e),
     };
 }
