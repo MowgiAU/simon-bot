@@ -267,7 +267,7 @@ export const BattlesPage: React.FC = () => {
                     return { battle: data, winner };
                 } catch { return { battle: b, winner: null }; }
             })
-        ).then(setHallOfFame);
+        ).then(arr => setHallOfFame(arr as any));
     }, [battles]);
 
     // Cast / change / clear a ranked vote.
@@ -491,48 +491,91 @@ export const BattlesPage: React.FC = () => {
 
                         {/* Left: Active / Upcoming Battles */}
                         <div>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <Swords size={14} color={colors.primary} /> Active Battles
-                            </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: `${colors.primary}1A`, border: `2px solid ${colors.primary}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Swords size={16} color={colors.primary} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em' }}>Active Battles</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>{activeBattles.length} live or upcoming</p>
+                                </div>
+                            </div>
                             {activeBattles.length === 0 ? (
                                 <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>No active battles right now.</p>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {activeBattles.map(b => {
                                         const cfg = statusConfig[b.status] || statusConfig.upcoming;
+                                        const isHot = b.status === 'voting' || b.status === 'sudden_death';
                                         return (
-                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'stretch', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s' }}
-                                                onMouseEnter={e => (e.currentTarget.style.borderColor = `${colors.primary}50`)}
-                                                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
+                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{
+                                                textDecoration: 'none', display: 'flex', alignItems: 'stretch',
+                                                backgroundColor: '#242C3D',
+                                                border: `1px solid ${isHot ? `${cfg.color}45` : 'rgba(255,255,255,0.06)'}`,
+                                                borderRadius: '12px', overflow: 'hidden',
+                                                transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                                boxShadow: isHot ? `0 8px 28px ${cfg.color}1F` : '0 2px 8px rgba(0,0,0,0.18)',
+                                                position: 'relative',
+                                            }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.borderColor = `${cfg.color}80`;
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = `0 12px 36px ${cfg.color}33`;
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.borderColor = isHot ? `${cfg.color}45` : 'rgba(255,255,255,0.06)';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                    e.currentTarget.style.boxShadow = isHot ? `0 8px 28px ${cfg.color}1F` : '0 2px 8px rgba(0,0,0,0.18)';
+                                                }}>
+                                                {/* accent stripe */}
+                                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent, ${cfg.color}, transparent)`, opacity: isHot ? 1 : 0.5 }} />
+
                                                 {/* Banner thumbnail */}
-                                                {b.bannerUrl && (
-                                                    <div style={{ width: isMobile ? '80px' : '140px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                                                {b.bannerUrl ? (
+                                                    <div style={{ width: isMobile ? '110px' : '180px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                                                         <img src={`${API}${b.bannerUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 60%, #242C3D)' }} />
+                                                        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, transparent 50%, #242C3D), linear-gradient(135deg, ${cfg.color}22 0%, transparent 60%)` }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: isMobile ? '110px' : '180px', flexShrink: 0, position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${cfg.color}28 0%, ${cfg.color}08 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Swords size={isMobile ? 30 : 44} color={cfg.color} style={{ opacity: 0.55 }} />
+                                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 50%, #242C3D)' }} />
                                                     </div>
                                                 )}
-                                                <div style={{ flex: 1, padding: isMobile ? '12px 14px' : '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px' }}>
+
+                                                <div style={{ flex: 1, padding: isMobile ? '14px 14px 14px 4px' : '18px 24px 18px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                        <span style={{ fontSize: '9px', fontWeight: 700, color: cfg.color, padding: '2px 8px', borderRadius: '999px', backgroundColor: `${cfg.color}15`, border: `1px solid ${cfg.color}30`, letterSpacing: '0.08em' }}>{cfg.label}</span>
+                                                        <span style={{
+                                                            fontSize: '10px', fontWeight: 800, color: cfg.color, padding: '3px 10px',
+                                                            borderRadius: '999px', backgroundColor: `${cfg.color}18`,
+                                                            border: `1px solid ${cfg.color}40`, letterSpacing: '0.1em',
+                                                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                        }}>
+                                                            {isHot && <Flame size={10} />}
+                                                            {cfg.label}
+                                                        </span>
                                                         {b.sponsor && (
                                                             b.sponsor.logoUrl
                                                                 ? <img src={b.sponsor.logoUrl} alt={b.sponsor.name} style={{ height: '16px', objectFit: 'contain', opacity: 0.6 }} />
                                                                 : <span style={{ fontSize: '9px', fontWeight: 600, color: colors.textSecondary, opacity: 0.6 }}>by {b.sponsor.name}</span>
                                                         )}
                                                     </div>
-                                                    <h4 style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: colors.textPrimary }}>{b.title}</h4>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: colors.textSecondary }}>
+                                                    <h4 style={{ margin: 0, fontSize: isMobile ? '15px' : '19px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>{b.title}</h4>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', color: colors.textSecondary, flexWrap: 'wrap' }}>
                                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={11} /> {b._count?.entries || 0} entries</span>
                                                         {b.submissionEnd && b.status === 'active' && (
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} /> Ends {formatDate(b.submissionEnd)}</span>
                                                         )}
                                                         {b.votingEnd && b.status === 'voting' && (
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} /> Voting ends {formatDate(b.votingEnd)}</span>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: cfg.color, fontWeight: 700 }}><Zap size={11} /> Voting ends {formatDate(b.votingEnd)}</span>
+                                                        )}
+                                                        {b.prizes && b.prizes.length > 0 && (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Trophy size={11} color="#FFD700" /> {b.prizes.length} {b.prizes.length === 1 ? 'prize' : 'prizes'}</span>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'rgba(255,255,255,0.2)' }}>
-                                                    <ChevronRight size={18} />
+                                                <div style={{ display: 'flex', alignItems: 'center', paddingRight: '18px', color: cfg.color, opacity: 0.8 }}>
+                                                    <ChevronRight size={20} />
                                                 </div>
                                             </Link>
                                         );
@@ -543,27 +586,54 @@ export const BattlesPage: React.FC = () => {
 
                         {/* Right: Hall of Fame */}
                         <div>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <Trophy size={14} color={ACCENT} /> Hall of Fame
-                            </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,215,0,0.12)', border: '2px solid rgba(255,215,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Trophy size={16} color="#FFD700" />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#FFD700', letterSpacing: '-0.01em' }}>Hall of Fame</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>Recent battle champions</p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {hallOfFame.length === 0 ? (
                                     <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>No past winners yet.</p>
-                                ) : hallOfFame.map(({ battle, winner }) => (
-                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{ textDecoration: 'none', backgroundColor: '#242C3D', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', transition: 'border-color 0.2s' }}
-                                        onMouseEnter={e => (e.currentTarget.style.borderColor = `${ACCENT}40`)}
-                                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
+                                ) : hallOfFame.map(({ battle, winner }, idx) => {
+                                    const accent = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
+                                    return (
+                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{
+                                        textDecoration: 'none',
+                                        background: `linear-gradient(135deg, ${accent}10 0%, #242C3D 60%)`,
+                                        borderRadius: '12px', padding: '14px 16px',
+                                        border: `1px solid ${accent}30`,
+                                        display: 'flex', alignItems: 'center', gap: '12px',
+                                        transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                        boxShadow: `0 4px 14px ${accent}14`,
+                                        position: 'relative', overflow: 'hidden',
+                                    }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.borderColor = `${accent}70`;
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = `0 10px 24px ${accent}28`;
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.borderColor = `${accent}30`;
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = `0 4px 14px ${accent}14`;
+                                        }}>
+                                        {/* accent stripe */}
+                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
                                         <div style={{ position: 'relative', flexShrink: 0 }}>
-                                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', border: `2px solid ${ACCENT}35`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '46px', height: '46px', borderRadius: '50%', border: `2px solid ${accent}55`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${accent}33` }}>
                                                 {winner?.avatarUrl
                                                     ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={16} color={ACCENT} />}
+                                                    : <Trophy size={18} color={accent} />}
                                             </div>
-                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-4px', backgroundColor: ACCENT, color: '#fff', fontSize: '7px', fontWeight: 700, padding: '1px 4px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
+                                            <div style={{ position: 'absolute', bottom: '-3px', right: '-5px', backgroundColor: accent, color: '#1a1a1a', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '99px', border: '2px solid #242C3D' }}>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
-                                            <p style={{ margin: '1px 0 0', fontSize: '10px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
+                                            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
+                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
                                         </div>
                                         {winner?.audioUrl && (
                                             <button onClick={(e) => {
@@ -572,12 +642,12 @@ export const BattlesPage: React.FC = () => {
                                                 const id = `battle-${winner.id}`;
                                                 if (player.currentTrack?.id === id) { togglePlay(); return; }
                                                 setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
-                                            }} style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
-                                                {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                                            }} style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: accent, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a1a', flexShrink: 0, boxShadow: `0 4px 12px ${accent}55` }}>
+                                                {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} fill="#1a1a1a" /> : <Play size={14} fill="#1a1a1a" />}
                                             </button>
                                         )}
                                     </Link>
-                                ))}
+                                );})}
                             </div>
                         </div>
                     </div>
@@ -785,39 +855,94 @@ export const BattlesPage: React.FC = () => {
                     {/* ── PAST BATTLES ── */}
                     {pastBattles.length > 0 && (
                         <section>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <History size={14} color={colors.textSecondary} /> Past Battles
-                            </h3>
-                            <div style={{ backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                {pastBattles.map((b, i) => {
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(107,114,128,0.15)', border: '2px solid rgba(107,114,128,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <History size={16} color={colors.textSecondary} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em' }}>Past Battles</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>{pastBattles.length} completed {pastBattles.length === 1 ? 'battle' : 'battles'} — relive the highlights</p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                                {pastBattles.map(b => {
                                     const hof = hallOfFame.find(h => h.battle.id === b.id);
+                                    const winner = hof?.winner;
                                     return (
                                         <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{
-                                            display: 'flex', alignItems: 'center', gap: '12px',
-                                            padding: isMobile ? '10px 14px' : '12px 20px',
-                                            borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                                            textDecoration: 'none', transition: 'background-color 0.15s',
+                                            position: 'relative',
+                                            display: 'flex', flexDirection: 'column',
+                                            backgroundColor: '#242C3D',
+                                            borderRadius: '12px',
+                                            border: '1px solid rgba(255,215,0,0.15)',
+                                            overflow: 'hidden',
+                                            textDecoration: 'none',
+                                            transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                            boxShadow: '0 4px 14px rgba(255,215,0,0.06)',
                                         }}
-                                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(43,140,113,0.06)')}
-                                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}
-                                        >
-                                            {/* Winner avatar */}
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {hof?.winner?.avatarUrl
-                                                    ? <img src={hof.winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={14} color={colors.textSecondary} style={{ opacity: 0.4 }} />}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.borderColor = 'rgba(255,215,0,0.5)';
+                                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                                e.currentTarget.style.boxShadow = '0 12px 32px rgba(255,215,0,0.18)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.borderColor = 'rgba(255,215,0,0.15)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 14px rgba(255,215,0,0.06)';
+                                            }}>
+                                            {/* gold accent stripe */}
+                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, transparent, #FFD700, transparent)' }} />
+
+                                            {/* Banner / cover area */}
+                                            <div style={{ position: 'relative', height: '120px', overflow: 'hidden', background: b.bannerUrl
+                                                ? undefined
+                                                : 'linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(36,44,61,0.9) 70%)',
+                                            }}>
+                                                {b.bannerUrl && <img src={`${API}${b.bannerUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(36,44,61,0.95), rgba(36,44,61,0.3) 60%, transparent)' }} />
+                                                {/* Ended badge */}
+                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: 800, color: '#FFD700', padding: '3px 8px', borderRadius: '999px', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,215,0,0.4)', letterSpacing: '0.1em', backdropFilter: 'blur(4px)' }}>
+                                                    <Trophy size={10} /> CHAMPION
+                                                </div>
+                                                {/* Title overlay */}
+                                                <h4 style={{ position: 'absolute', bottom: '10px', left: '14px', right: '14px', margin: 0, fontSize: '15px', fontWeight: 800, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.7)', letterSpacing: '-0.01em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>{b.title}</h4>
                                             </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</p>
+
+                                            {/* Winner section */}
+                                            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid rgba(255,215,0,0.55)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 14px rgba(255,215,0,0.3)' }}>
+                                                        {winner?.avatarUrl
+                                                            ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            : <Trophy size={18} color="#FFD700" />}
+                                                    </div>
+                                                    <div style={{ position: 'absolute', bottom: '-3px', right: '-3px', fontSize: '14px' }}>🥇</div>
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontSize: '10px', color: colors.textSecondary, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Winner</p>
+                                                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: 800, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}
+                                                    </p>
+                                                </div>
+                                                {winner?.audioUrl && (
+                                                    <button onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        const id = `battle-${winner.id}`;
+                                                        if (player.currentTrack?.id === id) { togglePlay(); return; }
+                                                        setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
+                                                    }} style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#FFD700', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a1a', flexShrink: 0, boxShadow: '0 4px 12px rgba(255,215,0,0.45)' }}>
+                                                        {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} fill="#1a1a1a" /> : <Play size={14} fill="#1a1a1a" />}
+                                                    </button>
+                                                )}
                                             </div>
-                                            {hof?.winner && (
-                                                <span style={{ fontSize: '11px', color: ACCENT, fontWeight: 700, flexShrink: 0, display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Trophy size={11} /> <StyledUsername userId={hof.winner.userId} showBadge={false}>{hof.winner.username}</StyledUsername>
-                                                </span>
-                                            )}
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0, display: isMobile ? 'none' : 'block' }}>{b._count?.entries || 0} entries</span>
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0 }}>{formatDate(b.votingEnd)}</span>
-                                            <ChevronRight size={14} color="rgba(255,255,255,0.15)" style={{ flexShrink: 0 }} />
+
+                                            {/* Footer stats */}
+                                            <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: colors.textSecondary }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={11} /> {b._count?.entries || 0} entries</span>
+                                                <span>{formatDate(b.votingEnd)}</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#FFD700', fontWeight: 700 }}>View <ChevronRight size={12} /></span>
+                                            </div>
                                         </Link>
                                     );
                                 })}
