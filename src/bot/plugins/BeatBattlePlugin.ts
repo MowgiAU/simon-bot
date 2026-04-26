@@ -137,25 +137,22 @@ export class BeatBattlePlugin implements IPlugin {
                 guildId: interaction.guildId!,
                 status: { in: ['active', 'voting', 'completed'] },
             },
-            include: {
-                entries: {
-                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
-                    take: 10,
-                    include: { track: { select: { title: true } } },
-                },
-            },
             orderBy: { createdAt: 'desc' },
         });
-
-        if (!battle || battle.entries.length === 0) {
+        if (!battle) {
             await interaction.reply({ content: 'No entries to show yet.', flags: MessageFlags.Ephemeral });
             return;
         }
 
-        const lines = battle.entries.map((e: any, i: number) => {
+        const ranked = await this.computeRankedEntries(battle.id, 10);
+        if (ranked.length === 0) {
+            await interaction.reply({ content: 'No entries to show yet.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const lines = ranked.map((e, i) => {
             const medal = i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : `${i + 1}.`;
-            const title = e.track?.title || e.trackTitle || 'Untitled';
-            return `${medal} **${title}** by <@${e.userId}> - ${e.voteCount} votes`;
+            return `${medal} **${e.trackTitle}** by <@${e.userId}> — **${e.points}** ${e.points === 1 ? 'pt' : 'pts'}`;
         });
 
         const embed = new EmbedBuilder()
@@ -166,6 +163,56 @@ export class BeatBattlePlugin implements IPlugin {
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });
+    }
+
+    /**
+     * Compute battle entries ranked by total points awarded via ranked voting.
+     * Rank 1 = 3 pts, rank 2 = 2 pts, rank 3 = 1 pt.
+     * Tiebreakers: more 1st-place votes → more 2nd-place votes → earliest submission.
+     */
+    private async computeRankedEntries(battleId: string, take = 10): Promise<{
+        id: string;
+        userId: string;
+        trackTitle: string;
+        points: number;
+        firstVotes: number;
+        secondVotes: number;
+        thirdVotes: number;
+        createdAt: Date;
+    }[]> {
+        const entries = await this.db.battleEntry.findMany({
+            where: { battleId, deletedAt: null },
+            select: {
+                id: true, userId: true, createdAt: true, trackTitle: true,
+                track: { select: { title: true } },
+                votes: { select: { rank: true } },
+            },
+        });
+        const scored = entries.map(e => {
+            let first = 0, second = 0, third = 0;
+            for (const v of e.votes) {
+                if (v.rank === 1) first++;
+                else if (v.rank === 2) second++;
+                else if (v.rank === 3) third++;
+            }
+            return {
+                id: e.id,
+                userId: e.userId,
+                trackTitle: e.track?.title || e.trackTitle || 'Untitled',
+                points: first * 3 + second * 2 + third * 1,
+                firstVotes: first,
+                secondVotes: second,
+                thirdVotes: third,
+                createdAt: e.createdAt,
+            };
+        });
+        scored.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.firstVotes !== a.firstVotes) return b.firstVotes - a.firstVotes;
+            if (b.secondVotes !== a.secondVotes) return b.secondVotes - a.secondVotes;
+            return a.createdAt.getTime() - b.createdAt.getTime();
+        });
+        return scored.slice(0, take);
     }
 
     // ----- Lifecycle Checks (Auto-transition) -----
@@ -207,22 +254,16 @@ export class BeatBattlePlugin implements IPlugin {
             // Voting -> Completed (voting period ended)
             const toComplete = await this.db.beatBattle.findMany({
                 where: { status: 'voting', votingEnd: { lte: now } },
-                include: {
-                    entries: {
-                        orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
-                        take: 3,
-                        include: { track: { select: { title: true } } },
-                    },
-                },
             });
             for (const battle of toComplete) {
-                const winner = battle.entries?.[0];
+                const winners = await this.computeRankedEntries(battle.id, 3);
+                const winner = winners[0];
                 await this.db.beatBattle.update({
                     where: { id: battle.id },
                     data: { status: 'completed', winnerEntryId: winner?.id || null },
                 });
-                await this.postWinnerAnnouncement(battle, winner);
-                await this.awardPrizes(battle, battle.entries);
+                await this.postWinnerAnnouncement(battle, winners);
+                await this.awardPrizes(battle, winners);
                 this.logger.info(`Beat Battle: Completed "${battle.title}"`);
             }
         } catch (err) {
@@ -282,11 +323,8 @@ export class BeatBattlePlugin implements IPlugin {
         } else if (battle.status === 'voting') {
             await this.postVotingAnnouncement(battle);
         } else if (battle.status === 'completed') {
-            const winner = await this.db.battleEntry.findFirst({
-                where: { battleId: battle.id, id: battle.winnerEntryId ?? undefined },
-                include: { track: { select: { title: true } } },
-            });
-            await this.postWinnerAnnouncement(battle, winner);
+            const winners = await this.computeRankedEntries(battle.id, 3);
+            await this.postWinnerAnnouncement(battle, winners);
         }
     }
 
@@ -359,10 +397,10 @@ export class BeatBattlePlugin implements IPlugin {
         }
     }
 
-    private async postWinnerAnnouncement(battle: any, winner: any): Promise<void> {
+    private async postWinnerAnnouncement(battle: any, winners: { id: string; userId: string; trackTitle: string; points: number }[]): Promise<void> {
         const settings = await this.getGuildSettings(battle.guildId);
         const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
-        if (!annChannelId || !winner) return;
+        if (!annChannelId || !winners || winners.length === 0) return;
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
 
@@ -370,14 +408,21 @@ export class BeatBattlePlugin implements IPlugin {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return;
 
+            const medals = ['🥇', '🥈', '🥉'];
+            const podiumLines = winners.slice(0, 3).map((w, i) => {
+                return `${medals[i] || '•'} <@${w.userId}> — **"${w.trackTitle}"** • **${w.points}** ${w.points === 1 ? 'pt' : 'pts'}`;
+            });
+            const winnerMentions = winners.slice(0, 3).map(w => `<@${w.userId}>`).join(' ');
+
             const embed = new EmbedBuilder()
-                .setTitle(`${battle.title} - Winner!`)
-                .setDescription(`Congratulations to <@${winner.userId}>!\n\n**"${winner.track?.title || winner.trackTitle || 'Untitled'}"** with **${winner.voteCount}** votes!`)
+                .setTitle(`${battle.title} — Winners!`)
+                .setDescription(`Congratulations ${winnerMentions}!\n\n${podiumLines.join('\n')}`)
                 .setColor(0xFFD700)
                 .addFields({ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })
                 .setFooter({ text: 'Fuji Studio Beat Battle' })
                 .setTimestamp();
-            await channel.send({ embeds: [embed] });
+            // Tag all top-3 producers in the message body so they get a notification.
+            await channel.send({ content: winnerMentions, embeds: [embed], allowedMentions: { users: winners.slice(0, 3).map(w => w.userId) } });
         } catch (err) {
             this.logger.error('Beat Battle: Failed to post winner spotlight', err);
         }

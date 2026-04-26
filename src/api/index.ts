@@ -10164,9 +10164,10 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         const newStatus = status;
         const statusChanged = newStatus && newStatus !== oldBattle.status;
         if (statusChanged) {
-            // → Completed: determine winner
+            // → Completed: pick winner by total points (ranked voting)
             if (newStatus === 'completed') {
-                const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }] });
+                const ranked = await rankedBattleEntries(battle.id, 1);
+                const winner = ranked[0];
                 if (winner) {
                     await db.beatBattle.update({ where: { id: battle.id }, data: { winnerEntryId: winner.id } });
                 }
@@ -10309,6 +10310,48 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
     }
 });
 
+// --- Shared helper: rank a battle's entries by total points (ranked voting) ---
+// Rank 1 = 3 pts, rank 2 = 2 pts, rank 3 = 1 pt.
+// Tiebreakers: more 1st-place votes → more 2nd-place votes → earliest submission.
+async function rankedBattleEntries(battleId: string, take = 10): Promise<{
+    id: string; userId: string; trackTitle: string; points: number;
+    firstVotes: number; secondVotes: number; thirdVotes: number; createdAt: Date;
+}[]> {
+    const entries = await db.battleEntry.findMany({
+        where: { battleId, deletedAt: null },
+        select: {
+            id: true, userId: true, createdAt: true, trackTitle: true,
+            track: { select: { title: true } },
+            votes: { select: { rank: true } },
+        },
+    });
+    const scored = entries.map((e: any) => {
+        let first = 0, second = 0, third = 0;
+        for (const v of e.votes) {
+            if (v.rank === 1) first++;
+            else if (v.rank === 2) second++;
+            else if (v.rank === 3) third++;
+        }
+        return {
+            id: e.id,
+            userId: e.userId,
+            trackTitle: e.track?.title || e.trackTitle || 'Untitled',
+            points: first * 3 + second * 2 + third * 1,
+            firstVotes: first,
+            secondVotes: second,
+            thirdVotes: third,
+            createdAt: e.createdAt,
+        };
+    });
+    scored.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.firstVotes !== a.firstVotes) return b.firstVotes - a.firstVotes;
+        if (b.secondVotes !== a.secondVotes) return b.secondVotes - a.secondVotes;
+        return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+    return scored.slice(0, take);
+}
+
 // --- Shared helper: post a battle announcement embed to a Discord channel via REST ---
 async function postBattleAnnouncement(battle: any, settings: any): Promise<string | null> {
     const annChannelId = battle.announcementChannelId || settings?.announcementChannelId;
@@ -10350,18 +10393,36 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             timestamp: new Date().toISOString(),
         };
     } else if (battle.status === 'completed') {
-        const winner = battle.winnerEntryId
-            ? await db.battleEntry.findUnique({ where: { id: battle.winnerEntryId } })
-            : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }] });
-        if (!winner) return null;
+        const winners = await rankedBattleEntries(battle.id, 3);
+        if (!winners.length) return null;
+        const medals = ['🥇', '🥈', '🥉'];
+        const podiumLines = winners.map((w, i) =>
+            `${medals[i] || '•'} <@${w.userId}> — **"${w.trackTitle}"** • **${w.points}** ${w.points === 1 ? 'pt' : 'pts'}`
+        );
+        const winnerMentions = winners.map(w => `<@${w.userId}>`).join(' ');
         embed = {
-            title: `${battle.title} - Winner!`,
-            description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
+            title: `${battle.title} — Winners!`,
+            description: `Congratulations ${winnerMentions}!\n\n${podiumLines.join('\n')}`,
             color: 0xFFD700,
-            fields: [{ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            fields: [{ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` }],
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
+        // Tag winners in the message body so they get notified.
+        try {
+            await discordReq('POST', `/channels/${annChannelId}/messages`, {
+                content: winnerMentions,
+                embeds: [embed],
+                allowed_mentions: { users: winners.map(w => w.userId) },
+            });
+            return null;
+        } catch (err: any) {
+            const status = err.response?.status;
+            if (status === 403) return `Bot lacks Send Messages permission in <#${annChannelId}>. Grant the bot "Send Messages" in that channel, then try again.`;
+            if (status === 404) return `Announcement channel not found (ID: ${annChannelId}). Check the channel ID in Beat Battle settings.`;
+            logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
+            return 'Failed to post announcement (see server logs).';
+        }
     } else {
         return null;
     }

@@ -383,8 +383,25 @@ export const BattleDetailPage: React.FC = () => {
 
     const cfg = statusConfig[battle.status] || statusConfig.upcoming;
     const entries = battle.entries || [];
+    const isLive = battle.status === 'active' || battle.status === 'voting';
+    const isCompleted = battle.status === 'completed';
+
+    // ── Points-based ranking (rank 1 = 3pts, rank 2 = 2pts, rank 3 = 1pt) ──
+    // Tiebreakers: more 1st-place votes, then more 2nd-place votes, then earliest submission.
+    const entryPoints = (e: Entry) =>
+        (e.firstPlaceVotes || 0) * 3 + (e.secondPlaceVotes || 0) * 2 + (e.thirdPlaceVotes || 0) * 1;
+    const cmpByPoints = (a: Entry, b: Entry) => {
+        const diff = entryPoints(b) - entryPoints(a);
+        if (diff) return diff;
+        const aFirst = a.firstPlaceVotes || 0, bFirst = b.firstPlaceVotes || 0;
+        if (bFirst !== aFirst) return bFirst - aFirst;
+        const aSecond = a.secondPlaceVotes || 0, bSecond = b.secondPlaceVotes || 0;
+        if (bSecond !== aSecond) return bSecond - aSecond;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    };
+
     const sortedEntries = (sortOrder === 'top' && isCompleted)
-        ? [...entries].sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        ? [...entries].sort(cmpByPoints)
         : [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     const rules = battle.rules
@@ -397,12 +414,10 @@ export const BattleDetailPage: React.FC = () => {
             ? (battle.rulesData as any[])
             : rules.map(text => ({ text }));
 
-    const isLive = battle.status === 'active' || battle.status === 'voting';
-    const isCompleted = battle.status === 'completed';
-    // Podium: top 3 by vote count; pin explicit winnerEntryId to #1 if set
+    // Podium: top 3 by total points; pin explicit winnerEntryId to #1 if set
     const podiumEntries = isCompleted && entries.length > 0
         ? (() => {
-            const sorted = entries.slice().sort((a, b) => b.voteCount - a.voteCount || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            const sorted = entries.slice().sort(cmpByPoints);
             if (battle.winnerEntryId) {
                 const winIdx = sorted.findIndex(e => e.id === battle.winnerEntryId);
                 if (winIdx > 0) { const [w] = sorted.splice(winIdx, 1); sorted.unshift(w); }
@@ -853,12 +868,15 @@ export const BattleDetailPage: React.FC = () => {
                                                     <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                 </Link>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                    {isCompleted ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                            <Flame size={12} color={ACCENT} />
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
-                                                        </div>
-                                                    ) : <span />}
+                                                    {isCompleted ? (() => {
+                                                        const pts = entryPoints(entry);
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                                <Flame size={12} color={ACCENT} />
+                                                                <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
+                                                            </div>
+                                                        );
+                                                    })() : <span />}
                                                     <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
                                                         <Play size={11} fill="#1a1a1a" /> Listen
@@ -1019,12 +1037,15 @@ export const BattleDetailPage: React.FC = () => {
                                                     <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 6px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                     </Link>
-                                                    {isCompleted && (
-                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px', backgroundColor: `${ACCENT}15`, borderRadius: '9999px', border: `1px solid ${ACCENT}30` }}>
-                                                            <Flame size={11} color={ACCENT} />
-                                                            <span style={{ fontSize: '11px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} {entry.voteCount === 1 ? 'vote' : 'votes'}</span>
-                                                        </div>
-                                                    )}
+                                                    {isCompleted && (() => {
+                                                        const pts = entryPoints(entry);
+                                                        return (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px', backgroundColor: `${ACCENT}15`, borderRadius: '9999px', border: `1px solid ${ACCENT}30` }}>
+                                                                <Flame size={11} color={ACCENT} />
+                                                                <span style={{ fontSize: '11px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
 
