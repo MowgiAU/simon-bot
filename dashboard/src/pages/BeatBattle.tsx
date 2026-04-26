@@ -428,6 +428,34 @@ export const BeatBattlePage: React.FC = () => {
         } finally { setAnnouncingId(null); }
     };
 
+    const handleRecompute = async (id: string) => {
+        const repost = confirm(
+            'Recompute the podium for this battle using points-based ranking?\n\n' +
+            'This re-ranks all entries by total points (3 pts for each rank-1 vote, 2 for rank-2, 1 for rank-3) and updates the winner.\n\n' +
+            'Click OK to also re-post the winner announcement to Discord, or Cancel to skip the announcement.'
+        );
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${id}/recompute-winners`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ repostAnnouncement: repost }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Failed to recompute');
+                return;
+            }
+            const podium = (data.podium || []).map((p: any, i: number) =>
+                `${i + 1}. ${p.trackTitle} — ${p.points} pts (1st:${p.firstVotes}, 2nd:${p.secondVotes}, 3rd:${p.thirdVotes})`
+            ).join('\n');
+            alert(`Podium recomputed:\n\n${podium || '(no entries)'}` + (data.announcementPosted ? '\n\nAnnouncement posted to Discord ✓' : (data.announceError ? `\n\nAnnouncement error: ${data.announceError}` : '')));
+            await fetchBattles();
+        } catch {
+            alert('Network error');
+        }
+    };
+
     const fetchAnalytics = async (battleId: string) => {
         if (analyticsFor === battleId) { setAnalyticsFor(null); setAnalyticsReport(null); return; }
         try {
@@ -1046,6 +1074,11 @@ export const BeatBattlePage: React.FC = () => {
                                         <button onClick={() => fetchVotes(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Vote breakdown (who voted for what)">
                                             <Vote size={14} />
                                         </button>
+                                        {b.status === 'completed' && (
+                                            <button onClick={() => handleRecompute(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Recompute podium by total points (fix old vote-count winners)">
+                                                <Trophy size={14} />
+                                            </button>
+                                        )}
                                         <button onClick={() => startEdit(b)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit">
                                             <Edit size={14} />
                                         </button>

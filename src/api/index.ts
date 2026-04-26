@@ -10471,6 +10471,69 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
     }
 });
 
+// --- Admin: Recompute podium for a completed battle (points-based) ---
+// Used to fix battles that were finalized under the old vote-count logic.
+// Body: { repostAnnouncement?: boolean } — when true, also re-posts the
+// winner announcement to Discord with the new top 3.
+app.post('/api/beat-battle/admin/battles/:id/recompute-winners', requireAdmin, async (req: any, res) => {
+    try {
+        const battle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        if (battle.status !== 'completed') {
+            return res.status(400).json({ error: 'Battle must be in "completed" status to recompute winners.' });
+        }
+
+        const ranked = await rankedBattleEntries(battle.id, 10);
+        const newWinnerId = ranked[0]?.id || null;
+
+        const updated = await db.beatBattle.update({
+            where: { id: battle.id },
+            data: { winnerEntryId: newWinnerId },
+        });
+
+        let announceError: string | null = null;
+        if (req.body?.repostAnnouncement) {
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            announceError = await postBattleAnnouncement(updated, settings);
+        }
+
+        await db.actionLog.create({
+            data: {
+                pluginId: 'beat-battle',
+                guildId: battle.guildId,
+                action: 'winners_recomputed',
+                executorId: req.session.user.id,
+                details: {
+                    title: battle.title,
+                    previousWinnerEntryId: battle.winnerEntryId,
+                    newWinnerEntryId: newWinnerId,
+                    podium: ranked.slice(0, 3).map(r => ({
+                        entryId: r.id,
+                        userId: r.userId,
+                        trackTitle: r.trackTitle,
+                        points: r.points,
+                        first: r.firstVotes,
+                        second: r.secondVotes,
+                        third: r.thirdVotes,
+                    })),
+                },
+            },
+        }).catch(() => {});
+
+        res.json({
+            success: true,
+            winnerEntryId: newWinnerId,
+            podium: ranked.slice(0, 3),
+            allEntries: ranked,
+            announcementPosted: req.body?.repostAnnouncement ? !announceError : false,
+            announceError,
+        });
+    } catch (e: any) {
+        logger.error('Beat Battle: recompute winners failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Admin: CRUD Sponsors ---
 // --- Public: Get battle page settings (featured battle, sponsor title) ---
 app.get('/api/beat-battle/page-settings', publicCache(120), async (req: any, res) => {
