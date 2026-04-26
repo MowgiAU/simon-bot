@@ -845,8 +845,10 @@ export const BattleDetailPage: React.FC = () => {
                             <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.5 }}>
                                 <strong>How votes are tallied:</strong> each voter ranks their top 3 entries.
                                 A 1st-place vote is worth <strong>3 pts</strong>, a 2nd-place vote is worth <strong>2 pts</strong>,
-                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points.
-                                Ties are broken by most 1st-place votes, then most 2nd-place votes, then earliest submission.
+                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points,
+                                with ties broken by most 1st-place votes, then most 2nd-place votes.
+                                If two or more entries tie for 1st place after voting ends, a <strong>sudden-death runoff</strong> is
+                                triggered &mdash; voters pick a single winner from the tied entries.
                             </p>
                         </div>
 
