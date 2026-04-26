@@ -404,7 +404,7 @@ export const BattleDetailPage: React.FC = () => {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     };
 
-    const sortedEntries = useMemo(() => {
+    const sortedEntries = (() => {
         if (sortOrder === 'top' && isCompleted) {
             return [...entries].sort(cmpByPoints);
         }
@@ -424,8 +424,7 @@ export const BattleDetailPage: React.FC = () => {
             return seeded.map(s => s.e);
         }
         return [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entries, sortOrder, isCompleted, battle.status, shuffleSeed]);
+    })();
 
     const rules = battle.rules
         ? battle.rules.split('\n').map(r => r.trim()).filter(Boolean)
