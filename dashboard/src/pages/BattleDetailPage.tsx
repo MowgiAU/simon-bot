@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { colors, borderRadius, spacing } from '../theme/theme';
@@ -158,6 +158,10 @@ export const BattleDetailPage: React.FC = () => {
     const [votingId, setVotingId] = useState<string | null>(null);
     const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
+    // Per-page-load shuffle seed: regenerated each time the component mounts
+    // so voting entries appear in a fresh random order on every visit/refresh
+    // and we don't bias voters toward the first-listed entries.
+    const [shuffleSeed] = useState(() => Math.random());
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
@@ -400,9 +404,28 @@ export const BattleDetailPage: React.FC = () => {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     };
 
-    const sortedEntries = (sortOrder === 'top' && isCompleted)
-        ? [...entries].sort(cmpByPoints)
-        : [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const sortedEntries = useMemo(() => {
+        if (sortOrder === 'top' && isCompleted) {
+            return [...entries].sort(cmpByPoints);
+        }
+        // During voting (or sudden death), shuffle entries with a per-mount
+        // seed so position bias doesn't influence votes. Order stays stable
+        // across re-renders within the same page visit.
+        if (battle.status === 'voting' || battle.status === 'sudden_death') {
+            // Seeded shuffle: deterministic from shuffleSeed but appears random.
+            const seeded = entries.map((e, i) => {
+                let h = Math.floor(shuffleSeed * 2_147_483_647) ^ i;
+                h = (h * 16807) % 2_147_483_647;
+                // Mix in entry id chars for extra spread
+                for (let c = 0; c < e.id.length; c++) h = ((h * 31) + e.id.charCodeAt(c)) | 0;
+                return { e, k: h };
+            });
+            seeded.sort((a, b) => a.k - b.k);
+            return seeded.map(s => s.e);
+        }
+        return [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entries, sortOrder, isCompleted, battle.status, shuffleSeed]);
 
     const rules = battle.rules
         ? battle.rules.split('\n').map(r => r.trim()).filter(Boolean)
