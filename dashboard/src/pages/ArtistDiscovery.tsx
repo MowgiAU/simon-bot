@@ -1027,7 +1027,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.borderColor = `${colors.primary}55`; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
                             >
-                                See All 100 <ExternalLink size={11} />
+                                See All <ExternalLink size={11} />
                             </Link>
                         </div>
 
