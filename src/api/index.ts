@@ -6977,16 +6977,34 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-// Delete physical files (from R2 or local storage)
-          await deleteFromStorage(track.url);
-          await deleteFromStorage(track.coverUrl);
-          await deleteFromStorage((track as any).projectFileUrl);
-          await deleteFromStorage((track as any).projectZipUrl);
+        // Block deletion if the track has been submitted to any beat battle.
+        // Battle entries are part of the public competition record and must remain
+        // intact for the integrity of past/ongoing battles.
+        const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
+        if (battleEntryCount > 0) {
+            return res.status(409).json({
+                error: 'This track is submitted to a Beat Battle and cannot be deleted. Withdraw the entry from the battle first, or contact a moderator.',
+                code: 'TRACK_IN_BATTLE',
+            });
+        }
 
+        // Delete physical files (from R2 or local storage)
+        await deleteFromStorage(track.url);
+        await deleteFromStorage(track.coverUrl);
+        await deleteFromStorage((track as any).projectFileUrl);
+        await deleteFromStorage((track as any).projectZipUrl);
+
+        // Clear featured-track pointer (FK is SET NULL via app, not DB)
         await db.musicianProfile.updateMany({
             where: { featuredTrackId: trackId },
             data: { featuredTrackId: null }
         });
+
+        // The Track row has ON DELETE CASCADE on every dependent relation
+        // (TrackPlay, TrackSample, TrackGenre, Comment, TrackFavourite,
+        //  TrackRepost, PlaylistTrack, RadioQueue) and SET NULL on RadioHistory,
+        // so a single delete wipes every visible trace from playlists, radio
+        // queues, comments, likes, reposts, plays and the discovery charts.
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         res.json({ success: true });

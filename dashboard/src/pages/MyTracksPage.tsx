@@ -238,8 +238,9 @@ export const MyTracksPage: React.FC = () => {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
             setMessage({ type: 'success', text: 'Track deleted' });
-        } catch {
-            setMessage({ type: 'error', text: 'Failed to delete track' });
+        } catch (e: any) {
+            const serverMsg = e?.response?.data?.error;
+            setMessage({ type: 'error', text: serverMsg || 'Failed to delete track' });
         }
     };
 
@@ -354,11 +355,24 @@ export const MyTracksPage: React.FC = () => {
         setBulkSaving(true);
         const ids = [...selectedIds];
         try {
-            await Promise.all(ids.map(id =>
+            const results = await Promise.allSettled(ids.map(id =>
                 axios.delete(`/api/musician/tracks/${id}`, { withCredentials: true })
             ));
-            setTracks(tracks.filter(t => !ids.includes(t.id)));
-            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+            const failures = results
+                .map((r, i) => ({ r, id: ids[i] }))
+                .filter(x => x.r.status === 'rejected') as Array<{ r: PromiseRejectedResult; id: string }>;
+            setTracks(tracks.filter(t => !deletedIds.includes(t.id)));
+            if (failures.length === 0) {
+                setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            } else {
+                const firstMsg = (failures[0].r.reason as any)?.response?.data?.error;
+                const blockedByBattle = failures.some(f => (f.r.reason as any)?.response?.data?.code === 'TRACK_IN_BATTLE');
+                const baseMsg = blockedByBattle
+                    ? `${failures.length} track${failures.length !== 1 ? 's' : ''} could not be deleted because they are submitted to a Beat Battle.`
+                    : firstMsg || `${failures.length} track${failures.length !== 1 ? 's' : ''} failed to delete.`;
+                setMessage({ type: 'error', text: baseMsg });
+            }
             setSelectedIds(new Set());
             setBulkMode(false);
         } catch {
