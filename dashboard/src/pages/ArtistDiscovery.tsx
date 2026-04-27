@@ -4,7 +4,8 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2
+    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2,
+    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -996,107 +997,247 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     })()}
 
                     {/* ═══════════════ FULL-WIDTH: WEEKLY CHART ═══════════════ */}
-                    <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', padding: 0, overflow: 'hidden' }}>
+                    <div style={{
+                        gridColumn: isMobile ? undefined : '1 / -1',
+                        position: 'relative',
+                        borderRadius: '18px',
+                        overflow: 'hidden',
+                        background: 'radial-gradient(circle at 0% 0%, rgba(251,191,36,0.10), transparent 45%), radial-gradient(circle at 100% 100%, rgba(16,185,129,0.08), transparent 45%), linear-gradient(145deg, #0E1320 0%, #141B2C 60%, #0E1320 100%)',
+                        border: '1px solid rgba(251,191,36,0.18)',
+                        boxShadow: '0 0 60px rgba(251,191,36,0.05), 0 18px 40px rgba(0,0,0,0.35)',
+                    }}>
+                        {/* Decorative diagonal lines */}
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(251,191,36,0.025) 28px, rgba(251,191,36,0.025) 29px)', pointerEvents: 'none' }} />
+
                         {/* Header */}
-                        <div style={{ padding: '15px 20px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <TrendingUp size={15} color={colors.primary} />
-                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Weekly Chart</span>
-                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>Top tracks this week</span>
-                            <Link to="/charts" style={{ marginLeft: 'auto', fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 700, letterSpacing: '0.05em' }}>FULL CHART →</Link>
-                        </div>
-                        {/* Chart rows */}
-                        <div style={{ padding: '8px 14px 12px' }}>
-                            {weeklyChart.length === 0 && (
-                                <div style={{ padding: '24px', textAlign: 'center', color: colors.textSecondary, fontSize: '13px' }}>
-                                    No chart data yet — check back after the first weekly snapshot.
+                        <div style={{ position: 'relative', padding: isMobile ? '18px 18px 14px' : '22px 26px 16px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{
+                                width: '42px', height: '42px', borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #B8860B, #FFD700)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 6px 18px rgba(255,215,0,0.35)',
+                            }}>
+                                <Crown size={22} color="white" fill="white" />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: isMobile ? '17px' : '19px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.01em' }}>Weekly Top 6</span>
+                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '3px 8px', borderRadius: '999px', background: 'rgba(255,215,0,0.10)', border: '1px solid rgba(255,215,0,0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <Sparkles size={9} fill="#FFD700" /> LIVE
+                                    </span>
                                 </div>
-                            )}
-                            {weeklyChart.map(entry => {
-                                const track = entry.track;
-                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
-                                const trackList = weeklyChart.map(e => e.track);
+                                <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '3px', letterSpacing: '0.02em' }}>The hottest tracks on Fuji Studio this week</div>
+                            </div>
+                            <Link to="/charts" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', borderRadius: '999px', border: `1px solid ${colors.primary}44`, background: `${colors.primary}0d` }}>
+                                Full Chart <ArrowUp size={11} style={{ transform: 'rotate(45deg)' }} />
+                            </Link>
+                        </div>
+
+                        {/* Empty state */}
+                        {weeklyChart.length === 0 && (
+                            <div style={{ position: 'relative', padding: '48px 24px', textAlign: 'center', color: colors.textSecondary, fontSize: '13px' }}>
+                                <Crown size={36} color={colors.textSecondary} style={{ opacity: 0.18, marginBottom: '10px' }} />
+                                <div>No chart data yet — check back after the first weekly snapshot.</div>
+                            </div>
+                        )}
+
+                        {weeklyChart.length > 0 && (() => {
+                            const trackList = weeklyChart.map(e => e.track);
+                            const renderMovement = (entry: typeof weeklyChart[0], compact = false) => {
                                 const isNew = entry.prevPosition == null;
                                 const change = entry.positionChange;
-                                const rankColor = entry.position === 1 ? '#FFD700' : entry.position === 2 ? '#C0C0C0' : entry.position === 3 ? '#CD7F32' : 'rgba(255,255,255,0.45)';
-                                return (
-                                    <div
-                                        key={track.id}
-                                        className="lr-row"
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px',
-                                            padding: '8px 8px', borderRadius: '10px', cursor: 'pointer',
-                                            background: isPlaying ? `${colors.primary}0d` : 'transparent',
-                                            border: isPlaying ? `1px solid ${colors.primary}22` : '1px solid transparent',
-                                            marginBottom: '3px', transition: 'background 0.15s',
-                                        }}
-                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
-                                    >
-                                        {/* Rank */}
-                                        <span style={{ fontSize: entry.position <= 3 ? '15px' : '12px', fontWeight: 800, color: rankColor, width: '20px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
+                                if (isNew) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '9px', fontWeight: 800, color: '#22D3EE', letterSpacing: '0.08em', padding: compact ? '2px 6px' : '3px 8px', borderRadius: '999px', background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.3)' }}><Sparkles size={9} /> NEW</span>;
+                                if (change != null && change > 0) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '11px', fontWeight: 800, color: '#4ADE80' }}><ArrowUp size={11} />{change}</span>;
+                                if (change != null && change < 0) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '11px', fontWeight: 800, color: '#F87171' }}><ArrowDown size={11} />{Math.abs(change)}</span>;
+                                return <span style={{ display: 'inline-flex', alignItems: 'center', color: colors.textTertiary }}><Minus size={12} /></span>;
+                            };
 
-                                        {/* Movement */}
-                                        <span style={{ width: '28px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                            {isNew ? <span style={{ fontSize: '9px', fontWeight: 800, color: colors.primary, letterSpacing: '0.5px' }}>NEW</span>
-                                                : change != null && change > 0 ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#4ADE80' }}>+{change}</span>
-                                                : change != null && change < 0 ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#F87171' }}>{change}</span>
-                                                : <span style={{ fontSize: '11px', color: colors.textTertiary }}>—</span>}
-                                        </span>
+                            const hero = weeklyChart[0];
+                            const seconds = weeklyChart.slice(1, 3);
+                            const rest = weeklyChart.slice(3);
 
-                                        {/* Cover + play overlay */}
-                                        <div style={{ width: isMobile ? '44px' : '52px', height: isMobile ? '44px' : '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1a2234' }}>
-                                            {track.coverUrl
-                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={16} color={colors.primary} opacity={0.2} /></div>
-                                            }
+                            return (
+                                <div style={{ position: 'relative', padding: isMobile ? '16px' : '22px 26px 26px', display: 'grid', gap: isMobile ? '12px' : '16px' }}>
+                                    {/* HERO #1 */}
+                                    {hero && (() => {
+                                        const track = hero.track;
+                                        const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                        return (
                                             <div
-                                                className="lr-cover-overlay"
-                                                style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 1 : 0, transition: 'opacity 0.15s' }}
+                                                onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
+                                                style={{
+                                                    position: 'relative',
+                                                    display: 'grid',
+                                                    gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 280px) 1fr',
+                                                    gap: isMobile ? '14px' : '22px',
+                                                    padding: isMobile ? '16px' : '20px',
+                                                    borderRadius: '14px',
+                                                    background: track.coverUrl
+                                                        ? `linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(20,27,44,0.6) 60%), url(${track.coverUrl}) center/cover`
+                                                        : 'linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(20,27,44,0.6) 100%)',
+                                                    backgroundBlendMode: 'overlay',
+                                                    border: '1px solid rgba(255,215,0,0.35)',
+                                                    boxShadow: '0 0 30px rgba(255,215,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05)',
+                                                    cursor: 'pointer',
+                                                    overflow: 'hidden',
+                                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                                }}
+                                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(255,215,0,0.22), 0 12px 30px rgba(0,0,0,0.4)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 0 30px rgba(255,215,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05)'; }}
                                             >
-                                                {isPlaying
-                                                    ? <Pause size={14} fill={colors.primary} color={colors.primary} />
-                                                    : <Play size={14} fill="white" color="white" style={{ marginLeft: '2px' }} />
-                                                }
+                                                {/* Backdrop blur veil */}
+                                                <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(20px)', background: 'linear-gradient(135deg, rgba(20,27,44,0.55) 0%, rgba(14,19,32,0.75) 100%)', pointerEvents: 'none' }} />
+
+                                                {/* Cover */}
+                                                <div style={{ position: 'relative', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', background: '#1a2234', boxShadow: '0 12px 30px rgba(0,0,0,0.5), 0 0 0 2px rgba(255,215,0,0.4)' }}>
+                                                    {track.coverUrl
+                                                        ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={48} color={colors.primary} opacity={0.3} /></div>
+                                                    }
+                                                    {/* #1 badge */}
+                                                    <div style={{ position: 'absolute', top: '10px', left: '10px', padding: '6px 12px', borderRadius: '999px', background: 'linear-gradient(135deg, #B8860B, #FFD700)', color: 'white', fontSize: '11px', fontWeight: 900, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 6px 16px rgba(255,215,0,0.4)' }}>
+                                                        <Crown size={12} fill="white" /> #1
+                                                    </div>
+                                                    {/* Play overlay */}
+                                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent 50%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '16px' }}>
+                                                        <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: '#FFD700', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 22px rgba(255,215,0,0.5)' }}>
+                                                            {isPlaying
+                                                                ? <Pause size={22} fill="#0E1320" color="#0E1320" />
+                                                                : <Play size={22} fill="#0E1320" color="#0E1320" style={{ marginLeft: '3px' }} />
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Info */}
+                                                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                        <span style={{ fontSize: '10px', fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: '0.15em' }}>This Week's #1</span>
+                                                        {renderMovement(hero)}
+                                                    </div>
+                                                    <div style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: 900, color: 'white', lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: '8px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{track.title}</div>
+                                                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.75)', marginBottom: '16px' }}>
+                                                        <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '999px', background: 'rgba(255,140,0,0.15)', border: '1px solid rgba(255,140,0,0.35)' }}>
+                                                            <Flame size={13} color="#FF8C00" fill="#FF8C00" />
+                                                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#FF8C00', fontVariantNumeric: 'tabular-nums' }}>{(hero.playsInPeriod || 0).toLocaleString()} plays</span>
+                                                        </div>
+                                                        {hero.prevPosition != null && (
+                                                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Last week: #{hero.prevPosition}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        );
+                                    })()}
 
-                                        {/* Title + artist */}
-                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '180px' }}>
-                                            <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></div>
-                                        </div>
-
-                                        {/* Waveform */}
-                                        <div style={{ flex: isMobile ? undefined : 1, flexShrink: 0, width: isMobile ? '60px' : undefined, minWidth: 0, height: isMobile ? '32px' : '42px', display: 'flex', alignItems: 'flex-end', gap: isMobile ? '1px' : '2px', overflow: 'hidden' }}>
-                                            {generateWaveform(track.id, isMobile ? 14 : 32).map((barH, bi) => (
+                                    {/* #2 & #3 — medium cards */}
+                                    {seconds.length > 0 && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? '10px' : '14px' }}>
+                                            {seconds.map(entry => {
+                                                const track = entry.track;
+                                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                                const isSilver = entry.position === 2;
+                                                const accent = isSilver ? '#C0C0C0' : '#CD7F32';
+                                                const accentGlow = isSilver ? 'rgba(192,192,192,0.18)' : 'rgba(205,127,50,0.18)';
+                                                return (
                                                     <div
-                                                        key={bi}
-                                                        className={isPlaying ? 'wf-anim-bar' : undefined}
+                                                        key={track.id}
+                                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
                                                         style={{
-                                                            flex: 1,
-                                                            height: `${barH}%`,
-                                                            minWidth: '2px',
-                                                            borderRadius: '2px 2px 1px 1px',
-                                                            background: isPlaying
-                                                                ? `rgba(16,185,129,${0.45 + (barH / 90) * 0.55})`
-                                                                : `rgba(255,255,255,${0.07 + (barH / 90) * 0.13})`,
-                                                            animationDelay: isPlaying ? `${(bi % 9) * 0.09}s` : undefined,
-                                                            transition: 'background 0.4s',
+                                                            display: 'flex', alignItems: 'center', gap: '14px',
+                                                            padding: '14px',
+                                                            borderRadius: '12px',
+                                                            background: `linear-gradient(135deg, ${accentGlow} 0%, rgba(20,27,44,0.6) 100%)`,
+                                                            border: `1px solid ${accent}55`,
+                                                            cursor: 'pointer',
+                                                            transition: 'transform 0.2s, border-color 0.2s',
                                                         }}
-                                                    />
-                                                ))}
-                                            </div>
+                                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = accent; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = `${accent}55`; }}
+                                                    >
+                                                        {/* Rank medal */}
+                                                        <div style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, background: '#1a2234', boxShadow: `0 0 0 2px ${accent}88` }}>
+                                                            {track.coverUrl
+                                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={20} color={colors.primary} opacity={0.3} /></div>
+                                                            }
+                                                            <div style={{ position: 'absolute', top: '4px', left: '4px', width: '22px', height: '22px', borderRadius: '50%', background: accent, color: '#0E1320', fontSize: '12px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${accentGlow}` }}>{entry.position}</div>
+                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 1 : 0, transition: 'opacity 0.15s' }}>
+                                                                {isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" style={{ marginLeft: '2px' }} />}
+                                                            </div>
+                                                        </div>
 
-                                        {/* Plays this period — desktop only */}
-                                        {!isMobile && (
-                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '78px', justifyContent: 'flex-end' }}>
-                                            <Play size={9} color={colors.textSecondary} />
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(entry.playsInPeriod || 0).toLocaleString()}</span>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                                                {renderMovement(entry, true)}
+                                                            </div>
+                                                            <div style={{ fontSize: '14px', fontWeight: 800, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                                            <Flame size={11} color="#FF8C00" fill="#FF8C00" />
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#FF8C00', fontVariantNumeric: 'tabular-nums' }}>{(entry.playsInPeriod || 0).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    )}
+
+                                    {/* #4–#6 — slim list */}
+                                    {rest.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 4px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                            {rest.map(entry => {
+                                                const track = entry.track;
+                                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                                return (
+                                                    <div
+                                                        key={track.id}
+                                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px',
+                                                            padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                                                            background: isPlaying ? `${colors.primary}10` : 'transparent',
+                                                            border: isPlaying ? `1px solid ${colors.primary}33` : '1px solid transparent',
+                                                            transition: 'background 0.15s, border-color 0.15s',
+                                                        }}
+                                                        onMouseEnter={e => { if (!isPlaying) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                                        onMouseLeave={e => { if (!isPlaying) e.currentTarget.style.background = 'transparent'; }}
+                                                    >
+                                                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'rgba(255,255,255,0.35)', width: '24px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
+                                                        <div style={{ width: '36px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>{renderMovement(entry, true)}</div>
+                                                        <div style={{ position: 'relative', width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#1a2234' }}>
+                                                            {track.coverUrl
+                                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={14} color={colors.primary} opacity={0.2} /></div>
+                                                            }
+                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 1 : 0, transition: 'opacity 0.15s' }}>
+                                                                {isPlaying ? <Pause size={12} fill="white" color="white" /> : <Play size={12} fill="white" color="white" />}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
+                                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                                            <Flame size={11} color={colors.textSecondary} />
+                                                            <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(entry.playsInPeriod || 0).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
 
 
