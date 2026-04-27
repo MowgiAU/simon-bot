@@ -10230,7 +10230,7 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
             where: { userId: req.params.userId },
             include: {
                 battle: {
-                    select: { id: true, title: true, status: true, slug: true },
+                    select: { id: true, title: true, status: true, slug: true, winnerEntryId: true },
                 },
                 track: {
                     select: {
@@ -10247,24 +10247,57 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
         // Batch: fetch all entries for all relevant battles in ONE query (eliminates N+1)
         const battleIds = [...new Set(entries.map((e: any) => e.battleId))];
         const allBattleEntries = await db.battleEntry.findMany({
-            where: { battleId: { in: battleIds } },
+            where: { battleId: { in: battleIds }, deletedAt: null },
             select: { id: true, battleId: true, voteCount: true, createdAt: true },
-            orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
         });
 
-        // Group by battleId for O(1) lookup
-        const entriesByBattle = new Map<string, { id: string; voteCount: number }[]>();
+        // Per-rank vote tallies for every entry in those battles (points: 1st=3, 2nd=2, 3rd=1)
+        const tallies = await db.battleVote.groupBy({
+            by: ['entryId', 'rank'],
+            where: { battleId: { in: battleIds } },
+            _count: { _all: true },
+        });
+        const rankMap = new Map<string, { first: number; second: number; third: number }>();
+        for (const t of tallies as any[]) {
+            const cur = rankMap.get(t.entryId) || { first: 0, second: 0, third: 0 };
+            if (t.rank === 1) cur.first = t._count._all;
+            else if (t.rank === 2) cur.second = t._count._all;
+            else if (t.rank === 3) cur.third = t._count._all;
+            rankMap.set(t.entryId, cur);
+        }
+        const pointsFor = (id: string) => {
+            const r = rankMap.get(id) || { first: 0, second: 0, third: 0 };
+            return { ...r, points: r.first * 3 + r.second * 2 + r.third * 1 };
+        };
+
+        // Group by battleId and rank by points (with tiebreakers) for placement
+        const rankedByBattle = new Map<string, { id: string; voteCount: number; points: number }[]>();
         for (const e of allBattleEntries) {
-            const list = entriesByBattle.get(e.battleId) || [];
-            list.push(e);
-            entriesByBattle.set(e.battleId, list);
+            const list = rankedByBattle.get(e.battleId) || [];
+            const pts = pointsFor(e.id);
+            list.push({ id: e.id, voteCount: e.voteCount, points: pts.points });
+            rankedByBattle.set(e.battleId, list);
+        }
+        for (const [bid, list] of rankedByBattle) {
+            list.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                const ra = pointsFor(a.id), rb = pointsFor(b.id);
+                if (rb.first !== ra.first) return rb.first - ra.first;
+                if (rb.second !== ra.second) return rb.second - ra.second;
+                return 0;
+            });
+            rankedByBattle.set(bid, list);
         }
 
         const enriched = entries.map((entry: any) => {
-            const battleEntries = entriesByBattle.get(entry.battleId) || [];
+            const battleEntries = rankedByBattle.get(entry.battleId) || [];
             const placement = battleEntries.findIndex((e: any) => e.id === entry.id) + 1;
             const totalEntries = battleEntries.length;
-            const isWinner = placement === 1 && entry.battle.status === 'completed' && entry.voteCount > 0;
+            const winnerId = entry.battle.winnerEntryId;
+            const isWinner = entry.battle.status === 'completed' && (
+                winnerId ? winnerId === entry.id : (placement === 1 && (battleEntries[0]?.points || 0) > 0)
+            );
+            const tally = pointsFor(entry.id);
             const t = entry.track || {};
             const p = t.profile || {};
             const trackRoute = (p.username && (t.slug || t.id))
@@ -10278,6 +10311,10 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
                 coverUrl: t.coverUrl ?? entry.coverUrl ?? null,
                 avatarUrl: p.avatar ?? entry.avatarUrl ?? null,
                 voteCount: entry.voteCount,
+                points: tally.points,
+                firstPlaceVotes: tally.first,
+                secondPlaceVotes: tally.second,
+                thirdPlaceVotes: tally.third,
                 createdAt: entry.createdAt,
                 battle: entry.battle,
                 placement,
