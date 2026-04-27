@@ -170,7 +170,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                 const [profilesRes, tracksRes, chartRes] = await Promise.all([
                     axios.get('/api/musician/profiles'),
                     axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
-                    axios.get('/api/charts/weekly', { params: { limit: 6 } })
+                    axios.get('/api/charts/weekly', { params: { limit: 10 } })
                 ]);
                 setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
                 setTopTracks(tracksRes.data);
@@ -1020,7 +1020,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     <span style={{ fontSize: '10px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.18em' }}>Updated weekly</span>
                                 </div>
                                 <h2 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                                    Top <span style={{ color: colors.primary }}>Six</span> This Week
+                                    Top <span style={{ color: colors.primary }}>10</span> This Week
                                 </h2>
                             </div>
                             <Link to="/charts" style={{ fontSize: '11px', color: colors.textPrimary, textDecoration: 'none', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)', whiteSpace: 'nowrap', flexShrink: 0 }}
