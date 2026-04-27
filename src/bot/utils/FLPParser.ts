@@ -64,6 +64,33 @@ interface ProjectInfo {
     samples: string[];
 }
 
+/**
+ * Recursively strip embedded NUL bytes (\u0000) from any string in a parsed
+ * arrangement before it is persisted as JSONB — Postgres rejects null bytes
+ * in `text`/`jsonb` and Prisma surfaces it as PostgresError 22P05
+ * ("unsupported Unicode escape sequence: \u0000 cannot be converted to text").
+ * FL Studio plugin/sample names commonly carry padding nulls and other
+ * control bytes lifted straight from the binary blob.
+ */
+function stripNullBytes<T>(value: T): T {
+    if (value == null) return value;
+    if (typeof value === 'string') {
+        // Drop NULs and other C0 control chars except tab/newline/carriage-return
+        return value.replace(/[\x00\x01-\x08\x0B\x0C\x0E-\x1F]/g, '') as unknown as T;
+    }
+    if (Array.isArray(value)) {
+        return value.map((v) => stripNullBytes(v)) as unknown as T;
+    }
+    if (typeof value === 'object') {
+        const out: any = {};
+        for (const k of Object.keys(value as any)) {
+            out[k] = stripNullBytes((value as any)[k]);
+        }
+        return out as T;
+    }
+    return value;
+}
+
 export class FLPParser {
     static parse(buffer: Buffer) {
         let offset = 0;
@@ -550,13 +577,13 @@ export class FLPParser {
             });
         }
 
-        return {
+        return stripNullBytes({
             bpm: bpm || 140,
             signature: [4, 4],
             projectInfo,
             markers,
             tracks: outputTracks,
-        };
+        });
     }
 
     /** Read a string from a buffer, handling UTF-16LE and ASCII with null terminators */

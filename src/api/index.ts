@@ -7174,7 +7174,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: e?.message || 'Internal server error' });
     }
 });
 
