@@ -616,8 +616,22 @@ export class ModerationPlugin implements IPlugin {
     }
 
     private async logAction(guildId: string, action: string, executorId: string, targetId: string, details: any) {
-        // 1. DB Log
+        // 1. DB Log (fetch recent messages first so they're stored with the entry)
         try {
+            let recentMessages: any[] = [];
+            if (action !== 'purge') {
+                try {
+                    const msgs = await this.fetchRecentMessages(guildId, targetId);
+                    recentMessages = msgs.map((m: any) => ({
+                        content: String(m.content || '').slice(0, 200),
+                        channelId: m.channelId,
+                        channelName: m.channelName,
+                        timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+                        attachments: (m.attachments || []).slice(0, 3).map((a: any) => ({ url: a.url, name: a.name, contentType: a.contentType })),
+                    }));
+                } catch { /* non-fatal */ }
+            }
+
             await this.db.actionLog.create({
                 data: {
                     guildId,
@@ -625,7 +639,7 @@ export class ModerationPlugin implements IPlugin {
                     action,
                     executorId,
                     targetId,
-                    details,
+                    details: { ...details, recentMessages },
                     searchableText: `${action} ${targetId}`
                 }
             });
@@ -661,7 +675,7 @@ export class ModerationPlugin implements IPlugin {
                         for (const msg of recentMsgs) {
                             const ts = Math.floor(msg.timestamp.getTime() / 1000);
                             const attachTxt = msg.attachments.length > 0
-                                ? '\n' + msg.attachments.map(a => {
+                                ? '\n' + msg.attachments.map((a: any) => {
                                     const icon = a.contentType?.startsWith('image') ? '🖼️' : a.contentType?.startsWith('video') ? '🎬' : a.contentType?.startsWith('audio') ? '🎵' : '📎';
                                     return `${icon} [${a.name}](${a.url})`;
                                 }).join('\n')
@@ -673,8 +687,8 @@ export class ModerationPlugin implements IPlugin {
 
                         // Set first image attachment as embed image for visual preview
                         const firstImage = recentMsgs
-                            .flatMap(m => m.attachments)
-                            .find(a => a.contentType?.startsWith('image'));
+                            .flatMap((m: any) => m.attachments)
+                            .find((a: any) => a.contentType?.startsWith('image'));
                         if (firstImage) msgEmbed.setImage(firstImage.url);
 
                         embeds.push(msgEmbed);

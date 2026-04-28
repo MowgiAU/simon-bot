@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import axios from 'axios';
 import { FujiLogo } from '../components/FujiLogo';
@@ -228,7 +229,7 @@ export const BattleEntryPage: React.FC = () => {
                     axios.get(`/api/beat-battle/entries/${entryId}`),
                     axios.get('/api/musician/genres', { withCredentials: true }),
                 ]);
-                setEntry(res.data);
+                setEntry({ ...res.data, ...flattenBattleEntry(res.data) });
                 setAllGenres(genresRes.data);
                 // Load favourite and repost data for the linked track
                 if (res.data.track) {
@@ -256,7 +257,7 @@ export const BattleEntryPage: React.FC = () => {
 
     useEffect(() => {
         if (entry && track) {
-            document.title = `${track.title} — ${entry.battle.title} | Fuji Studio`;
+            document.title = `${track.title} - ${entry.battle.title} | Fuji Studio`;
         }
     }, [entry, track]);
 
@@ -1353,15 +1354,23 @@ export const BattleEntryPage: React.FC = () => {
                                         <div>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem' }}>
                                                 <Upload size={16} />
-                                                {editAudioFile ? editAudioFile.name : 'Replace audio file (MP3, WAV, FLAC)'}
+                                                {editAudioFile ? editAudioFile.name : 'Replace audio file (MP3, WAV, FLAC) · Max 300MB'}
                                                 <input type="file" accept=".mp3,.wav,.flac,audio/*" style={{ display: 'none' }} onChange={e => setEditAudioFile(e.target.files?.[0] || null)} />
                                             </label>
                                         </div>
                                         <div>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem' }}>
                                                 <Upload size={16} />
-                                                {editArtworkFile ? editArtworkFile.name : 'Replace cover artwork'}
-                                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setEditArtworkFile(e.target.files?.[0] || null)} />
+                                                {editArtworkFile ? editArtworkFile.name : 'Replace cover artwork (JPG, PNG, GIF, WEBP)'}
+                                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                                                    const f = e.target.files?.[0];
+                                                    if (f && !f.type.startsWith('image/')) {
+                                                        setEditMsg({ type: 'error', text: `"${f.name}" is not an image. Please use JPG, PNG, GIF, or WEBP.` });
+                                                        e.target.value = '';
+                                                        return;
+                                                    }
+                                                    setEditArtworkFile(f || null);
+                                                }} />
                                             </label>
                                         </div>
                                         <div>

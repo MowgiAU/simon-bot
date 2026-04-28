@@ -114,32 +114,48 @@ export class MediaConverter {
 
     /**
      * Optimizes an image file to WebP format (quality 82, max 2000x2000).
+     * Animated GIFs / animated WebPs are preserved as animated WebP.
      * Returns the path of the converted file.
      * On failure, returns the original path unchanged.
      */
     static async optimizeImage(inputPath: string): Promise<string> {
         const outputPath = inputPath.replace(/\.[^.]+$/, '.webp');
 
+        // Detect animation: probe first with animated:true and check pages metadata.
+        let isAnimated = false;
         try {
+            const meta = await sharp(inputPath, { animated: true }).metadata();
+            if ((meta.pages ?? 1) > 1) isAnimated = true;
+        } catch {
+            // fall through to static path
+        }
+
+        try {
+            const buildPipeline = (src: string) => {
+                if (isAnimated) {
+                    // Preserve all frames; sharp resize() works per-frame for animated input.
+                    // Use slightly lower quality for animations to keep files reasonable.
+                    return sharp(src, { animated: true })
+                        .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+                        .webp({ quality: 75, effort: 4 });
+                }
+                return sharp(src)
+                    .rotate() // auto-rotate based on EXIF (still images only)
+                    .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+                    .webp({ quality: 82 });
+            };
+
             if (inputPath === outputPath) {
                 // Input is already .webp — re-encode via temp to avoid in-place conflict
                 const tempPath = inputPath + '.tmp';
-                await sharp(inputPath)
-                    .rotate() // auto-rotate based on EXIF
-                    .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
-                    .webp({ quality: 82 })
-                    .toFile(tempPath);
+                await buildPipeline(inputPath).toFile(tempPath);
                 fs.renameSync(tempPath, outputPath);
             } else {
-                await sharp(inputPath)
-                    .rotate()
-                    .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
-                    .webp({ quality: 82 })
-                    .toFile(outputPath);
+                await buildPipeline(inputPath).toFile(outputPath);
                 fs.unlinkSync(inputPath);
             }
 
-            logger.info(`Image optimized to WebP: ${path.basename(outputPath)}`);
+            logger.info(`Image optimized to WebP${isAnimated ? ' (animated)' : ''}: ${path.basename(outputPath)}`);
             return outputPath;
         } catch (err: any) {
             logger.warn(`Image optimization failed for ${path.basename(inputPath)}: ${err.message}`);

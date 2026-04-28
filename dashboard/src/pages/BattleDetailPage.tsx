@@ -1,19 +1,37 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { colors, borderRadius } from '../theme/theme';
+import { colors, borderRadius, spacing } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
-    ArrowLeft, Swords, Play, Pause, Vote, LogIn, ExternalLink,
+    ArrowLeft, Swords, Play, Pause, Vote, Medal, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
-    Download, Music,
+    Download, Music, AlertCircle,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
+
+// localStorage helpers — keyed per entry ID
+const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
+const lsSetVote = (entryId: string, rank: number | null) => {
+    try {
+        if (rank === null || rank === 0) localStorage.removeItem(lsVoteKey(entryId));
+        else localStorage.setItem(lsVoteKey(entryId), String(rank));
+    } catch {}
+};
+const lsGetVote = (entryId: string): number | null => {
+    try {
+        const v = localStorage.getItem(lsVoteKey(entryId));
+        if (v === '1' || v === '2' || v === '3') return Number(v);
+        return null;
+    } catch { return null; }
+};
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
@@ -24,12 +42,19 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function formatDateRange(start: string | null, end: string | null) {
     if (!start && !end) return '—';
-    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+    if (start && end) {
+        const s = new Date(start);
+        const e = new Date(end);
+        const sameYear = s.getFullYear() === e.getFullYear();
+        const startStr = s.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...(sameYear ? {} : { year: 'numeric' }) });
+        const endStr = e.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' });
+        return `${startStr} – ${endStr}`;
+    }
     return formatDate(start || end);
 }
 
@@ -87,6 +112,7 @@ interface Battle {
     winnerEntryId: string | null;
     bannerUrl: string | null;
     requireProjectFile?: boolean;
+    suddenDeath?: { active: boolean; entryIds: string[]; start: string | null; end: string | null; durationMinutes: number } | null;
     discordInviteUrl: string | null;
     sponsor: {
         id: string;
@@ -113,6 +139,9 @@ interface Entry {
     projectUrl?: string | null;
     duration?: number;
     voteCount: number;
+    firstPlaceVotes?: number;
+    secondPlaceVotes?: number;
+    thirdPlaceVotes?: number;
     source: string;
     createdAt: string;
 }
@@ -125,11 +154,18 @@ export const BattleDetailPage: React.FC = () => {
     const [battle, setBattle] = useState<Battle | null>(null);
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
+    const [myRanks, setMyRanks] = useState<Record<string, number>>({});
     const [votingId, setVotingId] = useState<string | null>(null);
+    const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [sortOrder, setSortOrder] = useState<'recent' | 'top'>('recent');
+    // Per-page-load shuffle seed: regenerated each time the component mounts
+    // so voting entries appear in a fresh random order on every visit/refresh
+    // and we don't bias voters toward the first-listed entries.
+    const [shuffleSeed] = useState(() => Math.random());
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
+    const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; label: string } | null>(null);
 
     // Rule sample audio player
     const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -162,18 +198,90 @@ export const BattleDetailPage: React.FC = () => {
     // Extract battleId from /battles/:id
     const battleId = pathname.split('/').filter(Boolean)[1];
 
+    // Auto-dismiss vote notification
+    useEffect(() => {
+        if (!voteNotification) return;
+        const t = setTimeout(() => setVoteNotification(null), 6000);
+        return () => clearTimeout(t);
+    }, [voteNotification]);
+
+    // Restore voted state from localStorage + server.
+    // Intentionally depends on battleId (not battle?.entries) so the post-vote
+    // refresh of `battle` doesn't re-fire this effect and race against the
+    // /my-votes fetch, which would clobber the freshly-set highlight.
+    useEffect(() => {
+        const entries = battle?.entries;
+        if (!entries?.length) return;
+        const localRanks: Record<string, number> = {};
+        entries.forEach((e: any) => { const r = lsGetVote(e.id); if (r) localRanks[e.id] = r; });
+        setMyRanks(localRanks);
+        setVotedIds(new Set(Object.keys(localRanks)));
+        if (!user || !battleId) return;
+        const fetchMyVotes = async () => {
+            try {
+                const res = await fetch(`${API}/api/beat-battle/battles/${battleId}/my-votes`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    const serverVotes: { entryId: string; rank: number }[] = Array.isArray(data.votes) ? data.votes : [];
+                    const next: Record<string, number> = {};
+                    serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                    entries.forEach((e: any) => lsSetVote(e.id, next[e.id] ?? null));
+                    setMyRanks(next);
+                    setVotedIds(new Set(Object.keys(next)));
+                }
+            } catch {}
+        };
+        fetchMyVotes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [battleId, battle?.id, user]);
+
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
+    // Countdown timer
+    useEffect(() => {
+        if (!battle) return;
+        const target =
+            battle.status === 'sudden_death' ? battle.suddenDeath?.end || null :
+            battle.status === 'voting'   ? battle.votingEnd :
+            battle.status === 'active'   ? battle.submissionEnd :
+            battle.status === 'upcoming' ? battle.submissionStart : null;
+        const label =
+            battle.status === 'sudden_death' ? 'Sudden Death ends in' :
+            battle.status === 'voting'   ? 'Voting ends in' :
+            battle.status === 'active'   ? 'Submissions close in' :
+            battle.status === 'upcoming' ? 'Submissions open in' : '';
+        if (!target) { setCountdown(null); return; }
+        const update = () => {
+            const diff = new Date(target).getTime() - Date.now();
+            if (diff <= 0) { setCountdown(null); return; }
+            setCountdown({
+                days: Math.floor(diff / 86400000),
+                hours: Math.floor((diff % 86400000) / 3600000),
+                minutes: Math.floor((diff % 3600000) / 60000),
+                label,
+            });
+        };
+        update();
+        const interval = setInterval(update, 60000);
+        return () => clearInterval(interval);
+    }, [battle]);
+
     useEffect(() => {
         if (!battleId) return;
         setLoading(true);
         fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setBattle(data); })
+            .then(data => {
+                if (!data) return;
+                if (Array.isArray(data.entries)) {
+                    data.entries = data.entries.map(flattenBattleEntry);
+                }
+                setBattle(data);
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [battleId]);
@@ -187,7 +295,7 @@ export const BattleDetailPage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', `${battle.title} | Beat Battle`);
-        setMeta('og:description', battle.description || 'Join the beat battle on Fuji Studio — submit your track and win prizes.');
+        setMeta('og:description', battle.description || 'Join the beat battle on Fuji Studio. Submit your track and win prizes.');
         setMeta('og:image', battle.bannerUrl ? `${API}${battle.bannerUrl}` : 'https://fujistud.io/og-default.png');
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
@@ -214,25 +322,47 @@ export const BattleDetailPage: React.FC = () => {
         }
     };
 
-    const vote = async (entryId: string) => {
+    const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
         setVotingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
                 method: 'POST',
                 credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rank }),
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const data = await res.json();
-                setVotedIds(prev => {
-                    const next = new Set(prev);
-                    if (data.voted) next.add(entryId); else next.delete(entryId);
-                    return next;
+                const serverVotes: { entryId: string; rank: number }[] = Array.isArray((data as any).votes) ? (data as any).votes : [];
+                const next: Record<string, number> = {};
+                serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                (battle?.entries || []).forEach((e: any) => lsSetVote(e.id, next[e.id] ?? null));
+                setMyRanks(next);
+                setVotedIds(new Set(Object.keys(next)));
+                setVoteNotification({
+                    message: rank === null
+                        ? 'Vote removed.'
+                        : `🔥 ${rank === 1 ? '+3 points' : rank === 2 ? '+2 points' : '+1 point'} assigned!`,
                 });
-                const updated = await fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' });
-                if (updated.ok) setBattle(await updated.json());
+                // Note: we intentionally do NOT refetch the battle here. Vote counts
+                // are hidden during voting (see BattleDetailPage submissions section),
+                // and the POST response already returns the user's full vote map for
+                // `myRanks`. Refetching risked blanking the entries if the response
+                // came back without the `track` join (which falls back to "Untitled"
+                // / "Producer" defaults in flattenBattleEntry).
+            } else {
+                setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
-        } catch {} finally { setVotingId(null); }
+        } catch {
+            setVoteNotification({ message: 'Something went wrong. Please try again.' });
+        } finally { setVotingId(null); }
+    };
+    const vote = (entryId: string) => {
+        const current = myRanks[entryId];
+        if (!current) return castVote(entryId, 1);
+        if (current === 1) return castVote(entryId, null);
+        return castVote(entryId, 1);
     };
 
     if (loading) return (
@@ -257,9 +387,44 @@ export const BattleDetailPage: React.FC = () => {
 
     const cfg = statusConfig[battle.status] || statusConfig.upcoming;
     const entries = battle.entries || [];
-    const sortedEntries = sortOrder === 'top'
-        ? [...entries].sort((a, b) => b.voteCount - a.voteCount)
-        : [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const isLive = battle.status === 'active' || battle.status === 'voting';
+    const isCompleted = battle.status === 'completed';
+
+    // ── Points-based ranking (rank 1 = 3pts, rank 2 = 2pts, rank 3 = 1pt) ──
+    // Tiebreakers: more 1st-place votes, then more 2nd-place votes, then earliest submission.
+    const entryPoints = (e: Entry) =>
+        (e.firstPlaceVotes || 0) * 3 + (e.secondPlaceVotes || 0) * 2 + (e.thirdPlaceVotes || 0) * 1;
+    const cmpByPoints = (a: Entry, b: Entry) => {
+        const diff = entryPoints(b) - entryPoints(a);
+        if (diff) return diff;
+        const aFirst = a.firstPlaceVotes || 0, bFirst = b.firstPlaceVotes || 0;
+        if (bFirst !== aFirst) return bFirst - aFirst;
+        const aSecond = a.secondPlaceVotes || 0, bSecond = b.secondPlaceVotes || 0;
+        if (bSecond !== aSecond) return bSecond - aSecond;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    };
+
+    const sortedEntries = (() => {
+        if (sortOrder === 'top' && isCompleted) {
+            return [...entries].sort(cmpByPoints);
+        }
+        // During voting (or sudden death), shuffle entries with a per-mount
+        // seed so position bias doesn't influence votes. Order stays stable
+        // across re-renders within the same page visit.
+        if (battle.status === 'voting' || battle.status === 'sudden_death') {
+            // Seeded shuffle: deterministic from shuffleSeed but appears random.
+            const seeded = entries.map((e, i) => {
+                let h = Math.floor(shuffleSeed * 2_147_483_647) ^ i;
+                h = (h * 16807) % 2_147_483_647;
+                // Mix in entry id chars for extra spread
+                for (let c = 0; c < e.id.length; c++) h = ((h * 31) + e.id.charCodeAt(c)) | 0;
+                return { e, k: h };
+            });
+            seeded.sort((a, b) => a.k - b.k);
+            return seeded.map(s => s.e);
+        }
+        return [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    })();
 
     const rules = battle.rules
         ? battle.rules.split('\n').map(r => r.trim()).filter(Boolean)
@@ -271,12 +436,10 @@ export const BattleDetailPage: React.FC = () => {
             ? (battle.rulesData as any[])
             : rules.map(text => ({ text }));
 
-    const isLive = battle.status === 'active' || battle.status === 'voting';
-    const isCompleted = battle.status === 'completed';
-    // Podium: top 3 by vote count; pin explicit winnerEntryId to #1 if set
+    // Podium: top 3 by total points; pin explicit winnerEntryId to #1 if set
     const podiumEntries = isCompleted && entries.length > 0
         ? (() => {
-            const sorted = entries.slice().sort((a, b) => b.voteCount - a.voteCount);
+            const sorted = entries.slice().sort(cmpByPoints);
             if (battle.winnerEntryId) {
                 const winIdx = sorted.findIndex(e => e.id === battle.winnerEntryId);
                 if (winIdx > 0) { const [w] = sorted.splice(winIdx, 1); sorted.unshift(w); }
@@ -319,8 +482,22 @@ export const BattleDetailPage: React.FC = () => {
                     75%, 100% { transform: scale(2); opacity: 0; }
                 }
                 .hd-ping { animation: hd-ping 1.4s cubic-bezier(0,0,0.2,1) infinite; }
-                .hd-entry-card { transition: border-color 0.2s; }
-                .hd-entry-card:hover { border-color: rgba(43,140,113,0.4) !important; }
+
+                .hd-entry-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; position: relative; }
+                .hd-entry-card:hover { transform: translateY(-2px); border-color: rgba(43,140,113,0.45) !important; box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(43,140,113,0.08); }
+                .hd-entry-card:hover .hd-cover-overlay { opacity: 1; }
+                .hd-cover-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.25)); opacity: 0; transition: opacity 0.18s ease; cursor: pointer; }
+                .hd-cover-overlay-playing { opacity: 1 !important; background: linear-gradient(135deg, rgba(43,140,113,0.55), rgba(0,0,0,0.35)); }
+                .hd-cover-play-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #0A0E1A; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+
+                @keyframes hd-bar-pulse {
+                    0%, 100% { transform: scaleY(0.55); }
+                    50% { transform: scaleY(1); }
+                }
+                .hd-wave { display: flex; align-items: center; gap: 2px; height: 56px; width: 100%; cursor: pointer; padding: 0 2px; }
+                .hd-bar { flex: 1; min-width: 2px; border-radius: 3px; background: linear-gradient(180deg, rgba(43,140,113,0.35) 0%, rgba(43,140,113,0.18) 100%); transform-origin: center; transition: background 0.15s ease; }
+                .hd-wave-playing .hd-bar { background: linear-gradient(180deg, #34D399 0%, rgba(43,140,113,0.7) 100%); animation: hd-bar-pulse 0.9s ease-in-out infinite; }
+
                 .hd-sponsor-bar { opacity: 0.55; filter: grayscale(1); transition: all 0.4s; }
                 .hd-sponsor-bar:hover { opacity: 1; filter: grayscale(0); }
             `}</style>
@@ -380,6 +557,33 @@ export const BattleDetailPage: React.FC = () => {
                                 <p style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', color: colors.textSecondary, maxWidth: '520px', lineHeight: 1.7 }}>
                                     {renderWithLinks(battle.description)}
                                 </p>
+                            )}
+
+                            {/* Countdown timer */}
+                            {countdown && (
+                                <div>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: colors.textSecondary, marginBottom: '8px' }}>
+                                        {countdown.label}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        {[
+                                            { val: countdown.days, label: 'D' },
+                                            { val: countdown.hours, label: 'H' },
+                                            { val: countdown.minutes, label: 'M' },
+                                        ].map(({ val, label }) => (
+                                            <div key={label} style={{ textAlign: 'center' }}>
+                                                <div style={{ width: '50px', height: '50px', backgroundColor: 'rgba(255,255,255,0.08)',
+                                                    borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '20px', fontWeight: 800, color: '#fff', backdropFilter: 'blur(8px)',
+                                                    border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    {String(val).padStart(2, '0')}
+                                                </div>
+                                                <span style={{ fontSize: '8px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)',
+                                                    fontWeight: 700, display: 'block', marginTop: '3px', letterSpacing: '0.1em' }}>{label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
 
                             {/* CTAs */}
@@ -652,6 +856,24 @@ export const BattleDetailPage: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* How votes are tallied */}
+                        <div style={{
+                            backgroundColor: colors.surface,
+                            padding: spacing.md,
+                            borderRadius: borderRadius.md,
+                            marginBottom: spacing.lg,
+                            borderLeft: `4px solid #FFD700`,
+                        }}>
+                            <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.5 }}>
+                                <strong>How votes are tallied:</strong> each voter ranks their top 3 entries.
+                                A 1st-place vote is worth <strong>3 pts</strong>, a 2nd-place vote is worth <strong>2 pts</strong>,
+                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points,
+                                with ties broken by most 1st-place votes, then most 2nd-place votes.
+                                If two or more entries tie for 1st place after voting ends, a <strong>sudden-death runoff</strong> is
+                                triggered &mdash; voters pick a single winner from the tied entries.
+                            </p>
+                        </div>
+
                         {/* Podium cards */}
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : secondPlace ? (thirdPlace ? '1fr 1fr 1fr' : '1fr 1fr') : '1fr', gap: '16px' }}>
                             {([
@@ -679,18 +901,23 @@ export const BattleDetailPage: React.FC = () => {
                                                 </div>
                                             )}
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <Link to={`/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                                                <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
                                                     {entry.trackTitle}
                                                 </Link>
                                                 <Link to={`/profile/${entry.userId}`} style={{ fontSize: '13px', color, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: '8px' }}>
                                                     <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                 </Link>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <Flame size={12} color={ACCENT} />
-                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
-                                                    </div>
-                                                    <Link to={`/battles/entry/${entry.id}`}
+                                                    {isCompleted ? (() => {
+                                                        const pts = entryPoints(entry);
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                                <Flame size={12} color={ACCENT} />
+                                                                <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
+                                                            </div>
+                                                        );
+                                                    })() : <span />}
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
                                                         <Play size={11} fill="#1a1a1a" /> Listen
                                                     </Link>
@@ -713,7 +940,7 @@ export const BattleDetailPage: React.FC = () => {
                             <h2 style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>Community Submissions</h2>
                             <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>Discover and vote for your favourite entries.</p>
                         </div>
-                        {entries.length > 0 && (
+                        {entries.length > 0 && isCompleted && (
                             <div style={{ display: 'flex', gap: '6px' }}>
                                 {(['recent', 'top'] as const).map(s => (
                                     <button key={s} onClick={() => setSortOrder(s)}
@@ -731,6 +958,31 @@ export const BattleDetailPage: React.FC = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Voting explainer */}
+                    {(battle.status === 'voting' || battle.status === 'sudden_death') && entries.length > 0 && (
+                        <div style={{ backgroundColor: colors.surface, padding: '16px 18px', borderRadius: borderRadius.md, marginBottom: '20px', borderLeft: `4px solid ${colors.primary}` }}>
+                            {battle.status === 'sudden_death' ? (
+                                <>
+                                    <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px', fontWeight: 700 }}>
+                                        ⚡ Sudden Death is live
+                                    </p>
+                                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
+                                        The leading entries finished level on points. Cast a single vote for the entry you want to win — only the entries below are eligible. Voting closes {battle.suddenDeath?.end ? new Date(battle.suddenDeath.end).toLocaleString() : 'shortly'}.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '14px', fontWeight: 700 }}>
+                                        🏆 How voting works
+                                    </p>
+                                    <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
+                                        Assign <strong>+3 pts</strong> to your favourite beat, <strong>+2 pts</strong> to your second pick, and <strong>+1 pt</strong> to your third. The entry with the most total points wins. Ties are broken by who has more +3 pt votes, then +2 pt votes. If it's still a deadlock, the battle enters <strong>Sudden Death</strong> — a short runoff between only the tied entries.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* Empty state */}
                     {entries.length === 0 ? (
@@ -754,13 +1006,15 @@ export const BattleDetailPage: React.FC = () => {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {sortedEntries.map((entry, i) => {
-                                const hasVoted = votedIds.has(entry.id);
+                                const myRank = myRanks[entry.id] || 0;
+                                const hasVoted = myRank > 0;
                                 const isVoting = votingId === entry.id;
+                                const sdActive = battle.status === 'sudden_death';
+                                const sdEntries: string[] = battle.suddenDeath?.entryIds || [];
+                                const sdEligible = !sdActive || sdEntries.includes(entry.id);
                                 const trackId = `battle-entry-${entry.id}`;
                                 const isCurrentlyPlaying = player.currentTrack?.id === trackId && player.isPlaying;
                                 const bars = waveHeights(entry.id);
-                                // Color bars based on play state (first ~45% highlighted when playing)
-                                const playedCount = isCurrentlyPlaying ? Math.floor(bars.length * 0.45) : 0;
                                 const isWinner = isCompleted && winnerEntry?.id === entry.id;
                                 const podiumIdx = isCompleted ? podiumEntries.findIndex(e => e?.id === entry.id) : -1;
                                 const podiumRank = podiumIdx >= 0 ? podiumIdx + 1 : null; // 1 | 2 | 3 | null
@@ -785,32 +1039,53 @@ export const BattleDetailPage: React.FC = () => {
                                         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '14px' : '28px' }}>
 
                                             {/* Cover + title */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : '300px', flexShrink: 0 }}>
-                                                <div style={{ width: '72px', height: '72px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: rankColor ? `0 0 16px ${rankColor}33` : '0 4px 12px rgba(0,0,0,0.3)', border: rankColor ? `2px solid ${rankColor}66` : 'none' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: isMobile ? '100%' : '320px', flexShrink: 0 }}>
+                                                <div
+                                                    onClick={() => {
+                                                        if (player.currentTrack?.id === trackId) { togglePlay(); return; }
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
+                                                    }}
+                                                    style={{ position: 'relative', width: '92px', height: '92px', borderRadius: borderRadius.md, backgroundColor: '#1A1E2E', overflow: 'hidden', flexShrink: 0, boxShadow: rankColor ? `0 0 24px ${rankColor}55, 0 6px 18px rgba(0,0,0,0.45)` : '0 6px 18px rgba(0,0,0,0.4)', border: rankColor ? `2px solid ${rankColor}88` : '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}>
                                                     {(entry.coverUrl || entry.avatarUrl) ? (
                                                         <img src={(entry.coverUrl || entry.avatarUrl)!.startsWith('http') ? (entry.coverUrl || entry.avatarUrl)! : `${API}${entry.coverUrl || entry.avatarUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
-                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Swords size={24} color={colors.textSecondary} style={{ opacity: 0.3 }} />
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${colors.primary}30, ${colors.primary}10)` }}>
+                                                            <Swords size={32} color={colors.primary} style={{ opacity: 0.5 }} />
+                                                        </div>
+                                                    )}
+                                                    <div className={`hd-cover-overlay${isCurrentlyPlaying ? ' hd-cover-overlay-playing' : ''}`}>
+                                                        <div className="hd-cover-play-icon">
+                                                            {isCurrentlyPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />}
+                                                        </div>
+                                                    </div>
+                                                    {isCurrentlyPlaying && (
+                                                        <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', alignItems: 'center', gap: '3px', padding: '3px 7px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '9999px', fontSize: '9px', fontWeight: 700, color: '#34D399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#34D399' }} />
+                                                            Live
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div style={{ minWidth: 0 }}>
+                                                <div style={{ minWidth: 0, flex: 1 }}>
                                                     {rankLabel && rankColor && (
-                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', backgroundColor: `${rankColor}22`, border: `1px solid ${rankColor}55`, borderRadius: '9999px', fontSize: '10px', fontWeight: 700, color: rankColor, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', backgroundColor: `${rankColor}22`, border: `1px solid ${rankColor}55`, borderRadius: '9999px', fontSize: '10px', fontWeight: 700, color: rankColor, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
                                                             {rankLabel}
                                                         </div>
                                                     )}
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block' }}>
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ margin: '0 0 4px', fontSize: '17px', fontWeight: 800, color: rankColor ?? colors.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none', display: 'block', letterSpacing: '-0.01em' }}>
                                                         {entry.trackTitle}
                                                     </Link>
-                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 5px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
+                                                    <Link to={`/profile/${entry.userId}`} style={{ margin: '0 0 6px', fontSize: '13px', color: colors.primary, fontWeight: 600, textDecoration: 'none', display: 'block' }}>
                                                         <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
                                                     </Link>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        <Flame size={11} color={ACCENT} />
-                                                        <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{entry.voteCount} votes</span>
-                                                    </div>
+                                                    {isCompleted && (() => {
+                                                        const pts = entryPoints(entry);
+                                                        return (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 9px', backgroundColor: `${ACCENT}15`, borderRadius: '9999px', border: `1px solid ${ACCENT}30` }}>
+                                                                <Flame size={11} color={ACCENT} />
+                                                                <span style={{ fontSize: '11px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
 
@@ -821,17 +1096,13 @@ export const BattleDetailPage: React.FC = () => {
                                                 <div
                                                     onClick={() => {
                                                         if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                                        setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                                     }}
-                                                    style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '48px', width: '100%', cursor: 'pointer' }}>
+                                                    className={`hd-wave${isCurrentlyPlaying ? ' hd-wave-playing' : ''}`}>
                                                     {bars.map((h, bi) => (
-                                                        <div key={bi} style={{
-                                                            flex: 1, borderRadius: '2px 2px 0 0',
+                                                        <div key={bi} className="hd-bar" style={{
                                                             height: `${h}%`,
-                                                            backgroundColor: bi < playedCount || isCurrentlyPlaying
-                                                                ? colors.primary
-                                                                : `${colors.primary}28`,
-                                                            transition: 'background-color 0.15s',
+                                                            animationDelay: isCurrentlyPlaying ? `${(bi % 8) * 0.07}s` : undefined,
                                                         }} />
                                                     ))}
                                                 </div>
@@ -842,30 +1113,70 @@ export const BattleDetailPage: React.FC = () => {
                                                         <button
                                                             onClick={() => {
                                                                 if (player.currentTrack?.id === trackId) { togglePlay(); return; }
-                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                                                setTrack({ id: trackId, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                                             }}
                                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: colors.textPrimary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
                                                             {isCurrentlyPlaying ? <><Pause size={14} /> Pause</> : <><Play size={14} fill="currentColor" /> Play</>}
                                                         </button>
                                                     )}
-                                                    {battle.status === 'voting' && (
-                                                        <button onClick={() => vote(entry.id)} disabled={isVoting}
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: '6px',
-                                                                padding: '8px 22px',
-                                                                backgroundColor: hasVoted ? `${colors.primary}22` : colors.primary,
-                                                                color: hasVoted ? colors.primary : '#fff',
-                                                                borderRadius: '8px', border: hasVoted ? `1px solid ${colors.primary}40` : 'none',
-                                                                cursor: isVoting ? 'not-allowed' : 'pointer',
-                                                                fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
-                                                                boxShadow: hasVoted ? 'none' : `0 4px 14px ${colors.primary}40`,
-                                                                textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                            }}>
-                                                            <Vote size={14} />
-                                                            {hasVoted ? 'Voted ✓' : isVoting ? '…' : 'Vote'}
-                                                        </button>
+                                                    {(battle.status === 'voting' || sdActive) && sdEligible && (
+                                                        (sdActive ? [1] : [1, 2, 3]).map(r => {
+                                                            const isThis = myRank === r;
+                                                            const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
+                                                            const medalColor = sdActive ? colors.primary : (r === 1 ? '#FFD700' : r === 2 ? '#C0C0C0' : '#CD7F32');
+                                                            // Once this entry has been voted on, selected button is primary green; others go neutral.
+                                                            // Before voting, all show their medal-coloured tint.
+                                                            const bg = isThis
+                                                                ? colors.primary
+                                                                : hasVoted ? 'rgba(255,255,255,0.05)' : `${medalColor}1A`;
+                                                            const border = isThis
+                                                                ? colors.primary
+                                                                : hasVoted ? 'rgba(255,255,255,0.1)' : `${medalColor}55`;
+                                                            const fg = isThis
+                                                                ? '#fff'
+                                                                : hasVoted ? colors.textSecondary : medalColor;
+                                                            return (
+                                                                <button
+                                                                    key={r}
+                                                                    onClick={() => castVote(entry.id, isThis ? null : (r as 1 | 2 | 3))}
+                                                                    disabled={isVoting}
+                                                                    title={isThis ? 'Click to remove this vote' : sdActive ? 'Cast your vote' : `Assign ${r === 1 ? 3 : r === 2 ? 2 : 1} point${r === 3 ? '' : 's'} to this entry`}
+                                                                    style={{
+                                                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                                                        padding: '8px 16px',
+                                                                        backgroundColor: bg,
+                                                                        color: fg,
+                                                                        borderRadius: '8px',
+                                                                        border: `1px solid ${border}`,
+                                                                        cursor: isVoting ? 'not-allowed' : 'pointer',
+                                                                        fontSize: '13px', fontWeight: 800, opacity: isVoting ? 0.6 : 1,
+                                                                        boxShadow: isThis ? `0 4px 14px ${colors.primary}55` : 'none',
+                                                                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                                    }}>
+                                                                    <Medal size={14} />
+                                                                    {label}
+                                                                </button>
+                                                            );
+                                                        })
                                                     )}
-                                                    {!user && battle.status === 'voting' && (
+                                                    {sdActive && !sdEligible && (
+                                                        <span style={{ fontSize: '12px', color: colors.textSecondary, fontStyle: 'italic', padding: '8px 0' }}>
+                                                            Eliminated in sudden death
+                                                        </span>
+                                                    )}
+                                                    {hasVoted && (battle.status === 'voting' || sdActive) && (
+                                                        <span style={{ fontSize: '11px', color: colors.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            Your pick · {myRank === 1 ? 3 : myRank === 2 ? 2 : 1} pts
+                                                        </span>
+                                                    )}
+                                                    {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
+                                                        <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary, fontWeight: 600, display: 'flex', gap: '8px' }}>
+                                                            <span title="1st place votes">🥇 {entry.firstPlaceVotes || 0}</span>
+                                                            <span title="2nd place votes">🥈 {entry.secondPlaceVotes || 0}</span>
+                                                            <span title="3rd place votes">🥉 {entry.thirdPlaceVotes || 0}</span>
+                                                        </span>
+                                                    )}
+                                                    {!user && (battle.status === 'voting' || sdActive) && (
                                                         <a href="/api/auth/discord/login"
                                                             style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '8px 14px', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', textDecoration: 'none', fontSize: '12px' }}>
                                                             <LogIn size={12} /> Log in to vote
@@ -881,13 +1192,27 @@ export const BattleDetailPage: React.FC = () => {
                     )}
                 </section>
             </div>
+            {voteNotification && createPortal(
+                <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
+                    <AlertCircle size={18} color="#F97316" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, lineHeight: 1.4 }}>{voteNotification.message}</span>
+                    <button onClick={() => setVoteNotification(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '0 0 0 4px', flexShrink: 0 }}>✕</button>
+                </div>,
+                document.body
+            )}
             {battle && <BattleSubmitModal battleId={battle.id} requireProjectFile={battle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => {
                 setSubmitToast(true);
                 setTimeout(() => setSubmitToast(false), 6000);
                 setLoading(true);
                 fetch(`${API}/api/beat-battle/battles/${battle.slug || battleId}`, { credentials: 'include', cache: 'no-store' })
                     .then(r => r.ok ? r.json() : null)
-                    .then(data => { if (data) setBattle(data); })
+                    .then(data => {
+                        if (!data) return;
+                        if (Array.isArray(data.entries)) {
+                            data.entries = data.entries.map(flattenBattleEntry);
+                        }
+                        setBattle(data);
+                    })
                     .catch(() => {})
                     .finally(() => setLoading(false));
             }} />}

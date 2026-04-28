@@ -7,36 +7,42 @@ import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
-    Swords, Trophy, Users, Play, Pause, Vote,
+    Swords, Trophy, Users, Play, Pause, Vote, Medal,
     LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
 
-// localStorage helpers for voted state (persists across refreshes and server restarts)
-const LS_KEY = (battleId: string) => `fj_voted_${battleId}`;
-const lsGetVotes = (battleId: string): Set<string> => {
-    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY(battleId)) || '[]')); } catch { return new Set(); }
+// localStorage helpers — store the user's ranked vote per entry
+const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
+const lsSetVote = (entryId: string, rank: number | null) => {
+    try {
+        if (rank === null || rank === 0) localStorage.removeItem(lsVoteKey(entryId));
+        else localStorage.setItem(lsVoteKey(entryId), String(rank));
+    } catch {}
 };
-const lsAddVote = (battleId: string, entryId: string) => {
-    try { const s = lsGetVotes(battleId); s.add(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
-};
-const lsRemoveVote = (battleId: string, entryId: string) => {
-    try { const s = lsGetVotes(battleId); s.delete(entryId); localStorage.setItem(LS_KEY(battleId), JSON.stringify([...s])); } catch {}
+const lsGetVote = (entryId: string): number | null => {
+    try {
+        const v = localStorage.getItem(lsVoteKey(entryId));
+        if (v === '1' || v === '2' || v === '3') return Number(v);
+        return null;
+    } catch { return null; }
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-    upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
-    active:    { label: 'SUBMISSIONS OPEN', color: '#34D399' },
-    voting:    { label: 'VOTING LIVE',      color: ACCENT },
-    completed: { label: 'ENDED',            color: '#6B7280' },
+    upcoming:     { label: 'UPCOMING',         color: '#60A5FA' },
+    active:       { label: 'SUBMISSIONS OPEN', color: '#34D399' },
+    voting:       { label: 'VOTING LIVE',      color: ACCENT },
+    sudden_death: { label: 'SUDDEN DEATH',     color: '#F43F5E' },
+    completed:    { label: 'ENDED',            color: '#6B7280' },
 };
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 const MEDAL_GOLD   = '\u{1F947}';
@@ -66,6 +72,7 @@ interface Battle {
     entries?: Entry[];
     _count?: { entries: number };
     createdAt: string;
+    suddenDeath?: { active: boolean; entryIds: string[]; start: string | null; end: string | null; durationMinutes: number } | null;
 }
 
 interface Entry {
@@ -80,6 +87,9 @@ interface Entry {
     projectUrl?: string | null;
     duration?: number;
     voteCount: number;
+    firstPlaceVotes?: number;
+    secondPlaceVotes?: number;
+    thirdPlaceVotes?: number;
     source: string;
     createdAt: string;
 }
@@ -99,6 +109,7 @@ export const BattlesPage: React.FC = () => {
     const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
     const [loading, setLoading] = useState(true);
     const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
+    const [myRanks, setMyRanks] = useState<Record<string, number>>({}); // entryId -> rank (1|2|3)
     const [votingId, setVotingId] = useState<string | null>(null);
     const [voteNotification, setVoteNotification] = useState<{ message: string } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -125,7 +136,14 @@ export const BattlesPage: React.FC = () => {
             ]);
             if (!battlesRes.ok) return;
             const data: Battle[] = await battlesRes.json();
-            setBattles(data);
+            // Flatten entries to legacy shape so existing render code works after the schema slim-down
+            const flattened = data.map(b => ({
+                ...b,
+                entries: Array.isArray((b as any).entries)
+                    ? (b as any).entries.map(flattenBattleEntry)
+                    : (b as any).entries,
+            }));
+            setBattles(flattened);
 
             if (pageSettingsRes.ok) {
                 const ps = await pageSettingsRes.json();
@@ -139,7 +157,13 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const detailData = await detail.json();
+                        if (Array.isArray(detailData.entries)) {
+                            detailData.entries = detailData.entries.map((e: any) => ({ ...flattenBattleEntry(e), firstPlaceVotes: e.firstPlaceVotes, secondPlaceVotes: e.secondPlaceVotes, thirdPlaceVotes: e.thirdPlaceVotes }));
+                        }
+                        setCurrentBattle(detailData);
+                    }
                 }
             } else {
                 if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
@@ -148,7 +172,13 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const detailData = await detail.json();
+                        if (Array.isArray(detailData.entries)) {
+                            detailData.entries = detailData.entries.map((e: any) => ({ ...flattenBattleEntry(e), firstPlaceVotes: e.firstPlaceVotes, secondPlaceVotes: e.secondPlaceVotes, thirdPlaceVotes: e.thirdPlaceVotes }));
+                        }
+                        setCurrentBattle(detailData);
+                    }
                 }
             }
         } catch {} finally { setLoading(false); }
@@ -156,30 +186,40 @@ export const BattlesPage: React.FC = () => {
 
     useEffect(() => { load(); }, [load]);
 
-    // Restore voted state after battle loads (localStorage first, then merge with server)
+    // Restore voted state when the battle FIRST loads (or when user logs in).
+    // Intentionally NOT depending on `currentBattle?.entries` reference, otherwise
+    // every post-vote refresh would re-fire this effect and race with /my-votes,
+    // causing the highlight to flicker / disappear.
     useEffect(() => {
-        if (!currentBattle) { setVotedIds(new Set()); return; }
-        // Immediately restore from localStorage (works even when not logged in)
-        const localVotes = lsGetVotes(currentBattle.id);
-        setVotedIds(localVotes);
-        // If logged in, also verify against server and merge
+        const entries = currentBattle?.entries;
+        if (!entries?.length) return;
+        // Read each entry's vote rank from localStorage immediately
+        const localRanks: Record<string, number> = {};
+        entries.forEach(e => {
+            const r = lsGetVote(e.id);
+            if (r) localRanks[e.id] = r;
+        });
+        setMyRanks(localRanks);
+        setVotedIds(new Set(Object.keys(localRanks)));
+        // If logged in, verify against server and write back to localStorage
         if (!user) return;
         const fetchMyVotes = async () => {
             try {
-                const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle.id}/my-votes`, { credentials: 'include' });
+                const res = await fetch(`${API}/api/beat-battle/battles/${currentBattle!.id}/my-votes`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    // Merge server votes into localStorage and state
-                    const serverVotes: string[] = data.votedEntryIds;
-                    setVotedIds(prev => {
-                        const merged = new Set([...prev, ...serverVotes]);
-                        localStorage.setItem(LS_KEY(currentBattle.id), JSON.stringify([...merged]));
-                        return merged;
-                    });
+                    const serverVotes: { entryId: string; rank: number }[] = Array.isArray(data.votes) ? data.votes : [];
+                    const next: Record<string, number> = {};
+                    serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                    // Write through localStorage (clear ones not in server, set the ones present)
+                    entries.forEach(e => lsSetVote(e.id, next[e.id] ?? null));
+                    setMyRanks(next);
+                    setVotedIds(new Set(Object.keys(next)));
                 }
             } catch {}
         };
         fetchMyVotes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentBattle?.id, user]);
 
     // Auto-dismiss vote notifications
@@ -193,6 +233,7 @@ export const BattlesPage: React.FC = () => {
     useEffect(() => {
         if (!currentBattle) return;
         const target =
+            currentBattle.status === 'sudden_death' ? currentBattle.suddenDeath?.end || null :
             currentBattle.status === 'voting'   ? currentBattle.votingEnd :
             currentBattle.status === 'active'   ? currentBattle.submissionEnd :
             currentBattle.status === 'upcoming' ? currentBattle.submissionStart : null;
@@ -221,44 +262,60 @@ export const BattlesPage: React.FC = () => {
                     const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`);
                     if (!res.ok) return { battle: b, winner: null };
                     const data: Battle = await res.json();
-                    const winner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    const rawWinner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    const winner = rawWinner ? flattenBattleEntry(rawWinner) : null;
                     return { battle: data, winner };
                 } catch { return { battle: b, winner: null }; }
             })
-        ).then(setHallOfFame);
+        ).then(arr => setHallOfFame(arr as any));
     }, [battles]);
 
-    const vote = async (entryId: string) => {
+    // Cast / change / clear a ranked vote.
+    // rank=1|2|3 assigns that slot. rank=null clears this entry's vote.
+    const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
         setVotingId(entryId);
         try {
-            const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, { method: 'POST', credentials: 'include' });
+            const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rank }),
+            });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                const battleId = currentBattle?.id || '';
-                // Persist to localStorage
-                if ((data as any).voted) lsAddVote(battleId, entryId);
-                else lsRemoveVote(battleId, entryId);
-                // Update voted state
-                setVotedIds(prev => {
-                    const next = new Set(prev);
-                    if ((data as any).voted) next.add(entryId); else next.delete(entryId);
-                    return next;
+                const serverVotes: { entryId: string; rank: number }[] = Array.isArray((data as any).votes) ? (data as any).votes : [];
+                const next: Record<string, number> = {};
+                serverVotes.forEach(v => { next[v.entryId] = v.rank; });
+                // Sync localStorage with server truth
+                (currentBattle?.entries || []).forEach(e => lsSetVote(e.id, next[e.id] ?? null));
+                setMyRanks(next);
+                setVotedIds(new Set(Object.keys(next)));
+                setVoteNotification({
+                    message: rank === null
+                        ? 'Vote removed.'
+                        : `🔥 ${rank === 1 ? '+3 points' : rank === 2 ? '+2 points' : '+1 point'} assigned!`,
                 });
-                // Update vote count immediately and re-sort entries by vote count
-                setCurrentBattle(prev => {
-                    if (!prev?.entries) return prev;
-                    const updated = prev.entries
-                        .map(e => e.id === entryId ? { ...e, voteCount: (data as any).voteCount } : e)
-                        .sort((a, b) => b.voteCount - a.voteCount);
-                    return { ...prev, entries: updated };
-                });
+                // Note: we intentionally do NOT refetch the battle here. Vote
+                // counts are hidden during voting, and the POST response already
+                // returns the user's full vote map for `myRanks`. Refetching
+                // without re-running flattenBattleEntry would replace entries
+                // with the raw API shape (missing trackTitle/username), blanking
+                // every card.
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }
         } catch {
             setVoteNotification({ message: 'Something went wrong. Please try again.' });
         } finally { setVotingId(null); }
+    };
+    // Back-compat alias used elsewhere in the file
+    const vote = (entryId: string) => {
+        const current = myRanks[entryId];
+        // Default behaviour: if no rank yet, set 1st; if 1st, clear; if 2nd/3rd, leave alone (use the rank menu)
+        if (!current) return castVote(entryId, 1);
+        if (current === 1) return castVote(entryId, null);
+        return castVote(entryId, 1);
     };
 
     const activeBattles = battles.filter(b => b.status !== 'completed');
@@ -407,13 +464,13 @@ export const BattlesPage: React.FC = () => {
                         <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary }}>{sponsorSectionTitle}</span>
                             {globalSponsors.map(s => {
-                                const href = s.links[0]?.url || s.websiteUrl;
+                                const href = s.links?.[0]?.url || s.websiteUrl;
                                 const inner = s.logoUrl
                                     ? <img src={s.logoUrl} alt={s.name} style={{ height: '28px', objectFit: 'contain', opacity: 0.7 }} />
                                     : <span style={{ fontWeight: 800, fontSize: '11px', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em' }}>{s.name.toUpperCase()}</span>;
                                 return href ? (
                                     <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
-                                        onClick={() => s.links[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
+                                        onClick={() => s.links?.[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
                                         style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '6px 14px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', transition: 'border-color 0.2s' }}
                                         onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)')}
                                         onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
@@ -434,48 +491,91 @@ export const BattlesPage: React.FC = () => {
 
                         {/* Left: Active / Upcoming Battles */}
                         <div>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <Swords size={14} color={colors.primary} /> Active Battles
-                            </h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: `${colors.primary}1A`, border: `2px solid ${colors.primary}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Swords size={16} color={colors.primary} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em' }}>Active Battles</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>{activeBattles.length} live or upcoming</p>
+                                </div>
+                            </div>
                             {activeBattles.length === 0 ? (
                                 <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>No active battles right now.</p>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {activeBattles.map(b => {
                                         const cfg = statusConfig[b.status] || statusConfig.upcoming;
+                                        const isHot = b.status === 'voting' || b.status === 'sudden_death';
                                         return (
-                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ textDecoration: 'none', display: 'flex', alignItems: 'stretch', backgroundColor: '#242C3D', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s' }}
-                                                onMouseEnter={e => (e.currentTarget.style.borderColor = `${colors.primary}50`)}
-                                                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
+                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{
+                                                textDecoration: 'none', display: 'flex', alignItems: 'stretch',
+                                                backgroundColor: '#242C3D',
+                                                border: `1px solid ${isHot ? `${cfg.color}45` : 'rgba(255,255,255,0.06)'}`,
+                                                borderRadius: '12px', overflow: 'hidden',
+                                                transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                                boxShadow: isHot ? `0 8px 28px ${cfg.color}1F` : '0 2px 8px rgba(0,0,0,0.18)',
+                                                position: 'relative',
+                                            }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.borderColor = `${cfg.color}80`;
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = `0 12px 36px ${cfg.color}33`;
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.borderColor = isHot ? `${cfg.color}45` : 'rgba(255,255,255,0.06)';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                    e.currentTarget.style.boxShadow = isHot ? `0 8px 28px ${cfg.color}1F` : '0 2px 8px rgba(0,0,0,0.18)';
+                                                }}>
+                                                {/* accent stripe */}
+                                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent, ${cfg.color}, transparent)`, opacity: isHot ? 1 : 0.5 }} />
+
                                                 {/* Banner thumbnail */}
-                                                {b.bannerUrl && (
-                                                    <div style={{ width: isMobile ? '80px' : '140px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                                                {b.bannerUrl ? (
+                                                    <div style={{ width: isMobile ? '110px' : '180px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                                                         <img src={`${API}${b.bannerUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 60%, #242C3D)' }} />
+                                                        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, transparent 50%, #242C3D), linear-gradient(135deg, ${cfg.color}22 0%, transparent 60%)` }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: isMobile ? '110px' : '180px', flexShrink: 0, position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${cfg.color}28 0%, ${cfg.color}08 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Swords size={isMobile ? 30 : 44} color={cfg.color} style={{ opacity: 0.55 }} />
+                                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 50%, #242C3D)' }} />
                                                     </div>
                                                 )}
-                                                <div style={{ flex: 1, padding: isMobile ? '12px 14px' : '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px' }}>
+
+                                                <div style={{ flex: 1, padding: isMobile ? '14px 14px 14px 4px' : '18px 24px 18px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                        <span style={{ fontSize: '9px', fontWeight: 700, color: cfg.color, padding: '2px 8px', borderRadius: '999px', backgroundColor: `${cfg.color}15`, border: `1px solid ${cfg.color}30`, letterSpacing: '0.08em' }}>{cfg.label}</span>
+                                                        <span style={{
+                                                            fontSize: '10px', fontWeight: 800, color: cfg.color, padding: '3px 10px',
+                                                            borderRadius: '999px', backgroundColor: `${cfg.color}18`,
+                                                            border: `1px solid ${cfg.color}40`, letterSpacing: '0.1em',
+                                                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                        }}>
+                                                            {isHot && <Flame size={10} />}
+                                                            {cfg.label}
+                                                        </span>
                                                         {b.sponsor && (
                                                             b.sponsor.logoUrl
                                                                 ? <img src={b.sponsor.logoUrl} alt={b.sponsor.name} style={{ height: '16px', objectFit: 'contain', opacity: 0.6 }} />
                                                                 : <span style={{ fontSize: '9px', fontWeight: 600, color: colors.textSecondary, opacity: 0.6 }}>by {b.sponsor.name}</span>
                                                         )}
                                                     </div>
-                                                    <h4 style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: colors.textPrimary }}>{b.title}</h4>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: colors.textSecondary }}>
+                                                    <h4 style={{ margin: 0, fontSize: isMobile ? '15px' : '19px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>{b.title}</h4>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', color: colors.textSecondary, flexWrap: 'wrap' }}>
                                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={11} /> {b._count?.entries || 0} entries</span>
                                                         {b.submissionEnd && b.status === 'active' && (
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} /> Ends {formatDate(b.submissionEnd)}</span>
                                                         )}
                                                         {b.votingEnd && b.status === 'voting' && (
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={11} /> Voting ends {formatDate(b.votingEnd)}</span>
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: cfg.color, fontWeight: 700 }}><Zap size={11} /> Voting ends {formatDate(b.votingEnd)}</span>
+                                                        )}
+                                                        {b.prizes && b.prizes.length > 0 && (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Trophy size={11} color="#FFD700" /> {b.prizes.length} {b.prizes.length === 1 ? 'prize' : 'prizes'}</span>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'rgba(255,255,255,0.2)' }}>
-                                                    <ChevronRight size={18} />
+                                                <div style={{ display: 'flex', alignItems: 'center', paddingRight: '18px', color: cfg.color, opacity: 0.8 }}>
+                                                    <ChevronRight size={20} />
                                                 </div>
                                             </Link>
                                         );
@@ -486,27 +586,54 @@ export const BattlesPage: React.FC = () => {
 
                         {/* Right: Hall of Fame */}
                         <div>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <Trophy size={14} color={ACCENT} /> Hall of Fame
-                            </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,215,0,0.12)', border: '2px solid rgba(255,215,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Trophy size={16} color="#FFD700" />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#FFD700', letterSpacing: '-0.01em' }}>Hall of Fame</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>Recent battle champions</p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {hallOfFame.length === 0 ? (
                                     <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>No past winners yet.</p>
-                                ) : hallOfFame.map(({ battle, winner }) => (
-                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{ textDecoration: 'none', backgroundColor: '#242C3D', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', transition: 'border-color 0.2s' }}
-                                        onMouseEnter={e => (e.currentTarget.style.borderColor = `${ACCENT}40`)}
-                                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
+                                ) : hallOfFame.map(({ battle, winner }, idx) => {
+                                    const accent = idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : '#CD7F32';
+                                    return (
+                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{
+                                        textDecoration: 'none',
+                                        background: `linear-gradient(135deg, ${accent}10 0%, #242C3D 60%)`,
+                                        borderRadius: '12px', padding: '14px 16px',
+                                        border: `1px solid ${accent}30`,
+                                        display: 'flex', alignItems: 'center', gap: '12px',
+                                        transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                        boxShadow: `0 4px 14px ${accent}14`,
+                                        position: 'relative', overflow: 'hidden',
+                                    }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.borderColor = `${accent}70`;
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = `0 10px 24px ${accent}28`;
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.borderColor = `${accent}30`;
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = `0 4px 14px ${accent}14`;
+                                        }}>
+                                        {/* accent stripe */}
+                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
                                         <div style={{ position: 'relative', flexShrink: 0 }}>
-                                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', border: `2px solid ${ACCENT}35`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '46px', height: '46px', borderRadius: '50%', border: `2px solid ${accent}55`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${accent}33` }}>
                                                 {winner?.avatarUrl
                                                     ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={16} color={ACCENT} />}
+                                                    : <Trophy size={18} color={accent} />}
                                             </div>
-                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-4px', backgroundColor: ACCENT, color: '#fff', fontSize: '7px', fontWeight: 700, padding: '1px 4px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
+                                            <div style={{ position: 'absolute', bottom: '-3px', right: '-5px', backgroundColor: accent, color: '#1a1a1a', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '99px', border: '2px solid #242C3D' }}>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
-                                            <p style={{ margin: '1px 0 0', fontSize: '10px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
+                                            <h5 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
+                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
                                         </div>
                                         {winner?.audioUrl && (
                                             <button onClick={(e) => {
@@ -514,42 +641,73 @@ export const BattlesPage: React.FC = () => {
                                                 e.stopPropagation();
                                                 const id = `battle-${winner.id}`;
                                                 if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: `/battles/entry/${winner.id}` });
-                                            }} style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
-                                                {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                                                setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
+                                            }} style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: accent, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a1a', flexShrink: 0, boxShadow: `0 4px 12px ${accent}55` }}>
+                                                {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} fill="#1a1a1a" /> : <Play size={14} fill="#1a1a1a" />}
                                             </button>
                                         )}
                                     </Link>
-                                ))}
+                                );})}
                             </div>
                         </div>
                     </div>
 
                     {/* ── ENTRIES / VOTING ── */}
-                    {currentBattle && (currentBattle.status === 'voting' || currentBattle.status === 'active') && currentBattle.entries && currentBattle.entries.length > 0 && (
+                    {currentBattle && (currentBattle.status === 'voting' || currentBattle.status === 'active' || currentBattle.status === 'sudden_death') && currentBattle.entries && currentBattle.entries.length > 0 && (
                         <section id="entries-section" style={{ marginBottom: '32px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                                 <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                                     <Vote size={14} color={colors.primary} />
-                                    {currentBattle.status === 'voting' ? 'Vote for Your Favourite' : 'Submissions'}
+                                    {currentBattle.status === 'sudden_death'
+                                        ? 'Sudden Death — Tie-Breaker Vote'
+                                        : currentBattle.status === 'voting' ? 'Rank Your Top 3' : 'Submissions'}
                                     <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>{currentBattle.entries.length} entries</span>
                                 </h3>
-                                {currentBattle.status === 'voting' && !user && (
+                                {(currentBattle.status === 'voting' || currentBattle.status === 'sudden_death') && !user && (
                                     <a href="/api/auth/discord/login" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
                                         <LogIn size={12} /> Log in to vote
                                     </a>
                                 )}
                             </div>
+
+                            {/* Voting explainer */}
+                            {(currentBattle.status === 'voting' || currentBattle.status === 'sudden_death') && (
+                                <div style={{ backgroundColor: colors.surface, padding: '14px 16px', borderRadius: '10px', marginBottom: '14px', borderLeft: `4px solid ${colors.primary}` }}>
+                                    {currentBattle.status === 'sudden_death' ? (
+                                        <>
+                                            <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '13px', fontWeight: 700 }}>
+                                                ⚡ Sudden Death is live
+                                            </p>
+                                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: '12px', lineHeight: 1.5 }}>
+                                                The top entries finished level on points. Cast a single vote for the entry you want to win. Voting closes {currentBattle.suddenDeath?.end ? new Date(currentBattle.suddenDeath.end).toLocaleString() : 'shortly'}.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p style={{ margin: '0 0 6px', color: colors.textPrimary, fontSize: '13px', fontWeight: 700 }}>
+                                                🏆 How voting works
+                                            </p>
+                                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: '12px', lineHeight: 1.5 }}>
+                                                Assign <strong>+3 pts</strong> to your favourite beat, <strong>+2 pts</strong> to your second pick, and <strong>+1 pt</strong> to your third. The entry with the most total points wins. Ties are broken by who has more +3 pt votes, then +2 pt votes. Only if all are perfectly level does the battle enter <strong>Sudden Death</strong>.
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {currentBattle.entries.map((entry, i) => {
-                                    const hasVoted = votedIds.has(entry.id);
+                                    const myRank = myRanks[entry.id] || 0;
+                                    const hasVoted = myRank > 0;
                                     const isVoting = votingId === entry.id;
                                     const isPlaying = player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying;
+                                    const sdActive = currentBattle.status === 'sudden_death';
+                                    const sdEntries: string[] = currentBattle.suddenDeath?.entryIds || [];
+                                    const sdEligible = !sdActive || sdEntries.includes(entry.id);
                                     const handlePlay = () => {
                                         if (!entry.audioUrl) return;
                                         const id = `battle-${entry.id}`;
                                         if (player.currentTrack?.id === id) { togglePlay(); return; }
-                                        setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` });
+                                        setTrack({ id, title: entry.trackTitle, artist: entry.username, cover: entry.coverUrl || entry.avatarUrl || '', url: entry.audioUrl.startsWith('http') ? entry.audioUrl : `${API}${entry.audioUrl}`, entryRoute: (entry as any).trackRoute || `/battles/entry/${entry.id}` });
                                     };
                                     return (
                                         <div key={entry.id} style={{ backgroundColor: colors.surface, borderRadius: '8px', border: i === 0 ? `1px solid ${colors.primary}40` : '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', transition: 'border-color 0.2s' }}
@@ -601,14 +759,16 @@ export const BattlesPage: React.FC = () => {
                                                                 {entry.username}
                                                             </Link>
                                                         </div>
-                                                        {/* Vote fire count */}
-                                                        <span style={{ fontSize: '12px', color: colors.primary, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-                                                            {FIRE} {entry.voteCount}
-                                                        </span>
+                                                        {/* Vote fire count — hidden during voting to avoid influencing voters */}
+                                                        {currentBattle.status === 'completed' && (
+                                                            <span style={{ fontSize: '12px', color: colors.primary, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                                                {FIRE} {entry.voteCount}
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     {/* Track title */}
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ color: colors.textPrimary, fontSize: '15px', fontWeight: 700, marginBottom: '6px', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ color: colors.textPrimary, fontSize: '15px', fontWeight: 700, marginBottom: '6px', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                                                         {entry.trackTitle}
                                                     </Link>
 
@@ -622,18 +782,65 @@ export const BattlesPage: React.FC = () => {
                                                     <div style={{ flex: 1 }} />
 
                                                     {/* Actions bar */}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                                        {currentBattle.status === 'voting' && (
-                                                            <button onClick={() => vote(entry.id)} disabled={isVoting}
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: hasVoted ? `${colors.primary}25` : colors.primary, color: hasVoted ? colors.primary : '#fff', fontSize: '11px', fontWeight: 700, opacity: isVoting ? 0.6 : 1 }}>
-                                                                <Flame size={12} /> {hasVoted ? 'Voted' : isVoting ? '…' : 'Vote'}
-                                                            </button>
+                                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        {(currentBattle.status === 'voting' || sdActive) && sdEligible && (
+                                                            <>
+                                                                {(sdActive ? [1] : [1, 2, 3]).map(r => {
+                                                                    const isThis = myRank === r;
+                                                                    const label = sdActive ? 'Vote' : (r === 1 ? '+3 pts' : r === 2 ? '+2 pts' : '+1 pt');
+                                                                    const medalColor = sdActive ? colors.primary : (r === 1 ? '#FFD700' : r === 2 ? '#C0C0C0' : '#CD7F32');
+                                                                    // Once a vote is cast on this entry, selected button is primary green; others go neutral.
+                                                                    // Before any vote, all buttons display their medal-coloured tint to invite the user.
+                                                                    const bg = isThis
+                                                                        ? colors.primary
+                                                                        : hasVoted ? 'transparent' : `${medalColor}1A`;
+                                                                    const border = isThis
+                                                                        ? colors.primary
+                                                                        : hasVoted ? 'rgba(255,255,255,0.12)' : `${medalColor}55`;
+                                                                    const fg = isThis
+                                                                        ? '#fff'
+                                                                        : hasVoted ? colors.textSecondary : medalColor;
+                                                                    return (
+                                                                        <button
+                                                                            key={r}
+                                                                            onClick={() => castVote(entry.id, isThis ? null : (r as 1 | 2 | 3))}
+                                                                            disabled={isVoting}
+                                                                            title={isThis ? 'Click to remove this vote' : `Assign ${r === 1 ? 3 : r === 2 ? 2 : 1} point${r === 3 ? '' : 's'} to this entry`}
+                                                                            style={{
+                                                                                display: 'flex', alignItems: 'center', gap: '4px',
+                                                                                padding: '5px 10px', borderRadius: '6px',
+                                                                                border: `1px solid ${border}`,
+                                                                                cursor: 'pointer',
+                                                                                backgroundColor: bg,
+                                                                                color: fg,
+                                                                                fontSize: '11px', fontWeight: 700, opacity: isVoting ? 0.6 : 1,
+                                                                            }}
+                                                                        >
+                                                                            <Medal size={11} />
+                                                                            {label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </>
                                                         )}
-                                                        <Link to={`/battles/entry/${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: colors.textSecondary, textDecoration: 'none' }}>
+                                                        {sdActive && !sdEligible && (
+                                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontStyle: 'italic' }}>Eliminated in sudden death</span>
+                                                        )}
+                                                        <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: colors.textSecondary, textDecoration: 'none' }}>
                                                             <ExternalLink size={13} /> View Entry
                                                         </Link>
-                                                        {i >= 3 && (
-                                                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary, fontWeight: 600 }}>#{i + 1}</span>
+                                                        {/* Per-rank tally */}
+                                                        {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
+                                                            <span style={{ marginLeft: 'auto', fontSize: '10px', color: colors.textSecondary, fontWeight: 600, display: 'flex', gap: '6px' }}>
+                                                                <span title="1st place votes">🥇 {entry.firstPlaceVotes || 0}</span>
+                                                                <span title="2nd place votes">🥈 {entry.secondPlaceVotes || 0}</span>
+                                                                <span title="3rd place votes">🥉 {entry.thirdPlaceVotes || 0}</span>
+                                                            </span>
+                                                        )}
+                                                        {hasVoted && (currentBattle.status === 'voting' || sdActive) && (
+                                                            <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                Your pick · {myRank === 1 ? 3 : myRank === 2 ? 2 : 1} pts
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -648,39 +855,94 @@ export const BattlesPage: React.FC = () => {
                     {/* ── PAST BATTLES ── */}
                     {pastBattles.length > 0 && (
                         <section>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <History size={14} color={colors.textSecondary} /> Past Battles
-                            </h3>
-                            <div style={{ backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                {pastBattles.map((b, i) => {
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(107,114,128,0.15)', border: '2px solid rgba(107,114,128,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <History size={16} color={colors.textSecondary} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em' }}>Past Battles</h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>{pastBattles.length} completed {pastBattles.length === 1 ? 'battle' : 'battles'} — relive the highlights</p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                                {pastBattles.map(b => {
                                     const hof = hallOfFame.find(h => h.battle.id === b.id);
+                                    const winner = hof?.winner;
                                     return (
                                         <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{
-                                            display: 'flex', alignItems: 'center', gap: '12px',
-                                            padding: isMobile ? '10px 14px' : '12px 20px',
-                                            borderBottom: i < pastBattles.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                                            textDecoration: 'none', transition: 'background-color 0.15s',
+                                            position: 'relative',
+                                            display: 'flex', flexDirection: 'column',
+                                            backgroundColor: '#242C3D',
+                                            borderRadius: '12px',
+                                            border: '1px solid rgba(255,215,0,0.15)',
+                                            overflow: 'hidden',
+                                            textDecoration: 'none',
+                                            transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                            boxShadow: '0 4px 14px rgba(255,215,0,0.06)',
                                         }}
-                                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(43,140,113,0.06)')}
-                                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}
-                                        >
-                                            {/* Winner avatar */}
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {hof?.winner?.avatarUrl
-                                                    ? <img src={hof.winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={14} color={colors.textSecondary} style={{ opacity: 0.4 }} />}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.borderColor = 'rgba(255,215,0,0.5)';
+                                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                                e.currentTarget.style.boxShadow = '0 12px 32px rgba(255,215,0,0.18)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.borderColor = 'rgba(255,215,0,0.15)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 4px 14px rgba(255,215,0,0.06)';
+                                            }}>
+                                            {/* gold accent stripe */}
+                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, transparent, #FFD700, transparent)' }} />
+
+                                            {/* Banner / cover area */}
+                                            <div style={{ position: 'relative', height: '120px', overflow: 'hidden', background: b.bannerUrl
+                                                ? undefined
+                                                : 'linear-gradient(135deg, rgba(255,215,0,0.18) 0%, rgba(36,44,61,0.9) 70%)',
+                                            }}>
+                                                {b.bannerUrl && <img src={`${API}${b.bannerUrl}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(36,44,61,0.95), rgba(36,44,61,0.3) 60%, transparent)' }} />
+                                                {/* Ended badge */}
+                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: 800, color: '#FFD700', padding: '3px 8px', borderRadius: '999px', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,215,0,0.4)', letterSpacing: '0.1em', backdropFilter: 'blur(4px)' }}>
+                                                    <Trophy size={10} /> CHAMPION
+                                                </div>
+                                                {/* Title overlay */}
+                                                <h4 style={{ position: 'absolute', bottom: '10px', left: '14px', right: '14px', margin: 0, fontSize: '15px', fontWeight: 800, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.7)', letterSpacing: '-0.01em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>{b.title}</h4>
                                             </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</p>
+
+                                            {/* Winner section */}
+                                            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid rgba(255,215,0,0.55)', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 14px rgba(255,215,0,0.3)' }}>
+                                                        {winner?.avatarUrl
+                                                            ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            : <Trophy size={18} color="#FFD700" />}
+                                                    </div>
+                                                    <div style={{ position: 'absolute', bottom: '-3px', right: '-3px', fontSize: '14px' }}>🥇</div>
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontSize: '10px', color: colors.textSecondary, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Winner</p>
+                                                    <p style={{ margin: '2px 0 0', fontSize: '13px', fontWeight: 800, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}
+                                                    </p>
+                                                </div>
+                                                {winner?.audioUrl && (
+                                                    <button onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        const id = `battle-${winner.id}`;
+                                                        if (player.currentTrack?.id === id) { togglePlay(); return; }
+                                                        setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
+                                                    }} style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: '#FFD700', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a1a', flexShrink: 0, boxShadow: '0 4px 12px rgba(255,215,0,0.45)' }}>
+                                                        {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={14} fill="#1a1a1a" /> : <Play size={14} fill="#1a1a1a" />}
+                                                    </button>
+                                                )}
                                             </div>
-                                            {hof?.winner && (
-                                                <span style={{ fontSize: '11px', color: ACCENT, fontWeight: 700, flexShrink: 0, display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Trophy size={11} /> <StyledUsername userId={hof.winner.userId} showBadge={false}>{hof.winner.username}</StyledUsername>
-                                                </span>
-                                            )}
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0, display: isMobile ? 'none' : 'block' }}>{b._count?.entries || 0} entries</span>
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, flexShrink: 0 }}>{formatDate(b.votingEnd)}</span>
-                                            <ChevronRight size={14} color="rgba(255,255,255,0.15)" style={{ flexShrink: 0 }} />
+
+                                            {/* Footer stats */}
+                                            <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: colors.textSecondary }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Users size={11} /> {b._count?.entries || 0} entries</span>
+                                                <span>{formatDate(b.votingEnd)}</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#FFD700', fontWeight: 700 }}>View <ChevronRight size={12} /></span>
+                                            </div>
                                         </Link>
                                     );
                                 })}

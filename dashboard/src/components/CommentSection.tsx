@@ -373,7 +373,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         return false;
     };
 
-    const handleReply = async (parentId: string) => {
+    /**
+     * Post a reply. `parentId` may be either a top-level comment id OR a reply
+     * id (when the user clicks "Reply" on a reply). The backend rolls up to
+     * the top-level grandparent in either case, so we use the `parentId`
+     * returned in the response (or our caller's `topLevelId` hint) to figure
+     * out which top-level thread the new reply belongs to.
+     */
+    const handleReply = async (parentId: string, topLevelId?: string) => {
         if (!replyContent.trim() || replySending) return;
         setReplySending(true);
         try {
@@ -381,13 +388,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                 content: replyContent.trim(),
                 parentId,
             }, { withCredentials: true });
-            setComments(prev => prev.map(c => c.id === parentId
+            const threadId = res.data?.parentId || topLevelId || parentId;
+            setComments(prev => prev.map(c => c.id === threadId
                 ? { ...c, replies: [...(c.replies || []), res.data] }
                 : c));
             setReplyContent('');
             setReplyingTo(null);
             setShowReplyEmoji(false);
-            setExpandedReplies(prev => new Set([...prev, parentId]));
+            setExpandedReplies(prev => new Set([...prev, threadId]));
         } catch (e: any) {
             showToast(e?.response?.data?.error || 'Failed to post reply', 'error');
         } finally {
@@ -767,6 +775,51 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                                             <Trash2 size={11} /> Delete
                                                                         </button>
                                                                     )}
+                                                                    {user && reply.userId !== user.id && (
+                                                                        <ReportButton targetType="comment" targetId={reply.id} iconOnly style={{ padding: 0, fontSize: '11px' }} />
+                                                                    )}
+                                                                    {user && (
+                                                                        <button onClick={() => { setReplyingTo(replyingTo === reply.id ? null : reply.id); setReplyContent(replyingTo === reply.id ? '' : `@${reply.username} `); setShowReplyEmoji(false); }}
+                                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: replyingTo === reply.id ? colors.primary : colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                                                                            <Reply size={11} /> Reply
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {/* Reply-to-reply input */}
+                                                            {user && replyingTo === reply.id && (
+                                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                                                    <img src={user.profileAvatar || (user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64` : '')}
+                                                                        alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, marginTop: '4px', backgroundColor: 'rgba(255,255,255,0.1)', objectFit: 'cover' }} />
+                                                                    <div style={{ flex: 1, position: 'relative' }}>
+                                                                        <textarea
+                                                                            autoFocus
+                                                                            value={replyContent}
+                                                                            onChange={e => setReplyContent(e.target.value)}
+                                                                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(reply.id, comment.id); } }}
+                                                                            placeholder={`Reply to @${reply.username}\u2026`}
+                                                                            rows={1}
+                                                                            style={{ width: '100%', padding: '7px 9px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.primary}40`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '12px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                                                        />
+                                                                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
+                                                                            <button onClick={() => setShowReplyEmoji(v => !v)}
+                                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: showReplyEmoji ? colors.primary : colors.textSecondary, display: 'flex' }}>
+                                                                                <Smile size={13} />
+                                                                            </button>
+                                                                            <div style={{ flex: 1 }} />
+                                                                            <button onClick={() => { setReplyingTo(null); setReplyContent(''); setShowReplyEmoji(false); }}
+                                                                                style={{ padding: '3px 9px', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: colors.textSecondary, cursor: 'pointer', fontSize: '11px' }}>
+                                                                                Cancel
+                                                                            </button>
+                                                                            <button onClick={() => handleReply(reply.id, comment.id)} disabled={replySending || !replyContent.trim()}
+                                                                                style={{ padding: '3px 11px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '4px', cursor: (replySending || !replyContent.trim()) ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 600, opacity: (replySending || !replyContent.trim()) ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                <Send size={11} /> {replySending ? '\u2026' : 'Reply'}
+                                                                            </button>
+                                                                        </div>
+                                                                        {showReplyEmoji && (
+                                                                            <EmojiPicker onSelect={em => setReplyContent(prev => prev + em)} onClose={() => setShowReplyEmoji(false)} />
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </div>

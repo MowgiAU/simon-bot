@@ -20,6 +20,27 @@ function isChunkLoadError(error: Error): boolean {
   );
 }
 
+async function hardReload(): Promise<void> {
+  // Wipe Cache Storage (PWA / runtime caches) so the next request bypasses any
+  // stale entry referencing dead chunk hashes.
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch {}
+  // Unregister any service workers — none ship today, but be defensive.
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch {}
+  // Caches and service workers have been cleared above; a normal reload will
+  // now refetch the document and chunks fresh from the server.
+  window.location.reload();
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -34,6 +55,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    if (isChunkLoadError(error)) {
+      // Auto-recover from stale-cache chunk errors so users don't get stuck on
+      // the "Update Available" screen. Clear caches once, then hard-reload with
+      // a cache-bust. We use sessionStorage to avoid an infinite reload loop.
+      try {
+        if (!sessionStorage.getItem('__chunk_recover_attempted')) {
+          sessionStorage.setItem('__chunk_recover_attempted', '1');
+          hardReload();
+        }
+      } catch {
+        hardReload();
+      }
+    } else {
+      try { sessionStorage.removeItem('__chunk_recover_attempted'); } catch {}
+    }
   }
 
   public render() {
@@ -56,7 +92,7 @@ export class ErrorBoundary extends Component<Props, State> {
               The dashboard was updated while you had it open. Please reload to get the latest version.
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => hardReload()}
               style={{
                 padding: '12px 24px',
                 backgroundColor: '#22c55e',

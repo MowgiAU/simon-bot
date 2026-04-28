@@ -47,6 +47,8 @@ const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
 const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
 const BeatBattlePage         = lazy(() => import("./pages/BeatBattle").then(m => ({ default: m.BeatBattlePage })));
+const HeadToHeadAdminPage    = lazy(() => import("./pages/HeadToHead").then(m => ({ default: m.HeadToHeadAdminPage })));
+const HeadToHeadArenaPage    = lazy(() => import("./pages/HeadToHeadArena").then(m => ({ default: m.HeadToHeadArenaPage })));
 const BattleArchivePage      = lazy(() => import("./pages/BattleArchive").then(m => ({ default: m.BattleArchivePage })));
 const BattlesPage            = lazy(() => import("./pages/BattlesPage").then(m => ({ default: m.BattlesPage })));
 const BattleEntryPage        = lazy(() => import("./pages/BattleEntryPage").then(m => ({ default: m.BattleEntryPage })));
@@ -57,7 +59,9 @@ const MyPlaylistsPage        = lazy(() => import("./pages/MyPlaylistsPage").then
 const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").then(m => ({ default: m.MyFavouritesPage })));
 const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
 const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
+const LatestReleasesPage     = lazy(() => import("./pages/LatestReleasesPage").then(m => ({ default: m.LatestReleasesPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const AcademyPage            = lazy(() => import("./pages/Academy").then(m => ({ default: m.AcademyPage })));
 const CompleteAccountPage   = lazy(() => import("./pages/CompleteAccountPage").then(m => ({ default: m.CompleteAccountPage })));
 const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
@@ -89,6 +93,8 @@ const MessagesPage           = lazy(() => import("./pages/Messages").then(m => (
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
+const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
+const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -118,6 +124,7 @@ type Section =
   | "staging-test"
   | "plugins"
   | "beat-battle"
+  | "head-to-head"
   | "battle-archive"
   | "featured-content"
   | "account-management"
@@ -141,7 +148,9 @@ type Section =
   | "article-review"
   | "voice-stats"
   | "spam-guard"
-  | "track-announcer";
+  | "track-announcer"
+  | "academy"
+  | "drum-kit";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -327,6 +336,8 @@ const AdminDashboard: React.FC = () => {
     'library': 'fuji-studio',
     'logs': 'logger',
     'beat-battle': 'beat-battle',
+    'head-to-head': 'head-to-head',
+    'drum-kit': 'drum-kit',
     'battle-archive': 'beat-battle',
     'featured-content': 'featured-content',
     'fuji-radio': 'fuji-radio',
@@ -342,6 +353,7 @@ const AdminDashboard: React.FC = () => {
     'account-management': 'account-management',
     'reports': 'reports',
     'articles': 'articles',
+    'academy': 'academy',
     // Grouped pages — no single plugin requirement (handled in sidebar visibility)
     'boost': '',
     'automation': '',
@@ -428,6 +440,10 @@ const AdminDashboard: React.FC = () => {
           return <PluginManagementPage />;
         case "beat-battle":
           return <BeatBattlePage />;
+        case "head-to-head":
+          return <HeadToHeadAdminPage />;
+        case "drum-kit":
+          return <DrumKitGeneratorPage />;
         case "battle-archive":
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":
@@ -476,6 +492,8 @@ const AdminDashboard: React.FC = () => {
           return <ArticleReviewPage />;
         case "genres-list":
           return <GenresPage />;
+        case "academy":
+          return <AcademyPage />;
         default:
           return null;
       }
@@ -717,7 +735,8 @@ const AppInternal: React.FC = () => {
     currentPath === '/login' || currentPath === '/register' ||
     currentPath === '/terms' || currentPath === '/forgot-password' ||
     currentPath === '/reset-password' || currentPath === '/verify-email' ||
-    currentPath === '/account' || currentPath === '/complete-account';
+    currentPath === '/account' || currentPath === '/complete-account' ||
+    currentPath === '/learn' || currentPath.startsWith('/learn/');
 
   if (inviteOnly && !isExemptRoute) {
     const isAdmin = dashboardGuilds.length > 0 || role === 'admin';
@@ -873,6 +892,11 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><ChartsPage /></Suspense>;
   }
 
+  // /new → Latest releases page
+  if (currentPath === '/new') {
+    return <Suspense fallback={<PageSpinner />}><LatestReleasesPage /></Suspense>;
+  }
+
   // /battles/entry/:entryId → Battle entry track page
   if (currentPath.startsWith('/battles/entry/')) {
     return <Suspense fallback={<PageSpinner />}><BattleEntryPage /></Suspense>;
@@ -888,9 +912,26 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
   }
 
+  // /arena → Public Head-to-Head arena (formerly /h2h)
+  if (currentPath === '/arena' || currentPath.startsWith('/arena/')) {
+    return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
+  }
+  // Legacy /h2h redirect
+  if (currentPath === '/h2h' || currentPath.startsWith('/h2h/')) {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', currentPath.replace(/^\/h2h/, '/arena'));
+    }
+    return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
+  }
+
   // /article/:slug → Public article view
   if (currentPath.startsWith('/article/')) {
     return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
+  }
+
+  // /learn → Public Academy lesson browser + player
+  if (currentPath === '/learn' || currentPath.startsWith('/learn/')) {
+    return <Suspense fallback={<PageSpinner />}><LearnPage /></Suspense>;
   }
 
   return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;

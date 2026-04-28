@@ -39,6 +39,8 @@ import {
   BarChart2,
   ClipboardCheck,
   Megaphone,
+  GraduationCap,
+  Drum,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -253,6 +255,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('academy') && (
+            <button
+                className={`nav-item ${activeSection === 'academy' ? 'active' : ''}`}
+                onClick={() => onNavigate('academy')}
+                title={collapsed ? "Academy" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={GraduationCap} size={20} /></span>
+                <span className="nav-label">Academy</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('studio-guide') && (
             <button
                 className={`nav-item ${activeSection === 'studio-guide' ? 'active' : ''}`}
@@ -398,6 +411,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
                 <span className="nav-label">Beat Battles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('head-to-head') && (
+            <button
+                className={`nav-item ${activeSection === 'head-to-head' ? 'active' : ''}`}
+                onClick={() => onNavigate('head-to-head')}
+                title={collapsed ? "Head-to-Head" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
+                <span className="nav-label">Head-to-Head</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('drum-kit') && (
+            <button
+                className={`nav-item ${activeSection === 'drum-kit' ? 'active' : ''}`}
+                onClick={() => onNavigate('drum-kit')}
+                title={collapsed ? "Drum Kit Generator" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Drum} size={20} /></span>
+                <span className="nav-label">Drum Kit Generator</span>
             </button>
           )}
 

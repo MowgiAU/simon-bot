@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
-    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2
+    Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2,
+    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -132,7 +133,7 @@ function generateWaveform(seed: string, bars = 32): number[] {
     for (let i = 0; i < seed.length; i++) { h = ((Math.imul(h, 33) ^ seed.charCodeAt(i)) >>> 0); }
     for (let i = 0; i < bars; i++) {
         h = (Math.imul(h ^ (i + 1), 2246822519) + Math.imul(h, 3266489917)) >>> 0;
-        out.push(18 + (h % 72)); // 18–89 — percentage of container height
+        out.push(18 + (h % 72)); // 18â€“89 â€” percentage of container height
     }
     return out;
 }
@@ -140,12 +141,13 @@ function generateWaveform(seed: string, bars = 32): number[] {
 export const ArtistDiscoveryPage: React.FC = () => {
     const [artists, setArtists] = useState<ArtistProfile[]>([]);
     const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
-    const [latestTracks, setLatestTracks] = useState<TrackInfo[]>([]);
+    const [weeklyChart, setWeeklyChart] = useState<{ position: number; positionChange: number | null; prevPosition: number | null; playsInPeriod: number; track: TrackInfo }[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [featured, setFeatured] = useState<FeaturedData | null>(null);
     const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
     const [featuredArticle, setFeaturedArticle] = useState<any>(null);
+    const [h2hChampion, setH2hChampion] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
 
     useEffect(() => {
@@ -158,20 +160,21 @@ export const ArtistDiscoveryPage: React.FC = () => {
         axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
         axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
         axios.get('/api/articles/featured/current').then(r => setFeaturedArticle(r.data)).catch(() => {});
+        axios.get('/api/head-to-head/leaderboard?limit=1').then(r => setH2hChampion(Array.isArray(r.data) && r.data.length > 0 ? r.data[0] : null)).catch(() => {});
     }, []);
 
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [profilesRes, tracksRes, latestRes] = await Promise.all([
+                const [profilesRes, tracksRes, chartRes] = await Promise.all([
                     axios.get('/api/musician/profiles'),
                     axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
-                    axios.get('/api/discovery/tracks', { params: { sort: 'newest', limit: 6 } })
+                    axios.get('/api/charts/weekly', { params: { limit: 10 } })
                 ]);
                 setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
                 setTopTracks(tracksRes.data);
-                setLatestTracks(latestRes.data.tracks || []);
+                setWeeklyChart(chartRes.data?.entries || []);
             } catch (err) {
                 console.error('Failed to fetch', err);
             } finally {
@@ -181,7 +184,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
         fetchData();
     }, []);
 
-    // ── Helpers ──
+    // â”€â”€ Helpers â”€â”€
     const heroTrack = featured?.featuredTrack;
     const heroPlaylist = featured?.featuredPlaylist;
     const heroArtist = featured?.featuredArtist;
@@ -210,7 +213,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
         : heroType === 'playlist' ? (heroPlaylist?.name || '')
         : (heroTrack?.title || '');
     const heroSubtitle = heroType === 'artist'
-        ? (heroArtist?.genres?.length ? heroArtist.genres.map(g => g.genre.name).join(' · ') : '')
+        ? (heroArtist?.genres?.length ? heroArtist.genres.map(g => g.genre.name).join(' Â· ') : '')
         : heroType === 'playlist' ? (heroPlaylist?.profile?.displayName || heroPlaylist?.profile?.username || '') : (heroTrack?.profile.displayName || heroTrack?.profile.username || '');
 
     const handleHeroPlay = () => {
@@ -277,7 +280,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     gap: '18px',
                 }}>
 
-                    {/* ═══════════════ ROW 1: HERO / BATTLE / ARTISTS ═══════════════ */}
+                    {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ROW 1: HERO / BATTLE / ARTISTS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
                     {/* Hero/Featured */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '320px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0 }}>
@@ -285,13 +288,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {heroCover && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                         )}
-                        {/* Dark gradient overlay — heavier on left for text legibility */}
+                        {/* Dark gradient overlay â€” heavier on left for text legibility */}
                         <div style={{ position: 'absolute', inset: 0, background: heroCover
                             ? 'linear-gradient(to right, rgba(14,18,26,0.97) 30%, rgba(14,18,26,0.6) 65%, rgba(14,18,26,0.25) 100%), linear-gradient(to top, rgba(14,18,26,0.6) 0%, transparent 50%)'
                             : 'rgba(14,18,26,0.98)'
                         }} />
 
-                        {/* Cover art — floated to the right, vertically centred */}
+                        {/* Cover art â€” floated to the right, vertically centred */}
                         {heroCover && !isMobile && (
                             <div style={{
                                 position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
@@ -306,7 +309,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Main content — full height flex column, padded, right side offset to avoid cover art */}
+                        {/* Main content â€” full height flex column, padded, right side offset to avoid cover art */}
                         <div style={{
                             position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             height: '100%', boxSizing: 'border-box',
@@ -339,7 +342,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                             {/* Bottom: track strip + action buttons */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
-                                {/* Track pills — infinite marquee */}
+                                {/* Track pills â€” infinite marquee */}
                                 {heroTrackList.length > 0 && (
                                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)' } as React.CSSProperties}>
                                     <div className="hero-marquee-track">
@@ -408,7 +411,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const battleDesc = featured?.featuredBattleDescription;
                         return (
                     <div style={{ ...panel, padding: 0, height: 'auto', minHeight: isMobile ? '200px' : '200px', position: 'relative', overflow: 'hidden' }}>
-                        {/* Banner image — blurred background */}
+                        {/* Banner image â€” blurred background */}
                         {battle?.bannerUrl && (
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.2, filter: 'blur(8px)', transform: 'scale(1.1)', pointerEvents: 'none' }} />
                         )}
@@ -484,12 +487,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         )}
                                     </div>
 
-                                    {/* Prizes — medal style */}
+                                    {/* Prizes â€” medal style */}
                                     {battle.prizes && battle.prizes.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                             {battle.prizes.slice(0, 3).map((p, i) => (
                                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#D2DAE2' }}>
-                                                    <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                                                    <span>{i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : 'ðŸ¥‰'}</span>
                                                     <span style={{ fontWeight: 600, color: 'white' }}>{p.place}:</span>
                                                     {p.title && <span style={{ color: colors.primary, fontWeight: 600 }}>{p.title}</span>}
                                                 </div>
@@ -524,8 +527,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 : battle.status === 'active'
                                                 ? <><Swords size={13} /> Submit a Beat &rarr;</>
                                                 : battle.status === 'completed'
-                                                ? 'View Results →'
-                                                : 'View Battle →'}
+                                                ? 'View Results â†’'
+                                                : 'View Battle â†’'}
                                         </Link>
                                     </div>
                                 </>
@@ -533,7 +536,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No battle running right now.</p>
-                                    <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
+                                    <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive â†’</Link>
                                 </div>
                             )}
                         </div>
@@ -541,7 +544,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         );
                     })()}
 
-                    {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
+                    {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
                     {/* Trending Artist */}
                     <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
@@ -648,7 +651,116 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Featured Content — 2 cols wide */}
+                    {/* 1v1 Arena â€” Beat Battles head-to-head */}
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(139,92,246,0.18)', gridColumn: isMobile ? undefined : 'span 2' }}>
+                        {/* Animated diagonal gradient background */}
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 35%, #3d0f2e 70%, #2a0f1a 100%)',
+                            pointerEvents: 'none',
+                        }} />
+                        {/* Purple glow top-left */}
+                        <div style={{ position: 'absolute', top: '-30%', left: '-15%', width: '70%', height: '90%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        {/* Pink glow bottom-right */}
+                        <div style={{ position: 'absolute', bottom: '-25%', right: '-10%', width: '60%', height: '85%', background: 'radial-gradient(ellipse, rgba(236,72,153,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        {/* Subtle scan-line texture */}
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)', pointerEvents: 'none' }} />
+
+                        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', padding: isMobile ? '20px' : '22px 26px', boxSizing: 'border-box', gap: isMobile ? '18px' : '24px', alignItems: isMobile ? 'stretch' : 'center' }}>
+
+                            {/* Left: Branding */}
+                            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
+                                {/* Label row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Swords size={13} color="#EC4899" />
+                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.15em', textTransform: 'uppercase' }}>1v1 Arena</span>
+                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
+                                </div>
+                                {/* Title */}
+                                <div style={{ fontWeight: 900, fontSize: isMobile ? '22px' : '26px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
+                                    Producer vs<br/>Producer
+                                </div>
+                                {/* Subtitle */}
+                                <p style={{ fontSize: '12px', color: 'rgba(220,220,240,0.7)', margin: 0, lineHeight: 1.5, maxWidth: '260px' }}>
+                                    Get matched. Get a sample pack. Build a beat. Anonymous voters pick the winner.
+                                </p>
+                                {/* CTA */}
+                                <Link to="/arena" style={{
+                                    marginTop: '4px',
+                                    display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                    padding: '10px 22px', borderRadius: '999px', textDecoration: 'none',
+                                    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                                    color: 'white', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em',
+                                    boxShadow: '0 6px 20px rgba(139,92,246,0.45)',
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(236,72,153,0.55)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(139,92,246,0.45)'; }}
+                                >
+                                    <Swords size={14} /> Enter the Arena
+                                </Link>
+                            </div>
+
+                            {/* Right: Reigning champion or VS graphic */}
+                            <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: isMobile ? 'auto' : '180px' }}>
+                                {h2hChampion ? (
+                                    <Link to={h2hChampion.profile?.username ? `/profile/${h2hChampion.profile.username}` : '/arena'} style={{ textDecoration: 'none' }}>
+                                        <div style={{
+                                            position: 'relative', padding: '14px 16px',
+                                            borderRadius: '14px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(251,191,36,0.35)',
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 0 24px rgba(251,191,36,0.08)',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                            minWidth: '160px',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <Trophy size={11} color="#FBBF24" />
+                                                <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Reigning Champ</span>
+                                            </div>
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'conic-gradient(from 90deg, #FBBF24, #EC4899, #8B5CF6, #FBBF24)', opacity: 0.85, filter: 'blur(1px)' }} />
+                                                <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(20,12,30,0.85)' }} />
+                                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                                                    {h2hChampion.profile?.avatar ? (
+                                                        <img src={getAvatarUrl(h2hChampion.profile.avatar, h2hChampion.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                                    ) : (
+                                                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 900, fontSize: '22px' }}>
+                                                            {(h2hChampion.profile?.displayName || h2hChampion.profile?.username || '?')[0].toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontWeight: 800, fontSize: '13px', color: '#fff', textAlign: 'center', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {h2hChampion.profile?.displayName || h2hChampion.profile?.username || 'Anonymous'}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+                                                <span style={{ fontSize: '18px', fontWeight: 900, color: '#FBBF24', lineHeight: 1, letterSpacing: '-0.02em' }}>{h2hChampion.elo}</span>
+                                                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Elo</span>
+                                                <span style={{ fontSize: '10px', color: '#34D399', fontWeight: 700 }}>{h2hChampion.wins}W</span>
+                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>Â·</span>
+                                                <span style={{ fontSize: '10px', color: 'rgba(248,113,113,0.85)', fontWeight: 700 }}>{h2hChampion.losses}L</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ) : (
+                                    /* Fallback: VS hero graphic */
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6, #6366F1)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(139,92,246,0.45)' }}>
+                                            <Mic2 size={26} color="white" />
+                                        </div>
+                                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#fff', letterSpacing: '0.1em', textShadow: '0 2px 12px rgba(236,72,153,0.5)' }}>VS</div>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #EC4899, #F43F5E)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(236,72,153,0.45)' }}>
+                                            <Mic2 size={26} color="white" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Featured Content â€” full width below */}
                     {(() => {
                         const contentType = featured?.featuredContentType || 'video';
                         const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
@@ -659,7 +771,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', height: isMobile ? 'auto' : '220px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
@@ -752,7 +864,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                                 </span>
                                                             )}
                                                             {featured.featuredTutorialAuthor && featured.featuredTutorialDate && (
-                                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>Â·</span>
                                                             )}
                                                             {featured.featuredTutorialDate && (
                                                                 <span style={{ fontSize: '11px', color: colors.textSecondary }}>
@@ -788,7 +900,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </div>
                                         )
                                     ) : (
-                                        /* News / Guide / Article — show featured article or fallback */
+                                        /* News / Guide / Article â€” show featured article or fallback */
                                         featuredArticle ? (
                                             <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
                                                 {featuredArticle.coverImageUrl ? (
@@ -827,7 +939,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                             </span>
                                                         )}
                                                         {featuredArticle.authorName && featuredArticle.publishedAt && (
-                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>Â·</span>
                                                         )}
                                                         {featuredArticle.publishedAt && (
                                                             <span style={{ fontSize: '11px', color: colors.textSecondary }}>
@@ -884,89 +996,201 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         );
                     })()}
 
-                    {/* ═══════════════ FULL-WIDTH: LATEST RELEASES ═══════════════ */}
-                    <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', padding: 0, overflow: 'hidden' }}>
-                        {/* Header */}
-                        <div style={{ padding: '15px 20px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Activity size={15} color={colors.primary} />
-                            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textPrimary }}>Latest Releases</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary }}>{Math.min(latestTracks.length, 6)} tracks</span>
+                    {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FULL-WIDTH: WEEKLY CHART â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+                    <div style={{
+                        gridColumn: isMobile ? undefined : '1 / -1',
+                        position: 'relative',
+                        borderRadius: '20px',
+                        overflow: 'hidden',
+                        background: 'linear-gradient(180deg, #11192B 0%, #0B1120 100%)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
+                    }}>
+                        {/* Header strip â€” newspaper masthead vibe */}
+                        <div style={{
+                            padding: isMobile ? '18px 18px 16px' : '24px 28px 20px',
+                            display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px',
+                            borderBottom: '2px solid rgba(255,255,255,0.06)',
+                            position: 'relative',
+                        }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 800, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.2em' }}>The Charts</span>
+                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: colors.primary, opacity: 0.5 }} />
+                                    <span style={{ fontSize: '10px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.18em' }}>Updated weekly</span>
+                                </div>
+                                <h2 style={{ margin: 0, fontSize: isMobile ? '24px' : '32px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                                    Top <span style={{ color: colors.primary }}>10</span> This Week
+                                </h2>
+                            </div>
+                            <Link to="/charts" style={{ fontSize: '11px', color: colors.textPrimary, textDecoration: 'none', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.03)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}15`; e.currentTarget.style.borderColor = `${colors.primary}55`; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                            >
+                                See All <ExternalLink size={11} />
+                            </Link>
                         </div>
-                        {/* Waveform track list */}
-                        <div style={{ padding: '8px 14px 12px' }}>
-                            {latestTracks.slice(0, 6).map((track, i) => {
-                                const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
-                                return (
-                                    <div
-                                        key={track.id}
-                                        className="lr-row"
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '14px',
-                                            padding: '8px 8px', borderRadius: '10px', cursor: 'pointer',
-                                            background: isPlaying ? `${colors.primary}0d` : 'transparent',
-                                            border: isPlaying ? `1px solid ${colors.primary}22` : '1px solid transparent',
-                                            marginBottom: '3px', transition: 'background 0.15s',
-                                        }}
-                                        onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, latestTracks); }}
-                                    >
-                                        {/* Rank */}
-                                        <span style={{ fontSize: '11px', fontWeight: 800, color: i === 0 ? colors.primary : 'rgba(255,255,255,0.22)', width: '14px', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
 
-                                        {/* Cover + play overlay */}
-                                        <div style={{ width: isMobile ? '44px' : '52px', height: isMobile ? '44px' : '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1a2234' }}>
-                                            {track.coverUrl
-                                                ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={16} color={colors.primary} opacity={0.2} /></div>
-                                            }
+                        {/* Empty state */}
+                        {weeklyChart.length === 0 && (
+                            <div style={{ padding: '48px 24px', textAlign: 'center', color: colors.textSecondary, fontSize: '13px' }}>
+                                <TrendingUp size={36} color={colors.textSecondary} style={{ opacity: 0.18, marginBottom: '10px' }} />
+                                <div>No chart data yet â€” check back after the first weekly snapshot.</div>
+                            </div>
+                        )}
+
+                        {weeklyChart.length > 0 && (() => {
+                            const trackList = weeklyChart.map(e => e.track);
+                            const renderMovement = (entry: typeof weeklyChart[0]) => {
+                                const isNew = entry.prevPosition == null;
+                                const change = entry.positionChange;
+                                if (isNew) return { color: '#22D3EE', bg: 'rgba(34,211,238,0.15)', border: 'rgba(34,211,238,0.4)', icon: <Sparkles size={9} />, label: 'NEW' };
+                                if (change != null && change > 0) return { color: '#4ADE80', bg: 'rgba(74,222,128,0.15)', border: 'rgba(74,222,128,0.4)', icon: <ArrowUp size={10} />, label: `${change}` };
+                                if (change != null && change < 0) return { color: '#F87171', bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.4)', icon: <ArrowDown size={10} />, label: `${Math.abs(change)}` };
+                                return { color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)', icon: <Minus size={10} />, label: '' };
+                            };
+
+                            return (
+                                <div style={{
+                                    padding: isMobile ? '16px' : '24px 28px 28px',
+                                    display: 'grid',
+                                    gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))',
+                                    gap: isMobile ? '12px' : '18px',
+                                }}>
+                                    {weeklyChart.map(entry => {
+                                        const track = entry.track;
+                                        const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
+                                        const isTop = entry.position === 1;
+                                        const move = renderMovement(entry);
+
+                                        return (
                                             <div
-                                                className="lr-cover-overlay"
-                                                style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 1 : 0, transition: 'opacity 0.15s' }}
+                                                key={track.id}
+                                                onClick={() => { if (player.currentTrack?.id === track.id) togglePlay(); else setTrack(track, trackList); }}
+                                                style={{
+                                                    position: 'relative',
+                                                    borderRadius: '12px',
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer',
+                                                    background: '#0B1120',
+                                                    border: isTop ? '1px solid rgba(255,215,0,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                                                    boxShadow: isTop ? '0 0 30px rgba(255,215,0,0.12), 0 8px 24px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.25)',
+                                                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s, border-color 0.25s',
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.transform = 'translateY(-4px)';
+                                                    if (!isTop) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)';
+                                                    e.currentTarget.style.boxShadow = isTop
+                                                        ? '0 0 40px rgba(255,215,0,0.2), 0 14px 32px rgba(0,0,0,0.5)'
+                                                        : '0 14px 32px rgba(0,0,0,0.4)';
+                                                    const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
+                                                    if (overlay) overlay.style.opacity = '1';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.transform = '';
+                                                    if (!isTop) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                                                    e.currentTarget.style.boxShadow = isTop
+                                                        ? '0 0 30px rgba(255,215,0,0.12), 0 8px 24px rgba(0,0,0,0.4)'
+                                                        : '0 4px 12px rgba(0,0,0,0.25)';
+                                                    const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
+                                                    if (overlay && !isPlaying) overlay.style.opacity = '0';
+                                                }}
                                             >
-                                                {isPlaying
-                                                    ? <Pause size={14} fill={colors.primary} color={colors.primary} />
-                                                    : <Play size={14} fill="white" color="white" style={{ marginLeft: '2px' }} />
-                                                }
-                                            </div>
-                                        </div>
+                                                {/* Cover with overlays */}
+                                                <div style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden', background: '#1a2234' }}>
+                                                    {track.coverUrl
+                                                        ? <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FujiLogo size={42} color={colors.primary} opacity={0.25} /></div>
+                                                    }
 
-                                        {/* Title + artist */}
-                                        <div style={{ flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minWidth: 0, width: isMobile ? undefined : '150px' }}>
-                                            <div style={{ fontWeight: 700, fontSize: '13px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{track.title}</div>
-                                            <div style={{ fontSize: '11px', color: colors.textSecondary, marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></div>
-                                        </div>
+                                                    {/* Vignette for legibility */}
+                                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 30%, transparent 60%, rgba(0,0,0,0.55) 100%)', pointerEvents: 'none' }} />
 
-                                        {/* Waveform — main visual element */}
-                                        <div style={{ flex: isMobile ? undefined : 1, flexShrink: 0, width: isMobile ? '60px' : undefined, minWidth: 0, height: isMobile ? '32px' : '42px', display: 'flex', alignItems: 'flex-end', gap: isMobile ? '1px' : '2px', overflow: 'hidden' }}>
-                                            {generateWaveform(track.id, isMobile ? 14 : 32).map((barH, bi) => (
+                                                    {/* Massive rank number â€” outlined chrome */}
+                                                    <div style={{
+                                                        position: 'absolute', bottom: '-8px', left: '6px',
+                                                        fontSize: isTop ? (isMobile ? '92px' : '120px') : (isMobile ? '76px' : '96px'),
+                                                        fontWeight: 900, lineHeight: 1,
+                                                        color: 'transparent',
+                                                        WebkitTextStroke: isTop ? '2px #FFD700' : '2px rgba(255,255,255,0.85)',
+                                                        textShadow: isTop ? '0 4px 24px rgba(255,215,0,0.5)' : '0 4px 18px rgba(0,0,0,0.6)',
+                                                        fontStyle: 'italic',
+                                                        letterSpacing: '-0.05em',
+                                                        pointerEvents: 'none',
+                                                        fontFamily: '"SF Pro Display", -apple-system, system-ui, sans-serif',
+                                                    }}>{entry.position}</div>
+
+                                                    {/* Movement badge â€” top-right */}
+                                                    <div style={{
+                                                        position: 'absolute', top: '10px', right: '10px',
+                                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                        padding: move.label ? '4px 8px' : '4px 6px',
+                                                        borderRadius: '999px',
+                                                        background: move.bg,
+                                                        border: `1px solid ${move.border}`,
+                                                        color: move.color,
+                                                        fontSize: '10px',
+                                                        fontWeight: 800,
+                                                        letterSpacing: '0.05em',
+                                                        backdropFilter: 'blur(8px)',
+                                                    }}>
+                                                        {move.icon}
+                                                        {move.label && <span>{move.label}</span>}
+                                                    </div>
+
+                                                    {/* Crown for #1 */}
+                                                    {isTop && (
+                                                        <div style={{ position: 'absolute', top: '10px', left: '10px', padding: '5px 10px', borderRadius: '999px', background: 'linear-gradient(135deg, #B8860B, #FFD700)', display: 'inline-flex', alignItems: 'center', gap: '4px', boxShadow: '0 4px 12px rgba(255,215,0,0.4)' }}>
+                                                            <Crown size={11} color="white" fill="white" />
+                                                            <span style={{ fontSize: '10px', fontWeight: 900, color: 'white', letterSpacing: '0.08em' }}>TOP</span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Play overlay (centered) */}
                                                     <div
-                                                        key={bi}
-                                                        className={isPlaying ? 'wf-anim-bar' : undefined}
+                                                        data-play-overlay
                                                         style={{
-                                                            flex: 1,
-                                                            height: `${barH}%`,
-                                                            minWidth: '2px',
-                                                            borderRadius: '2px 2px 1px 1px',
-                                                            background: isPlaying
-                                                                ? `rgba(16,185,129,${0.45 + (barH / 90) * 0.55})`
-                                                                : `rgba(255,255,255,${0.07 + (barH / 90) * 0.13})`,
-                                                            animationDelay: isPlaying ? `${(bi % 9) * 0.09}s` : undefined,
-                                                            transition: 'background 0.4s',
-                                                        }}
-                                                    />
-                                                ))}
-                                            </div>
+                                                            position: 'absolute', inset: 0,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            opacity: isPlaying ? 1 : 0,
+                                                            transition: 'opacity 0.2s',
+                                                            pointerEvents: 'none',
+                                                        }}>
+                                                        <div style={{
+                                                            width: '52px', height: '52px', borderRadius: '50%',
+                                                            background: isTop ? '#FFD700' : colors.primary,
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            boxShadow: isTop ? '0 8px 22px rgba(255,215,0,0.55)' : `0 8px 22px ${colors.primary}88`,
+                                                        }}>
+                                                            {isPlaying
+                                                                ? <Pause size={20} fill="#0B1120" color="#0B1120" />
+                                                                : <Play size={20} fill="#0B1120" color="#0B1120" style={{ marginLeft: '2px' }} />
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
 
-                                        {/* Play count — desktop only */}
-                                        {!isMobile && (
-                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '68px', justifyContent: 'flex-end' }}>
-                                            <Play size={9} color={colors.textSecondary} />
-                                            <span style={{ fontSize: '11px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>{(track.playCount || 0).toLocaleString()}</span>
-                                        </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                                {/* Track meta â€” clean strip */}
+                                                <div style={{ padding: '12px 14px 14px' }}>
+                                                    <div style={{ fontWeight: 800, fontSize: '14px', color: isPlaying ? colors.primary : colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' }}>{track.title}</div>
+                                                    <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        <StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <Flame size={11} color="#FF8C00" fill="#FF8C00" />
+                                                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF8C00', fontVariantNumeric: 'tabular-nums' }}>{(entry.playsInPeriod || 0).toLocaleString()}</span>
+                                                        <span style={{ fontSize: '10px', color: colors.textTertiary, marginLeft: '2px' }}>plays</span>
+                                                        {entry.prevPosition != null && (
+                                                            <span style={{ marginLeft: 'auto', fontSize: '10px', color: colors.textTertiary }}>was #{entry.prevPosition}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
                     </div>
 
 

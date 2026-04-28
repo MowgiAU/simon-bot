@@ -181,7 +181,8 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     const fetchDiscoverySettings = async () => {
         try {
-            const res = await axios.get('/api/discovery/settings', { withCredentials: true });
+            // cache-bust to bypass Cloudflare/browser stale cache after admin writes
+            const res = await axios.get(`/api/discovery/settings?_=${Date.now()}`, { withCredentials: true });
             setDiscoveryConfig(res.data);
             setFeaturedLabel(res.data.featuredLabel || '');
             setFeaturedProducerNote(res.data.featuredProducerNote || '');
@@ -477,7 +478,15 @@ export const MusicianProfileAdmin: React.FC = () => {
             const res = await fetch('/api/beat-battle/battles?guildId=default-guild');
             if (res.ok) {
                 const battles = await res.json();
-                setBattleList(battles.filter((b: any) => b.status !== 'completed'));
+                // Show all battles (including completed) so admins can feature any battle.
+                // Sort: active phases first, then completed by most recent.
+                const order: Record<string, number> = { voting: 0, sudden_death: 1, active: 2, upcoming: 3, completed: 4 };
+                battles.sort((a: any, b: any) => {
+                    const ord = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+                    if (ord !== 0) return ord;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+                setBattleList(battles);
             }
         } catch (err) {
             console.error('Failed to fetch battles');
@@ -544,9 +553,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                 setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
                 try {
                     const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
+                    const d = res.data;
                     setMsg({ 
                         type: 'success', 
-                        text: `Successfully re-processed ${res.data.success} tracks! ${res.data.failed > 0 ? `(${res.data.failed} failed: ${res.data.errors[0] || 'Check logs'})` : ''}` 
+                        text: `Done! FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed${d.flpSkippedCloud ? ` (${d.flpSkippedCloud} cloud-hosted, skipped)` : ''}. ZIP: ${d.zipSuccess}/${d.zipTotal} re-enriched.${d.failed > 0 ? ` (${d.failed} failed — check logs)` : ''}` 
                     });
                 } catch (err: any) {
                     setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
@@ -1204,23 +1214,33 @@ export const MusicianProfileAdmin: React.FC = () => {
                     )}
                     {/* Battle list */}
                     {battleList.length > 0 && (
-                        <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
-                            {battleList.map((b: any) => (
-                                <div key={b.id} onClick={() => handleSetFeaturedBattle(b.id)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', backgroundColor: discoveryConfig.featuredBattle?.id === b.id ? 'rgba(43,140,113,0.1)' : 'transparent' }}
-                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                                    onMouseOut={e => e.currentTarget.style.backgroundColor = discoveryConfig.featuredBattle?.id === b.id ? 'rgba(43,140,113,0.1)' : 'transparent'}>
-                                    <Swords size={14} color={colors.textSecondary} />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{b.title}</div>
-                                        <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{b.status} &middot; {b._count?.entries ?? 0} entries</div>
+                        <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '260px', overflowY: 'auto' }}>
+                            {battleList.map((b: any) => {
+                                const statusColors: Record<string, string> = { voting: '#F97316', sudden_death: '#F43F5E', active: '#34D399', upcoming: '#60A5FA', completed: '#6B7280' };
+                                const statusLabels: Record<string, string> = { voting: 'VOTING', sudden_death: 'SUDDEN DEATH', active: 'OPEN', upcoming: 'UPCOMING', completed: 'ENDED' };
+                                const sc = statusColors[b.status] || '#6B7280';
+                                const sl = statusLabels[b.status] || b.status.toUpperCase();
+                                const isSelected = discoveryConfig.featuredBattle?.id === b.id;
+                                return (
+                                    <div key={b.id} onClick={() => handleSetFeaturedBattle(b.id)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', backgroundColor: isSelected ? 'rgba(43,140,113,0.1)' : 'transparent' }}
+                                        onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                        onMouseOut={e => e.currentTarget.style.backgroundColor = isSelected ? 'rgba(43,140,113,0.1)' : 'transparent'}>
+                                        <Swords size={14} color={colors.textSecondary} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+                                            <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>{b._count?.entries ?? 0} entries</div>
+                                        </div>
+                                        <span style={{ fontSize: '9px', fontWeight: 800, color: sc, backgroundColor: `${sc}20`, padding: '3px 7px', borderRadius: '999px', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                                            {sl}
+                                        </span>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                     {battleList.length === 0 && (
-                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>No active or upcoming battles found.</div>
+                        <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: spacing.md }}>No battles found. Create one in the Beat Battle plugin first.</div>
                     )}
                     {/* Description */}
                     <label style={{ fontSize: '0.85rem', color: colors.textSecondary, marginBottom: '4px', display: 'block' }}>Battle Description (shown on homepage card)</label>
@@ -1244,8 +1264,8 @@ export const MusicianProfileAdmin: React.FC = () => {
                         {/* Re-process FLPs */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(255,152,0,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,152,0,0.15)' }}>
                             <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse FLP files</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all project files in the database.</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse / Re-enrich project files</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all .flp files, and re-inject waveform peaks from the database into all ZIP bundle tracks.</div>
                             </div>
                             <button
                                 onClick={handleReprocessFlps}

@@ -1,4 +1,4 @@
-﻿
+
 import 'dotenv/config';
 import express from 'express';
 import type { RequestHandler } from 'express';
@@ -59,7 +59,7 @@ const __dirname = path.dirname(__filename);
 
 const escapeHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 // Resolve to project root regardless of where PM2/node was started from.
-// __dirname = .../src/api or .../dist/api â†’ two levels up = project root.
+// __dirname = .../src/api or .../dist/api → two levels up = project root.
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const app = express();
@@ -175,7 +175,7 @@ function safeTrackSlug(title: string): string {
     return base || `track-${Date.now()}`;
 }
 
-// â”€â”€ Virus scanning (ClamAV via clamdscan daemon) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Virus scanning (ClamAV via clamdscan daemon) ─────────────────────────────
 let _clamScanner: any = null;
 let _clamAvailable = true; // set false after first failed init so we stop retrying
 
@@ -222,7 +222,7 @@ async function scanFileForViruses(filePath: string, fieldName?: string): Promise
         logger.warn(`Virus scan error for ${path.basename(filePath)}: ${e.message}`);
     }
 }
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ────────────────────────────────────────────────────────────────────────────
 
 /**
  * Uploads a local file to R2 (if configured) and returns the CDN URL.
@@ -313,7 +313,7 @@ function publicCache(maxAgeSeconds: number) {
 
 /**
  * Downsample a waveformPeaks array to targetLength points by averaging buckets.
- * Used to reduce the profile track listing payload (~200pts â†’ 60pts) while
+ * Used to reduce the profile track listing payload (~200pts → 60pts) while
  * keeping the full resolution available on the individual track page.
  */
 function downsamplePeaks(peaks: number[], targetLength = 60): number[] {
@@ -438,7 +438,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Register retry middleware (retries transient DB errors with exponential backoff)
 db.$use(retryMiddleware);
-// Register soft-delete middleware (converts delete→update, auto-filters deletedAt)
+// Register soft-delete middleware (converts delete?update, auto-filters deletedAt)
 db.$use(softDeleteMiddleware);
 
 const emailService = new EmailService();
@@ -779,7 +779,7 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
-// Write-only limiter — only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
+// Write-only limiter � only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
 const writeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -884,7 +884,7 @@ const requireAdmin: RequestHandler = (req, res, next) => {
 const requireInvited: RequestHandler = (req, res, next) => {
     // If invite-only mode is disabled, let everyone through
     if (process.env.INVITE_ONLY !== 'true') return next();
-    // Not logged in — block
+    // Not logged in � block
     if (!req.session.user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
@@ -1076,7 +1076,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
                         if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
                             await db.user.update({ where: { id: req.session.user._localId }, data: { invited: true } });
                             req.session.user._invited = true;
-                            logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) via Discord link — has beta role`);
+                            logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) via Discord link � has beta role`);
                         }
                     }
                 } catch (e) {
@@ -1202,7 +1202,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
                 if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
                     await db.user.update({ where: { id: user._localId }, data: { invited: true } });
                     user._invited = true;
-                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) — has beta role`);
+                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) � has beta role`);
                 }
             }
         } catch (e) {
@@ -1809,7 +1809,7 @@ app.get('/api/auth/account', requireAuth, async (req: any, res) => {
 });
 
 // =============================================
-// SET EMAIL (first-time setup — Discord-created accounts without email)
+// SET EMAIL (first-time setup � Discord-created accounts without email)
 // =============================================
 app.post('/api/auth/set-email', requireAuth, async (req: any, res) => {
     try {
@@ -2011,7 +2011,7 @@ app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
         const { newUsername, currentPassword } = req.body;
         if (!newUsername) return res.status(400).json({ error: 'New username is required' });
         if (!/^[a-zA-Z0-9_-]{3,30}$/.test(newUsername)) {
-            return res.status(400).json({ error: 'Username must be 3â€“30 characters: letters, numbers, underscores, hyphens only' });
+            return res.status(400).json({ error: 'Username must be 3–30 characters: letters, numbers, underscores, hyphens only' });
         }
 
         const dbUser = await db.user.findFirst({ where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] } });
@@ -2082,7 +2082,7 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
         await resendClient.emails.send({
             from: 'Fuji Studio <noreply@fujistud.io>',
             to: [emailNorm],
-            subject: 'Confirm your new email â€“ Fuji Studio',
+            subject: 'Confirm your new email – Fuji Studio',
             html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                 <h2 style="color:#2b8d70;margin-top:0;">Confirm email change</h2>
                 <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
@@ -2100,7 +2100,7 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
 });
 
 // =============================================
-// CONFIRM EMAIL CHANGE (via token link – GET for email links)
+// CONFIRM EMAIL CHANGE (via token link � GET for email links)
 // =============================================
 app.get('/api/auth/confirm-email-change', async (req, res) => {
     try {
@@ -2145,7 +2145,7 @@ app.get('/api/auth/confirm-email-change', async (req, res) => {
     }
 });
 
-// CONFIRM EMAIL CHANGE (POST – legacy/API usage)
+// CONFIRM EMAIL CHANGE (POST � legacy/API usage)
 app.post('/api/auth/confirm-email-change', async (req: any, res) => {
     try {
         const { token } = req.body;
@@ -2332,11 +2332,11 @@ async function refreshSessionGuilds(req: any): Promise<void> {
             // Check admin status
             let isAdmin = false;
             if (oauthGuild) {
-                // OAuth login — use cached permissions from Discord
+                // OAuth login � use cached permissions from Discord
                 const perms = BigInt(oauthGuild.permissions);
                 isAdmin = oauthGuild.owner || (perms & BigInt(0x8)) === BigInt(0x8);
             } else {
-                // Email login — preserve previous admin status (can't re-check without OAuth token)
+                // Email login � preserve previous admin status (can't re-check without OAuth token)
                 isAdmin = prevAdminIds.has(botGuild.id);
             }
 
@@ -2367,7 +2367,7 @@ async function refreshSessionGuilds(req: any): Promise<void> {
                     }
                 }
             } catch {
-                // Skip — user may not be a member of this guild
+                // Skip � user may not be a member of this guild
             }
         }
 
@@ -2718,7 +2718,7 @@ app.delete('/api/word-filter/groups/:guildId/:groupId/words/:wordId', async (req
   }
 });
 
-// ─── Anti-Piracy Plugin Routes ────────────────────────────────────────────────
+// --- Anti-Piracy Plugin Routes ------------------------------------------------
 
 app.get('/api/anti-piracy/settings/:guildId', async (req, res) => {
   try {
@@ -2812,7 +2812,7 @@ app.get('/api/anti-piracy/logs/:guildId', async (req, res) => {
   }
 });
 
-// ─── Leveling Plugin Routes ────────────────────────────────────────────────────
+// --- Leveling Plugin Routes ----------------------------------------------------
 
 // GET leveling settings
 app.get('/api/leveling/settings/:guildId', async (req, res) => {
@@ -2901,7 +2901,7 @@ app.get('/api/leveling/leaderboard/:guildId', async (req, res) => {
     const page = Math.max(0, parseInt(req.query.page as string) || 0);
     const perPage = 20;
 
-    // Power Score leaderboard — computed in-memory
+    // Power Score leaderboard � computed in-memory
     if (type === 'power') {
       const allMembers = await db.member.findMany({
         where: { guildId },
@@ -3465,9 +3465,9 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.welcomeGateSettings.findUnique({ where: { guildId } }),
       // 10. Filter Settings
       db.filterSettings.findUnique({ where: { guildId } }),
-      // 11. Artist count (global — platform-wide Fuji Studio profiles)
+      // 11. Artist count (global � platform-wide Fuji Studio profiles)
       db.musicianProfile.count({ where: { status: 'active', deletedAt: null } }),
-      // 12. Track count (global — platform-wide public tracks)
+      // 12. Track count (global � platform-wide public tracks)
       db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
     ]);
 
@@ -3852,7 +3852,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit'] 
             });
         }
 
@@ -4243,7 +4243,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                              const embed = msg.embeds[0];
                              if (embed) {
                                  embed.color = 0xED4245; // Red
-                                 embed.title = 'âŒ Rejected (Dashboard)';
+                                 embed.title = '❌ Rejected (Dashboard)';
                                  embed.footer = { text: 'Processed via Web Dashboard' };
                              }
                              await axios.patch(
@@ -4295,7 +4295,7 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
                              const embed = msg.embeds[0];
                              if (embed) {
                                  embed.color = 0x57F287; // Green
-                                 embed.title = 'âœ… Approved (Dashboard)';
+                                 embed.title = '✅ Approved (Dashboard)';
                                  embed.footer = { text: 'Processed via Web Dashboard' };
                              }
                              await axios.patch(
@@ -4502,7 +4502,7 @@ app.post('/api/guilds/:guildId/welcome', async (req, res) => {
     }
 });
 
-// Apply channel permissions — deny ViewChannel for unverified role on all channels except whitelist
+// Apply channel permissions � deny ViewChannel for unverified role on all channels except whitelist
 app.post('/api/guilds/:guildId/welcome/apply-permissions', async (req, res) => {
     const { guildId } = req.params;
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -4682,7 +4682,7 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
     verifyAllJobs.set(guildId, { status: 'running', verified: 0, failed: 0, total: 0 });
     res.json({ jobId: guildId, status: 'running' });
 
-    // Run asynchronously — don't await
+    // Run asynchronously � don't await
     (async () => {
         logger.info(`Verify-all job started for guild ${guildId}`);
         const botToken = process.env.DISCORD_TOKEN;
@@ -4757,7 +4757,7 @@ app.post('/api/guilds/:guildId/welcome/verify-all', async (req, res) => {
                     logger.warn(`Verify-all: failed to patch ${m.user.id}: ${e.response?.status} ${e.message}`);
                     job.failed++;
                 }
-                // 300ms base pace — 429 retry handler will back off if needed
+                // 300ms base pace � 429 retry handler will back off if needed
                 await new Promise(r => setTimeout(r, 300));
             }
 
@@ -4918,7 +4918,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
             }
         }
 
-        // Parse request body — express.text() always gives us a string
+        // Parse request body � express.text() always gives us a string
         let bodyObj: any = null;
         if (typeof req.body === 'string') {
             try { bodyObj = JSON.parse(req.body); } catch {}
@@ -4938,7 +4938,7 @@ app.post('/api/email/webhook', express.text({ type: '*/*', limit: '50mb' }), asy
         const savedAttachments: Array<{ filename: string; path: string }> = [];
 
         // Resend inbound format: { type: "email.received", data: { email_id, from, to, subject, ... } }
-        // Body is NOT included in the webhook — must be fetched via Resend API using email_id
+        // Body is NOT included in the webhook � must be fetched via Resend API using email_id
         const resendData = bodyObj?.data || (bodyObj?.type === 'email.received' ? bodyObj : null);
         if (resendData?.email_id !== undefined || resendData?.from !== undefined) {
             logger.info(`[Email Webhook] Detected Resend structured format, email_id: ${resendData.email_id}`);
@@ -5204,8 +5204,8 @@ app.post('/api/bot-messenger/:guildId/react', async (req, res) => {
 
     try {
         // Normalise emoji for Discord's reaction endpoint:
-        // - Custom emoji arrives as "<:name:id>" or "<a:name:id>" → strip to "name:id"
-        // - Unicode emoji arrives as raw character (e.g. "😂") → use as-is
+        // - Custom emoji arrives as "<:name:id>" or "<a:name:id>" ? strip to "name:id"
+        // - Unicode emoji arrives as raw character (e.g. "??") ? use as-is
         const customMatch = emoji.match(/^<a?:([^:]+):(\d+)>$/);
         const normalised = customMatch ? `${customMatch[1]}:${customMatch[2]}` : emoji;
         const encoded = encodeURIComponent(normalised);
@@ -5232,7 +5232,7 @@ app.get('/api/bot-messenger/:guildId/stickers', async (req, res) => {
     }
 });
 
-// Upload an image for embed use — returns full-size CDN URL + auto-generated thumbnail
+// Upload an image for embed use � returns full-size CDN URL + auto-generated thumbnail
 app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage'), async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
@@ -5253,7 +5253,7 @@ app.post('/api/bot-messenger/:guildId/upload-image', upload.single('embedImage')
             .resize(200, null, { withoutEnlargement: true })
             .toBuffer();
 
-        // Full-size image — upload to R2
+        // Full-size image � upload to R2
         const imageKey = `embed-images/${baseName}${ext}`;
         const imageUrl = await uploadToR2OrLocal(
             file.path,
@@ -5324,7 +5324,7 @@ app.get('/api/bot-messenger/:guildId/forum-threads/:channelId', async (req, res)
     }
 });
 
-// ─── Reaction Roles (Bot Messenger) ────────────────────────────────────────
+// --- Reaction Roles (Bot Messenger) ----------------------------------------
 
 // GET all reaction roles for a guild
 app.get('/api/bot-messenger/:guildId/reaction-roles', async (req: any, res) => {
@@ -5405,7 +5405,7 @@ app.get('/api/bot-messenger/:guildId/roles', async (req: any, res) => {
     }
 });
 
-// ─── Auto Messages Endpoints ───────────────────────────────────────────────
+// --- Auto Messages Endpoints -----------------------------------------------
 
 // GET: list all schedules for a guild
 app.get('/api/auto-messages/:guildId', async (req: any, res) => {
@@ -5510,7 +5510,7 @@ app.delete('/api/auto-messages/:guildId/:scheduleId', async (req: any, res) => {
 
 // --- Auto Responder Endpoints ---
 
-// ─── Category endpoints (must be registered before /:guildId/:ruleId routes) ───
+// --- Category endpoints (must be registered before /:guildId/:ruleId routes) ---
 
 // GET: list all categories for a guild
 app.get('/api/auto-responder/:guildId/categories', async (req: any, res) => {
@@ -5587,7 +5587,7 @@ app.delete('/api/auto-responder/:guildId/categories/:categoryId', async (req: an
     }
 });
 
-// ─── Rule endpoints ──────────────────────────────────────────────────────────
+// --- Rule endpoints ----------------------------------------------------------
 
 // GET: list all rules for a guild
 app.get('/api/auto-responder/:guildId', async (req: any, res) => {
@@ -5644,13 +5644,13 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord'];
         const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
 
-        // Validate regex if regex type (strip unsupported inline flags like (?i) — JS applies 'i' flag natively)
+        // Validate regex if regex type (strip unsupported inline flags like (?i) � JS applies 'i' flag natively)
         if (type === 'regex' && trigger) {
             const sanitizedTrigger = String(trigger).replace(/^\(\?[imsxUu-]+\)/g, '');
             try { new RegExp(sanitizedTrigger); } catch { return res.status(400).json({ error: 'Invalid regex pattern' }); }
         }
 
-        // Validate categoryId if provided — must belong to the same guild
+        // Validate categoryId if provided � must belong to the same guild
         if (categoryId !== undefined && categoryId !== null) {
             const cat = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
             if (!cat) return res.status(400).json({ error: 'Category not found in this guild' });
@@ -5799,7 +5799,7 @@ app.put('/api/pause/settings/:guildId', async (req: any, res) => {
 
 // --- Ticket System Endpoints ---
 
-// ─── Voice Stat Channels API ─────────────────────────────────────────────────
+// --- Voice Stat Channels API -------------------------------------------------
 // GET settings
 app.get('/api/voice-stats/settings/:guildId', async (req: any, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -5867,7 +5867,7 @@ app.post('/api/voice-stats/refresh/:guildId', async (req: any, res) => {
         res.status(500).json({ error: 'Failed to trigger refresh', detail: err?.message });
     }
 });
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 // Get Ticket Settings
 app.get('/api/tickets/settings/:guildId', async (req, res) => {
@@ -5989,14 +5989,14 @@ app.patch('/api/tickets/:ticketId', async (req, res) => {
 
             const currentName = channelRes.data.name;
             const emojis: Record<string, string> = {
-                'low': 'ðŸŸ¢',
-                'medium': 'ðŸŸ¡',
-                'high': 'ðŸ”´'
+                'low': '🟢',
+                'medium': '🟡',
+                'high': '🔴'
             };
-            const emoji = emojis[priority] || 'ðŸŸ¢';
+            const emoji = emojis[priority] || '🟢';
             
             // Rename logic similar to bot
-            let newName = currentName.replace(/^[ðŸŸ¢ðŸŸ¡ðŸ”´]-?/, '');
+            let newName = currentName.replace(/^[🟢🟡🔴]-?/, '');
             newName = `${emoji}-${newName}`;
 
             // Only update if name changed effectively (Discord rate limit protection)
@@ -6421,7 +6421,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/approve', async (req, res) =>
                 const embed = msg.embeds[0];
                 if (embed) {
                     embed.color = 0x57F287; // Green
-                    embed.title = 'âœ… Approved (Dashboard)';
+                    embed.title = '✅ Approved (Dashboard)';
                     embed.footer = { text: 'Processed via Web Dashboard' };
                 }
 
@@ -6481,7 +6481,7 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
                 const embed = msg.embeds[0];
                 if (embed) {
                     embed.color = 0xED4245; // Red
-                    embed.title = 'âŒ Rejected (Dashboard)';
+                    embed.title = '❌ Rejected (Dashboard)';
                     embed.footer = { text: 'Processed via Web Dashboard' };
                 }
                 await discordReq('PATCH', `/channels/${review.approvalChannelId}/messages/${review.approvalMessageId}`, {
@@ -6583,7 +6583,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Magic byte validation — reject spoofed files before further processing
+        // Magic byte validation � reject spoofed files before further processing
         try {
             FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -6668,7 +6668,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
-        // Create slug from title — fall back to cuid when Unicode title produces empty string
+        // Create slug from title � fall back to cuid when Unicode title produces empty string
         const slug = safeTrackSlug(metadata.title);
 
         // 3. Save to database
@@ -6729,8 +6729,11 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         res.json(fullTrack);
 
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
+        // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
+        // will announce it in the battles channel instead.
         const _annGuildId = process.env.GUILD_ID;
-        if (_annGuildId && uploaderProfile) {
+        const _suppressAnnounce = req.body?.battleId || req.body?.suppressAnnounce === 'true' || req.body?.suppressAnnounce === true;
+        if (_annGuildId && uploaderProfile && !_suppressAnnounce) {
             const genreNames = (fullTrack?.genres ?? []).map((tg: any) => tg.genre?.name).filter(Boolean);
             db.trackAnnouncement.create({
                 data: {
@@ -6746,7 +6749,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }).catch((err: any) => logger.warn(`[TrackAnnouncer] Failed to queue announcement: ${err.message}`));
         }
 
-        // Background: encode audio â†’ optimise artwork â†’ extract waveform â†’ push to R2.
+        // Background: encode audio → optimise artwork → extract waveform → push to R2.
         // This runs after res.json() so it never blocks the HTTP response.
         const _bgRawAudioPath = audioFile.path;
         const _bgRawArtworkPath = artworkFile?.path ?? null;
@@ -6974,16 +6977,34 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-// Delete physical files (from R2 or local storage)
-          await deleteFromStorage(track.url);
-          await deleteFromStorage(track.coverUrl);
-          await deleteFromStorage((track as any).projectFileUrl);
-          await deleteFromStorage((track as any).projectZipUrl);
+        // Block deletion if the track has been submitted to any beat battle.
+        // Battle entries are part of the public competition record and must remain
+        // intact for the integrity of past/ongoing battles.
+        const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
+        if (battleEntryCount > 0) {
+            return res.status(409).json({
+                error: 'This track is submitted to a Beat Battle and cannot be deleted. Withdraw the entry from the battle first, or contact a moderator.',
+                code: 'TRACK_IN_BATTLE',
+            });
+        }
 
+        // Delete physical files (from R2 or local storage)
+        await deleteFromStorage(track.url);
+        await deleteFromStorage(track.coverUrl);
+        await deleteFromStorage((track as any).projectFileUrl);
+        await deleteFromStorage((track as any).projectZipUrl);
+
+        // Clear featured-track pointer (FK is SET NULL via app, not DB)
         await db.musicianProfile.updateMany({
             where: { featuredTrackId: trackId },
             data: { featuredTrackId: null }
         });
+
+        // The Track row has ON DELETE CASCADE on every dependent relation
+        // (TrackPlay, TrackSample, TrackGenre, Comment, TrackFavourite,
+        //  TrackRepost, PlaylistTrack, RadioQueue) and SET NULL on RadioHistory,
+        // so a single delete wipes every visible trace from playlists, radio
+        // queues, comments, likes, reposts, plays and the discovery charts.
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         res.json({ success: true });
@@ -7018,7 +7039,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation — reject spoofed files
+        // Magic byte validation � reject spoofed files
         try {
             if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -7171,7 +7192,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: e?.message || 'Internal server error' });
     }
 });
 
@@ -7194,7 +7215,7 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation — reject spoofed files
+        // Magic byte validation � reject spoofed files
         try {
             if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
             if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
@@ -7859,13 +7880,33 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(120), async (re
         if (track.allowAudioDownload === undefined) track.allowAudioDownload = true;
         if (track.allowProjectDownload === undefined) track.allowProjectDownload = true;
 
+        // Attach battle memberships (badge + leaderboard placement on track page)
+        try {
+            const battleEntries = await db.battleEntry.findMany({
+                where: { trackId: track.id, deletedAt: null },
+                select: {
+                    id: true, voteCount: true,
+                    battle: { select: { id: true, title: true, slug: true, status: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            track.battles = battleEntries.map((e: any) => ({
+                entryId: e.id,
+                voteCount: e.voteCount,
+                battleId: e.battle.id,
+                battleTitle: e.battle.title,
+                battleSlug: e.battle.slug,
+                battleStatus: e.battle.status,
+            }));
+        } catch { track.battles = []; }
+
         res.json(track);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// ── Social link domain validation ─────────────────────────────────────────────
+// -- Social link domain validation ---------------------------------------------
 const SOCIAL_DOMAIN_RULES: Record<string, { pattern: RegExp; label: string }> = {
     spotify:    { pattern: /^https?:\/\/(open\.)?spotify\.com\//i,    label: 'Spotify (open.spotify.com)' },
     soundcloud: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud (soundcloud.com)' },
@@ -7888,7 +7929,7 @@ function validateSocialUrls(data: any): string | null {
             return `Invalid URL for ${platform}. Must be a valid ${rule.label} link.`;
         }
     }
-    // Discord is a username/handle, not a URL — just validate length
+    // Discord is a username/handle, not a URL � just validate length
     if (data.discordUrl && data.discordUrl.trim().length > 100) {
         return 'Discord username must be 100 characters or fewer.';
     }
@@ -8117,7 +8158,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                 where: { id: (settings as any).featuredBattleId },
                 include: {
                     sponsor: true,
-                    _count: { select: { entries: true } },
+                    _count: { select: { entries: { where: { deletedAt: null } } } },
                 },
             }).then(featuredBattle => {
                 result.featuredBattle = featuredBattle;
@@ -8402,24 +8443,30 @@ app.post('/api/admin/migrate-uploads-to-r2', requireAdmin, async (req, res) => {
 // Re-process all FLP files (Admin operation)
 app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
     try {
-        // Find all tracks that have a projectFileUrl
+        // ── Pass 1: Re-parse plain .flp files ─────────────────────────────────
         const tracksWithFlps = await db.track.findMany({
             where: { projectFileUrl: { not: null } }
         });
 
         const results = {
-            total: tracksWithFlps.length,
-            success: 0,
+            flpTotal: tracksWithFlps.length,
+            flpSuccess: 0,
+            flpSkippedCloud: 0,
+            zipTotal: 0,
+            zipSuccess: 0,
             failed: 0,
             errors: [] as string[]
         };
 
         for (const track of tracksWithFlps) {
             try {
-                // projectFileUrl is like /uploads/projects/project-123.flp
-                // The actual file is stored in public/uploads/projects/project-123.flp
-                // We need to resolve this correctly relative to PROJECT_ROOT
-                const relativePath = track.projectFileUrl!.startsWith('/') ? track.projectFileUrl!.substring(1) : track.projectFileUrl!;
+                const url = track.projectFileUrl!;
+                // Skip cloud-hosted FLPs (R2/CDN) — can't parse without downloading
+                if (url.startsWith('http')) {
+                    results.flpSkippedCloud++;
+                    continue;
+                }
+                const relativePath = url.startsWith('/') ? url.substring(1) : url;
                 const absolutePath = path.join(PROJECT_ROOT, 'public', relativePath);
 
                 logger.info(`Checking FLP at: ${absolutePath}`);
@@ -8427,27 +8474,63 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                 if (fs.existsSync(absolutePath)) {
                     const flpBuffer = fs.readFileSync(absolutePath);
                     const arrangement = FLPParser.parse(flpBuffer);
-                    
-                    // If the track already has a user-entered BPM, use that for the arrangement display
-                    // The FLP parser's BPM detection is unreliable (FL often stores default 140)
                     if (track.bpm && track.bpm > 0) {
                         (arrangement as any).bpm = track.bpm;
                     }
-
-                    logger.info(`Track: ${track.title} | User BPM: ${track.bpm} | Parser BPM: ${(arrangement as any).bpm} | Final arrangement BPM: ${(arrangement as any).bpm}`);
-
-                    await db.track.update({
-                        where: { id: track.id },
-                        data: { arrangement: arrangement as any }
-                    });
-                    results.success++;
+                    logger.info(`FLP re-parse: ${track.title} | BPM: ${(arrangement as any).bpm}`);
+                    await db.track.update({ where: { id: track.id }, data: { arrangement: arrangement as any } });
+                    results.flpSuccess++;
                 } else {
                     results.failed++;
-                    results.errors.push(`File not found for track: ${track.title} (Expected at: ${absolutePath})`);
+                    results.errors.push(`FLP file not found: ${track.title} (${absolutePath})`);
                 }
             } catch (err: any) {
                 results.failed++;
-                results.errors.push(`Error processing ${track.title}: ${err.message}`);
+                results.errors.push(`FLP error for ${track.title}: ${err.message}`);
+            }
+        }
+
+        // ── Pass 2: Re-enrich ZIP bundle tracks from TrackSample DB rows ──────
+        // The original ZIP processing stores peaks/oggUrl/duration both in TrackSample rows
+        // AND embedded in arrangement clip objects. If clip.peaks is missing (e.g. background
+        // processing failed or was interrupted), this re-injects them from the DB rows.
+        const tracksWithZips = await db.track.findMany({
+            where: { projectZipUrl: { not: null }, arrangement: { not: undefined } },
+            include: { samples: true }
+        }) as any[];
+
+        results.zipTotal = tracksWithZips.length;
+
+        for (const track of tracksWithZips) {
+            if (!track.arrangement || !(track.samples as any[]).length) {
+                results.failed++;
+                results.errors.push(`ZIP track "${track.title}" — no arrangement or no TrackSample rows found`);
+                continue;
+            }
+            try {
+                const arr = JSON.parse(JSON.stringify(track.arrangement));
+                const sampleMap = new Map<string, any>(
+                    (track.samples as any[]).map((s: any) => [s.originalFilename.toLowerCase(), s])
+                );
+                const clips: any[] = arr.tracks?.flatMap((t: any) => t.clips ?? []) ?? [];
+                let enriched = 0;
+                for (const clip of clips) {
+                    if (clip.type !== 'audio' || !clip.sampleFileName) continue;
+                    const sample = sampleMap.get(clip.sampleFileName.toLowerCase());
+                    if (sample) {
+                        clip.peaks = sample.peaks;
+                        clip.oggUrl = sample.oggUrl;
+                        clip.duration = sample.duration ?? clip.duration;
+                        enriched++;
+                    }
+                }
+                if (track.bpm && track.bpm > 0) arr.bpm = track.bpm;
+                await db.track.update({ where: { id: track.id }, data: { arrangement: arr } });
+                results.zipSuccess++;
+                logger.info(`ZIP re-enrich: "${track.title}" — ${enriched} clips enriched from ${(track.samples as any[]).length} samples`);
+            } catch (err: any) {
+                results.failed++;
+                results.errors.push(`ZIP error for "${track.title}": ${err.message}`);
             }
         }
 
@@ -8537,7 +8620,7 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
             return res.status(400).json({ error: 'Avatar file is required' });
         }
 
-        // Magic byte validation — reject spoofed images
+        // Magic byte validation � reject spoofed images
         try {
             FileValidator.validateImage(fs.readFileSync(file.path), file.originalname);
         } catch (validationErr: any) {
@@ -8581,7 +8664,7 @@ app.post('/api/musician/profile/:userId/banner', generalUploadLimiter, upload.si
     try {
         const { userId } = req.params;
 
-        // Ownership check — only profile owner or admin
+        // Ownership check � only profile owner or admin
         if (req.session?.user?.id !== userId && !(req.session?.mutualAdminGuilds as any)?.length) {
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -8927,7 +9010,7 @@ app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, re
 });
 
 // Admin: List tracks for a profile (including suspended/deleted)
-// â”€â”€â”€ Admin Account Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Admin Account Management ───────────────────────────────────────────────
 
 // GET /api/admin/accounts \u2014 list + search accounts
 app.get('/api/admin/accounts', requireAdmin, async (req: any, res) => {
@@ -9176,7 +9259,7 @@ app.post('/api/admin/accounts/:id/set-password', requireAdmin, async (req: any, 
     }
 });
 
-// â”€â”€â”€ End Admin Account Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── End Admin Account Management ────────────────────────────────────────────
 
 app.get('/api/admin/musician/profiles/:id/tracks', requireAdmin, async (req: any, res) => {
     try {
@@ -9494,13 +9577,17 @@ app.get('/api/oembed', async (req: any, res) => {
     }
 });
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════
 // Beat Battle API
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════
 
 // --- Public: List battles (with filtering) ---
-app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
+// NOTE: NOT cached. Vote tallies and entry counts must update in real time so users
+// see immediate feedback after voting. Caching here causes stale highlight/score state.
+app.get('/api/beat-battle/battles', async (req: any, res) => {
     try {
+        // Explicit no-store: prevents Cloudflare/browser from holding a stale snapshot
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         const guildId = req.query.guildId as string | undefined;
         const status = req.query.status as string | undefined;
 
@@ -9509,35 +9596,14 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
         if (guildId && guildId !== 'default-guild') where.guildId = guildId;
         if (status) where.status = status;
 
-        // Cache default (unfiltered) battle list
-        const isDefaultQuery = (!guildId || guildId === 'default-guild') && !status;
-        if (isDefaultQuery) {
-            const cached = getCachedResponse('battles-list');
-            if (cached) {
-                res.json(cached);
-                // Still track analytics fire-and-forget
-                if (req.session?.user?.id) {
-                    const activeBattle = cached.find((b: any) => b.status !== 'completed');
-                    if (activeBattle) {
-                        db.battleAnalytics.create({
-                            data: { battleId: activeBattle.id, eventType: 'page_view', userId: req.session.user.id },
-                        }).catch(() => {});
-                    }
-                }
-                return;
-            }
-        }
-
         const battles = await db.beatBattle.findMany({
             where,
             include: {
                 sponsor: { include: { links: true } },
-                _count: { select: { entries: true } },
+                _count: { select: { entries: { where: { deletedAt: null } } } },
             },
             orderBy: { createdAt: 'desc' },
         });
-
-        if (isDefaultQuery) setCachedResponse('battles-list', battles);
 
         res.json(battles);
 
@@ -9557,8 +9623,10 @@ app.get('/api/beat-battle/battles', publicCache(60), async (req: any, res) => {
 });
 
 // --- Public: Get single battle with entries ---
+// NOT cached — vote tallies must update in real time.
 app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
             where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
@@ -9566,18 +9634,63 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
                 sponsor: { include: { links: true } },
                 entries: {
                     where: { deletedAt: null },
-                    orderBy: { voteCount: 'desc' },
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, description: true, projectUrl: true, duration: true, voteCount: true, source: true, createdAt: true },
+                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
+                    select: {
+                        id: true, userId: true, voteCount: true, source: true, createdAt: true,
+                        track: {
+                            select: {
+                                id: true, title: true, slug: true, url: true, coverUrl: true,
+                                description: true, duration: true, bpm: true, key: true, artist: true,
+                                arrangement: true, waveformPeaks: true,
+                                projectFileUrl: true, projectZipUrl: true,
+                                allowAudioDownload: true, allowProjectDownload: true,
+                                profile: { select: { id: true, username: true, displayName: true, avatar: true, userId: true } },
+                            },
+                        },
+                    },
                 },
             },
         });
 
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
+        // Per-rank vote tallies for ranked voting (Lexicographical Positional Scoring)
+        const tallies = await db.battleVote.groupBy({
+            by: ['entryId', 'rank'],
+            where: { battleId: battle.id },
+            _count: { _all: true },
+        });
+        const tallyMap = new Map<string, { first: number; second: number; third: number }>();
+        for (const t of tallies as any[]) {
+            const cur = tallyMap.get(t.entryId) || { first: 0, second: 0, third: 0 };
+            if (t.rank === 1) cur.first = t._count._all;
+            else if (t.rank === 2) cur.second = t._count._all;
+            else if (t.rank === 3) cur.third = t._count._all;
+            tallyMap.set(t.entryId, cur);
+        }
+        const enrichedEntries = (battle as any).entries.map((e: any) => {
+            const t = tallyMap.get(e.id) || { first: 0, second: 0, third: 0 };
+            return { ...e, firstPlaceVotes: t.first, secondPlaceVotes: t.second, thirdPlaceVotes: t.third };
+        });
+
         // Include discordInviteUrl from guild settings
         const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } }).catch(() => null);
 
-        res.json({ ...battle, discordInviteUrl: guildSettings?.discordInviteUrl || null });
+        const suddenDeathEntryIds: string[] = Array.isArray((battle as any).suddenDeathEntryIds)
+            ? (battle as any).suddenDeathEntryIds
+            : [];
+        res.json({
+            ...battle,
+            entries: enrichedEntries,
+            discordInviteUrl: guildSettings?.discordInviteUrl || null,
+            suddenDeath: battle.status === 'sudden_death' ? {
+                active: true,
+                entryIds: suddenDeathEntryIds,
+                start: (battle as any).suddenDeathStart,
+                end: (battle as any).suddenDeathEnd,
+                durationMinutes: (battle as any).suddenDeathDurationMinutes,
+            } : null,
+        });
 
         // Fire-and-forget analytics (don't block the response)
         if (req.session?.user?.id) {
@@ -9590,9 +9703,10 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
     }
 });
 
-// --- Auth: Get current user's voted entry IDs for a battle ---
+// --- Auth: Get current user's ranked votes for a battle ---
 app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, res) => {
     try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         const userId = req.session.user.id;
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
@@ -9601,10 +9715,37 @@ app.get('/api/beat-battle/battles/:id/my-votes', requireAuth, async (req: any, r
         });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         const votes = await db.battleVote.findMany({
-            where: { userId, entry: { battleId: battle.id } },
-            select: { entryId: true },
+            where: { userId, battleId: battle.id },
+            select: { entryId: true, rank: true },
         });
-        res.json({ votedEntryIds: votes.map((v: { entryId: string }) => v.entryId) });
+        // Back-compat: include flat list of voted entry IDs
+        res.json({
+            votes,
+            votedEntryIds: votes.map((v: { entryId: string }) => v.entryId),
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Auth: List active battles a Track has been entered into (for submit modal warning) ---
+app.get('/api/beat-battle/tracks/:trackId/battles', requireAuth, async (req: any, res) => {
+    try {
+        const trackId = req.params.trackId;
+        const entries = await db.battleEntry.findMany({
+            where: { trackId, deletedAt: null },
+            select: {
+                id: true,
+                battle: { select: { id: true, title: true, slug: true, status: true } },
+            },
+        });
+        res.json(entries.map((e: any) => ({
+            entryId: e.id,
+            battleId: e.battle.id,
+            battleTitle: e.battle.title,
+            battleSlug: e.battle.slug,
+            battleStatus: e.battle.status,
+        })));
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -9622,11 +9763,19 @@ app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
                 sponsor: true,
                 entries: {
                     where: { deletedAt: null },
-                    orderBy: { voteCount: 'desc' },
+                    orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }],
                     take: 3,
-                    select: { id: true, userId: true, username: true, trackTitle: true, audioUrl: true, coverUrl: true, avatarUrl: true, voteCount: true },
+                    select: {
+                        id: true, userId: true, voteCount: true,
+                        track: {
+                            select: {
+                                id: true, title: true, url: true, coverUrl: true,
+                                profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+                            },
+                        },
+                    },
                 },
-                _count: { select: { entries: true } },
+                _count: { select: { entries: { where: { deletedAt: null } } } },
             },
             orderBy: { updatedAt: 'desc' },
         });
@@ -9670,94 +9819,121 @@ app.get('/api/beat-battle/entries/:entryId', publicCache(60), async (req: any, r
     }
 });
 
-// --- Auth: Vote on an entry ---
+// --- Auth: Cast / change / clear a ranked vote on an entry ---
+// Body: { rank: 1 | 2 | 3 | null }
+//   rank=1|2|3 ? assign that rank slot to this entry for the user.
+//                Any previous entry in the same rank slot is cleared.
+//                If the user previously had a different rank on this entry, it's updated.
+//   rank=null  ? clear the user's vote on this entry entirely.
+// Sudden-death battles only accept rank=1 and only on tied entries.
 app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const entryId = req.params.entryId;
+        const rawRank = req.body?.rank;
+        const rank: 1 | 2 | 3 | null = rawRank === null || rawRank === undefined
+            ? null
+            : (rawRank === 1 || rawRank === 2 || rawRank === 3 ? rawRank : null);
+        if (rawRank !== null && rawRank !== undefined && rank === null) {
+            return res.status(400).json({ error: 'rank must be 1, 2, 3, or null' });
+        }
 
         const entry = await db.battleEntry.findUnique({
             where: { id: entryId },
             include: { battle: true },
         });
-
         if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
-        if (entry.battle.status !== 'voting') {
+        const isVoting = entry.battle.status === 'voting';
+        const isSuddenDeath = entry.battle.status === 'sudden_death';
+        if (!isVoting && !isSuddenDeath) {
             return res.status(400).json({ error: 'Voting is not open for this battle' });
         }
-
         if (entry.userId === userId) {
             return res.status(400).json({ error: 'You cannot vote for your own submission' });
         }
-
-        // Check duplicate vote \u2014 if exists, toggle (remove) it
-        const existingVote = await db.battleVote.findUnique({
-            where: { entryId_userId: { entryId, userId } },
-        });
-        if (existingVote) {
-            const updated = await db.$transaction(async (tx) => {
-                await tx.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
-                return tx.battleEntry.update({
-                    where: { id: entryId },
-                    data: { voteCount: { decrement: 1 } },
-                });
-            });
-            return res.json({ voteCount: updated.voteCount, voted: false });
-        }
-
-        // Check per-battle vote limit
-        if (entry.battle.maxVotesPerUser > 0) {
-            const userVoteCount = await db.battleVote.count({
-                where: {
-                    userId,
-                    entry: { battleId: entry.battleId },
-                },
-            });
-            if (userVoteCount >= entry.battle.maxVotesPerUser) {
-                return res.status(400).json({ error: `You've used all ${entry.battle.maxVotesPerUser} vote(s) for this battle. Remove a vote from another entry first.` });
+        if (isSuddenDeath) {
+            const tied: string[] = Array.isArray((entry.battle as any).suddenDeathEntryIds)
+                ? (entry.battle as any).suddenDeathEntryIds : [];
+            if (!tied.includes(entryId)) {
+                return res.status(400).json({ error: 'This entry is not part of the sudden-death runoff' });
+            }
+            if (rank !== null && rank !== 1) {
+                return res.status(400).json({ error: 'Sudden death only accepts a single (1st place) vote' });
             }
         }
 
-        const updated = await db.$transaction(async (tx) => {
-            await tx.battleVote.create({
-                data: { entryId, userId, source: 'web' },
+        // Clear path
+        if (rank === null) {
+            const existing = await db.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
+            if (!existing) return res.json({ cleared: true, votes: await fetchUserVotes(entry.battleId, userId) });
+            await db.$transaction(async (tx) => {
+                await tx.battleVote.delete({ where: { entryId_userId: { entryId, userId } } });
+                await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { decrement: 1 } } });
             });
-            const updatedEntry = await tx.battleEntry.update({
-                where: { id: entryId },
-                data: { voteCount: { increment: 1 } },
+            return res.json({ cleared: true, votes: await fetchUserVotes(entry.battleId, userId) });
+        }
+
+        // Assign / move rank
+        await db.$transaction(async (tx) => {
+            // 1. Remove any other entry currently holding this rank for this user in this battle
+            const conflict = await tx.battleVote.findUnique({
+                where: { battleId_userId_rank: { battleId: entry.battleId, userId, rank } },
             });
-            await tx.battleAnalytics.create({
-                data: { battleId: updatedEntry.battleId, eventType: 'vote_cast', userId },
-            });
-            return updatedEntry;
+            if (conflict && conflict.entryId !== entryId) {
+                await tx.battleVote.delete({ where: { id: conflict.id } });
+                await tx.battleEntry.update({ where: { id: conflict.entryId }, data: { voteCount: { decrement: 1 } } });
+            }
+            // 2. Upsert this user's vote on this entry
+            const existing = await tx.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
+            if (existing) {
+                if (existing.rank !== rank) {
+                    await tx.battleVote.update({ where: { id: existing.id }, data: { rank } });
+                }
+            } else {
+                await tx.battleVote.create({
+                    data: { entryId, battleId: entry.battleId, userId, rank, source: 'web' },
+                });
+                await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { increment: 1 } } });
+                await tx.battleAnalytics.create({
+                    data: { battleId: entry.battleId, eventType: 'vote_cast', userId },
+                });
+            }
         });
 
-        // Economy: voter reward (per-battle setting)
+        // Economy reward only on first-time vote in this battle
         try {
             if (entry.battle.voterReward && entry.battle.voterReward > 0) {
-                await db.economyAccount.upsert({
-                    where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
-                    update: {
-                        balance: { increment: entry.battle.voterReward },
-                        totalEarned: { increment: entry.battle.voterReward },
-                    },
-                    create: {
-                        guildId: entry.battle.guildId,
-                        userId,
-                        balance: entry.battle.voterReward,
-                        totalEarned: entry.battle.voterReward,
-                    },
-                });
+                const totalVotes = await db.battleVote.count({ where: { battleId: entry.battleId, userId } });
+                if (totalVotes === 1) {
+                    await db.economyAccount.upsert({
+                        where: { guildId_userId: { guildId: entry.battle.guildId, userId } },
+                        update: {
+                            balance: { increment: entry.battle.voterReward },
+                            totalEarned: { increment: entry.battle.voterReward },
+                        },
+                        create: {
+                            guildId: entry.battle.guildId, userId,
+                            balance: entry.battle.voterReward, totalEarned: entry.battle.voterReward,
+                        },
+                    });
+                }
             }
         } catch { /* non-critical */ }
 
-        res.json({ voteCount: updated.voteCount, voted: true });
+        res.json({ rank, votes: await fetchUserVotes(entry.battleId, userId) });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+async function fetchUserVotes(battleId: string, userId: string) {
+    return db.battleVote.findMany({
+        where: { battleId, userId },
+        select: { entryId: true, rank: true },
+    });
+}
 
 // --- Admin: Delete a battle entry ---
 app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, res) => {
@@ -9778,55 +9954,58 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
 });
 
 // --- Auth: Submit entry via web (upload or library track) ---
-app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUploadLimiter, upload.fields([
-    { name: 'audio', maxCount: 1 },
-    { name: 'cover', maxCount: 1 },
-    { name: 'project', maxCount: 1 },
-]), async (req: any, res) => {
+// Battle submission is now a thin "link a Track to a Battle" operation.
+// Clients upload new tracks via /api/musician/tracks first, then POST the trackId here.
+app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const battleId = req.params.battleId;
-        const title = req.body.title;
-        const trackId = req.body.trackId; // optional \u2014 library track submission
-        const description = req.body.description || null;
-        const bpm = req.body.bpm ? parseInt(req.body.bpm, 10) : null;
-        const key = req.body.key || null;
-        const artist = req.body.artist || null;
+        const { trackId } = req.body || {};
 
-        // Guild membership gate
+        if (!trackId || typeof trackId !== 'string') {
+            return res.status(400).json({ error: 'trackId is required' });
+        }
+
         if (process.env.GUILD_ID && !req.session.isGuildMember) {
             return res.status(403).json({ error: 'You must be a member of the Discord server to submit battle entries.' });
         }
-
-        if (!title) return res.status(400).json({ error: 'Title is required' });
 
         const battle = await db.beatBattle.findUnique({ where: { id: battleId } });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         if (battle.status !== 'active') return res.status(400).json({ error: 'This battle is not accepting submissions' });
 
-        // Check requireMusicianProfile setting
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            include: { profile: true },
+        });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (track.profile.userId !== userId) {
+            return res.status(403).json({ error: 'You can only submit your own tracks' });
+        }
+        if (track.status !== 'active' || track.deletedAt) {
+            return res.status(400).json({ error: 'This track is not eligible for submission' });
+        }
+        if (!track.isPublic) {
+            return res.status(400).json({
+                error: 'This track is private. Make it public from your track page before submitting it to a battle.',
+                code: 'TRACK_PRIVATE',
+                trackId: track.id,
+            });
+        }
+        if (battle.requireProjectFile && !track.projectFileUrl && !track.projectZipUrl) {
+            return res.status(400).json({ error: 'This battle requires a project file. Add a .flp/.zip to your track first.' });
+        }
+
         const guildSettings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-        if (guildSettings?.requireMusicianProfile) {
-            const profile = await db.musicianProfile.findFirst({ where: { userId } });
-            if (!profile) {
-                return res.status(403).json({ error: 'A musician profile is required to submit. Create one first.' });
-            }
+        if (guildSettings?.requireMusicianProfile && !track.profile) {
+            return res.status(403).json({ error: 'A musician profile is required to submit.' });
         }
 
-        // Check project file requirement
-        const files = (req.files || {}) as { [fieldname: string]: Express.Multer.File[] };
-        const projectFile = files['project']?.[0];
-        if (battle.requireProjectFile && !trackId && !projectFile) {
-            return res.status(400).json({ error: 'This battle requires a project file (.flp or .zip) upload.' });
-        }
-
-        // Check duplicate entry
         const existing = await db.battleEntry.findFirst({
             where: { battleId, userId, deletedAt: null },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
 
-        // Economy: charge entry fee if enabled (per-battle setting)
         if (battle.entryFeeEnabled && battle.entryFee > 0) {
             const account = await db.economyAccount.findUnique({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
@@ -9837,7 +10016,6 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
                 const emoji = economySettings?.currencyEmoji || '🪙';
                 return res.status(400).json({ error: `You need ${emoji}${battle.entryFee} to enter this battle (you have ${emoji}${balance})` });
             }
-            // Deduct entry fee
             await db.economyAccount.update({
                 where: { guildId_userId: { guildId: battle.guildId, userId } },
                 data: { balance: { decrement: battle.entryFee } },
@@ -9853,173 +10031,15 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
             });
         }
 
-        // Get username from Discord API
-        let username = 'Unknown';
-        let avatarUrl: string | undefined;
-        try {
-            const userRes = await axios.get(`https://discord.com/api/v10/users/${userId}`, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                timeout: 5000,
-            });
-            username = userRes.data.global_name || userRes.data.username || 'Unknown';
-            if (userRes.data.avatar) {
-                avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${userRes.data.avatar}.png?size=256`;
-            }
-        } catch {}
-
-        let audioUrl: string;
-        let coverUrl: string | undefined;
-        let projectUrl: string | undefined;
-        let duration = 0;
-        let arrangement: object | null = null;
-        let waveformPeaks: number[] | undefined;
-
-        if (trackId) {
-            // â”€â”€â”€ Library track submission â”€â”€â”€
-            const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-            if (!track) return res.status(404).json({ error: 'Track not found' });
-            if (track.profile.userId !== userId) return res.status(403).json({ error: 'You can only submit your own tracks' });
-            audioUrl = track.url;
-            coverUrl = track.coverUrl || undefined;
-            duration = track.duration || 0;
-            arrangement = track.arrangement as object | null;
-            // Use profile display name if available
-            username = track.profile.displayName || track.profile.username || username;
-            avatarUrl = track.profile.avatar || avatarUrl;
-        } else {
-            // â”€â”€â”€ Direct upload submission â”€â”€â”€
-            const audioFile = files['audio']?.[0];
-            if (!audioFile) return res.status(400).json({ error: 'Audio file or library track is required' });
-
-            const artworkFile = files['cover']?.[0] || files['artwork']?.[0];
-
-            // Magic byte validation — reject spoofed files
-            try {
-                FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
-                if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
-                if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
-            } catch (validationErr: any) {
-                try { fs.unlinkSync(audioFile.path); } catch {}
-                if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
-                if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
-                return res.status(400).json({ error: validationErr.message });
-            }
-
-            await scanFileForViruses(audioFile.path, 'audio');
-            if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
-            if (projectFile) await scanFileForViruses(projectFile.path, 'project');
-
-            // Parse FLP arrangement data
-            if (projectFile) {
-                const isZipProject = projectFile.originalname.toLowerCase().endsWith('.zip');
-                try {
-                    if (isZipProject) {
-                        // Extract the .flp from inside the zip and parse it
-                        const zip = new AdmZip(projectFile.path);
-                        const flpEntry = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.flp'));
-                        if (flpEntry) {
-                            arrangement = FLPParser.parse(flpEntry.getData());
-                        } else {
-                            logger.warn(`Battle entry ZIP has no .flp file: ${projectFile.originalname}`);
-                        }
-                    } else {
-                        const flpBuffer = fs.readFileSync(projectFile.path);
-                        arrangement = FLPParser.parse(flpBuffer);
-                    }
-                } catch (e) {
-                    logger.warn(`Failed to parse battle entry FLP: ${e}`);
-                }
-            }
-
-            // Parse audio metadata (duration)
-            try {
-                const parsed = await mm.parseFile(audioFile.path);
-                duration = Math.round(parsed.format.duration || 0);
-            } catch (err) {
-                logger.warn(`Failed to parse battle audio metadata: ${err}`);
-            }
-
-            // Convert audio to OGG Opus and optimize cover
-            const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
-            const finalArtworkPath = artworkFile ? await MediaConverter.optimizeImage(artworkFile.path) : null;
-
-            // Extract waveform peaks for direct uploads (library submissions use the track's peaks)
-            try {
-                const peaks = await WaveformExtractor.extractPeaks(finalAudioPath, 200);
-                if (peaks && peaks.length > 0) {
-                    waveformPeaks = peaks;
-                }
-            } catch (e) {
-                logger.warn(`Failed to extract waveform peaks for battle entry: ${e}`);
-            }
-
-            // Set local URLs as fallback
-            audioUrl = `/uploads/tracks/${path.basename(finalAudioPath)}`;
-            coverUrl = finalArtworkPath ? `/uploads/artwork/${path.basename(finalArtworkPath)}` : undefined;
-        }
-
-        // Create entry first (need entry ID for R2 key paths)
         const entry = await db.battleEntry.create({
             data: {
                 battleId,
                 userId,
-                username,
-                trackTitle: title,
-                audioUrl,
-                coverUrl,
-                avatarUrl,
-                description,
-                duration,
-                bpm,
-                key,
-                artist,
-                trackId: trackId || null,
+                trackId,
                 source: 'web',
-                ...(arrangement ? { arrangement } : {}),
-                ...(waveformPeaks ? { waveformPeaks } : {}),
             },
+            include: { track: { include: { profile: true } } },
         });
-
-        // Upload files to R2 (only for direct uploads \u2014 library submissions already on R2)
-        if (!trackId) {
-            const r2UrlUpdates: any = {};
-            const r2Uploads: Promise<void>[] = [];
-
-            // Audio â†’ R2
-            const audioLocalPath = path.join(PROJECT_ROOT, 'public', audioUrl);
-            r2Uploads.push((async () => {
-                const r2AudioKey = `battles/${entry.id}/audio/${path.basename(audioUrl)}`;
-                const cdnAudioUrl = await uploadToR2OrLocal(audioLocalPath, r2AudioKey, 'audio/ogg', audioUrl);
-                if (cdnAudioUrl !== audioUrl) r2UrlUpdates.audioUrl = cdnAudioUrl;
-            })());
-
-            // Cover â†’ R2
-            if (coverUrl) {
-                const coverLocalPath = path.join(PROJECT_ROOT, 'public', coverUrl);
-                r2Uploads.push((async () => {
-                    const r2CoverKey = `battles/${entry.id}/artwork/${path.basename(coverUrl!)}`;
-                    const cdnCoverUrl = await uploadToR2OrLocal(coverLocalPath, r2CoverKey, 'image/webp', coverUrl!);
-                    if (cdnCoverUrl !== coverUrl) r2UrlUpdates.coverUrl = cdnCoverUrl;
-                })());
-            }
-
-            // Project file â†’ R2
-            if (projectFile) {
-                const projectLocalUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
-                r2Uploads.push((async () => {
-                    const r2ProjectKey = `battles/${entry.id}/project/${path.basename(projectFile.path)}`;
-                    const cdnProjectUrl = await uploadToR2OrLocal(projectFile.path, r2ProjectKey, 'application/octet-stream', projectLocalUrl);
-                    r2UrlUpdates.projectUrl = cdnProjectUrl;
-                })());
-            }
-
-            await Promise.all(r2Uploads);
-
-            if (Object.keys(r2UrlUpdates).length > 0) {
-                await db.battleEntry.update({ where: { id: entry.id }, data: r2UrlUpdates });
-                Object.assign(entry, r2UrlUpdates);
-            }
-        }
 
         await db.battleAnalytics.create({
             data: { battleId, eventType: 'submission', userId },
@@ -10035,7 +10055,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, generalUpload
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+        const { title, description, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -10076,6 +10096,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 prizeSecond: prizeSecond != null ? Number(prizeSecond) : 0,
                 prizeThird: prizeThird != null ? Number(prizeThird) : 0,
                 voterReward: voterReward != null ? Number(voterReward) : 0,
+                suddenDeathDurationMinutes: suddenDeathDurationMinutes != null && Number(suddenDeathDurationMinutes) > 0 ? Number(suddenDeathDurationMinutes) : 60,
                 createdBy: req.session.user.id,
             },
             include: { sponsor: { include: { links: true } } },
@@ -10104,7 +10125,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+        const { title, description, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -10146,6 +10167,10 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (prizeSecond !== undefined) data.prizeSecond = Number(prizeSecond);
         if (prizeThird !== undefined) data.prizeThird = Number(prizeThird);
         if (voterReward !== undefined) data.voterReward = Number(voterReward);
+        if (suddenDeathDurationMinutes !== undefined) {
+            const v = Number(suddenDeathDurationMinutes);
+            data.suddenDeathDurationMinutes = Number.isFinite(v) && v > 0 ? v : 60;
+        }
 
         const battle = await db.beatBattle.update({
             where: { id: req.params.id },
@@ -10157,9 +10182,10 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         const newStatus = status;
         const statusChanged = newStatus && newStatus !== oldBattle.status;
         if (statusChanged) {
-            // â†’ Completed: determine winner
+            // → Completed: pick winner by total points (ranked voting)
             if (newStatus === 'completed') {
-                const winner = await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
+                const ranked = await rankedBattleEntries(battle.id, 1);
+                const winner = ranked[0];
                 if (winner) {
                     await db.beatBattle.update({ where: { id: battle.id }, data: { winnerEntryId: winner.id } });
                 }
@@ -10222,7 +10248,13 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
             where: { userId: req.params.userId },
             include: {
                 battle: {
-                    select: { id: true, title: true, status: true, slug: true },
+                    select: { id: true, title: true, status: true, slug: true, winnerEntryId: true },
+                },
+                track: {
+                    select: {
+                        id: true, title: true, slug: true, url: true, coverUrl: true,
+                        profile: { select: { username: true, displayName: true, avatar: true } },
+                    },
                 },
             },
             orderBy: { createdAt: 'desc' },
@@ -10233,36 +10265,80 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
         // Batch: fetch all entries for all relevant battles in ONE query (eliminates N+1)
         const battleIds = [...new Set(entries.map((e: any) => e.battleId))];
         const allBattleEntries = await db.battleEntry.findMany({
-            where: { battleId: { in: battleIds } },
-            select: { id: true, battleId: true, voteCount: true },
-            orderBy: { voteCount: 'desc' },
+            where: { battleId: { in: battleIds }, deletedAt: null },
+            select: { id: true, battleId: true, voteCount: true, createdAt: true },
         });
 
-        // Group by battleId for O(1) lookup
-        const entriesByBattle = new Map<string, { id: string; voteCount: number }[]>();
+        // Per-rank vote tallies for every entry in those battles (points: 1st=3, 2nd=2, 3rd=1)
+        const tallies = await db.battleVote.groupBy({
+            by: ['entryId', 'rank'],
+            where: { battleId: { in: battleIds } },
+            _count: { _all: true },
+        });
+        const rankMap = new Map<string, { first: number; second: number; third: number }>();
+        for (const t of tallies as any[]) {
+            const cur = rankMap.get(t.entryId) || { first: 0, second: 0, third: 0 };
+            if (t.rank === 1) cur.first = t._count._all;
+            else if (t.rank === 2) cur.second = t._count._all;
+            else if (t.rank === 3) cur.third = t._count._all;
+            rankMap.set(t.entryId, cur);
+        }
+        const pointsFor = (id: string) => {
+            const r = rankMap.get(id) || { first: 0, second: 0, third: 0 };
+            return { ...r, points: r.first * 3 + r.second * 2 + r.third * 1 };
+        };
+
+        // Group by battleId and rank by points (with tiebreakers) for placement
+        const rankedByBattle = new Map<string, { id: string; voteCount: number; points: number }[]>();
         for (const e of allBattleEntries) {
-            const list = entriesByBattle.get(e.battleId) || [];
-            list.push(e);
-            entriesByBattle.set(e.battleId, list);
+            const list = rankedByBattle.get(e.battleId) || [];
+            const pts = pointsFor(e.id);
+            list.push({ id: e.id, voteCount: e.voteCount, points: pts.points });
+            rankedByBattle.set(e.battleId, list);
+        }
+        for (const [bid, list] of rankedByBattle) {
+            list.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                const ra = pointsFor(a.id), rb = pointsFor(b.id);
+                if (rb.first !== ra.first) return rb.first - ra.first;
+                if (rb.second !== ra.second) return rb.second - ra.second;
+                return 0;
+            });
+            rankedByBattle.set(bid, list);
         }
 
         const enriched = entries.map((entry: any) => {
-            const battleEntries = entriesByBattle.get(entry.battleId) || [];
+            const battleEntries = rankedByBattle.get(entry.battleId) || [];
             const placement = battleEntries.findIndex((e: any) => e.id === entry.id) + 1;
             const totalEntries = battleEntries.length;
-            const isWinner = placement === 1 && entry.battle.status === 'completed' && entry.voteCount > 0;
+            const winnerId = entry.battle.winnerEntryId;
+            const isWinner = entry.battle.status === 'completed' && (
+                winnerId ? winnerId === entry.id : (placement === 1 && (battleEntries[0]?.points || 0) > 0)
+            );
+            const tally = pointsFor(entry.id);
+            const t = entry.track || {};
+            const p = t.profile || {};
+            const trackRoute = (p.username && (t.slug || t.id))
+                ? `/track/${p.username}/${t.slug || t.id}`
+                : `/battles/entry/${entry.id}`;
             return {
                 id: entry.id,
-                trackTitle: entry.trackTitle,
-                audioUrl: entry.audioUrl,
-                coverUrl: entry.coverUrl,
-                avatarUrl: entry.avatarUrl,
+                trackId: t.id ?? entry.trackId,
+                trackTitle: t.title ?? entry.trackTitle ?? 'Untitled',
+                audioUrl: t.url ?? entry.audioUrl ?? '',
+                coverUrl: t.coverUrl ?? entry.coverUrl ?? null,
+                avatarUrl: p.avatar ?? entry.avatarUrl ?? null,
                 voteCount: entry.voteCount,
+                points: tally.points,
+                firstPlaceVotes: tally.first,
+                secondPlaceVotes: tally.second,
+                thirdPlaceVotes: tally.third,
                 createdAt: entry.createdAt,
                 battle: entry.battle,
                 placement,
                 totalEntries,
                 isWinner,
+                trackRoute,
             };
         });
 
@@ -10280,7 +10356,7 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
         if (!profile) return res.json([]);
         const tracks = await db.track.findMany({
             where: { profileId: profile.id, status: 'active' },
-            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true },
+            select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true, isPublic: true },
             orderBy: { createdAt: 'desc' },
         });
         res.json(tracks);
@@ -10288,6 +10364,48 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// --- Shared helper: rank a battle's entries by total points (ranked voting) ---
+// Rank 1 = 3 pts, rank 2 = 2 pts, rank 3 = 1 pt.
+// Tiebreakers: more 1st-place votes → more 2nd-place votes → earliest submission.
+async function rankedBattleEntries(battleId: string, take = 10): Promise<{
+    id: string; userId: string; trackTitle: string; points: number;
+    firstVotes: number; secondVotes: number; thirdVotes: number; createdAt: Date;
+}[]> {
+    const entries = await db.battleEntry.findMany({
+        where: { battleId, deletedAt: null },
+        select: {
+            id: true, userId: true, createdAt: true, trackTitle: true,
+            track: { select: { title: true } },
+            votes: { select: { rank: true } },
+        },
+    });
+    const scored = entries.map((e: any) => {
+        let first = 0, second = 0, third = 0;
+        for (const v of e.votes) {
+            if (v.rank === 1) first++;
+            else if (v.rank === 2) second++;
+            else if (v.rank === 3) third++;
+        }
+        return {
+            id: e.id,
+            userId: e.userId,
+            trackTitle: e.track?.title || e.trackTitle || 'Untitled',
+            points: first * 3 + second * 2 + third * 1,
+            firstVotes: first,
+            secondVotes: second,
+            thirdVotes: third,
+            createdAt: e.createdAt,
+        };
+    });
+    scored.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.firstVotes !== a.firstVotes) return b.firstVotes - a.firstVotes;
+        if (b.secondVotes !== a.secondVotes) return b.secondVotes - a.secondVotes;
+        return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+    return scored.slice(0, take);
+}
 
 // --- Shared helper: post a battle announcement embed to a Discord channel via REST ---
 async function postBattleAnnouncement(battle: any, settings: any): Promise<string | null> {
@@ -10305,10 +10423,10 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.submissionEnd) {
             fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.rules) fields.push({ name: '\u{1F4CB} Rules', value: battle.rules });
-        fields.push({ name: '\u{1F310} Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.rules) fields.push({ name: 'Rules', value: battle.rules });
+        fields.push({ name: 'Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `\u{1F3A4} New Beat Battle: ${battle.title}`,
+            title: `New Beat Battle: ${battle.title}`,
             description: battle.description || 'A new battle has begun! Submit your beats on the website.',
             color: 0x2B8C71,
             fields,
@@ -10320,9 +10438,9 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         if (battle.votingEnd) {
             fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
         }
-        fields.push({ name: '\u{1F310} Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        fields.push({ name: 'Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
         embed = {
-            title: `\u{1F5F3}\uFE0F ${battle.title} \u2014 Voting is Now Open!`,
+            title: `${battle.title} - Voting is Now Open!`,
             description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
             color: 0xFFA500,
             fields,
@@ -10330,18 +10448,36 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             timestamp: new Date().toISOString(),
         };
     } else if (battle.status === 'completed') {
-        const winner = battle.winnerEntryId
-            ? await db.battleEntry.findUnique({ where: { id: battle.winnerEntryId } })
-            : await db.battleEntry.findFirst({ where: { battleId: battle.id }, orderBy: { voteCount: 'desc' } });
-        if (!winner) return null;
+        const winners = await rankedBattleEntries(battle.id, 3);
+        if (!winners.length) return null;
+        const medals = ['🥇', '🥈', '🥉'];
+        const podiumLines = winners.map((w, i) =>
+            `${medals[i] || '•'} <@${w.userId}> — **"${w.trackTitle}"** • **${w.points}** ${w.points === 1 ? 'pt' : 'pts'}`
+        );
+        const winnerMentions = winners.map(w => `<@${w.userId}>`).join(' ');
         embed = {
-            title: `\u{1F3C6} ${battle.title} \u2014 Winner!`,
-            description: `Congratulations to <@${winner.userId}>!\n\n**"${winner.trackTitle}"** with **${winner.voteCount}** votes!`,
+            title: `${battle.title} — Winners!`,
+            description: `Congratulations ${winnerMentions}!\n\n${podiumLines.join('\n')}`,
             color: 0xFFD700,
-            fields: [{ name: '\u{1F3A7} Listen', value: `[Play on Fuji Studio](${apiUrl}/battles)` }],
+            fields: [{ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` }],
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
+        // Tag winners in the message body so they get notified.
+        try {
+            await discordReq('POST', `/channels/${annChannelId}/messages`, {
+                content: winnerMentions,
+                embeds: [embed],
+                allowed_mentions: { users: winners.map(w => w.userId) },
+            });
+            return null;
+        } catch (err: any) {
+            const status = err.response?.status;
+            if (status === 403) return `Bot lacks Send Messages permission in <#${annChannelId}>. Grant the bot "Send Messages" in that channel, then try again.`;
+            if (status === 404) return `Announcement channel not found (ID: ${annChannelId}). Check the channel ID in Beat Battle settings.`;
+            logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
+            return 'Failed to post announcement (see server logs).';
+        }
     } else {
         return null;
     }
@@ -10386,6 +10522,69 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
         }
         res.json({ success: true, message: 'Announcement posted!' });
     } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Recompute podium for a completed battle (points-based) ---
+// Used to fix battles that were finalized under the old vote-count logic.
+// Body: { repostAnnouncement?: boolean } — when true, also re-posts the
+// winner announcement to Discord with the new top 3.
+app.post('/api/beat-battle/admin/battles/:id/recompute-winners', requireAdmin, async (req: any, res) => {
+    try {
+        const battle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        if (battle.status !== 'completed') {
+            return res.status(400).json({ error: 'Battle must be in "completed" status to recompute winners.' });
+        }
+
+        const ranked = await rankedBattleEntries(battle.id, 10);
+        const newWinnerId = ranked[0]?.id || null;
+
+        const updated = await db.beatBattle.update({
+            where: { id: battle.id },
+            data: { winnerEntryId: newWinnerId },
+        });
+
+        let announceError: string | null = null;
+        if (req.body?.repostAnnouncement) {
+            const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+            announceError = await postBattleAnnouncement(updated, settings);
+        }
+
+        await db.actionLog.create({
+            data: {
+                pluginId: 'beat-battle',
+                guildId: battle.guildId,
+                action: 'winners_recomputed',
+                executorId: req.session.user.id,
+                details: {
+                    title: battle.title,
+                    previousWinnerEntryId: battle.winnerEntryId,
+                    newWinnerEntryId: newWinnerId,
+                    podium: ranked.slice(0, 3).map(r => ({
+                        entryId: r.id,
+                        userId: r.userId,
+                        trackTitle: r.trackTitle,
+                        points: r.points,
+                        first: r.firstVotes,
+                        second: r.secondVotes,
+                        third: r.thirdVotes,
+                    })),
+                },
+            },
+        }).catch(() => {});
+
+        res.json({
+            success: true,
+            winnerEntryId: newWinnerId,
+            podium: ranked.slice(0, 3),
+            allEntries: ranked,
+            announcementPosted: req.body?.repostAnnouncement ? !announceError : false,
+            announceError,
+        });
+    } catch (e: any) {
+        logger.error('Beat Battle: recompute winners failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -10717,6 +10916,87 @@ app.get('/api/beat-battle/admin/battles/:id/analytics', requireAdmin, async (req
     }
 });
 
+// --- Admin: Per-battle vote breakdown (who voted for what) ---
+app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: any, res) => {
+    try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        const battleId = req.params.id;
+
+        const battle = await db.beatBattle.findUnique({
+            where: { id: battleId },
+            select: {
+                id: true, title: true,
+                entries: {
+                    where: { deletedAt: null },
+                    select: {
+                        id: true, userId: true, voteCount: true,
+                        track: { select: { title: true, profile: { select: { username: true, displayName: true } } } },
+                        votes: {
+                            orderBy: [{ rank: 'asc' }, { createdAt: 'asc' }],
+                            select: { userId: true, rank: true, source: true, createdAt: true },
+                        },
+                    },
+                },
+            },
+        });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+
+        // Resolve voter usernames in one query
+        const voterIds = Array.from(new Set(battle.entries.flatMap(e => e.votes.map(v => v.userId))));
+        const voterProfiles = voterIds.length
+            ? await db.musicianProfile.findMany({
+                where: { userId: { in: voterIds } },
+                select: { userId: true, username: true, displayName: true, avatar: true },
+            })
+            : [];
+        const profileMap = new Map(voterProfiles.map(p => [p.userId, p]));
+
+        const RANK_POINTS = { 1: 3, 2: 2, 3: 1 } as const;
+
+        const entries = battle.entries
+            .map(entry => {
+                const submitterProfile = entry.track?.profile;
+                const votersByRank: Record<1 | 2 | 3, any[]> = { 1: [], 2: [], 3: [] };
+                let pointTotal = 0;
+                for (const v of entry.votes) {
+                    if (v.rank !== 1 && v.rank !== 2 && v.rank !== 3) continue;
+                    const p = profileMap.get(v.userId);
+                    votersByRank[v.rank as 1 | 2 | 3].push({
+                        userId: v.userId,
+                        username: p?.username || p?.displayName || v.userId,
+                        avatar: p?.avatar || null,
+                        source: v.source,
+                        createdAt: v.createdAt,
+                    });
+                    pointTotal += RANK_POINTS[v.rank as 1 | 2 | 3];
+                }
+                return {
+                    entryId: entry.id,
+                    submitterUserId: entry.userId,
+                    submitterUsername: submitterProfile?.username || submitterProfile?.displayName || entry.userId,
+                    trackTitle: entry.track?.title || 'Untitled',
+                    voteCount: entry.voteCount,
+                    pointTotal,
+                    firstPlaceVotes: votersByRank[1],
+                    secondPlaceVotes: votersByRank[2],
+                    thirdPlaceVotes: votersByRank[3],
+                };
+            })
+            .sort((a, b) => b.pointTotal - a.pointTotal);
+
+        res.json({
+            battleId: battle.id,
+            battleTitle: battle.title,
+            totalVotes: entries.reduce((s, e) => s + e.firstPlaceVotes.length + e.secondPlaceVotes.length + e.thirdPlaceVotes.length, 0),
+            uniqueVoters: voterIds.length,
+            entries,
+        });
+    } catch (e: any) {
+        logger.error('Beat Battle API: admin votes failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Admin: Backfill old battle data ---
 app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) => {
     try {
@@ -10755,13 +11035,36 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
         let firstEntryId: string | null = null;
         for (let i = 0; i < validWinners.length; i++) {
             const w = validWinners[i];
+
+            // Ensure a MusicianProfile exists for this winner (backfill creates a stub if missing)
+            let profile = await db.musicianProfile.findUnique({ where: { userId: w.userId } });
+            if (!profile) {
+                const fallbackName = (w.username || `producer-${w.userId.slice(-6)}`)
+                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${w.userId.slice(-6)}`;
+                profile = await db.musicianProfile.create({
+                    data: {
+                        userId: w.userId,
+                        username: fallbackName,
+                        displayName: w.username || null,
+                    },
+                });
+            }
+
+            // Create the Track that this entry will reference
+            const track = await db.track.create({
+                data: {
+                    profileId: profile.id,
+                    title: w.trackTitle,
+                    url: w.audioUrl || '',
+                    isPublic: true,
+                },
+            });
+
             const entry = await db.battleEntry.create({
                 data: {
                     battleId: battle.id,
                     userId: w.userId,
-                    username: w.username || 'Unknown',
-                    trackTitle: w.trackTitle,
-                    audioUrl: w.audioUrl || '',
+                    trackId: track.id,
                     voteCount: validWinners.length - i, // 1st place gets highest count
                     source: 'backfill',
                 },
@@ -10799,6 +11102,7 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
             featuredBattleId: null,
             sponsorSectionTitle: null,
             requireMusicianProfile: false,
+            suddenDeathDurationMinutes: 60,
         });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -10813,7 +11117,8 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         }
 
         const { announcementChannelId, chatChannelId, discordInviteUrl, featuredBattleId, sponsorSectionTitle, requireMusicianProfile,
-                entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward } = req.body;
+                entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward,
+                suddenDeathDurationMinutes } = req.body;
 
         const updateData: any = {
             announcementChannelId, chatChannelId, discordInviteUrl,
@@ -10829,6 +11134,10 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         if (prizeSecond !== undefined) updateData.prizeSecond = parseInt(prizeSecond) || 0;
         if (prizeThird !== undefined) updateData.prizeThird = parseInt(prizeThird) || 0;
         if (voterReward !== undefined) updateData.voterReward = parseInt(voterReward) || 0;
+        if (suddenDeathDurationMinutes !== undefined) {
+            const v = parseInt(suddenDeathDurationMinutes);
+            updateData.suddenDeathDurationMinutes = Number.isFinite(v) && v > 0 ? v : 60;
+        }
 
         const settings = await db.beatBattleSettings.upsert({
             where: { guildId },
@@ -10846,7 +11155,7 @@ const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
 
 if (fs.existsSync(distPath)) {
-    // 1. Hashed assets (/assets/*.js, /assets/*.css) \u2014 content-hashed filenames â†’ cache 1 year
+    // 1. Hashed assets (/assets/*.js, /assets/*.css) \u2014 content-hashed filenames → cache 1 year
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
         index: false,
         setHeaders: (res) => {
@@ -10862,6 +11171,33 @@ if (fs.existsSync(distPath)) {
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;
     const TRACK_PATH = /^\/(profile|track)\/([^/?#]+)\/([^/?#]+)\/?$/;
+    const BATTLE_PATH = /^\/battles\/([^/?#]+)\/?$/;
+    const BATTLE_ENTRY_PATH = /^\/battles\/entry\/([^/?#]+)\/?$/;
+    const PLAYLIST_PATH = /^\/playlist\/([^/?#]+)\/?$/;
+    const PROFILE_PATH = /^\/profile\/([^/?#]+)\/?$/;
+    const ARTICLE_PATH = /^\/article\/([^/?#]+)\/?$/;
+
+    /** Build a minimal HTML page with OG meta tags for bot crawlers */
+    function ogPage(tags: Record<string, string>, extras: string[] = []): string {
+        const meta = [
+            `<meta charset="utf-8">`,
+            `<title>${tags.title || 'Fuji Studio'}</title>`,
+            `<meta property="og:title" content="${escapeHtml(tags.title || 'Fuji Studio')}">`,
+            `<meta property="og:description" content="${escapeHtml(tags.description || '')}">`,
+            `<meta property="og:type" content="${tags.type || 'website'}">`,
+            tags.url ? `<meta property="og:url" content="${tags.url}">` : '',
+            tags.image ? `<meta property="og:image" content="${tags.image}">` : '',
+            tags.image ? `<meta property="og:image:secure_url" content="${tags.image}">` : '',
+            `<meta property="og:site_name" content="Fuji Studio">`,
+            `<meta name="theme-color" content="#2B8C71">`,
+            `<meta name="twitter:card" content="summary_large_image">`,
+            `<meta name="twitter:title" content="${escapeHtml(tags.title || 'Fuji Studio')}">`,
+            `<meta name="twitter:description" content="${escapeHtml(tags.description || '')}">`,
+            tags.image ? `<meta name="twitter:image" content="${tags.image}">` : '',
+            ...extras,
+        ].filter(Boolean).join('\n');
+        return `<!DOCTYPE html><html><head>\n${meta}\n</head><body></body></html>`;
+    }
 
     app.get('*', async (req: any, res, next) => {
         // API/Uploads go through
@@ -10869,78 +11205,166 @@ if (fs.existsSync(distPath)) {
             return next();
         }
 
-        // Bot request on a track URL â†’ inject OG meta tags
         const ua = req.headers['user-agent'] || '';
-        const trackMatch = req.path.match(TRACK_PATH);
-        if (BOT_UA.test(ua) && trackMatch) {
+        const isBot = BOT_UA.test(ua);
+
+        if (isBot) {
             logger.info(`[OG] Bot crawl: path=${req.path} ua="${ua.slice(0, 60)}"`);
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            const toAbsolute = (u: string | null | undefined): string | null =>
+                u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
+            const defaultImage = `${baseUrl}/og-default.png`;
+
             try {
-                const [, , username, slug] = trackMatch;
-                const profile = await db.musicianProfile.findFirst({
-                    where: { username: { equals: username, mode: 'insensitive' } }
-                });
-                if (profile) {
-                    // Try slug first, fall back to ID (tracks without a slug use track.id in the URL)
-                    let track = await db.track.findFirst({
-                        where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
-                        include: { profile: true, genres: { include: { genre: true } } }
-                    }) as any;
-                    if (!track) {
-                        track = await db.track.findFirst({
-                            where: { profileId: profile.id, isPublic: true, id: slug },
+                // --- Track page: /profile/:username/:slug ---
+                const trackMatch = req.path.match(TRACK_PATH);
+                if (trackMatch) {
+                    const [, , username, slug] = trackMatch;
+                    const profile = await db.musicianProfile.findFirst({
+                        where: { username: { equals: username, mode: 'insensitive' } }
+                    });
+                    if (profile) {
+                        let track = await db.track.findFirst({
+                            where: { profileId: profile.id, isPublic: true, slug: { equals: slug, mode: 'insensitive' } },
                             include: { profile: true, genres: { include: { genre: true } } }
                         }) as any;
-                    }
-                    if (track) {
-                        const baseUrl = `${req.protocol}://${req.get('host')}`;
-                        const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
-                        // coverUrl / url may be absolute CDN URLs or relative /uploads/... paths
-                        const toAbsolute = (u: string | null | undefined): string | null =>
-                            u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
-                        const imageUrl = toAbsolute(track.coverUrl) ?? `${baseUrl}/og-default.png`;
-                        const audioUrl = toAbsolute(track.url) ?? '';
-                        const artistName: string = track.profile.displayName || track.profile.username || username;
-                        const genreNames: string[] = (track.genres ?? []).map((g: any) => g.genre?.name).filter(Boolean);
-                        // Build a rich description matching the auto-post embed style
-                        const metaLine = [
-                            `By ${artistName}`,
-                            genreNames.length > 0 ? genreNames.join(', ') : null,
-                            typeof track.playCount === 'number' ? `${track.playCount.toLocaleString()} plays` : null,
-                        ].filter(Boolean).join(' · ');
-                        const bodyText = track.description ? track.description.slice(0, 160) : '';
-                        const description: string = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
-                        const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
-                        logger.info(`[OG] Serving embed for "${track.title}" — image: ${imageUrl}`);
-
-                        const metaTags = [
-                            `<meta charset="utf-8">`,
-                            `<title>${escapeHtml(track.title)} by ${escapeHtml(artistName)} | Fuji Studio</title>`,
-                            `<meta property="og:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
-                            `<meta property="og:description" content="${escapeHtml(description)}">`,
-                            `<meta property="og:type" content="music.song">`,
-                            `<meta property="og:url" content="${trackUrl}">`,
-                            `<meta property="og:image" content="${imageUrl}">`,
-                            `<meta property="og:image:secure_url" content="${imageUrl}">`,
-                            `<meta property="og:image:width" content="500">`,
-                            `<meta property="og:image:height" content="500">`,
-                            `<meta property="og:image:type" content="image/webp">`,
-                            `<meta property="og:site_name" content="Fuji Studio">`,
-                            `<meta name="theme-color" content="#2B8C71">`,
-                            audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
-                            audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
-                            audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
-                            `<meta name="twitter:card" content="summary_large_image">`,
-                            `<meta name="twitter:title" content="${escapeHtml(track.title)} by ${escapeHtml(artistName)}">`,
-                            `<meta name="twitter:description" content="${escapeHtml(description)}">`,
-                            `<meta name="twitter:image" content="${imageUrl}">`,
-                            `<meta name="twitter:site" content="@fujistudio">`,
-                            `<meta name="twitter:creator" content="@fujistudio">`,
-                            `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
-                        ].filter(Boolean).join('\n');
-
-                        return res.send(`<!DOCTYPE html><html><head>\n${metaTags}\n</head><body></body></html>`);
+                        if (!track) {
+                            track = await db.track.findFirst({
+                                where: { profileId: profile.id, isPublic: true, id: slug },
+                                include: { profile: true, genres: { include: { genre: true } } }
+                            }) as any;
+                        }
+                        if (track) {
+                            const trackUrl = `${baseUrl}/profile/${username}/${slug}`;
+                            const imageUrl = toAbsolute(track.coverUrl) ?? defaultImage;
+                            const audioUrl = toAbsolute(track.url) ?? '';
+                            const artistName: string = track.profile.displayName || track.profile.username || username;
+                            const genreNames: string[] = (track.genres ?? []).map((g: any) => g.genre?.name).filter(Boolean);
+                            const metaLine = [
+                                `By ${artistName}`,
+                                genreNames.length > 0 ? genreNames.join(', ') : null,
+                                typeof track.playCount === 'number' ? `${track.playCount.toLocaleString()} plays` : null,
+                            ].filter(Boolean).join(' | ');
+                            const bodyText = track.description ? track.description.slice(0, 160) : '';
+                            const description: string = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
+                            const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
+                            return res.send(ogPage(
+                                { title: `${track.title} by ${artistName} | Fuji Studio`, description, type: 'music.song', url: trackUrl, image: imageUrl },
+                                [
+                                    `<meta property="og:image:width" content="500">`,
+                                    `<meta property="og:image:height" content="500">`,
+                                    audioUrl ? `<meta property="og:audio" content="${audioUrl}">` : '',
+                                    audioUrl ? `<meta property="og:audio:secure_url" content="${audioUrl}">` : '',
+                                    audioUrl ? `<meta property="og:audio:type" content="audio/ogg">` : '',
+                                    `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
+                                ].filter(Boolean),
+                            ));
+                        }
                     }
                 }
+
+                // --- Profile page: /profile/:username ---
+                const profileMatch = req.path.match(PROFILE_PATH);
+                if (profileMatch && !req.path.match(TRACK_PATH)) {
+                    const [, username] = profileMatch;
+                    const profile = await db.musicianProfile.findFirst({
+                        where: { username: { equals: username, mode: 'insensitive' } },
+                        include: { _count: { select: { tracks: { where: { isPublic: true, status: 'active' } } } } },
+                    }) as any;
+                    if (profile) {
+                        const displayName = profile.displayName || profile.username;
+                        const bio = profile.bio ? profile.bio.slice(0, 160) : '';
+                        const trackCount = profile._count?.tracks ?? 0;
+                        const desc = [bio, trackCount > 0 ? `${trackCount} track${trackCount === 1 ? '' : 's'} on Fuji Studio` : 'Artist on Fuji Studio'].filter(Boolean).join(' | ');
+                        const image = toAbsolute(profile.bannerUrl || profile.avatarUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${displayName} | Fuji Studio Artist`, description: desc, url: `${baseUrl}/profile/${username}`, image }));
+                    }
+                }
+
+                // --- Battle detail: /battles/:idOrSlug ---
+                const battleMatch = req.path.match(BATTLE_PATH);
+                if (battleMatch) {
+                    const [, idOrSlug] = battleMatch;
+                    const battle = await db.beatBattle.findFirst({
+                        where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+                        include: {
+                            _count: { select: { entries: { where: { deletedAt: null } } } },
+                            entries: { where: { deletedAt: null }, orderBy: [{ voteCount: 'desc' }, { createdAt: 'asc' }], take: 3, select: { trackTitle: true, username: true, voteCount: true } },
+                        },
+                    }) as any;
+                    if (battle) {
+                        const statusLabel: Record<string, string> = { upcoming: 'Upcoming', active: 'Submissions Open', voting: 'Voting Live', completed: 'Completed' };
+                        const entryCount = battle._count?.entries ?? 0;
+                        const topNames = battle.entries?.slice(0, 3).map((e: any) => e.username).filter(Boolean).join(', ');
+                        const parts = [statusLabel[battle.status] || battle.status];
+                        if (entryCount > 0) parts.push(`${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`);
+                        if (topNames) parts.push(`Featuring ${topNames}`);
+                        if (battle.description) parts.push(battle.description.slice(0, 120));
+                        const image = toAbsolute(battle.bannerUrl || battle.cardImageUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${battle.title} | Beat Battle | Fuji Studio`, description: parts.join(' - '), url: `${baseUrl}/battles/${idOrSlug}`, image }));
+                    }
+                }
+
+                // --- Battle entry: /battles/entry/:id ---
+                const entryMatch = req.path.match(BATTLE_ENTRY_PATH);
+                if (entryMatch) {
+                    const [, entryId] = entryMatch;
+                    const entry = await db.battleEntry.findUnique({
+                        where: { id: entryId },
+                        include: { battle: { select: { title: true } } },
+                    }) as any;
+                    if (entry) {
+                        const image = toAbsolute(entry.coverUrl || entry.avatarUrl) ?? defaultImage;
+                        const desc = `${entry.voteCount} vote${entry.voteCount === 1 ? '' : 's'} in ${entry.battle.title}`;
+                        return res.send(ogPage({ title: `${entry.trackTitle} by ${entry.username} | Fuji Studio`, description: desc, url: `${baseUrl}/battles/entry/${entryId}`, image }));
+                    }
+                }
+
+                // --- Playlist: /playlist/:id ---
+                const playlistMatch = req.path.match(PLAYLIST_PATH);
+                if (playlistMatch) {
+                    const [, playlistId] = playlistMatch;
+                    const playlist = await db.playlist.findUnique({
+                        where: { id: playlistId },
+                        include: { _count: { select: { tracks: true } } },
+                    }) as any;
+                    if (playlist) {
+                        const trackCount = playlist._count?.tracks ?? 0;
+                        const desc = [playlist.description?.slice(0, 120), `${trackCount} track${trackCount === 1 ? '' : 's'}`].filter(Boolean).join(' | ');
+                        const image = toAbsolute(playlist.coverUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${playlist.name} | Fuji Studio Playlist`, description: desc, url: `${baseUrl}/playlist/${playlistId}`, image }));
+                    }
+                }
+
+                // --- Article: /article/:slug ---
+                const articleMatch = req.path.match(ARTICLE_PATH);
+                if (articleMatch) {
+                    const [, slug] = articleMatch;
+                    const article = await (db as any).article?.findFirst?.({
+                        where: { slug, status: 'published' },
+                    });
+                    if (article) {
+                        const title = article.metaTitle || article.title || 'Article';
+                        const desc = article.metaDescription || article.excerpt || article.content?.slice(0, 160) || '';
+                        const image = toAbsolute(article.coverImageUrl) ?? defaultImage;
+                        return res.send(ogPage({ title: `${title} | Fuji Studio`, description: desc, url: `${baseUrl}/article/${slug}`, image }));
+                    }
+                }
+
+                // --- Generic pages ---
+                const genericPages: Record<string, { title: string; description: string }> = {
+                    '/battles': { title: 'Beat Battles | Fuji Studio', description: 'Compete in beat battles, vote for your favourite tracks, and win prizes on Fuji Studio.' },
+                    '/genres': { title: 'Genres | Fuji Studio', description: 'Browse music by genre on Fuji Studio. Find beats across Hip-Hop, Trap, Lo-Fi, and more.' },
+                    '/discover': { title: 'Discover Artists | Fuji Studio', description: 'Discover talented FL Studio producers and artists on Fuji Studio.' },
+                    '/learn': { title: 'Fuji Academy | Fuji Studio', description: 'Learn FL Studio interactively with hands-on lessons in a built-in DAW simulator. No downloads required.' },
+                };
+                const generic = genericPages[req.path];
+                if (generic) {
+                    return res.send(ogPage({ title: generic.title, description: generic.description, url: `${baseUrl}${req.path}`, image: defaultImage }));
+                }
+
+                // Fallback for any other bot-crawled page
+                return res.send(ogPage({ title: 'Fuji Studio', description: 'The home of FL Studio producers. Discover beats, share tracks, and join beat battles.', url: `${baseUrl}${req.path}`, image: defaultImage }));
             } catch (err: any) {
                 logger.warn(`[SPA bot-detect] error: ${err.message}`);
                 // Fall through to SPA on error
@@ -10965,7 +11389,7 @@ if (fs.existsSync(distPath)) {
 async function runBeatBattleLifecycle(): Promise<void> {
     const now = new Date();
     try {
-        // ---------- 1. Upcoming â†’ Active (submissionStart passed) ----------
+        // ---------- 1. Upcoming → Active (submissionStart passed) ----------
         const toActivate = await db.beatBattle.findMany({
             where: { status: 'upcoming', submissionStart: { lte: now } },
         });
@@ -10982,7 +11406,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 2. Active â†’ Voting (submissionEnd passed) ----------
+        // ---------- 2. Active → Voting (submissionEnd passed) ----------
         const toVoting = await db.beatBattle.findMany({
             where: { status: 'active', submissionEnd: { not: null, lte: now } },
         });
@@ -10990,7 +11414,7 @@ async function runBeatBattleLifecycle(): Promise<void> {
 
         for (const battle of toVoting) {
             try {
-                logger.info(`Beat Battle lifecycle: "${battle.title}" â†’ voting`);
+                logger.info(`Beat Battle lifecycle: "${battle.title}" → voting`);
                 await db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
                 const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
                 await postBattleAnnouncement({ ...battle, status: 'voting' }, settings);
@@ -10999,25 +11423,90 @@ async function runBeatBattleLifecycle(): Promise<void> {
             }
         }
 
-        // ---------- 3. Voting â†’ Completed (votingEnd passed) ----------
+        // ---------- 3. Voting -> Completed OR Sudden Death (votingEnd passed) ----------
         const toComplete = await db.beatBattle.findMany({
             where: { status: 'voting', votingEnd: { not: null, lte: now } },
-            include: { entries: { where: { deletedAt: null }, orderBy: { voteCount: 'desc' }, take: 1 } },
         });
-        if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) completing`);
+        if (toComplete.length) logger.info(`Beat Battle lifecycle: ${toComplete.length} battle(s) finishing voting`);
 
         for (const battle of toComplete) {
             try {
-                logger.info(`Beat Battle lifecycle: completing "${battle.title}"`);
-                const winner = (battle as any).entries?.[0];
-                await db.beatBattle.update({
-                    where: { id: battle.id },
-                    data: { status: 'completed', winnerEntryId: winner?.id || null },
-                });
-                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
-                await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winner?.id || null }, settings);
+                const result = await resolveBattleRanking(battle.id);
+                if (result.tied.length > 1) {
+                    const durationMin = (battle as any).suddenDeathDurationMinutes || 60;
+                    const start = new Date();
+                    const end = new Date(start.getTime() + durationMin * 60_000);
+                    logger.info(`Beat Battle lifecycle: "${battle.title}" -> sudden_death (${result.tied.length} entries, ${durationMin}min)`);
+                    await db.beatBattle.update({
+                        where: { id: battle.id },
+                        data: {
+                            status: 'sudden_death',
+                            suddenDeathStart: start,
+                            suddenDeathEnd: end,
+                            suddenDeathEntryIds: result.tied,
+                        },
+                    });
+                    const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                    await postBattleAnnouncement({ ...battle, status: 'sudden_death' }, settings);
+                } else {
+                    const winnerId = result.winnerEntryId;
+                    logger.info(`Beat Battle lifecycle: completing "${battle.title}" (winner: ${winnerId || 'none'})`);
+                    await db.beatBattle.update({
+                        where: { id: battle.id },
+                        data: { status: 'completed', winnerEntryId: winnerId },
+                    });
+                    const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                    await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winnerId }, settings);
+                }
             } catch (err: any) {
                 logger.error(`Beat Battle lifecycle: failed to complete "${battle.title}": ${err.message}`);
+            }
+        }
+
+        // ---------- 4. Sudden Death -> Completed (suddenDeathEnd passed) ----------
+        const sdToComplete = await db.beatBattle.findMany({
+            where: { status: 'sudden_death', suddenDeathEnd: { not: null, lte: now } },
+        });
+        for (const battle of sdToComplete) {
+            try {
+                const tied: string[] = Array.isArray((battle as any).suddenDeathEntryIds) ? (battle as any).suddenDeathEntryIds : [];
+                let winnerId: string | null = null;
+                if (tied.length > 0) {
+                    const sdVotes = await db.battleVote.groupBy({
+                        by: ['entryId'],
+                        where: {
+                            battleId: battle.id,
+                            entryId: { in: tied },
+                            createdAt: { gte: (battle as any).suddenDeathStart || new Date(0) },
+                        },
+                        _count: { _all: true },
+                    });
+                    const sorted = (sdVotes as any[]).map(v => ({ id: v.entryId, count: v._count._all }))
+                        .sort((a, b) => b.count - a.count);
+                    if (sorted.length > 0 && (sorted.length === 1 || sorted[0].count > sorted[1].count)) {
+                        winnerId = sorted[0].id;
+                    } else {
+                        // Still tied after sudden death -> earliest entry wins
+                        const stillTied = sorted.length > 0
+                            ? sorted.filter(s => s.count === sorted[0].count).map(s => s.id)
+                            : tied;
+                        const fallback = await db.battleEntry.findFirst({
+                            where: { id: { in: stillTied } },
+                            orderBy: { createdAt: 'asc' },
+                            select: { id: true },
+                        });
+                        winnerId = fallback?.id || stillTied[0] || null;
+                    }
+                }
+                logger.info(`Beat Battle lifecycle: completing sudden death for "${battle.title}" (winner: ${winnerId || 'none'})`);
+                await db.beatBattle.update({
+                    where: { id: battle.id },
+                    data: { status: 'completed', winnerEntryId: winnerId },
+                });
+                const settings = await db.beatBattleSettings.findUnique({ where: { guildId: battle.guildId } });
+                await postBattleAnnouncement({ ...battle, status: 'completed', winnerEntryId: winnerId }, settings);
+            } catch (err: any) {
+                logger.error(`Beat Battle lifecycle: failed sudden-death completion for "${battle.title}": ${err.message}`);
             }
         }
     } catch (err: any) {
@@ -11025,11 +11514,1241 @@ async function runBeatBattleLifecycle(): Promise<void> {
     }
 }
 
+// Lexicographical Positional Scoring: compare 1st-place counts, then 2nd, then 3rd.
+// Returns either a unique winnerEntryId or the set of tied entry IDs (>1 means sudden death).
+async function resolveBattleRanking(battleId: string): Promise<{ winnerEntryId: string | null; tied: string[] }> {
+    const entries = await db.battleEntry.findMany({
+        where: { battleId, deletedAt: null },
+        select: { id: true, createdAt: true },
+    });
+    if (entries.length === 0) return { winnerEntryId: null, tied: [] };
+    if (entries.length === 1) return { winnerEntryId: entries[0].id, tied: [] };
+
+    const tallies = await db.battleVote.groupBy({
+        by: ['entryId', 'rank'],
+        where: { battleId },
+        _count: { _all: true },
+    });
+    const map = new Map<string, [number, number, number]>();
+    for (const e of entries) map.set(e.id, [0, 0, 0]);
+    for (const t of tallies as any[]) {
+        const arr = map.get(t.entryId);
+        if (!arr) continue;
+        if (t.rank === 1) arr[0] = t._count._all;
+        else if (t.rank === 2) arr[1] = t._count._all;
+        else if (t.rank === 3) arr[2] = t._count._all;
+    }
+    const sorted = entries.map(e => ({ id: e.id, score: map.get(e.id)! }))
+        .sort((a, b) => (b.score[0] - a.score[0]) || (b.score[1] - a.score[1]) || (b.score[2] - a.score[2]));
+    const top = sorted[0];
+    const tied = sorted.filter(s =>
+        s.score[0] === top.score[0] &&
+        s.score[1] === top.score[1] &&
+        s.score[2] === top.score[2]
+    ).map(s => s.id);
+    if (tied.length > 1 && top.score[0] === 0 && top.score[1] === 0 && top.score[2] === 0) {
+        const earliest = entries.slice().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+        return { winnerEntryId: earliest.id, tied: [] };
+    }
+    if (tied.length === 1) return { winnerEntryId: tied[0], tied: [] };
+    return { winnerEntryId: null, tied };
+}
+
 // Run lifecycle immediately on start, then every 60 seconds
 runBeatBattleLifecycle();
 setInterval(runBeatBattleLifecycle, 60_000);
 
-// ─── Anti-External Forward ──────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// Head-to-Head 1v1 Producer Battles
+// ----------------------------------------------------------------------------
+
+const PUBLIC_GUILD_ID_H2H = 'default-guild';
+
+const h2hUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB cap on submissions/samples
+});
+
+async function getH2HSettings(): Promise<any> {
+    let s = await db.headToHeadSettings.findUnique({ where: { guildId: PUBLIC_GUILD_ID_H2H } });
+    if (!s) {
+        await db.guild.upsert({
+            where: { id: PUBLIC_GUILD_ID_H2H },
+            create: { id: PUBLIC_GUILD_ID_H2H, name: 'Default Guild' },
+            update: {},
+        });
+        s = await db.headToHeadSettings.create({ data: { guildId: PUBLIC_GUILD_ID_H2H } });
+    }
+    return s;
+}
+
+async function getOrCreateRating(userId: string, genreId: string | null): Promise<any> {
+    const settings = await getH2HSettings();
+    const existing = await db.h2HRating.findFirst({ where: { userId, genreId: genreId ?? null } });
+    if (existing) return existing;
+    return db.h2HRating.create({
+        data: { userId, genreId: genreId ?? null, elo: settings.startingElo },
+    });
+}
+
+function calcEloDelta(winnerElo: number, loserElo: number, kFactor: number): { winnerDelta: number; loserDelta: number } {
+    const expectedWinner = 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400));
+    const expectedLoser = 1 - expectedWinner;
+    const winnerDelta = Math.round(kFactor * (1 - expectedWinner));
+    const loserDelta = Math.round(kFactor * (0 - expectedLoser));
+    return { winnerDelta, loserDelta };
+}
+
+async function applyEloUpdate(match: any, winnerId: string, loserId: string): Promise<{ before: any; after: any }> {
+    const settings = await getH2HSettings();
+    const k = settings.kFactor || 32;
+    const genreId = match.genreId ?? null;
+
+    const [winnerGlobal, loserGlobal, winnerGenre, loserGenre] = await Promise.all([
+        getOrCreateRating(winnerId, null),
+        getOrCreateRating(loserId, null),
+        genreId ? getOrCreateRating(winnerId, genreId) : Promise.resolve(null),
+        genreId ? getOrCreateRating(loserId, genreId) : Promise.resolve(null),
+    ]);
+
+    const before = { winnerElo: winnerGlobal.elo, loserElo: loserGlobal.elo };
+    const { winnerDelta, loserDelta } = calcEloDelta(winnerGlobal.elo, loserGlobal.elo, k);
+
+    await db.h2HRating.update({
+        where: { id: winnerGlobal.id },
+        data: { elo: winnerGlobal.elo + winnerDelta, wins: winnerGlobal.wins + 1, matchesPlayed: winnerGlobal.matchesPlayed + 1 },
+    });
+    await db.h2HRating.update({
+        where: { id: loserGlobal.id },
+        data: { elo: Math.max(0, loserGlobal.elo + loserDelta), losses: loserGlobal.losses + 1, matchesPlayed: loserGlobal.matchesPlayed + 1 },
+    });
+    if (winnerGenre && loserGenre) {
+        const { winnerDelta: wd, loserDelta: ld } = calcEloDelta(winnerGenre.elo, loserGenre.elo, k);
+        await db.h2HRating.update({
+            where: { id: winnerGenre.id },
+            data: { elo: winnerGenre.elo + wd, wins: winnerGenre.wins + 1, matchesPlayed: winnerGenre.matchesPlayed + 1 },
+        });
+        await db.h2HRating.update({
+            where: { id: loserGenre.id },
+            data: { elo: Math.max(0, loserGenre.elo + ld), losses: loserGenre.losses + 1, matchesPlayed: loserGenre.matchesPlayed + 1 },
+        });
+    }
+    return {
+        before,
+        after: { winnerElo: winnerGlobal.elo + winnerDelta, loserElo: Math.max(0, loserGlobal.elo + loserDelta) },
+    };
+}
+
+async function recordForfeit(userId: string): Promise<void> {
+    const r = await getOrCreateRating(userId, null);
+    await db.h2HRating.update({ where: { id: r.id }, data: { forfeits: r.forfeits + 1 } });
+}
+
+async function pickRandomSamples(_genreId: string | null, _count: number): Promise<string[]> {
+    // Deprecated: replaced by pickCategorizedSamples. Kept as a stub for any external callers.
+    return [];
+}
+void pickRandomSamples;
+
+// Mandatory categories every match always gets one of (if available).
+const H2H_MANDATORY_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx'] as const;
+// Optional categories � included only when the match's include* flag is true.
+const H2H_OPTIONAL_CATEGORIES = ['bass', 'melody', 'chords'] as const;
+const H2H_ALL_CATEGORIES = [...H2H_MANDATORY_CATEGORIES, ...H2H_OPTIONAL_CATEGORIES] as const;
+
+async function pickCategorizedSamples(
+    genreId: string | null,
+    opts: { includeBass: boolean; includeMelody: boolean; includeChords: boolean }
+): Promise<string[]> {
+    const categories = [
+        ...H2H_MANDATORY_CATEGORIES,
+        ...(opts.includeBass ? ['bass'] : []),
+        ...(opts.includeMelody ? ['melody'] : []),
+        ...(opts.includeChords ? ['chords'] : []),
+    ];
+
+    const picked: string[] = [];
+    for (const cat of categories) {
+        // Prefer genre-matching pools, fall back to global pools (genreId null).
+        let candidates = await db.h2HSample.findMany({
+            where: {
+                category: cat,
+                pool: { isActive: true, ...(genreId ? { genreId } : {}) },
+            },
+            select: { id: true },
+        });
+        if (!candidates.length && genreId) {
+            candidates = await db.h2HSample.findMany({
+                where: { category: cat, pool: { isActive: true, genreId: null } },
+                select: { id: true },
+            });
+        }
+        if (!candidates.length) continue; // category has no samples anywhere � skip silently
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        picked.push(chosen.id);
+    }
+    return picked;
+}
+
+// --- Public endpoints ---
+
+// Genres available for H2H (those with at least one active pool, plus any global pools)
+app.get('/api/head-to-head/genres', publicCache(120), async (_req, res) => {
+    try {
+        const pools = await db.h2HSamplePool.findMany({
+            where: { isActive: true },
+            include: { genre: true, _count: { select: { samples: true } } },
+        });
+        const map = new Map<string, any>();
+        let globalSamples = 0;
+        for (const p of pools) {
+            if (!p.genreId) { globalSamples += p._count.samples; continue; }
+            const key = p.genreId;
+            const existing = map.get(key);
+            if (existing) existing.sampleCount += p._count.samples;
+            else map.set(key, { id: p.genreId, name: p.genre?.name || 'Unknown', sampleCount: p._count.samples });
+        }
+        const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        res.json({ genres: list, globalSamples });
+    } catch (e: any) {
+        logger.error('H2H genres failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Settings (public, sanitized)
+app.get('/api/head-to-head/settings', publicCache(60), async (_req, res) => {
+    try {
+        const s = await getH2HSettings();
+        res.json({
+            enabled: s.enabled,
+            defaultProductionMinutes: s.defaultProductionMinutes,
+            defaultVotingMinutes: s.defaultVotingMinutes,
+            readyUpMinutes: s.readyUpMinutes,
+            startingElo: s.startingElo,
+            minVotesToFinalize: s.minVotesToFinalize,
+            samplesPerMatch: s.samplesPerMatch,
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Leaderboard
+app.get('/api/head-to-head/leaderboard', publicCache(30), async (req: any, res) => {
+    try {
+        const genreId = (req.query.genreId as string | undefined) || null;
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+        const ratings = await db.h2HRating.findMany({
+            where: { genreId: genreId === '' ? null : genreId, matchesPlayed: { gt: 0 } },
+            orderBy: { elo: 'desc' },
+            take: limit,
+            include: { genre: true },
+        });
+        // Enrich with profile info
+        const userIds = ratings.map(r => r.userId);
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: userIds } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        res.json(ratings.map((r, i) => ({
+            rank: i + 1,
+            userId: r.userId,
+            elo: r.elo,
+            wins: r.wins,
+            losses: r.losses,
+            forfeits: r.forfeits,
+            matchesPlayed: r.matchesPlayed,
+            genreId: r.genreId,
+            genreName: r.genre?.name || null,
+            profile: pmap.get(r.userId) || null,
+        })));
+    } catch (e: any) {
+        logger.error('H2H leaderboard failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Identities are revealed only after the match has truly ended.
+const H2H_REVEAL_STATUSES = new Set(['completed', 'forfeited', 'cancelled']);
+function anonProfile(userId: string) {
+    return { userId, username: null, displayName: null, avatar: null, anonymous: true };
+}
+
+// My state: rating + active match + recent matches + queue position
+app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;        const [globalRating, genreRatings, activeMatch, recent] = await Promise.all([
+            getOrCreateRating(userId, null),
+            db.h2HRating.findMany({ where: { userId, genreId: { not: null } }, include: { genre: true } }),
+            db.h2HMatch.findFirst({
+                where: {
+                    OR: [{ challengerId: userId }, { opponentId: userId }],
+                    status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] },
+                },
+                orderBy: { createdAt: 'desc' },
+                include: { genre: true },
+            }),
+            db.h2HMatch.findMany({
+                where: {
+                    OR: [{ challengerId: userId }, { opponentId: userId }],
+                    status: { in: ['completed', 'forfeited', 'cancelled'] },
+                },
+                orderBy: { updatedAt: 'desc' },
+                take: 10,
+                include: { genre: true },
+            }),
+        ]);
+        // Attach profiles. Opponent stays masked while the match is still live;
+        // both identities are revealed once the match reaches a terminal status.
+        const allMatchUserIds = new Set<string>();
+        if (activeMatch) {
+            allMatchUserIds.add(activeMatch.challengerId);
+            if (activeMatch.opponentId) allMatchUserIds.add(activeMatch.opponentId);
+        }
+        for (const m of recent) {
+            allMatchUserIds.add(m.challengerId);
+            if (m.opponentId) allMatchUserIds.add(m.opponentId);
+        }
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: Array.from(allMatchUserIds) } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        // Pre-load samples for any active/recent match that already has sampleIds.
+        const sampleIdSet = new Set<string>();
+        const collectIds = (m: any) => {
+            const ids = (m?.sampleIds as string[] | null) || [];
+            for (const id of ids) sampleIdSet.add(id);
+        };
+        if (activeMatch) collectIds(activeMatch);
+        for (const m of recent) collectIds(m);
+        const sampleRows = sampleIdSet.size
+            ? await db.h2HSample.findMany({ where: { id: { in: Array.from(sampleIdSet) } } })
+            : [];
+        const smap = new Map(sampleRows.map(s => [s.id, s]));
+        const attach = (m: any) => {
+            const reveal = H2H_REVEAL_STATUSES.has(m.status);
+            const chReal = pmap.get(m.challengerId) || { userId: m.challengerId, username: null, displayName: null, avatar: null };
+            const opReal = m.opponentId ? (pmap.get(m.opponentId) || { userId: m.opponentId, username: null, displayName: null, avatar: null }) : null;
+            const chIsMe = m.challengerId === userId;
+            const opIsMe = m.opponentId === userId;
+            const ids = (m.sampleIds as string[] | null) || [];
+            const samples = ids.map(id => smap.get(id)).filter(Boolean);
+            return {
+                ...m,
+                samples,
+                challengerProfile: reveal || chIsMe ? chReal : anonProfile(m.challengerId),
+                opponentProfile: !m.opponentId ? null : (reveal || opIsMe ? opReal : anonProfile(m.opponentId)),
+            };
+        };
+        res.json({
+            userId,
+            globalRating: { elo: globalRating.elo, wins: globalRating.wins, losses: globalRating.losses, forfeits: globalRating.forfeits, matchesPlayed: globalRating.matchesPlayed },
+            genreRatings: genreRatings.map(g => ({ genreId: g.genreId, genreName: g.genre?.name, elo: g.elo, wins: g.wins, losses: g.losses })),
+            activeMatch: activeMatch ? attach(activeMatch) : null,
+            recentMatches: recent.map(attach),
+        });
+    } catch (e: any) {
+        logger.error('H2H me failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Join queue
+app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const settings = await getH2HSettings();
+        if (!settings.enabled) return res.status(403).json({ error: 'Head-to-Head is disabled' });
+        const { genreId, productionMinutes } = req.body || {};
+
+        // Block if user already has an active match
+        const existing = await db.h2HMatch.findFirst({
+            where: {
+                OR: [{ challengerId: userId }, { opponentId: userId }],
+                status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] },
+            },
+        });
+        if (existing) return res.status(400).json({ error: 'You already have an active match', matchId: existing.id });
+
+        const prod = Math.max(15, Math.min(720, Number(productionMinutes) || settings.defaultProductionMinutes));
+        const match = await db.h2HMatch.create({
+            data: {
+                challengerId: userId,
+                genreId: genreId || null,
+                productionMinutes: prod,
+                votingMinutes: settings.defaultVotingMinutes,
+                status: 'queued',
+                // Melodics inclusion is decided by the in-match vote.
+                includeBass: false,
+                includeMelody: false,
+                includeChords: false,
+            },
+        });
+        res.json({ matchId: match.id, status: match.status });
+        // Kick the lifecycle right away so the second player into the queue gets paired instantly
+        // instead of waiting for the next interval tick.
+        runHeadToHeadLifecycle().catch(() => {});
+    } catch (e: any) {
+        logger.error('H2H queue failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Leave queue (only while still queued)
+app.post('/api/head-to-head/queue/leave', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const m = await db.h2HMatch.findFirst({ where: { challengerId: userId, opponentId: null, status: 'queued' } });
+        if (!m) return res.status(404).json({ error: 'Not in queue' });
+        await db.h2HMatch.update({ where: { id: m.id }, data: { status: 'cancelled' } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Match details (with sample URLs only for participants while in producing)
+app.get('/api/head-to-head/match/:id', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({
+            where: { id: req.params.id },
+            include: { genre: true, votes: true },
+        });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        const userId = req.session?.user?.id;
+        const isParticipant = userId && (match.challengerId === userId || match.opponentId === userId);
+        const sampleIds: string[] = (match.sampleIds as string[] | null) || [];
+        let samples: any[] = [];
+        if (sampleIds.length && (isParticipant || ['voting', 'completed'].includes(match.status))) {
+            samples = await db.h2HSample.findMany({ where: { id: { in: sampleIds } } });
+        }
+        // Hide submission URLs from voters until voting (or always for non-participants if still producing)
+        const sanitized: any = { ...match, samples };
+        if (match.status === 'producing' && !isParticipant) {
+            sanitized.challengerSubmissionUrl = null;
+            sanitized.opponentSubmissionUrl = null;
+        }
+        // Include profile names
+        const ids = [match.challengerId, match.opponentId].filter(Boolean) as string[];
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: ids } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        const reveal = H2H_REVEAL_STATUSES.has(match.status);
+        const chReal = pmap.get(match.challengerId) || { userId: match.challengerId, username: null, displayName: null, avatar: null };
+        const opReal = match.opponentId ? (pmap.get(match.opponentId) || { userId: match.opponentId, username: null, displayName: null, avatar: null }) : null;
+        const chIsMe = userId && match.challengerId === userId;
+        const opIsMe = userId && match.opponentId === userId;
+        sanitized.challengerProfile = reveal || chIsMe ? chReal : anonProfile(match.challengerId);
+        sanitized.opponentProfile = !match.opponentId ? null : (reveal || opIsMe ? opReal : anonProfile(match.opponentId));
+        res.json(sanitized);
+    } catch (e: any) {
+        logger.error('H2H match get failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Ready up
+app.post('/api/head-to-head/match/:id/ready', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'ready_check') return res.status(400).json({ error: 'Not in ready-up phase' });
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: isCh ? { challengerReady: true } : { opponentReady: true },
+        });
+        // If both ready now, advance immediately to the melodics vote
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh && fresh.challengerReady && fresh.opponentReady) {
+            await advanceToMelodicsVote(fresh);
+        }
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H ready failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Melodics vote window length � short, since it's a single click per category.
+const H2H_MELODICS_VOTE_SECONDS = 45;
+
+async function advanceToMelodicsVote(match: any): Promise<void> {
+    // Find which optional categories actually have samples in the chosen genre
+    // (or in a global pool as fallback). Categories that don't exist anywhere are
+    // pre-set as "no" votes for both players so we don't ask the users about
+    // melodics that can't be served.
+    const checkCat = async (cat: string): Promise<boolean> => {
+        const inGenre = await db.h2HSample.count({
+            where: { category: cat, pool: { isActive: true, ...(match.genreId ? { genreId: match.genreId } : {}) } },
+        });
+        if (inGenre > 0) return true;
+        if (!match.genreId) return false;
+        const inGlobal = await db.h2HSample.count({
+            where: { category: cat, pool: { isActive: true, genreId: null } },
+        });
+        return inGlobal > 0;
+    };
+    const [hasBass, hasMelody, hasChords] = await Promise.all([
+        checkCat('bass'),
+        checkCat('melody'),
+        checkCat('chords'),
+    ]);
+
+    const now = new Date();
+    const deadline = new Date(now.getTime() + H2H_MELODICS_VOTE_SECONDS * 1000);
+    const data: any = {
+        status: 'melodics_vote',
+        melodicsVoteDeadline: deadline,
+        // Reset any previous votes
+        challengerVoteBass:   hasBass   ? null : false,
+        challengerVoteMelody: hasMelody ? null : false,
+        challengerVoteChords: hasChords ? null : false,
+        opponentVoteBass:     hasBass   ? null : false,
+        opponentVoteMelody:   hasMelody ? null : false,
+        opponentVoteChords:   hasChords ? null : false,
+    };
+    await db.h2HMatch.update({ where: { id: match.id }, data });
+
+    // If nothing is available to vote on, skip the vote entirely.
+    if (!hasBass && !hasMelody && !hasChords) {
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh) await resolveMelodicsAndProduce(fresh);
+    }
+}
+
+// Resolve melodics vote ? AND of both players' votes (null = no). Then advance to producing.
+async function resolveMelodicsAndProduce(match: any): Promise<void> {
+    const includeBass   = !!match.challengerVoteBass   && !!match.opponentVoteBass;
+    const includeMelody = !!match.challengerVoteMelody && !!match.opponentVoteMelody;
+    const includeChords = !!match.challengerVoteChords && !!match.opponentVoteChords;
+    await db.h2HMatch.update({
+        where: { id: match.id },
+        data: { includeBass, includeMelody, includeChords },
+    });
+    await advanceToProduction({ ...match, includeBass, includeMelody, includeChords });
+}
+
+// Melodics vote � each player picks bass/melody/chords yes/no. Both must agree
+// on a category for it to be included. Auto-resolves when both submitted, or on timeout.
+app.post('/api/head-to-head/match/:id/melodics-vote', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'melodics_vote') return res.status(400).json({ error: 'Not in melodics vote phase' });
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        const bass   = !!req.body?.bass;
+        const melody = !!req.body?.melody;
+        const chords = !!req.body?.chords;
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: isCh
+                ? { challengerVoteBass: bass, challengerVoteMelody: melody, challengerVoteChords: chords }
+                : { opponentVoteBass:   bass, opponentVoteMelody:   melody, opponentVoteChords:   chords },
+        });
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        // Resolve immediately when both players have voted
+        if (fresh
+            && fresh.challengerVoteBass   !== null && fresh.opponentVoteBass   !== null
+            && fresh.challengerVoteMelody !== null && fresh.opponentVoteMelody !== null
+            && fresh.challengerVoteChords !== null && fresh.opponentVoteChords !== null) {
+            await resolveMelodicsAndProduce(fresh);
+        }
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H melodics vote failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Manual forfeit � allowed during ready_check / melodics_vote / producing.
+app.post('/api/head-to-head/match/:id/forfeit', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        if (!['ready_check', 'melodics_vote', 'producing'].includes(match.status)) {
+            return res.status(400).json({ error: 'Cannot forfeit from this phase' });
+        }
+        if (!match.opponentId) {
+            // Solo queue � just cancel
+            await db.h2HMatch.update({
+                where: { id: match.id },
+                data: { status: 'cancelled', forfeitReason: 'Forfeited before opponent matched' },
+            });
+            return res.json({ ok: true });
+        }
+        const opponentId = isCh ? match.opponentId : match.challengerId;
+        // If we're in producing AND the opponent has already submitted, they win.
+        // If we're in producing and neither has submitted, the opponent wins by default
+        // (forfeiter walked away from the fight).
+        const opponentSubmitted = isCh ? !!match.opponentSubmissionUrl : !!match.challengerSubmissionUrl;
+        const youSubmitted      = isCh ? !!match.challengerSubmissionUrl : !!match.opponentSubmissionUrl;
+        let winnerId = opponentId;
+        let loserId  = userId;
+        // Edge case: if the forfeiter actually submitted but the opponent didn't,
+        // forfeiting still means they want out � opponent wins.
+        if (youSubmitted && !opponentSubmitted) {
+            // Same outcome � opponent gets the W because the forfeiter quit.
+        }
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: {
+                status: 'forfeited',
+                winnerId, loserId,
+                forfeitReason: `${isCh ? 'Challenger' : 'Opponent'} forfeited`,
+            },
+        });
+        await recordForfeit(userId);
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H forfeit failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Same-origin proxy for an individual sample file. Lets the dashboard fetch the
+// underlying R2 audio without running into CORS (which silently returned empty
+// buffers and produced an "empty" zip with only the README).
+app.get('/api/head-to-head/match/:id/sample/:sampleId', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        const userId = req.session?.user?.id;
+        const isParticipant = !!userId && (match.challengerId === userId || match.opponentId === userId);
+        const isPublic = ['voting', 'completed'].includes(match.status);
+        if (!isParticipant && !isPublic) return res.status(403).json({ error: 'Forbidden' });
+        const ids = (match.sampleIds as string[] | null) || [];
+        if (!ids.includes(req.params.sampleId)) return res.status(404).json({ error: 'Sample not in this match' });
+        const sample = await db.h2HSample.findUnique({ where: { id: req.params.sampleId } });
+        if (!sample || !sample.fileUrl) return res.status(404).json({ error: 'Sample not found' });
+        const upstream = await fetch(sample.fileUrl);
+        if (!upstream.ok || !upstream.body) {
+            return res.status(502).json({ error: 'Failed to fetch sample from storage' });
+        }
+        const ct = upstream.headers.get('content-type') || 'application/octet-stream';
+        const len = upstream.headers.get('content-length');
+        res.setHeader('Content-Type', ct);
+        if (len) res.setHeader('Content-Length', len);
+        const ext = sample.fileUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'wav';
+        const safeName = (sample.name || 'sample').replace(/[^a-zA-Z0-9._-]/g, '_');
+        res.setHeader('Content-Disposition', `attachment; filename="${safeName}.${ext}"`);
+        const reader = (upstream.body as any).getReader();
+        try {
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) res.write(Buffer.from(value));
+            }
+            res.end();
+        } catch (streamErr: any) {
+            logger.error('H2H sample proxy stream failed', streamErr);
+            try { res.end(); } catch {}
+        }
+    } catch (e: any) {
+        logger.error('H2H sample proxy failed', e);
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Same-origin proxy for the two submitted tracks (used by the voting page so we
+// can decode audio for waveforms without CORS issues, and so we can keep the
+// real R2 URL out of the HTML).
+app.get('/api/head-to-head/match/:id/submission/:side', async (req: any, res) => {
+    try {
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        // Submissions are revealed once voting has opened (and stay accessible after)
+        if (!['voting', 'completed', 'forfeited'].includes(match.status)) {
+            // Allow the participants to fetch their own/opponent's during producing, but only if the user is one of them
+            const userId = req.session?.user?.id;
+            const isParticipant = !!userId && (match.challengerId === userId || match.opponentId === userId);
+            if (!isParticipant) return res.status(403).json({ error: 'Forbidden' });
+        }
+        const side = req.params.side;
+        const url = side === 'challenger' ? match.challengerSubmissionUrl
+                  : side === 'opponent'   ? match.opponentSubmissionUrl
+                  : null;
+        if (!url) return res.status(404).json({ error: 'Submission not found' });
+        const upstream = await fetch(url);
+        if (!upstream.ok || !upstream.body) {
+            return res.status(502).json({ error: 'Failed to fetch submission from storage' });
+        }
+        const ct = upstream.headers.get('content-type') || 'audio/mpeg';
+        const len = upstream.headers.get('content-length');
+        res.setHeader('Content-Type', ct);
+        if (len) res.setHeader('Content-Length', len);
+        res.setHeader('Accept-Ranges', 'bytes');
+        const reader = (upstream.body as any).getReader();
+        try {
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) res.write(Buffer.from(value));
+            }
+            res.end();
+        } catch (streamErr: any) {
+            logger.error('H2H submission proxy stream failed', streamErr);
+            try { res.end(); } catch {}
+        }
+    } catch (e: any) {
+        logger.error('H2H submission proxy failed', e);
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+async function advanceToProduction(match: any): Promise<void> {
+    const sampleIds = await pickCategorizedSamples(match.genreId, {
+        includeBass: match.includeBass !== false,
+        includeMelody: match.includeMelody !== false,
+        includeChords: match.includeChords !== false,
+    });
+    if (!sampleIds.length) {
+        logger.warn(`H2H match ${match.id} advancing to production with NO samples (genreId=${match.genreId ?? 'global'}). Check sample pools.`);
+    }
+    const now = new Date();
+    const deadline = new Date(now.getTime() + match.productionMinutes * 60 * 1000);
+    await db.h2HMatch.update({
+        where: { id: match.id },
+        data: {
+            status: 'producing',
+            sampleIds,
+            producingStartedAt: now,
+            producingDeadline: deadline,
+        },
+    });
+}
+
+// Submit track (multipart/form-data field "submission")
+app.post('/api/head-to-head/match/:id/submit', requireAuth, h2hUpload.single('submission'), async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'producing') return res.status(400).json({ error: 'Not in production phase' });
+        if (match.producingDeadline && new Date() > new Date(match.producingDeadline)) {
+            return res.status(400).json({ error: 'Production window has closed' });
+        }
+        const isCh = match.challengerId === userId;
+        const isOp = match.opponentId === userId;
+        if (!isCh && !isOp) return res.status(403).json({ error: 'Not a participant' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        // Allow common audio types
+        const mt = (req.file.mimetype || '').toLowerCase();
+        if (!/^audio\//.test(mt) && !mt.includes('ogg') && !mt.includes('octet-stream')) {
+            return res.status(400).json({ error: 'File must be an audio file' });
+        }
+
+        let url: string;
+        if (R2Storage.isConfigured()) {
+            const ext = (req.file.originalname.split('.').pop() || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+            const key = R2Storage.buildKey('h2h-submissions', match.id, `${userId}-${Date.now()}.${ext}`);
+            url = await R2Storage.uploadBuffer(key, req.file.buffer, req.file.mimetype || 'audio/mpeg');
+        } else {
+            // Local fallback
+            const dir = path.join(PROJECT_ROOT, 'public/uploads/h2h');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const safeName = `${match.id}-${userId}-${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            fs.writeFileSync(path.join(dir, safeName), req.file.buffer);
+            url = `/uploads/h2h/${safeName}`;
+        }
+
+        await db.h2HMatch.update({
+            where: { id: match.id },
+            data: isCh
+                ? { challengerSubmissionUrl: url, challengerSubmissionAt: new Date() }
+                : { opponentSubmissionUrl: url, opponentSubmissionAt: new Date() },
+        });
+
+        // If both have submitted, transition immediately
+        const fresh = await db.h2HMatch.findUnique({ where: { id: match.id } });
+        if (fresh && fresh.challengerSubmissionUrl && fresh.opponentSubmissionUrl) {
+            await openVoting(fresh);
+        }
+        res.json({ ok: true, url });
+    } catch (e: any) {
+        logger.error('H2H submit failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+async function openVoting(match: any): Promise<void> {
+    const settings = await getH2HSettings();
+    const now = new Date();
+    const end = new Date(now.getTime() + (match.votingMinutes || settings.defaultVotingMinutes) * 60 * 1000);
+    await db.h2HMatch.update({
+        where: { id: match.id },
+        data: { status: 'voting', votingStart: now, votingEnd: end },
+    });
+}
+
+// Voting queue: peer-reviewed � only return matches where the viewer also has an active or recently-completed match.
+app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        // Eligibility: user must currently be queued, in producing/voting, or have completed a match in the last 7 days.
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const ownMatch = await db.h2HMatch.findFirst({
+            where: {
+                AND: [
+                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
+                    {
+                        OR: [
+                            { status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] } },
+                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
+                        ],
+                    },
+                ],
+            },
+        });
+        if (!ownMatch) {
+            return res.json({ eligible: false, reason: 'Join the queue or complete a match in the last 7 days to vote on others.', matches: [] });
+        }
+        // Fetch active voting matches the user is NOT a part of
+        const matches = await db.h2HMatch.findMany({
+            where: {
+                status: 'voting',
+                challengerId: { not: userId },
+                opponentId: { not: userId },
+            },
+            orderBy: { votingEnd: 'asc' },
+            include: { genre: true, votes: { where: { voterId: userId } } },
+            take: 20,
+        });
+        res.json({
+            eligible: true,
+            matches: matches.map(m => ({
+                ...m,
+                myVote: m.votes[0]?.voteFor ?? null,
+                // Anonymous voting � voters cannot see the producers' identities until the match completes
+                challengerProfile: anonProfile(m.challengerId),
+                opponentProfile: m.opponentId ? anonProfile(m.opponentId) : null,
+                votes: undefined,
+            })),
+        });
+    } catch (e: any) {
+        logger.error('H2H voting queue failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Cast a vote on a match
+app.post('/api/head-to-head/match/:id/vote', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { voteFor } = req.body || {};
+        const match = await db.h2HMatch.findUnique({ where: { id: req.params.id } });
+        if (!match) return res.status(404).json({ error: 'Not found' });
+        if (match.status !== 'voting') return res.status(400).json({ error: 'Not in voting phase' });
+        if (match.challengerId === userId || match.opponentId === userId) {
+            return res.status(403).json({ error: 'You cannot vote on your own match' });
+        }
+        if (![match.challengerId, match.opponentId].includes(voteFor)) {
+            return res.status(400).json({ error: 'Invalid vote target' });
+        }
+        // Eligibility: must have an active match or recently completed
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const ownMatch = await db.h2HMatch.findFirst({
+            where: {
+                AND: [
+                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
+                    {
+                        OR: [
+                            { status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] } },
+                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
+                        ],
+                    },
+                ],
+            },
+        });
+        if (!ownMatch) return res.status(403).json({ error: 'Only active competitors can vote' });
+
+        await db.h2HVote.upsert({
+            where: { matchId_voterId: { matchId: match.id, voterId: userId } },
+            create: { matchId: match.id, voterId: userId, voteFor },
+            update: { voteFor },
+        });
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('H2H vote failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin endpoints ---
+
+app.get('/api/head-to-head/admin/settings', requireAdmin, async (_req, res) => {
+    try {
+        const s = await getH2HSettings();
+        res.json(s);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/settings', requireAdmin, async (req, res) => {
+    try {
+        const allowed = ['enabled', 'announcementChannelId', 'defaultProductionMinutes', 'defaultVotingMinutes',
+            'readyUpMinutes', 'startingElo', 'kFactor', 'minVotesToFinalize', 'maxQueueWaitMinutes', 'samplesPerMatch'];
+        const data: any = {};
+        for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+        await getH2HSettings();
+        const s = await db.headToHeadSettings.update({ where: { guildId: PUBLIC_GUILD_ID_H2H }, data });
+        res.json(s);
+    } catch (e: any) {
+        logger.error('H2H admin settings failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/head-to-head/admin/pools', requireAdmin, async (_req, res) => {
+    try {
+        const pools = await db.h2HSamplePool.findMany({
+            include: { genre: true, samples: true, _count: { select: { samples: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(pools);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/pools', requireAdmin, async (req, res) => {
+    try {
+        const { name, description, genreId } = req.body || {};
+        if (!name) return res.status(400).json({ error: 'Name required' });
+        const pool = await db.h2HSamplePool.create({
+            data: { name, description: description || null, genreId: genreId || null },
+        });
+        res.json(pool);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.patch('/api/head-to-head/admin/pools/:id', requireAdmin, async (req, res) => {
+    try {
+        const data: any = {};
+        for (const k of ['name', 'description', 'genreId', 'isActive']) {
+            if (req.body[k] !== undefined) data[k] = req.body[k] === '' ? null : req.body[k];
+        }
+        const pool = await db.h2HSamplePool.update({ where: { id: req.params.id }, data });
+        res.json(pool);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/head-to-head/admin/pools/:id', requireAdmin, async (req, res) => {
+    try {
+        // Best-effort delete of R2 sample objects
+        const samples = await db.h2HSample.findMany({ where: { poolId: req.params.id } });
+        await Promise.all(samples.map(s => deleteFromStorage(s.fileUrl).catch(() => {})));
+        await db.h2HSamplePool.delete({ where: { id: req.params.id } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.array('samples', 50), async (req: any, res) => {
+    try {
+        const pool = await db.h2HSamplePool.findUnique({ where: { id: req.params.id } });
+        if (!pool) return res.status(404).json({ error: 'Pool not found' });
+        const files: any[] = req.files || [];
+        if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+        const validCategories = new Set<string>([...H2H_ALL_CATEGORIES, 'other']);
+        const normalizeCat = (raw: any): string => {
+            const s = String(raw || '').trim().toLowerCase();
+            return validCategories.has(s) ? s : 'other';
+        };
+        const fallbackCategory = normalizeCat(req.body?.category);
+        // Support a parallel categories[] array: same length as files, one entry per file.
+        let perFile: string[] | null = null;
+        if (Array.isArray(req.body?.categories)) {
+            perFile = (req.body.categories as any[]).map(normalizeCat);
+        } else if (typeof req.body?.categories === 'string') {
+            // Single value form encoding edge case
+            perFile = [normalizeCat(req.body.categories)];
+        }
+
+        const created: any[] = [];
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const category = perFile && perFile[i] ? perFile[i] : fallbackCategory;
+            let url: string;
+            if (R2Storage.isConfigured()) {
+                const ext = (f.originalname.split('.').pop() || 'wav').toLowerCase().replace(/[^a-z0-9]/g, '') || 'wav';
+                const key = R2Storage.buildKey('h2h-samples', pool.id, `${category}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`);
+                url = await R2Storage.uploadBuffer(key, f.buffer, f.mimetype || 'audio/wav');
+            } else {
+                const dir = path.join(PROJECT_ROOT, 'public/uploads/h2h-samples');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                const safeName = `${pool.id}-${category}-${Date.now()}-${f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                fs.writeFileSync(path.join(dir, safeName), f.buffer);
+                url = `/uploads/h2h-samples/${safeName}`;
+            }
+            const sample = await db.h2HSample.create({
+                data: {
+                    poolId: pool.id,
+                    name: f.originalname,
+                    category,
+                    fileUrl: url,
+                    fileType: (f.mimetype || 'audio/wav').split('/')[1] || 'wav',
+                    fileSize: f.size || f.buffer.length,
+                    uploadedBy: req.session?.user?.id || null,
+                },
+            });
+            created.push(sample);
+        }
+        res.json({ created });
+    } catch (e: any) {
+        logger.error('H2H sample upload failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update a sample's category (admin)
+app.patch('/api/head-to-head/admin/samples/:id', requireAdmin, async (req, res) => {
+    try {
+        const validCategories = new Set<string>([...H2H_ALL_CATEGORIES, 'other']);
+        const data: any = {};
+        if (req.body?.category !== undefined) {
+            const c = String(req.body.category).trim().toLowerCase();
+            if (!validCategories.has(c)) return res.status(400).json({ error: 'Invalid category' });
+            data.category = c;
+        }
+        if (req.body?.name !== undefined) data.name = String(req.body.name).slice(0, 255);
+        const sample = await db.h2HSample.update({ where: { id: req.params.id }, data });
+        res.json(sample);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/head-to-head/admin/samples/:id', requireAdmin, async (req, res) => {
+    try {
+        const s = await db.h2HSample.findUnique({ where: { id: req.params.id } });
+        if (!s) return res.status(404).json({ error: 'Not found' });
+        await deleteFromStorage(s.fileUrl).catch(() => {});
+        await db.h2HSample.delete({ where: { id: req.params.id } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/head-to-head/admin/matches', requireAdmin, async (req: any, res) => {
+    try {
+        const status = req.query.status as string | undefined;
+        const where: any = {};
+        if (status) where.status = status;
+        const matches = await db.h2HMatch.findMany({
+            where,
+            include: { genre: true, _count: { select: { votes: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+        });
+        res.json(matches);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/head-to-head/admin/matches/:id/cancel', requireAdmin, async (req, res) => {
+    try {
+        await db.h2HMatch.update({
+            where: { id: req.params.id },
+            data: { status: 'cancelled', forfeitReason: 'Admin cancelled' },
+        });
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Lifecycle ticker ---
+
+async function runHeadToHeadLifecycle(): Promise<void> {
+    try {
+        const settings = await getH2HSettings();
+        if (!settings.enabled) return;
+        const now = new Date();
+
+        // 1. Matchmaking � pair queued players within the same genre + production length, prefer closest Elo.
+        const queued = await db.h2HMatch.findMany({
+            where: { status: 'queued', opponentId: null },
+            orderBy: { createdAt: 'asc' },
+        });
+        const consumed = new Set<string>();
+        for (const a of queued) {
+            if (consumed.has(a.id)) continue;
+            const candidate = queued.find(b =>
+                !consumed.has(b.id) &&
+                b.id !== a.id &&
+                b.challengerId !== a.challengerId &&
+                (b.genreId ?? null) === (a.genreId ?? null) &&
+                b.productionMinutes === a.productionMinutes
+            );
+            if (!candidate) continue;
+            // Elo distance is informational � we still match within bucket since the queue is small.
+            const readyDeadline = new Date(now.getTime() + settings.readyUpMinutes * 60 * 1000);
+            await db.h2HMatch.update({
+                where: { id: a.id },
+                data: {
+                    opponentId: candidate.challengerId,
+                    status: 'ready_check',
+                    readyUpStartedAt: now,
+                    readyDeadline,
+                },
+            });
+            // Mark candidate as cancelled (it was a placeholder queue row) � its user is now opponent on `a`.
+            await db.h2HMatch.update({
+                where: { id: candidate.id },
+                data: { status: 'cancelled', forfeitReason: 'Merged into match ' + a.id },
+            });
+            consumed.add(a.id);
+            consumed.add(candidate.id);
+        }
+
+        // 2. Ready-check timeouts
+        const readyChecks = await db.h2HMatch.findMany({
+            where: { status: 'ready_check', readyDeadline: { lte: now } },
+        });
+        for (const m of readyChecks) {
+            if (m.challengerReady && m.opponentReady) {
+                await advanceToProduction(m);
+            } else if (m.challengerReady && !m.opponentReady && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.challengerId, loserId: m.opponentId, forfeitReason: 'Opponent did not ready up' },
+                });
+                await recordForfeit(m.opponentId);
+            } else if (!m.challengerReady && m.opponentReady && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.opponentId, loserId: m.challengerId, forfeitReason: 'Challenger did not ready up' },
+                });
+                await recordForfeit(m.challengerId);
+            } else {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'cancelled', forfeitReason: 'Neither player readied up' },
+                });
+                if (m.opponentId) await recordForfeit(m.opponentId);
+                await recordForfeit(m.challengerId);
+            }
+        }
+
+        // 2b. Melodics vote timeouts � anyone who didn't vote on a category counts as "no".
+        const melodicsVotes = await db.h2HMatch.findMany({
+            where: { status: 'melodics_vote', melodicsVoteDeadline: { lte: now } },
+        });
+        for (const m of melodicsVotes) {
+            await resolveMelodicsAndProduce(m);
+        }
+
+        // 3. Production deadlines
+        const producing = await db.h2HMatch.findMany({
+            where: { status: 'producing', producingDeadline: { lte: now } },
+        });
+        for (const m of producing) {
+            const chDone = !!m.challengerSubmissionUrl;
+            const opDone = !!m.opponentSubmissionUrl;
+            if (chDone && opDone) {
+                await openVoting(m);
+            } else if (chDone && !opDone && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.challengerId, loserId: m.opponentId, forfeitReason: 'Opponent did not submit' },
+                });
+                await recordForfeit(m.opponentId);
+            } else if (!chDone && opDone && m.opponentId) {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'forfeited', winnerId: m.opponentId, loserId: m.challengerId, forfeitReason: 'Challenger did not submit' },
+                });
+                await recordForfeit(m.challengerId);
+            } else {
+                await db.h2HMatch.update({
+                    where: { id: m.id },
+                    data: { status: 'cancelled', forfeitReason: 'Neither player submitted' },
+                });
+                if (m.opponentId) await recordForfeit(m.opponentId);
+                await recordForfeit(m.challengerId);
+            }
+        }
+
+        // 4. Voting deadlines / vote thresholds
+        const voting = await db.h2HMatch.findMany({
+            where: { status: 'voting' },
+            include: { votes: true },
+        });
+        for (const m of voting) {
+            const ended = m.votingEnd && new Date(m.votingEnd) <= now;
+            if (!ended) continue;
+            if (!m.opponentId) continue;
+            const chVotes = m.votes.filter(v => v.voteFor === m.challengerId).length;
+            const opVotes = m.votes.filter(v => v.voteFor === m.opponentId).length;
+            const total = chVotes + opVotes;
+            if (total < settings.minVotesToFinalize) {
+                // Extend by 50% of voting window if under-voted (max one extension per cycle is fine � idempotent)
+                const ext = new Date(now.getTime() + Math.ceil((m.votingMinutes || settings.defaultVotingMinutes) * 30 * 1000));
+                await db.h2HMatch.update({ where: { id: m.id }, data: { votingEnd: ext } });
+                continue;
+            }
+            let winnerId: string;
+            let loserId: string;
+            if (chVotes === opVotes) {
+                // Tiebreak: earliest submission wins
+                const earliest = (m.challengerSubmissionAt && m.opponentSubmissionAt &&
+                    new Date(m.challengerSubmissionAt) <= new Date(m.opponentSubmissionAt))
+                    ? m.challengerId : m.opponentId;
+                winnerId = earliest;
+                loserId = winnerId === m.challengerId ? m.opponentId : m.challengerId;
+            } else if (chVotes > opVotes) {
+                winnerId = m.challengerId; loserId = m.opponentId;
+            } else {
+                winnerId = m.opponentId; loserId = m.challengerId;
+            }
+            const elo = await applyEloUpdate(m, winnerId, loserId);
+            await db.h2HMatch.update({
+                where: { id: m.id },
+                data: {
+                    status: 'completed',
+                    winnerId, loserId,
+                    challengerEloBefore: winnerId === m.challengerId ? elo.before.winnerElo : elo.before.loserElo,
+                    challengerEloAfter:  winnerId === m.challengerId ? elo.after.winnerElo  : elo.after.loserElo,
+                    opponentEloBefore:   winnerId === m.opponentId   ? elo.before.winnerElo : elo.before.loserElo,
+                    opponentEloAfter:    winnerId === m.opponentId   ? elo.after.winnerElo  : elo.after.loserElo,
+                },
+            });
+        }
+    } catch (e: any) {
+        logger.error('H2H lifecycle failed', e);
+    }
+}
+
+// Run lifecycle immediately on start, then every 5 seconds (matchmaking + ready/vote/production timers).
+runHeadToHeadLifecycle();
+setInterval(runHeadToHeadLifecycle, 5_000);
+
+// --- Anti-External Forward --------------------------------------------------
 
 app.get('/api/anti-external-forward/:guildId', requireAuth, async (req: any, res) => {
     try {
@@ -11070,7 +12789,7 @@ app.post('/api/anti-external-forward/:guildId', requireAuth, async (req: any, re
     }
 });
 
-// ─── Track Announcer Settings ────────────────────────────
+// --- Track Announcer Settings ----------------------------
 
 app.get('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => {
     try {
@@ -11105,7 +12824,7 @@ app.post('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => 
     }
 });
 
-// â”€â”€â”€ Charts System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Charts System ──────────────────────────────────────────────────────
 
 // Get the latest chart for a period
 app.get('/api/charts/:period', publicCache(120), async (req: any, res) => {
@@ -11202,7 +12921,7 @@ async function runChartGeneration() {
 runChartGeneration();
 setInterval(runChartGeneration, 60 * 60 * 1000);
 
-// â”€â”€â”€ Comment System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Comment System ─────────────────────────────────────────────────────
 
 // GET comments for a track, profile, or battle entry
 app.get('/api/comments', async (req: any, res) => {
@@ -11241,7 +12960,7 @@ app.get('/api/comments', async (req: any, res) => {
             allUserIds.add((c as any).userId);
             for (const r of (c as any).replies || []) allUserIds.add(r.userId);
         }
-        // Fetch profiles for all commenters — profile avatar/displayName take priority
+        // Fetch profiles for all commenters � profile avatar/displayName take priority
         const profiles = allUserIds.size > 0
             ? await db.musicianProfile.findMany({
                 where: { userId: { in: [...allUserIds] } },
@@ -11290,12 +13009,20 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         let resolvedTrackId = trackId;
         let resolvedProfileId = profileId;
         let resolvedBattleEntryId = battleEntryId;
+        // The actual parent stored in the DB. If the client passed a reply's id
+        // as parentId, we roll up to the top-level comment so threading stays
+        // flat (single reply level) — the user can still "reply to" a reply.
+        let effectiveParentId: string | null = parentId || null;
 
         if (parentId) {
-            // Reply \u2014 inherit context from parent, prevent nested replies
+            // Reply — inherit context from parent. If the parent is itself a
+            // reply, walk up to the top-level grandparent so we never create
+            // nested threads (UI only renders one level of replies).
             const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
-            if (parent.parentId) return res.status(400).json({ error: 'Cannot reply to a reply' });
+            if (parent.parentId) {
+                effectiveParentId = parent.parentId;
+            }
             resolvedTrackId = parent.trackId;
             resolvedProfileId = parent.profileId;
             resolvedBattleEntryId = parent.battleEntryId;
@@ -11305,7 +13032,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, or battleEntryId' });
         }
 
-        // Resolve username and avatar — prefer MusicianProfile over Discord
+        // Resolve username and avatar � prefer MusicianProfile over Discord
         let username = req.session.user.username || 'Unknown';
         let avatarUrl: string | null = null;
         const profile = await db.musicianProfile.findUnique({
@@ -11338,8 +13065,8 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
                 ...(resolvedBattleEntryId ? { battleEntryId: resolvedBattleEntryId } : {}),
-                ...(parentId ? { parentId } : {}),
-                ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !parentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
+                ...(effectiveParentId ? { parentId: effectiveParentId } : {}),
+                ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !effectiveParentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
         });
 
@@ -11367,7 +13094,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             try {
                 const snippet = (content || '').trim().slice(0, 80) || '(GIF)';
                 if (parentId) {
-                    // Reply notification — notify the parent comment author
+                    // Reply notification � notify the parent comment author
                     const parentComment = await db.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
                     if (parentComment && parentComment.userId !== userId) {
                         let link: string | null = null;
@@ -11385,7 +13112,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                         });
                     }
                 } else {
-                    // Top-level comment notification — notify the content owner
+                    // Top-level comment notification � notify the content owner
                     let ownerId: string | null = null;
                     let link: string | null = null;
                     if (resolvedTrackId) {
@@ -11590,13 +13317,13 @@ app.get('/api/discord/emojis', async (_req: any, res) => {
     }
 });
 
-// â”€â”€â”€ Klipy GIF Proxy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Klipy GIF Proxy ────────────────────────────────────────────────────
 // Klipy is a Tenor drop-in replacement (https://docs.klipy.com/migrate-from-tenor)
 // Content filtering is configured in the Klipy Partner Dashboard
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 // Music Notifications
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 
 app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
     try {
@@ -11607,7 +13334,7 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
             take: 50,
         });
 
-        // Check if user has a musician profile — if not, prepend a prompt notification
+        // Check if user has a musician profile � if not, prepend a prompt notification
         try {
             const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
             if (!profile) {
@@ -11646,9 +13373,9 @@ app.post('/api/music/notifications/read', requireAuth, async (req: any, res) => 
     }
 });
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 // Track Favourites
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 
 // Check if current user has favourited a track
 app.get('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => {
@@ -11751,9 +13478,9 @@ app.post('/api/tracks/favourites/check', requireAuth, async (req: any, res) => {
     }
 });
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 // Track Reposts
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 
 // Check if current user has reposted a track
 app.get('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
@@ -11841,9 +13568,9 @@ app.post('/api/tracks/reposts/check', requireAuth, async (req: any, res) => {
     }
 });
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 // Artist Follows
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 
 // Check if current user follows an artist
 app.get('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => {
@@ -12031,9 +13758,9 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
     }
 });
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 // Playlists
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────
 
 function generatePlaylistSlug(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80) || 'playlist';
@@ -12187,7 +13914,7 @@ app.post('/api/playlists/:playlistId/cover', requireAuth, generalUploadLimiter, 
         const coverFile = req.file as Express.Multer.File | undefined;
         if (!coverFile) return res.status(400).json({ error: 'No cover image provided' });
 
-        // Magic byte validation — reject spoofed images
+        // Magic byte validation � reject spoofed images
         try {
             FileValidator.validateImage(fs.readFileSync(coverFile.path), coverFile.originalname);
         } catch (validationErr: any) {
@@ -12335,7 +14062,7 @@ app.post('/api/playlists/:playlistId/play', async (req: any, res) => {
     }
 });
 
-// â”€â”€â”€ Public Activity Feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Public Activity Feed ───────────────────────────────────────────────
 app.get('/api/activity/public', async (_req: any, res) => {
     try {
         const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // last 7 days
@@ -12425,7 +14152,7 @@ app.get('/api/activity/public', async (_req: any, res) => {
     }
 });
 
-// â”€â”€â”€ Klipy GIF Proxy (continued) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Klipy GIF Proxy (continued) ────────────────────────────────────────
 
 app.get('/api/klipy/featured', async (_req: any, res) => {
     try {
@@ -12458,7 +14185,7 @@ app.get('/api/klipy/search', async (req: any, res) => {
     }
 });
 
-// ─── Fuji FM (Radio) Plugin Routes ─────────────────────────────────────────────
+// --- Fuji FM (Radio) Plugin Routes ---------------------------------------------
 
 // GET radio settings
 app.get('/api/radio/settings/:guildId', async (req, res) => {
@@ -12484,7 +14211,7 @@ app.post('/api/radio/settings/:guildId', async (req, res) => {
     const { guildId } = req.params;
     logger.info(`[API] POST /api/radio/settings/${guildId} body=${JSON.stringify(req.body)}`);
     if (!await checkPluginAccess(guildId, req, 'fuji-radio')) {
-      logger.warn(`[API] POST /api/radio/settings/${guildId} → 403 Forbidden`);
+      logger.warn(`[API] POST /api/radio/settings/${guildId} ? 403 Forbidden`);
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -12547,7 +14274,7 @@ app.post('/api/radio/control/:guildId', async (req, res) => {
       },
     });
 
-    // Poll for completion (bot processes commands every 2s) — wait up to 6s
+    // Poll for completion (bot processes commands every 2s) � wait up to 6s
     const deadline = Date.now() + 6000;
     while (Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -12832,7 +14559,7 @@ app.get('/api/radio/tracks/search/:guildId', async (req, res) => {
   }
 });
 
-// ─── Studio Guide Settings ─────────────────────────────────────────────────
+// --- Studio Guide Settings -------------------------------------------------
 
 app.get('/api/studio-guide/settings/:guildId', async (req, res) => {
   try {
@@ -12918,7 +14645,7 @@ app.get('/api/studio-guide/conversations/:guildId/:conversationId', async (req, 
   }
 });
 
-// ── Studio Guide Knowledge Base CRUD ──────────────────────────────────────────
+// -- Studio Guide Knowledge Base CRUD ------------------------------------------
 
 app.get('/api/studio-guide/knowledge/:guildId', async (req, res) => {
   try {
@@ -13127,7 +14854,7 @@ app.post('/api/admin/users/bulk-invite', requireAdmin, async (req, res) => {
     }
 });
 
-// ── Manual Backup Trigger (admin only) ──────────────────────────────────────
+// -- Manual Backup Trigger (admin only) --------------------------------------
 app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     try {
         if (!R2Storage.isConfigured()) {
@@ -13141,7 +14868,7 @@ app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     }
 });
 
-// ── Booster Colour Roles ──────────────────────────────────────────────────────
+// -- Booster Colour Roles ------------------------------------------------------
 
 app.get('/api/booster-color/settings/:guildId', async (req, res) => {
     try {
@@ -13174,9 +14901,9 @@ app.post('/api/booster-color/settings/:guildId', async (req, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PRIVATE MESSAGING — Encrypted 1:1 & Group Chats
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
+// PRIVATE MESSAGING � Encrypted 1:1 & Group Chats
+// ---------------------------------------------------------------------------
 const msgEnc = new MessageEncryption();
 
 // Search users to start a conversation with
@@ -13242,7 +14969,7 @@ app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
                 lastMessageSenderId = msg.senderId;
                 if (!msg.deleted) {
                     try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
-                    if (lastMessagePreview && lastMessagePreview.length > 80) lastMessagePreview = lastMessagePreview.slice(0, 80) + '…';
+                    if (lastMessagePreview && lastMessagePreview.length > 80) lastMessagePreview = lastMessagePreview.slice(0, 80) + '�';
                 } else {
                     lastMessagePreview = '[deleted]';
                 }
@@ -13282,7 +15009,7 @@ app.post('/api/messages/conversations', requireAuth, async (req: any, res) => {
         const me = req.session.user.id;
         const { participantIds, name, isGroup } = req.body;
         if (!Array.isArray(participantIds) || participantIds.length === 0) return res.status(400).json({ error: 'participantIds required' });
-        // Sanitize — remove self, deduplicate
+        // Sanitize � remove self, deduplicate
         const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
         if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
         // Verify all participant IDs are real users
@@ -13567,9 +15294,9 @@ app.get('/api/messages/conversations/:id', requireAuth, async (req: any, res) =>
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ADMIN — Private Messaging Dashboard
-// ═══════════════════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------------------
+// ADMIN � Private Messaging Dashboard
+// ---------------------------------------------------------------------------
 
 // Admin: list all conversations with stats
 app.get('/api/admin/messages/conversations', requireAdmin, async (_req: any, res) => {
@@ -13598,7 +15325,7 @@ app.get('/api/admin/messages/conversations', requireAdmin, async (_req: any, res
                 lastMessageAt = msg.createdAt.toISOString();
                 if (!msg.deleted) {
                     try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
-                    if (lastMessagePreview && lastMessagePreview.length > 100) lastMessagePreview = lastMessagePreview.slice(0, 100) + '…';
+                    if (lastMessagePreview && lastMessagePreview.length > 100) lastMessagePreview = lastMessagePreview.slice(0, 100) + '�';
                 } else {
                     lastMessagePreview = '[deleted]';
                 }
@@ -13700,7 +15427,7 @@ app.get('/api/admin/messages/stats', requireAdmin, async (_req: any, res) => {
     }
 });
 
-// ── Server Boost Settings ────────────────────────────────────────────────────
+// -- Server Boost Settings ----------------------------------------------------
 
 app.get('/api/server-boost/:guildId', async (req: any, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -13748,9 +15475,9 @@ app.put('/api/server-boost/:guildId', async (req: any, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 //  REPORTS (user-submitted content reports)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 // Submit a report (any authenticated user)
 app.post('/api/reports', async (req: any, res) => {
@@ -13903,9 +15630,9 @@ app.patch('/api/admin/reports/:reportId', requireAdmin, async (req: any, res) =>
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ██  ARTICLES / NEWS PLUGIN ENDPOINTS
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
+// ��  ARTICLES / NEWS PLUGIN ENDPOINTS
+// -------------------------------------------------------------------------------
 
 // Helper: generate URL-safe slug from title
 function slugify(text: string): string {
@@ -13917,7 +15644,7 @@ function slugify(text: string): string {
         .slice(0, 80);
 }
 
-// ── Public: Get published articles (paginated) ────────────────────────────────
+// -- Public: Get published articles (paginated) --------------------------------
 app.get('/api/articles', async (req: any, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -13953,7 +15680,7 @@ app.get('/api/articles', async (req: any, res) => {
     }
 });
 
-// ── Public: Get single article by slug ────────────────────────────────────────
+// -- Public: Get single article by slug ----------------------------------------
 app.get('/api/articles/:slug', async (req: any, res) => {
     try {
         const article = await db.article.findUnique({
@@ -13971,11 +15698,11 @@ app.get('/api/articles/:slug', async (req: any, res) => {
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ██  WRITER ARTICLE ENDPOINTS (any authenticated user)
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
+// ��  WRITER ARTICLE ENDPOINTS (any authenticated user)
+// -------------------------------------------------------------------------------
 
-// ── Writer: List own articles ─────────────────────────────────────────────────
+// -- Writer: List own articles -------------------------------------------------
 app.get('/api/my/articles', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
@@ -13999,7 +15726,7 @@ app.get('/api/my/articles', requireAuth, async (req: any, res) => {
     }
 });
 
-// ── Writer: Get own article by ID ─────────────────────────────────────────────
+// -- Writer: Get own article by ID ---------------------------------------------
 app.get('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
@@ -14012,7 +15739,7 @@ app.get('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     }
 });
 
-// ── Writer: Create article (draft or submit for review) ──────────────────────
+// -- Writer: Create article (draft or submit for review) ----------------------
 app.post('/api/my/articles', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
@@ -14027,7 +15754,7 @@ app.post('/api/my/articles', requireAuth, async (req: any, res) => {
             slug = `${baseSlug}-${suffix++}`;
         }
 
-        // Writers can only create as draft or pending — never published directly
+        // Writers can only create as draft or pending � never published directly
         const articleStatus = status === 'pending' ? 'pending' : 'draft';
 
         // Use the first guild the bot + user share
@@ -14066,7 +15793,7 @@ app.post('/api/my/articles', requireAuth, async (req: any, res) => {
     }
 });
 
-// ── Writer: Update own article (only if draft or rejected) ───────────────────
+// -- Writer: Update own article (only if draft or rejected) -------------------
 app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
@@ -14091,7 +15818,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
         if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
         if (metaDescription !== undefined) data.metaDescription = metaDescription?.slice(0, 300) || null;
 
-        // Writers can re-submit for review or save as draft — never publish directly
+        // Writers can re-submit for review or save as draft � never publish directly
         if (status === 'pending' || status === 'draft') {
             data.status = status;
             if (status === 'pending') {
@@ -14110,7 +15837,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     }
 });
 
-// ── Writer: Delete own article (only drafts) ─────────────────────────────────
+// -- Writer: Delete own article (only drafts) ---------------------------------
 app.delete('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
@@ -14126,7 +15853,7 @@ app.delete('/api/my/articles/:id', requireAuth, async (req: any, res) => {
     }
 });
 
-// ── Writer: Upload article inline image ───────────────────────────────────────
+// -- Writer: Upload article inline image ---------------------------------------
 app.post('/api/my/articles/upload-image', requireAuth, upload.single('articleImage'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
@@ -14138,7 +15865,7 @@ app.post('/api/my/articles/upload-image', requireAuth, upload.single('articleIma
     }
 });
 
-// ── Writer: Upload article cover image ────────────────────────────────────────
+// -- Writer: Upload article cover image ----------------------------------------
 app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCover'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
@@ -14150,7 +15877,7 @@ app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCov
     }
 });
 
-// ── Writer: Upload article audio (samples, loops, stems) ─────────────────────
+// -- Writer: Upload article audio (samples, loops, stems) ---------------------
 app.post('/api/my/articles/upload-audio', requireAuth, upload.single('articleAudio'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
@@ -14162,7 +15889,7 @@ app.post('/api/my/articles/upload-audio', requireAuth, upload.single('articleAud
     }
 });
 
-// ── Writer: Upload article project file (.flp, .zip, .als) ───────────────────
+// -- Writer: Upload article project file (.flp, .zip, .als) -------------------
 app.post('/api/my/articles/upload-project', requireAuth, upload.single('articleProject'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No project file provided' });
@@ -14174,7 +15901,7 @@ app.post('/api/my/articles/upload-project', requireAuth, upload.single('articleP
     }
 });
 
-// ── Writer: Upload article preset file ────────────────────────────────────────
+// -- Writer: Upload article preset file ----------------------------------------
 app.post('/api/my/articles/upload-preset', requireAuth, upload.single('articlePreset'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No preset file provided' });
@@ -14186,11 +15913,11 @@ app.post('/api/my/articles/upload-preset', requireAuth, upload.single('articlePr
     }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ██  ADMIN ARTICLE REVIEW ENDPOINTS
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
+// ��  ADMIN ARTICLE REVIEW ENDPOINTS
+// -------------------------------------------------------------------------------
 
-// ── Admin: List all articles (any status) ─────────────────────────────────────
+// -- Admin: List all articles (any status) -------------------------------------
 app.get('/api/admin/articles', requireAdmin, async (req: any, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -14220,7 +15947,7 @@ app.get('/api/admin/articles', requireAdmin, async (req: any, res) => {
     }
 });
 
-// ── Admin: Get single article by ID (for editing) ────────────────────────────
+// -- Admin: Get single article by ID (for editing) ----------------------------
 app.get('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     try {
         const article = await db.article.findUnique({ where: { id: req.params.id } });
@@ -14232,7 +15959,7 @@ app.get('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// ── Admin: Create article ─────────────────────────────────────────────────────
+// -- Admin: Create article -----------------------------------------------------
 app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
     try {
         const user = req.session?.user;
@@ -14291,7 +16018,7 @@ app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
     }
 });
 
-// ── Admin: Update article ─────────────────────────────────────────────────────
+// -- Admin: Update article -----------------------------------------------------
 app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     try {
         const user = req.session?.user;
@@ -14347,7 +16074,7 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// ── Admin: Delete article ─────────────────────────────────────────────────────
+// -- Admin: Delete article -----------------------------------------------------
 app.delete('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     try {
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
@@ -14360,7 +16087,7 @@ app.delete('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
     }
 });
 
-// ── Admin: Toggle featured status ─────────────────────────────────────────────
+// -- Admin: Toggle featured status ---------------------------------------------
 app.patch('/api/admin/articles/:id/feature', requireAdmin, async (req: any, res) => {
     try {
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
@@ -14384,7 +16111,7 @@ app.patch('/api/admin/articles/:id/feature', requireAdmin, async (req: any, res)
     }
 });
 
-// ── Admin: Upload article image ───────────────────────────────────────────────
+// -- Admin: Upload article image -----------------------------------------------
 app.post('/api/admin/articles/upload-image', requireAdmin, upload.single('articleImage'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
@@ -14396,7 +16123,7 @@ app.post('/api/admin/articles/upload-image', requireAdmin, upload.single('articl
     }
 });
 
-// ── Admin: Upload article cover image ─────────────────────────────────────────
+// -- Admin: Upload article cover image -----------------------------------------
 app.post('/api/admin/articles/upload-cover', requireAdmin, upload.single('articleCover'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
@@ -14408,7 +16135,7 @@ app.post('/api/admin/articles/upload-cover', requireAdmin, upload.single('articl
     }
 });
 
-// ── Admin: Upload article audio ───────────────────────────────────────────────
+// -- Admin: Upload article audio -----------------------------------------------
 app.post('/api/admin/articles/upload-audio', requireAdmin, upload.single('articleAudio'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
@@ -14420,7 +16147,7 @@ app.post('/api/admin/articles/upload-audio', requireAdmin, upload.single('articl
     }
 });
 
-// ── Admin: Upload article project file ────────────────────────────────────────
+// -- Admin: Upload article project file ----------------------------------------
 app.post('/api/admin/articles/upload-project', requireAdmin, upload.single('articleProject'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No project file provided' });
@@ -14432,7 +16159,7 @@ app.post('/api/admin/articles/upload-project', requireAdmin, upload.single('arti
     }
 });
 
-// ── Admin: Upload article preset file ─────────────────────────────────────────
+// -- Admin: Upload article preset file -----------------------------------------
 app.post('/api/admin/articles/upload-preset', requireAdmin, upload.single('articlePreset'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No preset file provided' });
@@ -14444,7 +16171,7 @@ app.post('/api/admin/articles/upload-preset', requireAdmin, upload.single('artic
     }
 });
 
-// ── Public: Get featured article for front page ───────────────────────────────
+// -- Public: Get featured article for front page -------------------------------
 app.get('/api/articles/featured/current', async (req: any, res) => {
     try {
         // Look up the featured article ID from discovery settings
@@ -14465,7 +16192,7 @@ app.get('/api/articles/featured/current', async (req: any, res) => {
     }
 });
 
-// ─── SpamGuard Plugin Routes ──────────────────────────────────────────────────
+// --- SpamGuard Plugin Routes --------------------------------------------------
 
 app.get('/api/spam-guard/settings/:guildId', async (req, res) => {
     try {
@@ -14539,7 +16266,7 @@ app.post('/api/spam-guard/compute-hash/:guildId', async (req, res) => {
         });
         const buf = Buffer.from(response.data);
 
-        // dHash: 9x8 grayscale → compare adjacent pixels → 64 bits → 16 hex chars
+        // dHash: 9x8 grayscale ? compare adjacent pixels ? 64 bits ? 16 hex chars
         const raw = await sharp(buf).resize(9, 8, { fit: 'fill' }).grayscale().raw().toBuffer();
         let bits = '';
         for (let row = 0; row < 8; row++) {
@@ -14582,7 +16309,7 @@ app.post('/api/spam-guard/hashes/:guildId', async (req, res) => {
 
         const { hash, description } = req.body;
         if (!hash || typeof hash !== 'string' || hash.length !== 16) {
-            return res.status(400).json({ error: 'Invalid hash — must be 16-char hex string' });
+            return res.status(400).json({ error: 'Invalid hash � must be 16-char hex string' });
         }
 
         await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
@@ -14634,7 +16361,95 @@ app.get('/api/spam-guard/incidents/:guildId', async (req, res) => {
     }
 });
 
-// ── ENHANCED PROFILE STYLES ─────────────────────────────────────────────────
+// -- SpamGuard: Blocked phrases / full-message blocklist --------------------
+
+app.get('/api/spam-guard/phrases/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const phrases = await db.spamBlockedPhrase.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(phrases);
+    } catch (e) {
+        logger.error('Failed to get blocked phrases', e);
+        res.status(500).json({ error: 'Failed to get phrases' });
+    }
+});
+
+app.post('/api/spam-guard/phrases/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { phrase, description, isRegex, caseSensitive } = req.body ?? {};
+        if (!phrase || typeof phrase !== 'string') {
+            return res.status(400).json({ error: 'phrase is required' });
+        }
+        const trimmed = phrase.trim();
+        if (trimmed.length < 3) {
+            return res.status(400).json({ error: 'Phrase must be at least 3 characters' });
+        }
+        if (trimmed.length > 2000) {
+            return res.status(400).json({ error: 'Phrase must be 2000 characters or fewer' });
+        }
+        // Validate regex if requested
+        if (isRegex) {
+            try { new RegExp(trimmed); } catch (err: any) {
+                return res.status(400).json({ error: `Invalid regex: ${err?.message ?? 'parse error'}` });
+            }
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        // Ensure SpamGuardSettings row exists (FK target)
+        await db.spamGuardSettings.upsert({
+            where: { guildId },
+            update: {},
+            create: { guildId },
+        });
+
+        const entry = await db.spamBlockedPhrase.upsert({
+            where: { guildId_phrase: { guildId, phrase: trimmed } },
+            update: {
+                description: description?.trim() || null,
+                isRegex: !!isRegex,
+                caseSensitive: !!caseSensitive,
+                addedByMod: (req as any).session?.user?.id,
+            },
+            create: {
+                guildId,
+                phrase: trimmed,
+                description: description?.trim() || null,
+                isRegex: !!isRegex,
+                caseSensitive: !!caseSensitive,
+                addedByMod: (req as any).session?.user?.id,
+            },
+        });
+
+        res.json(entry);
+    } catch (e) {
+        logger.error('Failed to add blocked phrase', e);
+        res.status(500).json({ error: 'Failed to add phrase' });
+    }
+});
+
+app.delete('/api/spam-guard/phrases/:guildId/:phraseId', async (req, res) => {
+    try {
+        const { guildId, phraseId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        await db.spamBlockedPhrase.deleteMany({ where: { id: phraseId, guildId } });
+
+        res.json({ success: true });
+    } catch (e) {
+        logger.error('Failed to delete blocked phrase', e);
+        res.status(500).json({ error: 'Failed to delete phrase' });
+    }
+});
+
+// -- ENHANCED PROFILE STYLES -------------------------------------------------
 
 // Admin: search musician profiles (for targeting users without needing their Discord ID)
 // Must be registered BEFORE /api/profile-styles/:userId to avoid route conflict
@@ -14661,7 +16476,7 @@ app.get('/api/profile-styles/users/search', async (req: any, res) => {
     }
 });
 
-// Public: fetch style for a single user (no guild needed – returns first match across guilds)
+// Public: fetch style for a single user (no guild needed � returns first match across guilds)
 app.get('/api/profile-styles/:userId', publicCache(120), async (req: any, res) => {
     try {
         const { userId } = req.params;
@@ -14747,13 +16562,252 @@ app.delete('/api/guilds/:guildId/profile-styles/:userId', async (req: any, res) 
     }
 });
 
+// ------------------------------------------------------------------------------
+// ACADEMY PLUGIN API
+// ------------------------------------------------------------------------------
+
+// --- Academy Settings (admin) ---
+app.get('/api/guilds/:guildId/academy/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        let settings = await db.academySettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.academySettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to load academy settings', e);
+        res.status(500).json({ error: 'Failed to load academy settings' });
+    }
+});
+
+app.post('/api/guilds/:guildId/academy/settings', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+        const { enabled, announcementChannelId, completionRoleId, reputationReward } = req.body;
+        const settings = await db.academySettings.upsert({
+            where: { guildId },
+            create: { guildId, enabled, announcementChannelId, completionRoleId, reputationReward },
+            update: { enabled, announcementChannelId, completionRoleId, reputationReward },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to save academy settings', e);
+        res.status(500).json({ error: 'Failed to save academy settings' });
+    }
+});
+
+// --- Academy Lessons (public listing) ---
+app.get('/api/academy/lessons', async (_req: any, res) => {
+    try {
+        const lessons = await db.academyLesson.findMany({
+            where: { published: true, deletedAt: null },
+            select: {
+                id: true, slug: true, title: true, description: true,
+                category: true, difficulty: true, order: true,
+                imageUrl: true, duration: true, createdAt: true,
+                _count: { select: { progress: { where: { completed: true } } } },
+            },
+            orderBy: [{ category: 'asc' }, { order: 'asc' }],
+        });
+        res.json(lessons);
+    } catch (e) {
+        logger.error('Failed to load academy lessons', e);
+        res.status(500).json({ error: 'Failed to load lessons' });
+    }
+});
+
+// --- Single Lesson (public) ---
+app.get('/api/academy/lessons/:slugOrId', async (req: any, res) => {
+    try {
+        const { slugOrId } = req.params;
+        const lesson = await db.academyLesson.findFirst({
+            where: {
+                deletedAt: null,
+                OR: [{ id: slugOrId }, { slug: slugOrId }],
+            },
+        });
+        if (!lesson) return res.status(404).json({ error: 'Lesson not found' });
+        if (!lesson.published) {
+            // Only admins can see unpublished lessons
+            const user = req.session?.user;
+            if (!user || user.role !== 'admin') return res.status(404).json({ error: 'Lesson not found' });
+        }
+        res.json(lesson);
+    } catch (e) {
+        logger.error('Failed to load lesson', e);
+        res.status(500).json({ error: 'Failed to load lesson' });
+    }
+});
+
+// --- Admin: CRUD Lessons ---
+app.post('/api/academy/admin/lessons', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        if (!title || !slug) return res.status(400).json({ error: 'Title and slug are required' });
+        const lesson = await db.academyLesson.create({
+            data: {
+                title, slug, description, category, difficulty,
+                order: order ?? 0, duration, steps: steps ?? [], assets: assets ?? [],
+                published: published ?? false, imageUrl,
+            },
+        });
+        res.json(lesson);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'A lesson with this slug already exists' });
+        logger.error('Failed to create lesson', e);
+        res.status(500).json({ error: 'Failed to create lesson' });
+    }
+});
+
+app.patch('/api/academy/admin/lessons/:id', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { id } = req.params;
+        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        const lesson = await db.academyLesson.update({
+            where: { id },
+            data: {
+                ...(title !== undefined && { title }),
+                ...(slug !== undefined && { slug }),
+                ...(description !== undefined && { description }),
+                ...(category !== undefined && { category }),
+                ...(difficulty !== undefined && { difficulty }),
+                ...(order !== undefined && { order }),
+                ...(duration !== undefined && { duration }),
+                ...(steps !== undefined && { steps }),
+                ...(assets !== undefined && { assets }),
+                ...(published !== undefined && { published }),
+                ...(imageUrl !== undefined && { imageUrl }),
+            },
+        });
+        res.json(lesson);
+    } catch (e) {
+        logger.error('Failed to update lesson', e);
+        res.status(500).json({ error: 'Failed to update lesson' });
+    }
+});
+
+app.delete('/api/academy/admin/lessons/:id', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+        const { id } = req.params;
+        await db.academyLesson.update({ where: { id }, data: { deletedAt: new Date() } });
+        res.json({ ok: true });
+    } catch (e) {
+        logger.error('Failed to delete lesson', e);
+        res.status(500).json({ error: 'Failed to delete lesson' });
+    }
+});
+
+// --- User Progress ---
+app.get('/api/academy/progress', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const progress = await db.academyProgress.findMany({
+            where: { userId: user.id },
+            include: { lesson: { select: { title: true, slug: true, category: true, difficulty: true, imageUrl: true } } },
+            orderBy: { updatedAt: 'desc' },
+        });
+        res.json(progress);
+    } catch (e) {
+        logger.error('Failed to load progress', e);
+        res.status(500).json({ error: 'Failed to load progress' });
+    }
+});
+
+app.post('/api/academy/progress/:lessonId', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const { lessonId } = req.params;
+        const { currentStep, stepsCompleted } = req.body;
+
+        // Verify lesson exists
+        const lesson = await db.academyLesson.findUnique({ where: { id: lessonId } });
+        if (!lesson || lesson.deletedAt) return res.status(404).json({ error: 'Lesson not found' });
+
+        const steps = Array.isArray(lesson.steps) ? lesson.steps : [];
+        const totalSteps = steps.length;
+        const completedSteps: number[] = Array.isArray(stepsCompleted) ? stepsCompleted : [];
+        const isCompleted = totalSteps > 0 && completedSteps.length >= totalSteps;
+
+        const progress = await db.academyProgress.upsert({
+            where: { userId_lessonId: { userId: user.id, lessonId } },
+            create: {
+                userId: user.id,
+                lessonId,
+                currentStep: currentStep ?? 0,
+                stepsCompleted: completedSteps,
+                completed: isCompleted,
+                completedAt: isCompleted ? new Date() : null,
+                score: isCompleted ? 100 : Math.round((completedSteps.length / Math.max(totalSteps, 1)) * 100),
+            },
+            update: {
+                currentStep: currentStep ?? 0,
+                stepsCompleted: completedSteps,
+                completed: isCompleted,
+                completedAt: isCompleted ? new Date() : undefined,
+                score: isCompleted ? 100 : Math.round((completedSteps.length / Math.max(totalSteps, 1)) * 100),
+            },
+        });
+
+        res.json(progress);
+    } catch (e) {
+        logger.error('Failed to update progress', e);
+        res.status(500).json({ error: 'Failed to update progress' });
+    }
+});
+
+// --- Lesson Completion Validation ---
+app.post('/api/academy/complete/:lessonId', async (req: any, res) => {
+    try {
+        const user = req.session?.user;
+        if (!user) return res.status(401).json({ error: 'Not authenticated' });
+        const { lessonId } = req.params;
+
+        const lesson = await db.academyLesson.findUnique({ where: { id: lessonId } });
+        if (!lesson || lesson.deletedAt) return res.status(404).json({ error: 'Lesson not found' });
+
+        const steps = Array.isArray(lesson.steps) ? lesson.steps : [];
+        const totalSteps = steps.length;
+
+        // Mark fully completed
+        const allSteps = Array.from({ length: totalSteps }, (_, i) => i);
+        const progress = await db.academyProgress.upsert({
+            where: { userId_lessonId: { userId: user.id, lessonId } },
+            create: {
+                userId: user.id, lessonId,
+                currentStep: totalSteps, stepsCompleted: allSteps,
+                completed: true, completedAt: new Date(), score: 100,
+            },
+            update: {
+                currentStep: totalSteps, stepsCompleted: allSteps,
+                completed: true, completedAt: new Date(), score: 100,
+            },
+        });
+
+        res.json({ ok: true, progress });
+    } catch (e) {
+        logger.error('Failed to complete lesson', e);
+        res.status(500).json({ error: 'Failed to complete lesson' });
+    }
+});
+
 app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
   if (!R2Storage.isConfigured()) {
     logger.warn('R2 not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME missing). ZIP sample audio will be served from local storage.');
   }
 
-  // ── Scheduled Database Backups (every 6 hours) ───────────────────────────
+  // -- Scheduled Database Backups (every 6 hours) ---------------------------
   if (R2Storage.isConfigured()) {
     const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
     const doBackup = async () => {
@@ -14769,9 +16823,9 @@ app.listen(PORT, async () => {
       doBackup();
       setInterval(doBackup, BACKUP_INTERVAL_MS);
     }, 60_000);
-    logger.info('[Scheduled Backup] Enabled — every 6 hours, 30-backup retention');
+    logger.info('[Scheduled Backup] Enabled � every 6 hours, 30-backup retention');
   } else {
-    logger.warn('[Scheduled Backup] Disabled — R2 not configured');
+    logger.warn('[Scheduled Backup] Disabled � R2 not configured');
   }
 
   // Backfill slugs for any battles that don't have one yet
@@ -14792,11 +16846,11 @@ app.listen(PORT, async () => {
   }
 });
 
-// ── Graceful Shutdown ─────────────────────────────────────────────────────────
+// -- Graceful Shutdown ---------------------------------------------------------
 // On SIGTERM/SIGINT (PM2 restart, deploy, etc.) drain the Prisma connection pool
 // before the process exits so no in-flight queries are cut mid-write.
 async function gracefulShutdown(signal: string) {
-    logger.info(`[Shutdown] Received ${signal} — closing database connections…`);
+    logger.info(`[Shutdown] Received ${signal} � closing database connections�`);
     try {
         await db.$disconnect();
         logger.info('[Shutdown] Prisma disconnected cleanly');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -72,7 +72,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const navItems = [
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
         { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
+        { key: 'new', label: 'NEW', icon: <Sparkles size={14} />, path: '/new' },
         { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
+        { key: 'h2h', label: '1V1', icon: <Swords size={14} />, path: '/arena' },
         { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
     ];
 
@@ -135,8 +137,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 const isBattleHighlight = item.key === 'battles' && hasActiveBattle && activeTab !== 'battles';
                                 const navStyle: React.CSSProperties = {
                                     padding: '6px 16px', borderRadius: '4px',
-                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(52,211,153,0.12)' : 'transparent',
-                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#34D399' : '#B9C3CE',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(245,158,11,0.12)' : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#F59E0B' : '#B9C3CE',
                                     fontSize: '10px', fontWeight: 'bold',
                                     display: 'flex', alignItems: 'center', gap: '8px',
                                     position: 'relative' as const,
@@ -149,7 +151,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                     <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>
                                         {item.icon} {item.label}
                                         {isBattleHighlight && (
-                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#34D399', flexShrink: 0 }} />
+                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
                                         )}
                                     </Link>
                                 );
@@ -396,11 +398,13 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         {/* Nav items at radial positions */}
                         {([
                             { key: 'discover',  label: 'HOME',      icon: <Home size={22} />,       path: '/',             angle: 180 },
-                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,       path: '/artists',      angle: 240 },
-                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,        path: '/genres',       angle: 300 },
+                            { key: 'artists',   label: 'ARTISTS',   icon: <User size={22} />,       path: '/artists',      angle: 225 },
+                            { key: 'genres',    label: 'GENRES',    icon: <Zap size={22} />,        path: '/genres',       angle: 270 },
+                            { key: 'new',       label: 'NEW',       icon: <Sparkles size={22} />,   path: '/new',          angle: 315 },
                             { key: 'charts',    label: 'CHARTS',    icon: <BarChart3 size={22} />,  path: '/charts',       angle: 0   },
-                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 60  },
-                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 120 },
+                            { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 45  },
+                            { key: 'h2h',       label: '1V1',       icon: <Swords size={22} />,     path: '/arena',          angle: 90  },
+                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 135 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);
                             const r = 110;
@@ -422,16 +426,16 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                                 >
                                     <div style={{
                                         width: '54px', height: '54px', borderRadius: '50%',
-                                        backgroundColor: isActive ? colors.primary : isBattleHighlight ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.07)',
-                                        border: `2px solid ${isActive ? colors.primary : isBattleHighlight ? '#34D39966' : 'rgba(255,255,255,0.12)'}`,
+                                        backgroundColor: isActive ? colors.primary : isBattleHighlight ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.07)',
+                                        border: `2px solid ${isActive ? colors.primary : isBattleHighlight ? '#F59E0B66' : 'rgba(255,255,255,0.12)'}`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: isActive ? 'white' : isBattleHighlight ? '#34D399' : '#B9C3CE',
-                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : isBattleHighlight ? '0 0 12px rgba(52,211,153,0.3)' : 'none',
+                                        color: isActive ? 'white' : isBattleHighlight ? '#F59E0B' : '#B9C3CE',
+                                        boxShadow: isActive ? `0 0 20px ${colors.primary}66` : isBattleHighlight ? '0 0 12px rgba(245,158,11,0.3)' : 'none',
                                         position: 'relative' as const,
                                     }}>
                                         {item.icon}
                                         {isBattleHighlight && (
-                                            <span className="new-drops-pulse" style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34D399', border: '2px solid #161925' }} />
+                                            <span className="new-drops-pulse" style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', border: '2px solid #161925' }} />
                                         )}
                                     </div>
                                     <span style={{

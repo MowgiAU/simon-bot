@@ -43,7 +43,7 @@ export class ServerBoostPlugin implements IPlugin {
 
     // ─── messageCreate: catch Discord system boost messages (type 8) ─────────────
     async onMessage(message: Message): Promise<void> {
-        if (message.type !== MessageType.UserPremiumGuildSubscription) return;
+        if (message.type !== MessageType.GuildBoost) return;
         if (!message.guild) return;
 
         const guildId = message.guild.id;

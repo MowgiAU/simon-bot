@@ -112,7 +112,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       username: trackData.profile?.username || trackData.username || '',
       slug: trackData.slug || '',
       cover: trackData.coverUrl || trackData.cover || '',
-      url: trackData.url
+      url: trackData.url,
+      entryRoute: trackData.entryRoute || ''
     };
 
     if (newTrack.url) {

@@ -238,8 +238,9 @@ export const MyTracksPage: React.FC = () => {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
             setMessage({ type: 'success', text: 'Track deleted' });
-        } catch {
-            setMessage({ type: 'error', text: 'Failed to delete track' });
+        } catch (e: any) {
+            const serverMsg = e?.response?.data?.error;
+            setMessage({ type: 'error', text: serverMsg || 'Failed to delete track' });
         }
     };
 
@@ -354,11 +355,24 @@ export const MyTracksPage: React.FC = () => {
         setBulkSaving(true);
         const ids = [...selectedIds];
         try {
-            await Promise.all(ids.map(id =>
+            const results = await Promise.allSettled(ids.map(id =>
                 axios.delete(`/api/musician/tracks/${id}`, { withCredentials: true })
             ));
-            setTracks(tracks.filter(t => !ids.includes(t.id)));
-            setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            const deletedIds = ids.filter((_, i) => results[i].status === 'fulfilled');
+            const failures = results
+                .map((r, i) => ({ r, id: ids[i] }))
+                .filter(x => x.r.status === 'rejected') as Array<{ r: PromiseRejectedResult; id: string }>;
+            setTracks(tracks.filter(t => !deletedIds.includes(t.id)));
+            if (failures.length === 0) {
+                setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
+            } else {
+                const firstMsg = (failures[0].r.reason as any)?.response?.data?.error;
+                const blockedByBattle = failures.some(f => (f.r.reason as any)?.response?.data?.code === 'TRACK_IN_BATTLE');
+                const baseMsg = blockedByBattle
+                    ? `${failures.length} track${failures.length !== 1 ? 's' : ''} could not be deleted because they are submitted to a Beat Battle.`
+                    : firstMsg || `${failures.length} track${failures.length !== 1 ? 's' : ''} failed to delete.`;
+                setMessage({ type: 'error', text: baseMsg });
+            }
             setSelectedIds(new Set());
             setBulkMode(false);
         } catch {
@@ -434,12 +448,16 @@ export const MyTracksPage: React.FC = () => {
                     {standaloneGenres.filter(g => !selected.includes(g.id) && matchesSearch(g)).map(g => (
                         <option key={g.id} value={g.id} style={{ backgroundColor: colors.surface }}>{g.name}</option>
                     ))}
-                    {/* Parent genres with children grouped in optgroups */}
+                    {/* Parent genres with children grouped in optgroups (parent itself selectable) */}
                     {parentsWithChildren.map(parent => {
                         const children = childGenres.filter(c => c.parentId === parent.id && !selected.includes(c.id) && matchesSearch(c));
-                        if (children.length === 0) return null;
+                        const parentMatch = !selected.includes(parent.id) && matchesSearch(parent);
+                        if (children.length === 0 && !parentMatch) return null;
                         return (
                             <optgroup key={parent.id} label={parent.name} style={{ backgroundColor: colors.surface }}>
+                                {parentMatch && (
+                                    <option value={parent.id} style={{ backgroundColor: colors.surface }}>All {parent.name}</option>
+                                )}
                                 {children.map(c => (
                                     <option key={c.id} value={c.id} style={{ backgroundColor: colors.surface }}>{c.name}</option>
                                 ))}
@@ -454,6 +472,10 @@ export const MyTracksPage: React.FC = () => {
 
     /* ─── Artwork helpers ─── */
     const handleArtworkSelect = (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: `"${file.name}" is not an image. Please use JPG, PNG, GIF, or WEBP.` });
+            return;
+        }
         setArtworkFile(file);
         const reader = new FileReader();
         reader.onload = (e) => setArtworkPreviewUrl((e.target?.result as string) ?? null);
@@ -589,7 +611,7 @@ export const MyTracksPage: React.FC = () => {
                                 {isEdit ? 'Replace Audio' : 'Audio File *'}
                             </div>
                             <div style={{ fontSize: '11px', color: audioFile ? colors.primary : dragOver === 'audio' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace' : 'Drop audio here or click — MP3, WAV, FLAC, OGG')}
+                                {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace — Max 300MB' : 'Drop audio here or click — MP3, WAV, FLAC, OGG · Max 300MB')}
                             </div>
                         </div>
                         <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
@@ -646,7 +668,7 @@ export const MyTracksPage: React.FC = () => {
                                     {isEdit ? 'Replace Art' : 'Artwork'}
                                 </div>
                                 <div style={{ fontSize: '11px', color: dragOver === 'art' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, WEBP')}
+                                    {dragOver === 'art' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop image here or click — JPG, PNG, GIF, WEBP')}
                                 </div>
                             </div>
                             <input ref={artworkInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) handleArtworkSelect(f); }} style={{ display: 'none' }} />
@@ -679,7 +701,7 @@ export const MyTracksPage: React.FC = () => {
                     </label>
                 </div>
 
-                {!isEdit && audioFile && (
+                {!isEdit && (
                     <p style={{ margin: '-8px 0 16px', fontSize: '11px', color: colors.textTertiary }}>
                         Max 300MB. Large WAV files will be auto-converted to 320kbps MP3.
                     </p>

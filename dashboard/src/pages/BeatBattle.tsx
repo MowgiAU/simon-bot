@@ -93,6 +93,26 @@ interface AnalyticsReport {
     sponsorLinkBreakdown: { label: string; url: string; clicks: number }[];
 }
 
+interface VoterInfo { userId: string; username: string; avatar: string | null; source: string; createdAt: string; }
+interface VoteEntry {
+    entryId: string;
+    submitterUserId: string;
+    submitterUsername: string;
+    trackTitle: string;
+    voteCount: number;
+    pointTotal: number;
+    firstPlaceVotes: VoterInfo[];
+    secondPlaceVotes: VoterInfo[];
+    thirdPlaceVotes: VoterInfo[];
+}
+interface VoteReport {
+    battleId: string;
+    battleTitle: string;
+    totalVotes: number;
+    uniqueVoters: number;
+    entries: VoteEntry[];
+}
+
 type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
 
 export const BeatBattlePage: React.FC = () => {
@@ -109,6 +129,8 @@ export const BeatBattlePage: React.FC = () => {
     const [editingBattle, setEditingBattle] = useState<Battle | null>(null);
     const [analyticsReport, setAnalyticsReport] = useState<AnalyticsReport | null>(null);
     const [analyticsFor, setAnalyticsFor] = useState<string | null>(null);
+    const [voteReport, setVoteReport] = useState<VoteReport | null>(null);
+    const [votesFor, setVotesFor] = useState<string | null>(null);
 
     // Form state
     const [form, setForm] = useState({
@@ -122,6 +144,7 @@ export const BeatBattlePage: React.FC = () => {
         entryFeeEnabled: false, entryFee: 0,
         prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0,
         voterReward: 0,
+        suddenDeathDurationMinutes: 60,
     });
     const [uploadingPrizeIdx, setUploadingPrizeIdx] = useState<number | null>(null);
     const [uploadingRuleIdx, setUploadingRuleIdx] = useState<number | null>(null);
@@ -146,6 +169,7 @@ export const BeatBattlePage: React.FC = () => {
     // Settings state
     const [settings, setSettings] = useState({
         announcementChannelId: '', chatChannelId: '', discordInviteUrl: '', featuredBattleId: '', sponsorSectionTitle: '', requireMusicianProfile: false,
+        suddenDeathDurationMinutes: 60,
     });
     const [settingsLoading, setSettingsLoading] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'battle' | 'sponsor'; id: string } | null>(null);
@@ -179,6 +203,7 @@ export const BeatBattlePage: React.FC = () => {
                     featuredBattleId: data.featuredBattleId || '',
                     sponsorSectionTitle: data.sponsorSectionTitle || '',
                     requireMusicianProfile: data.requireMusicianProfile ?? false,
+                    suddenDeathDurationMinutes: typeof data.suddenDeathDurationMinutes === 'number' ? data.suddenDeathDurationMinutes : 60,
                 });
             }
         } catch {}
@@ -205,7 +230,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0 });
+    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -303,6 +328,7 @@ export const BeatBattlePage: React.FC = () => {
                     prizeSecond: form.prizeSecond,
                     prizeThird: form.prizeThird,
                     voterReward: form.voterReward,
+                    suddenDeathDurationMinutes: form.suddenDeathDurationMinutes,
                 }),
             });
             if (res.ok) {
@@ -402,6 +428,34 @@ export const BeatBattlePage: React.FC = () => {
         } finally { setAnnouncingId(null); }
     };
 
+    const handleRecompute = async (id: string) => {
+        const repost = confirm(
+            'Recompute the podium for this battle using points-based ranking?\n\n' +
+            'This re-ranks all entries by total points (3 pts for each rank-1 vote, 2 for rank-2, 1 for rank-3) and updates the winner.\n\n' +
+            'Click OK to also re-post the winner announcement to Discord, or Cancel to skip the announcement.'
+        );
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${id}/recompute-winners`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ repostAnnouncement: repost }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error || 'Failed to recompute');
+                return;
+            }
+            const podium = (data.podium || []).map((p: any, i: number) =>
+                `${i + 1}. ${p.trackTitle} — ${p.points} pts (1st:${p.firstVotes}, 2nd:${p.secondVotes}, 3rd:${p.thirdVotes})`
+            ).join('\n');
+            alert(`Podium recomputed:\n\n${podium || '(no entries)'}` + (data.announcementPosted ? '\n\nAnnouncement posted to Discord ✓' : (data.announceError ? `\n\nAnnouncement error: ${data.announceError}` : '')));
+            await fetchBattles();
+        } catch {
+            alert('Network error');
+        }
+    };
+
     const fetchAnalytics = async (battleId: string) => {
         if (analyticsFor === battleId) { setAnalyticsFor(null); setAnalyticsReport(null); return; }
         try {
@@ -409,6 +463,17 @@ export const BeatBattlePage: React.FC = () => {
             if (res.ok) {
                 setAnalyticsReport(await res.json());
                 setAnalyticsFor(battleId);
+            }
+        } catch {}
+    };
+
+    const fetchVotes = async (battleId: string) => {
+        if (votesFor === battleId) { setVotesFor(null); setVoteReport(null); return; }
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${battleId}/votes`, { credentials: 'include' });
+            if (res.ok) {
+                setVoteReport(await res.json());
+                setVotesFor(battleId);
             }
         } catch {}
     };
@@ -536,6 +601,7 @@ export const BeatBattlePage: React.FC = () => {
             prizeSecond: (b as any).prizeSecond || 0,
             prizeThird: (b as any).prizeThird || 0,
             voterReward: (b as any).voterReward || 0,
+            suddenDeathDurationMinutes: (b as any).suddenDeathDurationMinutes || 60,
         });
         setBannerFile(null);
         setBannerPreview(b.bannerUrl ? `${API}${b.bannerUrl}` : '');
@@ -845,9 +911,9 @@ export const BeatBattlePage: React.FC = () => {
                                     <input style={inputStyle} value={form.announcementChannelId} onChange={(e) => setForm({ ...form, announcementChannelId: e.target.value })} placeholder="Channel ID" />
                                 </div>
                                 <div>
-                                    <label style={labelStyle}>Max Votes Per User</label>
-                                    <input type="number" min={0} style={inputStyle} value={form.maxVotesPerUser} onChange={(e) => setForm({ ...form, maxVotesPerUser: Number(e.target.value) })} placeholder="0 = unlimited" />
-                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>0 = unlimited votes</p>
+                                    <label style={labelStyle}>Sudden Death Duration (minutes)</label>
+                                    <input type="number" min={1} style={inputStyle} value={form.suddenDeathDurationMinutes} onChange={(e) => setForm({ ...form, suddenDeathDurationMinutes: Number(e.target.value) || 60 })} placeholder="60" />
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>How long the runoff stays open if entries are lex-tied at all 3 ranks</p>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Require Project File Upload</label>
@@ -1005,6 +1071,14 @@ export const BeatBattlePage: React.FC = () => {
                                         <button onClick={() => fetchAnalytics(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Analytics">
                                             <BarChart3 size={14} />
                                         </button>
+                                        <button onClick={() => fetchVotes(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Vote breakdown (who voted for what)">
+                                            <Vote size={14} />
+                                        </button>
+                                        {b.status === 'completed' && (
+                                            <button onClick={() => handleRecompute(b.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Recompute podium by total points (fix old vote-count winners)">
+                                                <Trophy size={14} />
+                                            </button>
+                                        )}
                                         <button onClick={() => startEdit(b)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit">
                                             <Edit size={14} />
                                         </button>
@@ -1048,6 +1122,71 @@ export const BeatBattlePage: React.FC = () => {
                                                         <span style={{ color: colors.primary, fontWeight: 600 }}>{l.clicks} clicks</span>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Vote Breakdown Inline */}
+                                {votesFor === b.id && voteReport && (
+                                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: colors.background, borderRadius: borderRadius.md, border: `1px solid ${colors.border}` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <h4 style={{ margin: 0, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <Vote size={16} color={colors.primary} /> Vote Breakdown
+                                                <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 400 }}>
+                                                    {voteReport.totalVotes} votes from {voteReport.uniqueVoters} unique voters
+                                                </span>
+                                            </h4>
+                                            <button onClick={() => { setVotesFor(null); setVoteReport(null); }} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={16} /></button>
+                                        </div>
+                                        {voteReport.entries.length === 0 ? (
+                                            <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>No entries yet.</p>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {voteReport.entries.map((e, idx) => {
+                                                    const tiers: { label: string; color: string; voters: VoterInfo[]; pts: number }[] = [
+                                                        { label: '+3 pts', color: '#FFD700', voters: e.firstPlaceVotes, pts: 3 },
+                                                        { label: '+2 pts', color: '#C0C0C0', voters: e.secondPlaceVotes, pts: 2 },
+                                                        { label: '+1 pt',  color: '#CD7F32', voters: e.thirdPlaceVotes, pts: 1 },
+                                                    ];
+                                                    return (
+                                                        <div key={e.entryId} style={{ padding: '12px', backgroundColor: colors.surface, borderRadius: borderRadius.md, border: `1px solid ${idx === 0 ? '#FFD70033' : 'rgba(255,255,255,0.05)'}` }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                                                <div style={{ minWidth: 0 }}>
+                                                                    <div style={{ color: colors.textPrimary, fontWeight: 700, fontSize: '14px' }}>{e.trackTitle}</div>
+                                                                    <div style={{ color: colors.textSecondary, fontSize: '12px' }}>by @{e.submitterUsername}</div>
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
+                                                                    <span style={{ color: colors.textSecondary }}>{e.voteCount} votes</span>
+                                                                    <span style={{ color: colors.primary, fontWeight: 700 }}>{e.pointTotal} pts</span>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                                                                {tiers.map(tier => (
+                                                                    <div key={tier.label} style={{ padding: '8px 10px', backgroundColor: `${tier.color}10`, borderRadius: '6px', borderLeft: `3px solid ${tier.color}` }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                                            <span style={{ color: tier.color, fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em' }}>{tier.label}</span>
+                                                                            <span style={{ color: colors.textSecondary, fontSize: '11px' }}>{tier.voters.length} voter{tier.voters.length === 1 ? '' : 's'}</span>
+                                                                        </div>
+                                                                        {tier.voters.length === 0 ? (
+                                                                            <div style={{ color: colors.textSecondary, fontSize: '11px', fontStyle: 'italic' }}>—</div>
+                                                                        ) : (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                                {tier.voters.map(v => (
+                                                                                    <div key={v.userId} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textPrimary }}>
+                                                                                        <span style={{ color: tier.color }}>•</span>
+                                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{v.username}</span>
+                                                                                        {v.source === 'discord' && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#5865F222', color: '#7984F5' }}>discord</span>}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -1282,6 +1421,18 @@ export const BeatBattlePage: React.FC = () => {
                                     </div>
                                     {settings.requireMusicianProfile ? 'Required' : 'Not Required'}
                                 </button>
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={labelStyle}>Default Sudden Death Duration (minutes)</label>
+                                <p style={{ margin: '0 0 6px', color: colors.textSecondary, fontSize: '12px' }}>Default runoff window when battles end with a perfect lex tie at all 3 ranks. Per-battle overrides are available in each battle's settings.</p>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    style={{ ...inputStyle, maxWidth: '200px' }}
+                                    value={settings.suddenDeathDurationMinutes}
+                                    onChange={(e) => setSettings({ ...settings, suddenDeathDurationMinutes: Number(e.target.value) || 60 })}
+                                    placeholder="60"
+                                />
                             </div>
                             <div style={{ gridColumn: '1 / -1' }}>
                                 <label style={labelStyle}>Discord Server Invite URL</label>

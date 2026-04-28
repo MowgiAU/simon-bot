@@ -354,9 +354,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { key: 'instagramUrl', label: 'Instagram', icon: <Instagram size={16}/>, color: '#E1306C', isHandle: false },
     ];
 
-    const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username } : null;
+    const featuredTrack = profile.featuredTrack ? { ...profile.featuredTrack, username: profile.username, artist: profile.displayName || profile.username, profile: { displayName: profile.displayName, username: profile.username } } : null;
     const featuredPlaylist = profile.featuredPlaylist || null;
-    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => ({ ...pt.track, username: pt.track.profile?.username || profile.username })) || [];
+    const featuredPlaylistTracks = featuredPlaylist?.tracks?.map(pt => ({ ...pt.track, username: pt.track.profile?.username || profile.username, artist: pt.track.profile?.displayName || pt.track.profile?.username || profile.displayName || profile.username, profile: pt.track.profile || { displayName: profile.displayName, username: profile.username } })) || [];
     
     // Fallback logic for avatar:
     // 1. Custom profile-wide avatar (if it's a full path from /uploads/avatars)
@@ -1000,20 +1000,47 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                             transition: 'border-color 0.2s',
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                                {/* Rank icon */}
-                                                {entry.isWinner ? (
-                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'linear-gradient(135deg, #B8860B, #FFD700)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 10px rgba(255,215,0,0.4)' }}>
-                                                        <Trophy size={18} color="white" fill="white" />
-                                                    </div>
-                                                ) : entry.avatarUrl ? (
-                                                    <img src={entry.avatarUrl} alt="" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, opacity: 0.85 }} />
-                                                ) : (
-                                                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <Swords size={16} color={isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)'} />
-                                                    </div>
-                                                )}
+                                                {/* Track thumbnail (cover → avatar fallback). Winner gets a gold ring + 🥇 badge. */}
+                                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                                    {entry.coverUrl ? (
+                                                        <img
+                                                            src={entry.coverUrl.startsWith('http') ? entry.coverUrl : entry.coverUrl}
+                                                            alt=""
+                                                            style={{
+                                                                width: '44px', height: '44px', borderRadius: '8px',
+                                                                objectFit: 'cover',
+                                                                border: entry.isWinner ? '2px solid #FFD700' : `1px solid ${isLightCard ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.08)'}`,
+                                                                boxShadow: entry.isWinner ? '0 0 14px rgba(255,215,0,0.4)' : 'none',
+                                                            }}
+                                                        />
+                                                    ) : entry.avatarUrl ? (
+                                                        <img
+                                                            src={entry.avatarUrl}
+                                                            alt=""
+                                                            style={{
+                                                                width: '44px', height: '44px', borderRadius: '8px',
+                                                                objectFit: 'cover', opacity: 0.85,
+                                                                border: entry.isWinner ? '2px solid #FFD700' : `1px solid ${isLightCard ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.08)'}`,
+                                                                boxShadow: entry.isWinner ? '0 0 14px rgba(255,215,0,0.4)' : 'none',
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div style={{
+                                                            width: '44px', height: '44px', borderRadius: '8px',
+                                                            backgroundColor: isLightCard ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            border: entry.isWinner ? '2px solid #FFD700' : `1px solid ${isLightCard ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.08)'}`,
+                                                            boxShadow: entry.isWinner ? '0 0 14px rgba(255,215,0,0.4)' : 'none',
+                                                        }}>
+                                                            <Swords size={16} color={isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)'} />
+                                                        </div>
+                                                    )}
+                                                    {entry.isWinner && (
+                                                        <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', fontSize: '14px', lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}>🥇</div>
+                                                    )}
+                                                </div>
                                                 <div style={{ minWidth: 0 }}>
-                                                    <Link to={`/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : (isLightCard ? '#2D2005' : colors.textPrimary), fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
+                                                    <Link to={entry.trackRoute || `/battles/entry/${entry.id}`} style={{ margin: 0, fontWeight: 700, color: entry.isWinner ? '#FFD700' : (isLightCard ? '#2D2005' : colors.textPrimary), fontSize: '13px', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</Link>
                                                     <Link to={`/battles/${entry.battle.slug || entry.battle.id}`} style={{ margin: '2px 0 0', color: entry.isWinner ? (isLightCard ? 'rgba(140,100,0,0.8)' : 'rgba(255,215,0,0.55)') : (isLightCard ? '#5A4A00' : colors.textSecondary), fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                                         <ExternalLink size={9} />{entry.battle.title}
                                                     </Link>
@@ -1028,12 +1055,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                 {!entry.isWinner && entry.battle.status === 'completed' && (
                                                     <span style={{ fontSize: '11px', color: isLightCard ? '#5A4A00' : colors.textSecondary, fontWeight: 600 }}>#{entry.placement}/{entry.totalEntries}</span>
                                                 )}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: entry.voteCount > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary), fontSize: '13px' }}>
-                                                    <Flame size={14} color={entry.voteCount > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary)} fill={entry.voteCount > 0 ? '#FF8C00' : 'none'} />
-                                                    <span>{entry.voteCount}</span>
-                                                </div>
+                                                {entry.battle.status === 'completed' && (
+                                                    <div title={`${entry.firstPlaceVotes ?? 0} × 1st · ${entry.secondPlaceVotes ?? 0} × 2nd · ${entry.thirdPlaceVotes ?? 0} × 3rd`} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 800, color: (entry.points ?? 0) > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary), fontSize: '13px' }}>
+                                                        <Flame size={14} color={(entry.points ?? 0) > 0 ? '#FF8C00' : (isLightCard ? '#8A7A60' : colors.textTertiary)} fill={(entry.points ?? 0) > 0 ? '#FF8C00' : 'none'} />
+                                                        <span>{entry.points ?? 0} pts</span>
+                                                    </div>
+                                                )}
                                                 <button
-                                                    onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}`, entryRoute: `/battles/entry/${entry.id}` }); }}
+                                                    onClick={() => { if (player.currentTrack?.id === `battle-${entry.id}`) { togglePlay(); return; } setTrack({ id: `battle-${entry.id}`, title: entry.trackTitle, artist: profile.username, cover: entry.avatarUrl || entry.coverUrl || '', url: `${entry.audioUrl}`, entryRoute: entry.trackRoute || `/battles/entry/${entry.id}` }); }}
                                                     style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '999px', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'}`, backgroundColor: isLightCard ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.05)', color: player.currentTrack?.id === `battle-${entry.id}` && player.isPlaying ? accent : (isLightCard ? '#5A4A00' : colors.textSecondary), cursor: 'pointer', fontSize: '11px', fontWeight: 600, transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.borderColor = `${accent}55`; e.currentTarget.style.color = accent; }}
                                                     onMouseLeave={e => { e.currentTarget.style.borderColor = isLightCard ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = isLightCard ? '#5A4A00' : colors.textSecondary; }}

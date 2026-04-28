@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { Trophy, Users, Play, Calendar, Building2, ArrowLeft, Vote } from 'lucide-react';
 import { StyledUsername } from '../components/StyledUsername';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -28,7 +29,14 @@ export const BattleArchivePage: React.FC<{ onBack?: () => void }> = ({ onBack })
         (async () => {
             try {
                 const res = await fetch(`${API}/api/beat-battle/archive?guildId=default-guild`);
-                if (res.ok) setBattles(await res.json());
+                if (res.ok) {
+                    const data = await res.json();
+                    const flattened = (Array.isArray(data) ? data : []).map((b: any) => ({
+                        ...b,
+                        entries: Array.isArray(b.entries) ? b.entries.map(flattenBattleEntry) : [],
+                    }));
+                    setBattles(flattened);
+                }
             } catch {} finally { setLoading(false); }
         })();
     }, []);

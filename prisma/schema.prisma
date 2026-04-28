@@ -13,40 +13,40 @@ datasource db {
 
 // --- User Accounts (Native auth with optional Discord linking) ---
 model User {
-  id                       String    @id @default(cuid())
-  discordId                String?   @unique
-  email                    String?   @unique
-  emailVerified            DateTime?
-  emailVerificationToken   String?   @unique
-  emailVerificationExpiry  DateTime?
-  username                 String    @unique
-  displayName              String?
-  avatar                   String?
-  passwordHash             String?
-  lastLoginAt              DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  discordId               String?   @unique
+  email                   String?   @unique
+  emailVerified           DateTime?
+  emailVerificationToken  String?   @unique
+  emailVerificationExpiry DateTime?
+  username                String    @unique
+  displayName             String?
+  avatar                  String?
+  passwordHash            String?
+  lastLoginAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   // 2FA (TOTP)
-  totpSecret               String?   // Encrypted TOTP secret
-  totpEnabled              Boolean   @default(false)
-  totpBackupCodes          String[]  @default([]) // Hashed backup codes
+  totpSecret      String? // Encrypted TOTP secret
+  totpEnabled     Boolean  @default(false)
+  totpBackupCodes String[] @default([]) // Hashed backup codes
 
   // Account recovery
-  passwordResetToken       String?   @unique
-  passwordResetExpiry      DateTime?
+  passwordResetToken  String?   @unique
+  passwordResetExpiry DateTime?
 
   // Pending email change (verified before applying)
-  pendingEmail             String?
-  pendingEmailToken        String?   @unique
-  pendingEmailExpiry       DateTime?
+  pendingEmail       String?
+  pendingEmailToken  String?   @unique
+  pendingEmailExpiry DateTime?
 
   // Access control for invite-only beta
-  role                     String    @default("user")   // "user" | "admin" | "moderator"
-  invited                  Boolean   @default(false)    // Invite-only gate for private beta
+  role    String  @default("user") // "user" | "admin" | "moderator"
+  invited Boolean @default(false) // Invite-only gate for private beta
 
   // Soft delete
-  deletedAt                DateTime?
+  deletedAt DateTime?
 
   @@map("users")
 }
@@ -60,130 +60,136 @@ model Guild {
   updatedAt DateTime @updatedAt
 
   // Relations
-  members            Member[]
-  wordGroups         WordGroup[]
-  filterSettings     FilterSettings?
-  channelStats       ChannelStats[]
-  serverStats        ServerStats[]
-  pluginSettings     PluginSettings[]
-  dashboardAccess    DashboardAccess?
-  actionLogs         ActionLog[]
-  userNotes          UserNote[]
+  members         Member[]
+  wordGroups      WordGroup[]
+  filterSettings  FilterSettings?
+  channelStats    ChannelStats[]
+  serverStats     ServerStats[]
+  pluginSettings  PluginSettings[]
+  dashboardAccess DashboardAccess?
+  actionLogs      ActionLog[]
+  userNotes       UserNote[]
 
   // Channel Rules
   channelRuleSettings ChannelRuleSettings?
   channelRules        ChannelRule[]
   pendingReviews      PendingReview[]
 
-  moderationSettings  ModerationSettings?
-  moderationWarnings  ModerationWarning[]
+  moderationSettings   ModerationSettings?
+  moderationWarnings   ModerationWarning[]
   boosterColorSettings BoosterColorSettings?
-  welcomeGateSettings WelcomeGateSettings?
+  welcomeGateSettings  WelcomeGateSettings?
 
-  economyAccounts    EconomyAccount[]
-  economySettings    EconomySettings?
-  economyItems       EconomyItem[]
-  economyInventory   EconomyInventory[]
-  economyTrans       EconomyTransaction[]
+  economyAccounts  EconomyAccount[]
+  economySettings  EconomySettings?
+  economyItems     EconomyItem[]
+  economyInventory EconomyInventory[]
+  economyTrans     EconomyTransaction[]
 
   // Feedback Plugin
-  feedbackProfiles   FeedbackProfile[]
-  feedbackPosts      FeedbackPost[]
-  feedbackSettings   FeedbackSettings?
+  feedbackProfiles FeedbackProfile[]
+  feedbackPosts    FeedbackPost[]
+  feedbackSettings FeedbackSettings?
 
   // Ticket System
-  ticketSettings     TicketSettings?
-  tickets            Ticket[]
+  ticketSettings TicketSettings?
+  tickets        Ticket[]
 
   // Beat Battle
-  beatBattles          BeatBattle[]
-  battleSponsors       BattleSponsor[]
-  beatBattleSettings   BeatBattleSettings?
+  beatBattles        BeatBattle[]
+  battleSponsors     BattleSponsor[]
+  beatBattleSettings BeatBattleSettings?
 
   // Leveling
-  levelingSettings     LevelingSettings?
+  levelingSettings LevelingSettings?
 
   // Anti-Piracy
-  antiPiracySettings   AntiPiracySettings?
+  antiPiracySettings AntiPiracySettings?
 
   // Radio
-  radioSettings        RadioSettings?
+  radioSettings RadioSettings?
 
   // Studio Guide
-  studioGuideSettings  StudioGuideSettings?
-  studioGuideKnowledge StudioGuideKnowledge[]
-  studioGuideOptOuts   StudioGuideOptOut[]
-  autoMessageSchedules AutoMessageSchedule[]
-  autoResponderRules      AutoResponderRule[]
-  autoResponderSettings   AutoResponderSettings?
-  autoResponderCategories AutoResponderCategory[]
-  pauseSettings         PauseSettings?
-  serverBoostSettings  ServerBoostSettings?
-  reactionRoles        ReactionRole[]
-  articles             Article[]
-  voiceStatSettings    VoiceStatSettings?
-  spamGuardSettings    SpamGuardSettings?
-  spamGuardIncidents   SpamGuardIncident[]
+  studioGuideSettings         StudioGuideSettings?
+  studioGuideKnowledge        StudioGuideKnowledge[]
+  studioGuideOptOuts          StudioGuideOptOut[]
+  autoMessageSchedules        AutoMessageSchedule[]
+  autoResponderRules          AutoResponderRule[]
+  autoResponderSettings       AutoResponderSettings?
+  autoResponderCategories     AutoResponderCategory[]
+  pauseSettings               PauseSettings?
+  serverBoostSettings         ServerBoostSettings?
+  reactionRoles               ReactionRole[]
+  articles                    Article[]
+  voiceStatSettings           VoiceStatSettings?
+  spamGuardSettings           SpamGuardSettings?
+  spamGuardIncidents          SpamGuardIncident[]
   antiExternalForwardSettings AntiExternalForwardSettings?
   trackAnnouncerSettings      TrackAnnouncerSettings?
+
+  // Academy
+  academySettings AcademySettings?
+
+  // Head-to-Head Battles
+  headToHeadSettings HeadToHeadSettings?
 
   @@map("guilds")
 }
 
 // Bot Identity Settings
 model BotSettings {
-  botId       String @id
-  status      String @default("online")
-  activityType String @default("PLAYING")
+  botId        String   @id
+  status       String   @default("online")
+  activityType String   @default("PLAYING")
   activityText String?
-  username    String?
-  avatarUrl   String?
-  updatedAt   DateTime @updatedAt
+  username     String?
+  avatarUrl    String?
+  updatedAt    DateTime @updatedAt
 
   @@map("bot_settings")
 }
 
 // Moderation Settings
 model ModerationSettings {
-  id             String   @id @default(cuid())
-  guildId        String   @unique
-  logChannelId   String?  // Channel to send nice embeds to
-  dmUponAction   Boolean  @default(true) // DM user when kicked/banned?
+  id           String  @id @default(cuid())
+  guildId      String  @unique
+  logChannelId String? // Channel to send nice embeds to
+  dmUponAction Boolean @default(true) // DM user when kicked/banned?
 
   // Custom Messages
-  kickMessage    String?  // e.g. "You were kicked from {server} for: {reason}"
+  kickMessage    String? // e.g. "You were kicked from {server} for: {reason}"
   banMessage     String?
   timeoutMessage String?
 
   // Case File Forum
-  caseLogForumId String?  // Forum channel ID for per-user case file threads
-  
+  caseLogForumId String? // Forum channel ID for per-user case file threads
+
   // Remove command alert role
-  removeAlertRoleId String?  // Role to ping when jr staff uses /remove
-  
-  permissions    ModerationPermission[]
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  removeAlertRoleId String? // Role to ping when jr staff uses /remove
+
+  permissions ModerationPermission[]
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@map("moderation_settings")
 }
 
 model ModerationPermission {
-  id             String   @id @default(cuid())
-  settingsId     String
-  roleId         String   // Discord Role ID
-  
+  id         String @id @default(cuid())
+  settingsId String
+  roleId     String // Discord Role ID
+
   // Permissions
-  canWarn        Boolean @default(false)
-  canKick        Boolean @default(false)
-  canBan         Boolean @default(false)
-  canTimeout     Boolean @default(false)
-  canPurge       Boolean @default(false)
-  canRemove      Boolean @default(false)
-  canViewLogs    Boolean @default(false)
-  
-  settings       ModerationSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
-  
+  canWarn     Boolean @default(false)
+  canKick     Boolean @default(false)
+  canBan      Boolean @default(false)
+  canTimeout  Boolean @default(false)
+  canPurge    Boolean @default(false)
+  canRemove   Boolean @default(false)
+  canViewLogs Boolean @default(false)
+
+  settings ModerationSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
   @@unique([settingsId, roleId])
   @@map("moderation_permissions")
 }
@@ -196,7 +202,7 @@ model ModerationWarning {
   issuedBy  String
   createdAt DateTime @default(now())
 
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("moderation_warnings")
 }
@@ -204,10 +210,10 @@ model ModerationWarning {
 model BoosterColorSettings {
   id            String   @id @default(cuid())
   guildId       String   @unique
-  boosterRoleId String?  // Optional: if set, checks this role instead of premiumSince
+  boosterRoleId String? // Optional: if set, checks this role instead of premiumSince
   colorRoleIds  String[] @default([])
 
-  guild         Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("booster_color_settings")
 }
@@ -218,45 +224,45 @@ model BoosterColorSettings {
 
 // Action Logs for Auditing
 model ActionLog {
-  id         String   @id @default(cuid())
-  guildId    String
-  pluginId   String   // e.g., 'word-filter', 'moderation'
-  action     String   // e.g., 'message_deleted', 'user_banned'
-  executorId String?  // ID of user/bot who performed action
-  targetId   String?  // ID of user/message/channel affected
-  details    Json?    // Context specific data
-  searchableText String @default("") // Quick search vector (names, ids, content)
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  guildId        String
+  pluginId       String // e.g., 'word-filter', 'moderation'
+  action         String // e.g., 'message_deleted', 'user_banned'
+  executorId     String? // ID of user/bot who performed action
+  targetId       String? // ID of user/message/channel affected
+  details        Json? // Context specific data
+  searchableText String   @default("") // Quick search vector (names, ids, content)
+  createdAt      DateTime @default(now())
 
-  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  comments   LogComment[]
+  guild    Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  comments LogComment[]
 
   @@index([guildId, createdAt])
   @@map("action_logs")
 }
 
 model LogComment {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   logId     String
-  userId    String    // Admin who made the comment
+  userId    String // Admin who made the comment
   content   String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  log       ActionLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  log ActionLog @relation(fields: [logId], references: [id], onDelete: Cascade)
 
   @@index([logId])
   @@map("log_comments")
 }
 
 model UserNote {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   guildId   String
-  userId    String    // The user being noted on
-  adminId   String    // Admin who made the note
+  userId    String // The user being noted on
+  adminId   String // Admin who made the note
   content   String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  guild     Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([guildId, userId])
   @@map("user_notes")
@@ -265,10 +271,10 @@ model UserNote {
 model ScheduledTask {
   id        String   @id @default(cuid())
   guildId   String
-  type      String   // e.g. 'unban'
+  type      String // e.g. 'unban'
   targetId  String
   executeAt DateTime
-  data      Json?    // e.g. { "reason": "Time Served" }
+  data      Json? // e.g. { "reason": "Time Served" }
   createdAt DateTime @default(now())
 
   @@index([executeAt])
@@ -277,38 +283,38 @@ model ScheduledTask {
 
 // Guild members - leveling, currency, etc.
 model Member {
-  id        String   @id @default(cuid())
-  guildId   String
-  userId    String
-  
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+
   // Leveling system
-  level     Int      @default(0)
-  xp        Int      @default(0)
-  totalXp   Int      @default(0)
-  
+  level   Int @default(0)
+  xp      Int @default(0)
+  totalXp Int @default(0)
+
   // Leveling tracking
-  voiceMinutes     Int      @default(0)
-  messagesCount    Int      @default(0)
-  reactionsGiven   Int      @default(0)
-  reactionsReceived Int     @default(0)
-  currentStreak    Int      @default(0)
-  longestStreak    Int      @default(0)
-  lastMessageAt    DateTime?
-  lastDailyAt      DateTime?
-  earnedRoles      String[] @default([])
-  
+  voiceMinutes      Int       @default(0)
+  messagesCount     Int       @default(0)
+  reactionsGiven    Int       @default(0)
+  reactionsReceived Int       @default(0)
+  currentStreak     Int       @default(0)
+  longestStreak     Int       @default(0)
+  lastMessageAt     DateTime?
+  lastDailyAt       DateTime?
+  earnedRoles       String[]  @default([])
+
   // Currency system
-  balance   Int      @default(0)
-  
+  balance Int @default(0)
+
   // Tracking
   lastActiveAt DateTime @default(now())
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  feedbackProfile    FeedbackProfile?
+  guild           Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  feedbackProfile FeedbackProfile?
 
   @@unique([guildId, userId])
   @@index([guildId, totalXp])
@@ -318,59 +324,59 @@ model Member {
 
 // Word Filter Plugin
 model FilterSettings {
-  id           String   @id @default(cuid())
-  guildId      String   @unique
-  
+  id      String @id @default(cuid())
+  guildId String @unique
+
   // Global settings
-  enabled      Boolean  @default(true)
+  enabled       Boolean @default(true)
   repostEnabled Boolean @default(true)
-  
+
   // Excluded channels and roles (JSON arrays of IDs)
   excludedChannels String[] @default([])
   excludedRoles    String[] @default([])
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  guild        Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  wordGroups   WordGroup[]
+  guild      Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  wordGroups WordGroup[]
 
   @@map("filter_settings")
 }
 
 model WordGroup {
-  id           String   @id @default(cuid())
-  guildId      String
-  name         String   // e.g., "Slurs", "Spam"
-  
+  id      String @id @default(cuid())
+  guildId String
+  name    String // e.g., "Slurs", "Spam"
+
   // Replacement (word or emoji)
-  replacementText String?
+  replacementText  String?
   replacementEmoji String?
-  useEmoji     Boolean  @default(false)
-  enabled      Boolean  @default(true)
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  useEmoji         Boolean @default(false)
+  enabled          Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  guild        Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  settings     FilterSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade, map: "word_groups_settings_fkey")
-  words        FilterWord[]
+  guild    Guild          @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  settings FilterSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade, map: "word_groups_settings_fkey")
+  words    FilterWord[]
 
   @@unique([guildId, name])
   @@map("word_groups")
 }
 
 model FilterWord {
-  id        String   @id @default(cuid())
-  groupId   String
-  word      String
-  
+  id      String @id @default(cuid())
+  groupId String
+  word    String
+
   createdAt DateTime @default(now())
 
   // Relations
-  group     WordGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group WordGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, word])
   @@map("filter_words")
@@ -385,51 +391,51 @@ model ChannelStats {
   channelName String
   date        DateTime @db.Date
   messages    Int      @default(0)
-  
-  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@unique([guildId, channelId, date])
   @@map("channel_stats")
 }
 
 model ServerStats {
-  id            String   @id @default(cuid())
-  guildId       String
-  date          DateTime @db.Date
-  memberCount   Int      @default(0)
-  messageCount  Int      @default(0)
-  voiceMinutes  Int      @default(0)
-  newBans       Int      @default(0)
-  
-  guild         Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  id           String   @id @default(cuid())
+  guildId      String
+  date         DateTime @db.Date
+  memberCount  Int      @default(0)
+  messageCount Int      @default(0)
+  voiceMinutes Int      @default(0)
+  newBans      Int      @default(0)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@unique([guildId, date])
   @@map("server_stats")
 }
 
 // Plugin Management
 model PluginSettings {
-  id             String   @id @default(cuid())
-  guildId        String
-  pluginId       String
-  
-  enabled        Boolean  @default(true)
-  allowedRoles   String[] @default([]) // Roles that can configure this plugin
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(cuid())
+  guildId  String
+  pluginId String
+
+  enabled      Boolean  @default(true)
+  allowedRoles String[] @default([]) // Roles that can configure this plugin
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@unique([guildId, pluginId])
   @@map("plugin_settings")
 }
 
 model DashboardAccess {
-  id             String   @id @default(cuid())
-  guildId        String   @unique
-  allowedRoles   String[] @default([]) // Roles that can login to dashboard
-  betaRoleIds    String[] @default([]) // Roles that get auto-invited for beta access
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  id           String   @id @default(cuid())
+  guildId      String   @unique
+  allowedRoles String[] @default([]) // Roles that can login to dashboard
+  betaRoleIds  String[] @default([]) // Roles that get auto-invited for beta access
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@map("dashboard_access")
 }
 
@@ -437,107 +443,107 @@ model DashboardAccess {
 model DashboardMessage {
   id          String   @id @default(cuid())
   guildId     String
-  senderId    String   // Discord User ID
-  recipientId String?  // Optional: Discord User ID (null means global/broadcast)
+  senderId    String // Discord User ID
+  recipientId String? // Optional: Discord User ID (null means global/broadcast)
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
+
   @@index([guildId, recipientId])
   @@index([guildId, senderId])
   @@map("dashboard_messages")
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  guildId     String
-  userId      String   // Recipient Discord User ID
-  type        String   // 'mention', 'message', 'system'
-  title       String
-  message     String
-  link        String?  // Optional path to redirect to (e.g., '/logs?id=123')
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String // Recipient Discord User ID
+  type      String // 'mention', 'message', 'system'
+  title     String
+  message   String
+  link      String? // Optional path to redirect to (e.g., '/logs?id=123')
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
   @@index([guildId, userId, isRead])
   @@map("dashboard_notifications")
 }
 
 // Economy System
 model EconomyAccount {
-  id             String   @id @default(cuid())
-  guildId        String
-  userId         String
-  balance        Int      @default(0)
-  totalEarned    Int      @default(0) // Lifetime earnings
-  nickOptOut     Boolean  @default(false) // Opt out of auto-nickname balance display
-  lastDaily      DateTime?
-  lastWeekly     DateTime?
-  
+  id          String    @id @default(cuid())
+  guildId     String
+  userId      String
+  balance     Int       @default(0)
+  totalEarned Int       @default(0) // Lifetime earnings
+  nickOptOut  Boolean   @default(false) // Opt out of auto-nickname balance display
+  lastDaily   DateTime?
+  lastWeekly  DateTime?
+
   // Relations
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@unique([guildId, userId])
   @@map("economy_accounts")
 }
 
 model EconomySettings {
-  id             String   @id @default(cuid())
-  guildId        String   @unique
-  
+  id      String @id @default(cuid())
+  guildId String @unique
+
   // Configuration
-  currencyName   String   @default("Coins")
-  currencyEmoji  String   @default("🪙")
-  
+  currencyName  String @default("Coins")
+  currencyEmoji String @default("🪙")
+
   // Earning
-  messageReward  Int      @default(5)
-  messageCooldown Int     @default(60) // Seconds between message rewards
-  minMessageLength Int    @default(10)
-  
+  messageReward    Int @default(5)
+  messageCooldown  Int @default(60) // Seconds between message rewards
+  minMessageLength Int @default(10)
+
   // Features
-  autoNickname   Boolean  @default(false)
-  allowTipping   Boolean  @default(true)
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  autoNickname Boolean @default(false)
+  allowTipping Boolean @default(true)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("economy_settings")
 }
 
 model EconomyItem {
-  id             String   @id @default(cuid())
-  guildId        String
-  
-  name           String
-  description    String?
-  price          Int
-  type           String   // ROLE, EXTERNAL, ITEM
-  category       String   @default("General")
-  
-  // Metadata for types (e.g., Role ID for ROLE type)
-  metadata       Json?    
-  
-  // Stock control
-  stock          Int?     // Null = infinite
-  maxPerUser     Int?
-  
-  createdAt      DateTime @default(now())
+  id      String @id @default(cuid())
+  guildId String
 
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  name        String
+  description String?
+  price       Int
+  type        String // ROLE, EXTERNAL, ITEM
+  category    String  @default("General")
+
+  // Metadata for types (e.g., Role ID for ROLE type)
+  metadata Json?
+
+  // Stock control
+  stock      Int? // Null = infinite
+  maxPerUser Int?
+
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@unique([guildId, name]) // Unique names per guild
   @@map("economy_items")
 }
 
 model EconomyInventory {
-  id             String   @id @default(cuid())
-  guildId        String
-  userId         String
-  itemId         String
-  quantity       Int      @default(1)
-  
-  acquiredAt     DateTime @default(now())
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  guildId  String
+  userId   String
+  itemId   String
+  quantity Int    @default(1)
+
+  acquiredAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
   // No strict relation to item to allow keeping items if they are deleted from shop (legacy support)
   // But for now, let's keep it simple. If we delete from shop, maybe we want to keep it in inventory?
   // Let's create a relation but set OnDelete SetNull? Or just rely on ID string.
@@ -548,19 +554,19 @@ model EconomyInventory {
 }
 
 model EconomyTransaction {
-  id             String   @id @default(cuid())
-  guildId        String
-  
-  fromUserId     String?  // Null if system
-  toUserId       String?  // Null if burning/system
-  amount         Int
-  type           String   // MESSAGE, SHOP, TIP, DAILY, ADMIN
-  reason         String?
-  
-  createdAt      DateTime @default(now())
+  id      String @id @default(cuid())
+  guildId String
 
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  fromUserId String? // Null if system
+  toUserId   String? // Null if burning/system
+  amount     Int
+  type       String // MESSAGE, SHOP, TIP, DAILY, ADMIN
+  reason     String?
+
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@index([guildId, fromUserId])
   @@index([guildId, toUserId])
   @@map("economy_transactions")
@@ -568,372 +574,373 @@ model EconomyTransaction {
 
 // Feedback / AI Production System (New Plugin)
 model FeedbackProfile {
-  id         String   @id @default(cuid())
-  guildId    String
-  userId     String
-  
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+
   genre      String?
   daw        String?
   experience String?
-  
-  joinedAt   DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  
-  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild  Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
   // We can treat Member as optional relation or just store IDs if Member not guaranteed
   // But strictly Member should exist.
-  member     Member   @relation(fields: [guildId, userId], references: [guildId, userId], onDelete: Cascade)
+  member Member @relation(fields: [guildId, userId], references: [guildId, userId], onDelete: Cascade)
 
   @@unique([guildId, userId])
   @@map("feedback_profiles")
 }
 
 model FeedbackPost {
-  id          String   @id @default(cuid())
-  guildId     String
-  channelId   String
-  threadId    String?
-  userId      String
-  messageId   String   @unique
-  content     String
-  
-  hasAudio    Boolean  @default(false)
-  audioUrl    String?
-  referenceUrl String? // URL of the thread starter audio (for comparison)
-  
-  aiScore     Int?
-  aiState     String   @default("PENDING") // PENDING, APPROVED, DENIED, UNSURE, REJECTED
-  aiReason    String?
-  
-  postType    String   @default("COMMENT") // COMMENT, FEEDBACK
-  
-  moderationMessageId String? // ID of the message in the clean/mod-log channel
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String  @id @default(cuid())
+  guildId   String
+  channelId String
+  threadId  String?
+  userId    String
+  messageId String  @unique
+  content   String
 
-  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  hasAudio     Boolean @default(false)
+  audioUrl     String?
+  referenceUrl String? // URL of the thread starter audio (for comparison)
+
+  aiScore  Int?
+  aiState  String  @default("PENDING") // PENDING, APPROVED, DENIED, UNSURE, REJECTED
+  aiReason String?
+
+  postType String @default("COMMENT") // COMMENT, FEEDBACK
+
+  moderationMessageId String? // ID of the message in the clean/mod-log channel
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([guildId, aiState])
   @@map("feedback_posts")
 }
 
 model FeedbackSettings {
-  id              String   @id @default(cuid())
-  guildId         String   @unique
-  
-  enabled         Boolean  @default(false)
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  enabled         Boolean @default(false)
   forumChannelId  String?
   reviewChannelId String?
   modLogChannelId String?
-  
-  currencyReward  Int      @default(1)
-  threadCost      Int      @default(5)
-  
+
+  currencyReward Int @default(1)
+  threadCost     Int @default(5)
+
   aiModel         String   @default("gpt-4o-mini")
   approverRoleIds String[] @default([])
-  
-  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("feedback_settings")
 }
 
-
 // Welcome Gate System
 model WelcomeGateSettings {
-  id               String   @id @default(cuid())
-  guildId          String   @unique
-  enabled          Boolean  @default(false)
-  
+  id      String  @id @default(cuid())
+  guildId String  @unique
+  enabled Boolean @default(false)
+
   welcomeChannelId String?
   unverifiedRoleId String?
   verifiedRoleId   String?
-  
-  questions        String[] // Array of questions
-  modalTitle       String   @default("Server Verification")
-  logChannelId     String?  // Channel to log blocked unverified messages
-  departureChannelId String? // Channel to announce member departures
-  arrivalChannelId String?  // Channel to announce member arrivals
+
+  questions             String[] // Array of questions
+  modalTitle            String   @default("Server Verification")
+  logChannelId          String? // Channel to log blocked unverified messages
+  departureChannelId    String? // Channel to announce member departures
+  arrivalChannelId      String? // Channel to announce member arrivals
   whitelistedChannelIds String[] // Channels unverified users can still see
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("welcome_gate_settings")
 }
 
 // Ticket System
 model TicketSettings {
-  id             String @id @default(cuid())
-  guildId        String @unique
-  ticketCategoryId String?
-  staffRoleIds   String[]
+  id                  String   @id @default(cuid())
+  guildId             String   @unique
+  ticketCategoryId    String?
+  staffRoleIds        String[]
   transcriptChannelId String?
-  ticketMessage  String? @default("Click the button below to open a ticket")
-  
-  guild          Guild   @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  ticketMessage       String?  @default("Click the button below to open a ticket")
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@map("ticket_settings")
 }
 
 model Ticket {
-  id        String   @id @default(cuid())
-  channelId String   @unique
+  id        String    @id @default(cuid())
+  channelId String    @unique
   guildId   String
   ownerId   String
-  ownerName String?   // Added to track the name of the person who opened the ticket
-  status    String   @default("open")
-  priority  String   @default("low") // low, medium, high
-  createdAt DateTime @default(now())
+  ownerName String? // Added to track the name of the person who opened the ticket
+  status    String    @default("open")
+  priority  String    @default("low") // low, medium, high
+  createdAt DateTime  @default(now())
   closedAt  DateTime?
 
   // Soft delete
   deletedAt DateTime?
 
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  messages  TicketMessage[]
+  guild    Guild           @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
   @@map("tickets")
 }
 
 model TicketMessage {
-  id        String   @id @default(cuid())
-  ticketId  String
-  authorId  String
-  authorName String
-  content   String
+  id          String   @id @default(cuid())
+  ticketId    String
+  authorId    String
+  authorName  String
+  content     String
   attachments String? // Stored as JSON string or comma-separated
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
   @@map("ticket_messages")
 }
 
 // Channel Rules & Moderation (Gatekeeper)
 model ChannelRuleSettings {
-  id               String   @id @default(cuid())
-  guildId          String   @unique
-  
+  id      String @id @default(cuid())
+  guildId String @unique
+
   approvalChannelId String? // Channel where staff reviews intercepted messages
-  
-  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  rules            ChannelRule[]
+
+  guild Guild         @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  rules ChannelRule[]
 
   @@map("channel_rule_settings")
 }
 
 model ChannelRule {
-  id             String   @id @default(cuid())
-  guildId        String
-  settingsId     String
-  
-  name           String   // Friendly name (e.g. "No EXE files")
-  reason         String?  // Custom reason shown to user when blocked (falls back to name)
-  targetChannelId String  // The channel this rule applies to
-  
-  type           String   // BLOCK_FILE_TYPES, MAX_LENGTH, REGEX_MATCH, etc.
-  config         Json     // Stores specifics: { extensions: ['.exe'], length: 50, pattern: 'badword' }
-  
-  action         String   // BLOCK, REQUIRE_APPROVAL
-  enabled        Boolean  @default(true)
-  
-  exemptRoles    String[] @default([]) // Roles that bypass this rule
-  requiredRoles  String[] @default([]) // If set, rule ONLY applies to these roles
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id         String @id @default(cuid())
+  guildId    String
+  settingsId String
 
-  guild          Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  settings       ChannelRuleSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  name            String // Friendly name (e.g. "No EXE files")
+  reason          String? // Custom reason shown to user when blocked (falls back to name)
+  targetChannelId String // The channel this rule applies to
+
+  type   String // BLOCK_FILE_TYPES, MAX_LENGTH, REGEX_MATCH, etc.
+  config Json // Stores specifics: { extensions: ['.exe'], length: 50, pattern: 'badword' }
+
+  action  String // BLOCK, REQUIRE_APPROVAL
+  enabled Boolean @default(true)
+
+  exemptRoles   String[] @default([]) // Roles that bypass this rule
+  requiredRoles String[] @default([]) // If set, rule ONLY applies to these roles
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild    Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  settings ChannelRuleSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
 
   @@index([guildId, targetChannelId])
   @@map("channel_rules")
 }
 
 model PendingReview {
-  id             String   @id @default(cuid())
-  guildId        String
-  channelId      String   // Original channel to repost to
-  userId         String   // Original author
-  messageId      String   @unique // Original message ID
-  
+  id        String @id @default(cuid())
+  guildId   String
+  channelId String // Original channel to repost to
+  userId    String // Original author
+  messageId String @unique // Original message ID
+
   username       String
   avatarUrl      String?
   content        String
   attachmentUrls String[] // Store valid Discord CDN urls from the admin embed
-  
-  ruleId         String   // Which rule triggered this
-  status         String   @default("PENDING") // PENDING
-  
+
+  ruleId String // Which rule triggered this
+  status String @default("PENDING") // PENDING
+
   approvalMessageId String? // The ID of the message in the staff channel
   approvalChannelId String? // The ID of the staff channel
 
-  createdAt      DateTime @default(now())
-  
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
   @@map("pending_reviews")
 }
 
 // --- Musician Profile Plugin ---
 
 model MusicianProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique // Discord User ID
-  username        String
-  displayName     String?
-  avatar          String?
-  bannerUrl       String?  // User-uploaded hero banner image for profile page
-  accentColor     String?  // User-chosen hex accent color for their profile page (e.g. "#FF5500")
-  cardBgColor     String?  // User-chosen card background hex color (e.g. "#0A1628")
-  bio             String?  @db.Text
-  location        String?
-  contactEmail    String?
-  collabStatus    Boolean  @default(false)
-  
+  id           String  @id @default(cuid())
+  userId       String  @unique // Discord User ID
+  username     String
+  displayName  String?
+  avatar       String?
+  bannerUrl    String? // User-uploaded hero banner image for profile page
+  accentColor  String? // User-chosen hex accent color for their profile page (e.g. "#FF5500")
+  cardBgColor  String? // User-chosen card background hex color (e.g. "#0A1628")
+  bio          String? @db.Text
+  location     String?
+  contactEmail String?
+  collabStatus Boolean @default(false)
+
   // Gear & Setup
-  primaryDAW      String?
-  dawVersion      String?
-  vsts            String[] @default([])
-  hardware        String[] @default([])
-  maxProjectSizeMb Int     @default(100) // Max project ZIP size in MB; bumped for paid users
+  primaryDAW       String?
+  dawVersion       String?
+  vsts             String[] @default([])
+  hardware         String[] @default([])
+  maxProjectSizeMb Int      @default(100) // Max project ZIP size in MB; bumped for paid users
 
   // Socials / Streaming (Stored as JSON for flexibility, validated via service)
-  socials         Json?    @default("[]")
+  socials Json? @default("[]")
 
   // Tracks & Discoverability
-  tracks          Track[]
-  totalPlays      Int      @default(0)
-  
+  tracks     Track[]
+  totalPlays Int     @default(0)
+
   // Moderation
-  status          String   @default("active") // "active" | "suspended" | "banned"
-  statusReason    String?  // Admin-provided note for suspension/ban
+  status       String  @default("active") // "active" | "suspended" | "banned"
+  statusReason String? // Admin-provided note for suspension/ban
 
   // Soft delete
-  deletedAt       DateTime?
-  
+  deletedAt DateTime?
+
   // Genres (Many-to-Many via Join Table)
-  genres          ProfileGenre[]
-  primaryGenreId  String?
-  primaryGenre    Genre?   @relation("PrimaryGenre", fields: [primaryGenreId], references: [id], onDelete: SetNull)
-  
+  genres         ProfileGenre[]
+  primaryGenreId String?
+  primaryGenre   Genre?         @relation("PrimaryGenre", fields: [primaryGenreId], references: [id], onDelete: SetNull)
+
   // Featured Content
-  featuredTrackId    String?  @unique
-  featuredTrack      Track?   @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
+  featuredTrackId    String?   @unique
+  featuredTrack      Track?    @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
   featuredPlaylistId String?
   featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 
-  comments        Comment[]
-  followers       ArtistFollow[]
-  playlists       Playlist[]
+  comments  Comment[]
+  followers ArtistFollow[]
+  playlists Playlist[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([username])
-  @@index([createdAt(sort: Desc)])        // Discovery: newest profiles
-  @@index([totalPlays(sort: Desc)])      // Leaderboard: top artists by total plays
+  @@index([createdAt(sort: Desc)]) // Discovery: newest profiles
+  @@index([totalPlays(sort: Desc)]) // Leaderboard: top artists by total plays
   @@map("musician_profiles")
 }
 
 model Track {
-  id              String   @id @default(cuid())
-  profileId       String
-  title           String
-  slug            String?  // URL identifier (e.g., 'hey-brother')
-  description     String?  @db.Text
-  url             String   // Audio file URL (S3/Cloudinary)
-  coverUrl        String?  // Cover image URL
-  
-  duration        Int      @default(0) // In seconds
-  playCount       Int      @default(0)
-  isPublic        Boolean  @default(true)
-  allowAudioDownload Boolean @default(true)
+  id          String  @id @default(cuid())
+  profileId   String
+  title       String
+  slug        String? // URL identifier (e.g., 'hey-brother')
+  description String? @db.Text
+  url         String // Audio file URL (S3/Cloudinary)
+  coverUrl    String? // Cover image URL
+
+  duration             Int     @default(0) // In seconds
+  playCount            Int     @default(0)
+  isPublic             Boolean @default(true)
+  allowAudioDownload   Boolean @default(true)
   allowProjectDownload Boolean @default(true)
 
   // Creative Commons license
-  license         String   @default("all-rights-reserved")  // "all-rights-reserved" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "cc-by-nc-sa" | "cc-by-nd" | "cc-by-nc-nd" | "cc0"
+  license String @default("all-rights-reserved") // "all-rights-reserved" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "cc-by-nc-sa" | "cc-by-nd" | "cc-by-nc-nd" | "cc0"
 
   // Moderation
-  status          String   @default("active") // "active" | "suspended" | "deleted"
-  statusReason    String?  // Admin-provided note
+  status       String  @default("active") // "active" | "suspended" | "deleted"
+  statusReason String? // Admin-provided note
 
   // Soft delete
-  deletedAt       DateTime?
+  deletedAt DateTime?
 
   // ID3 Metadata (user-editable)
-  artist          String?
-  album           String?
-  year            Int?
-  bpm             Int?
-  key             String?  // Musical key, e.g. "Am", "C#"
+  artist String?
+  album  String?
+  year   Int?
+  bpm    Int?
+  key    String? // Musical key, e.g. "Am", "C#"
 
   // Project Viewer (Splice-style timeline)
-  arrangement     Json?    // Parsed FLP arrangement data: { bpm, tracks, clips }
-  projectFileUrl  String?  // URL to the original .flp download
-  projectZipUrl   String?  // URL to the uploaded .zip project package (R2)
+  arrangement          Json? // Parsed FLP arrangement data: { bpm, tracks, clips }
+  projectFileUrl       String? // URL to the original .flp download
+  projectZipUrl        String? // URL to the uploaded .zip project package (R2)
   projectFileSizeBytes Int? // Size of uploaded project ZIP in bytes
 
   // Waveform data (generated on upload from main audio file)
-  waveformPeaks   Json?    // number[] ~200 normalised RMS values, 0.0–1.0
+  waveformPeaks Json? // number[] ~200 normalised RMS values, 0.0–1.0
 
   // Lyrics (plain text) and time-synced lyrics cues
-  lyrics          String?  @db.Text
-  lyricsSync      Json?    // Array<{ time: number; text: string }> seconds-based cue list
+  lyrics     String? @db.Text
+  lyricsSync Json? // Array<{ time: number; text: string }> seconds-based cue list
 
-  samples         TrackSample[]
-  
-  profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  isFeaturedIn    MusicianProfile? @relation("FeaturedTrack")
-  plays           TrackPlay[]
-  genres          TrackGenre[]
-  battleEntries   BattleEntry[]
-  comments        Comment[]
-  favourites      TrackFavourite[]
-  reposts         TrackRepost[]
-  playlistTracks  PlaylistTrack[]
-  radioQueues     RadioQueue[]
-  radioHistories  RadioHistory[]
+  samples TrackSample[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  profile        MusicianProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  isFeaturedIn   MusicianProfile? @relation("FeaturedTrack")
+  plays          TrackPlay[]
+  genres         TrackGenre[]
+  battleEntries  BattleEntry[]
+  comments       Comment[]
+  favourites     TrackFavourite[]
+  reposts        TrackRepost[]
+  playlistTracks PlaylistTrack[]
+  radioQueues    RadioQueue[]
+  radioHistories RadioHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([profileId])
   @@index([slug])
-  @@index([profileId, isPublic, playCount(sort: Desc)])          // Fast per-profile top-track lookup
-  @@index([isPublic, playCount(sort: Desc)])                     // Leaderboard: top public tracks by plays
-  @@index([isPublic, createdAt(sort: Desc)])                     // Discovery: newest public tracks
-  @@index([isPublic, status, playCount(sort: Desc)])             // Leaderboard with status filter
-  @@index([isPublic, status, createdAt(sort: Desc)])             // Discovery with status filter
+  @@index([profileId, isPublic, playCount(sort: Desc)]) // Fast per-profile top-track lookup
+  @@index([isPublic, playCount(sort: Desc)]) // Leaderboard: top public tracks by plays
+  @@index([isPublic, createdAt(sort: Desc)]) // Discovery: newest public tracks
+  @@index([isPublic, status, playCount(sort: Desc)]) // Leaderboard with status filter
+  @@index([isPublic, status, createdAt(sort: Desc)]) // Discovery with status filter
   @@map("musician_tracks")
 }
 
 model TrackPlay {
-  id              String   @id @default(cuid())
-  trackId         String
-  userId          String?  // Optional: ID of user who played (null for guests)
-  ipAddress       String   // Anti-cheat: Track IP to prevent botting
-  userAgent       String?  // Anti-cheat: Track browser to prevent botting
-  playAt          DateTime @default(now())
-  durationPlayed  Int?     // How many seconds they actually listened
-  
-  track           Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  trackId        String
+  userId         String? // Optional: ID of user who played (null for guests)
+  ipAddress      String // Anti-cheat: Track IP to prevent botting
+  userAgent      String? // Anti-cheat: Track browser to prevent botting
+  playAt         DateTime @default(now())
+  durationPlayed Int? // How many seconds they actually listened
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
   @@index([ipAddress, trackId, playAt]) // For fast anti-cheat lookups
   @@map("track_plays")
 }
 
 model DownloadLog {
-  id          String   @id @default(cuid())
-  userId      String   // Discord user ID of the downloader
-  username    String?  // Cached username at download time
-  trackId     String?  // Track ID if applicable
-  fileType    String   // "audio" | "project_flp" | "project_zip" | "sample"
-  fileName    String?  // Original/served filename
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String // Discord user ID of the downloader
+  username  String? // Cached username at download time
+  trackId   String? // Track ID if applicable
+  fileType  String // "audio" | "project_flp" | "project_zip" | "sample"
+  fileName  String? // Original/served filename
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([trackId])
@@ -944,10 +951,10 @@ model DownloadLog {
 model TrackSample {
   id               String   @id @default(cuid())
   trackId          String
-  originalFilename String   // Basename matched to FLP clip sampleFileName
-  oggUrl           String   // R2 CDN URL (or local /uploads/samples/ path if R2 not configured)
-  peaks            Json     // number[] ~1200 normalised RMS values, 0.0–1.0
-  duration         Float?   // Duration in seconds
+  originalFilename String // Basename matched to FLP clip sampleFileName
+  oggUrl           String // R2 CDN URL (or local /uploads/samples/ path if R2 not configured)
+  peaks            Json // number[] ~1200 normalised RMS values, 0.0–1.0
+  duration         Float? // Duration in seconds
   track            Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
   createdAt        DateTime @default(now())
 
@@ -956,30 +963,35 @@ model TrackSample {
 }
 
 model Genre {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  slug            String   @unique
-  description     String?
-  
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
   // Hierarchical structure (Category > Parent > Sub-genre)
-  parentId        String?
-  parent          Genre?   @relation("GenreHierarchy", fields: [parentId], references: [id])
-  children        Genre[]  @relation("GenreHierarchy")
+  parentId String?
+  parent   Genre?  @relation("GenreHierarchy", fields: [parentId], references: [id])
+  children Genre[] @relation("GenreHierarchy")
 
   // Relations
-  profiles        ProfileGenre[]
-  tracks          TrackGenre[]
+  profiles           ProfileGenre[]
+  tracks             TrackGenre[]
   primaryForProfiles MusicianProfile[] @relation("PrimaryGenre")
+
+  // Head-to-Head
+  h2hSamplePools H2HSamplePool[] @relation("H2HSamplePoolGenre")
+  h2hMatches     H2HMatch[]      @relation("H2HMatchGenre")
+  h2hRatings     H2HRating[]     @relation("H2HRatingGenre")
 
   @@map("genres")
 }
 
 model ProfileGenre {
-  profileId       String
-  genreId         String
-  
-  profile         MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  genre           Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  profileId String
+  genreId   String
+
+  profile MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  genre   Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
 
   @@id([profileId, genreId])
   @@index([genreId])
@@ -987,11 +999,11 @@ model ProfileGenre {
 }
 
 model TrackGenre {
-  trackId         String
-  genreId         String
-  
-  track           Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  genre           Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  trackId String
+  genreId String
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
 
   @@id([trackId, genreId])
   @@index([genreId])
@@ -999,158 +1011,158 @@ model TrackGenre {
 }
 
 model DiscoverySettings {
-  id              String   @id @default("singleton")
-  featuredType    String   @default("track") // 'track' | 'artist' | 'playlist'
-  featuredTrackId String?  // Global featured track on the discovery page
-  featuredArtistId String? // Featured artist userId
-  featuredPlaylistId String? // Featured playlist ID
-  featuredLabel   String?  // Custom label for the featured section
-  featuredDescription String?  @db.Text // Custom description shown under the hero title
+  id                  String  @id @default("singleton")
+  featuredType        String  @default("track") // 'track' | 'artist' | 'playlist'
+  featuredTrackId     String? // Global featured track on the discovery page
+  featuredArtistId    String? // Featured artist userId
+  featuredPlaylistId  String? // Featured playlist ID
+  featuredLabel       String? // Custom label for the featured section
+  featuredDescription String? @db.Text // Custom description shown under the hero title
 
   // Editor's Picks (JSON array of track IDs curated by admins)
-  editorPickTrackIds Json?  @default("[]")
+  editorPickTrackIds Json? @default("[]")
 
   // Featured Producer (separate from the hero featured artist)
-  featuredProducerId   String?  // userId of highlighted producer
-  featuredProducerNote String?  @db.Text // Custom blurb about the producer
+  featuredProducerId   String? // userId of highlighted producer
+  featuredProducerNote String? @db.Text // Custom blurb about the producer
 
   // Featured Battle
-  featuredBattleId          String?  // BeatBattle ID to show on frontpage
-  featuredBattleDescription String?  @db.Text // Custom blurb for the battle card
+  featuredBattleId          String? // BeatBattle ID to show on frontpage
+  featuredBattleDescription String? @db.Text // Custom blurb for the battle card
 
   // Featured Content (card type selector — 'video' | 'news' | 'guide' | 'article')
-  featuredContentType         String   @default("video") @map("featured_content_type")
+  featuredContentType String @default("video") @map("featured_content_type")
 
   // Featured Tutorial / Video
-  featuredTutorialUrl         String?  // YouTube/video embed URL
+  featuredTutorialUrl         String? // YouTube/video embed URL
   featuredTutorialTitle       String?
-  featuredTutorialDescription String?  @db.Text // Short blurb shown on the tutorial card
-  featuredTutorialThumbnail   String?  // Thumbnail image URL
-  featuredTutorialAuthor      String?  @map("featured_tutorial_author") // Name of the staff member / creator
-  featuredTutorialDate        String?  @map("featured_tutorial_date")   // Display date string (e.g. "March 23, 2026")
+  featuredTutorialDescription String? @db.Text // Short blurb shown on the tutorial card
+  featuredTutorialThumbnail   String? // Thumbnail image URL
+  featuredTutorialAuthor      String? @map("featured_tutorial_author") // Name of the staff member / creator
+  featuredTutorialDate        String? @map("featured_tutorial_date") // Display date string (e.g. "March 23, 2026")
 
   // Featured Article
-  featuredArticleId           String?  @map("featured_article_id") // Article ID to feature on the front page
+  featuredArticleId String? @map("featured_article_id") // Article ID to feature on the front page
 
-  updatedAt       DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@map("discovery_settings")
 }
 
 // Fuji Studio - Cloud Sample Manager
 model SamplePack {
-  id              String   @id @default(cuid())
-  guildId         String   // Channel/Pack logic: Storage Guild ID
-  channelId       String?  @unique // Old single-channel pack logic
-  forumId         String?  // Tier 2: Forum ID
-  threadId        String?  @unique // Tier 3: Thread ID (Specific Pack)
-  category        String?  // Tier 1: Category Name
-  name            String   // Pack name (usually channel or thread name)
-  description     String?
-  thumbnailUrl    String?
-  creatorId       String?  // Original uploader/owner Discord ID
-  isPublic        Boolean  @default(true)
-  
-  samples         SampleMetadata[]
-  collections     SampleCollectionItem[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String  @id @default(cuid())
+  guildId      String // Channel/Pack logic: Storage Guild ID
+  channelId    String? @unique // Old single-channel pack logic
+  forumId      String? // Tier 2: Forum ID
+  threadId     String? @unique // Tier 3: Thread ID (Specific Pack)
+  category     String? // Tier 1: Category Name
+  name         String // Pack name (usually channel or thread name)
+  description  String?
+  thumbnailUrl String?
+  creatorId    String? // Original uploader/owner Discord ID
+  isPublic     Boolean @default(true)
+
+  samples     SampleMetadata[]
+  collections SampleCollectionItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([guildId, category])
   @@map("fuji_sample_packs")
 }
 
 model SampleMetadata {
-  id              String   @id @default(cuid())
-  packId          String
-  messageId       String?  // Discord Message ID
-  attachmentId    String   @unique // Discord Attachment ID
-  
-  filename        String
-  filesize        Int
-  mimetype        String
-  url             String   @default("") // CDN URL
-  
-  duration        Float?   // Seconds
-  bpm             Int?
-  key             String?
-  isLoop          Boolean  @default(false)
-  
+  id           String  @id @default(cuid())
+  packId       String
+  messageId    String? // Discord Message ID
+  attachmentId String  @unique // Discord Attachment ID
+
+  filename String
+  filesize Int
+  mimetype String
+  url      String @default("") // CDN URL
+
+  duration Float? // Seconds
+  bpm      Int?
+  key      String?
+  isLoop   Boolean @default(false)
+
   // Search vector
-  tags            String[] @default([])
-  authorId        String?  // Uploader Discord ID
-  
+  tags     String[] @default([])
+  authorId String? // Uploader Discord ID
+
   // Project Viewer (Splice-style Arrangement)
-  arrangement     Json?    // Array of FLPClip objects for timeline visualization
-  projectFile     ProjectFile?
+  arrangement Json? // Array of FLPClip objects for timeline visualization
+  projectFile ProjectFile?
 
-  pack            SamplePack @relation(fields: [packId], references: [id], onDelete: Cascade)
-  favoritedBy     UserSampleFavorite[]
-  inCollections   SampleCollectionItem[]
+  pack          SamplePack             @relation(fields: [packId], references: [id], onDelete: Cascade)
+  favoritedBy   UserSampleFavorite[]
+  inCollections SampleCollectionItem[]
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([packId, filename, bpm, key])
   @@map("fuji_samples")
 }
 
 model ProjectFile {
-  id              String   @id @default(cuid())
-  sampleId        String   @unique
-  sample          SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
-  
-  filename        String
-  url             String
-  filesize        Int
-  mimetype        String
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id       String         @id @default(cuid())
+  sampleId String         @unique
+  sample   SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  filename String
+  url      String
+  filesize Int
+  mimetype String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("fuji_project_files")
 }
 
 model UserSampleFavorite {
-  id              String   @id @default(cuid())
-  userId          String   // Discord User ID
-  sampleId        String
-  
-  sample          SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  userId   String // Discord User ID
+  sampleId String
 
-  createdAt       DateTime @default(now())
+  sample SampleMetadata @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 
   @@unique([userId, sampleId])
   @@map("fuji_user_favorites")
 }
 
 model SampleCollection {
-  id              String   @id @default(cuid())
-  userId          String   // Discord User ID
-  name            String
-  description     String?
-  isPublic        Boolean  @default(false)
-  shareCode       String?  @unique @default(cuid())
-  
-  items           SampleCollectionItem[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String  @id @default(cuid())
+  userId      String // Discord User ID
+  name        String
+  description String?
+  isPublic    Boolean @default(false)
+  shareCode   String? @unique @default(cuid())
+
+  items SampleCollectionItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@map("fuji_sample_collections")
 }
 
 model SampleCollectionItem {
-  id              String   @id @default(cuid())
-  collectionId    String
-  sampleId        String
-  packId          String?  // Shortcut
-  createdAt       DateTime @default(now())
+  id           String   @id @default(cuid())
+  collectionId String
+  sampleId     String
+  packId       String? // Shortcut
+  createdAt    DateTime @default(now())
 
-  collection      SampleCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  sample          SampleMetadata   @relation(fields: [sampleId], references: [id], onDelete: Cascade)
-  pack            SamplePack?      @relation(fields: [packId], references: [id])
+  collection SampleCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  sample     SampleMetadata   @relation(fields: [sampleId], references: [id], onDelete: Cascade)
+  pack       SamplePack?      @relation(fields: [packId], references: [id])
 
   @@unique([collectionId, sampleId])
   @@map("fuji_collection_items")
@@ -1161,66 +1173,72 @@ model SampleCollectionItem {
 // ──────────────────────────────────────────────
 
 model BeatBattle {
-  id                  String   @id @default(cuid())
-  slug                String?  @unique
-  guildId             String
-  title               String
-  description         String?  @db.Text
-  status              String   @default("upcoming") // upcoming | active | voting | completed
-  rules               String?  @db.Text
-  rulesData           Json?    // Array of { text, links: {label,url}[], samples: {name,url}[] }
+  id          String  @id @default(cuid())
+  slug        String? @unique
+  guildId     String
+  title       String
+  description String? @db.Text
+  status      String  @default("upcoming") // upcoming | active | voting | completed
+  rules       String? @db.Text
+  rulesData   Json? // Array of { text, links: {label,url}[], samples: {name,url}[] }
 
   // Scheduling
-  submissionStart     DateTime?
-  submissionEnd       DateTime?
-  votingStart         DateTime?
-  votingEnd           DateTime?
+  submissionStart DateTime?
+  submissionEnd   DateTime?
+  votingStart     DateTime?
+  votingEnd       DateTime?
 
   // Discord integration
   announcementChannelId String? // Where announcements go
 
   // Winner
-  winnerEntryId       String?  // Winning BattleEntry ID
+  winnerEntryId String? // Winning BattleEntry ID
 
   // Prizes
-  prizes              Json?    // Array of { place: string, description: string }
+  prizes Json? // Array of { place: string, description: string }
 
   // Voting
-  maxVotesPerUser     Int      @default(0) // 0 = unlimited, 1+ = max entries a single user can vote on
+  maxVotesPerUser Int @default(0) // 0 = unlimited, 1+ = max entries a single user can vote on
+
+  // Sudden Death tie-breaker (Lexicographical Positional Scoring)
+  suddenDeathDurationMinutes Int       @default(60) // How long the runoff stays open
+  suddenDeathStart           DateTime?
+  suddenDeathEnd             DateTime?
+  suddenDeathEntryIds        Json? // Array of tied entry IDs in the runoff
 
   // Announcement
-  pendingAnnouncement Boolean  @default(false) // Set true to trigger bot announcement on next lifecycle check
+  pendingAnnouncement Boolean @default(false) // Set true to trigger bot announcement on next lifecycle check
 
   // Sponsor
-  sponsorId           String?
+  sponsorId String?
 
   // Media
-  bannerUrl           String?  // Admin-uploaded hero banner image
-  cardImageUrl        String?  // Homepage card image (shown in battle card on discovery page)
+  bannerUrl    String? // Admin-uploaded hero banner image
+  cardImageUrl String? // Homepage card image (shown in battle card on discovery page)
 
   // Submission options
-  requireProjectFile  Boolean  @default(false) // Require .flp/.zip project upload
+  requireProjectFile Boolean @default(false) // Require .flp/.zip project upload
 
   // Per-battle economy overrides
-  entryFeeEnabled     Boolean  @default(false)
-  entryFee            Int      @default(0)
-  prizePoolEnabled    Boolean  @default(false)
-  prizeFirst          Int      @default(0)
-  prizeSecond         Int      @default(0)
-  prizeThird          Int      @default(0)
-  voterReward         Int      @default(0)
+  entryFeeEnabled  Boolean @default(false)
+  entryFee         Int     @default(0)
+  prizePoolEnabled Boolean @default(false)
+  prizeFirst       Int     @default(0)
+  prizeSecond      Int     @default(0)
+  prizeThird       Int     @default(0)
+  voterReward      Int     @default(0)
 
-  createdBy           String   // Admin Discord ID who created
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdBy String // Admin Discord ID who created
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Soft delete
-  deletedAt           DateTime?
+  deletedAt DateTime?
 
-  guild               Guild          @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  sponsor             BattleSponsor? @relation(fields: [sponsorId], references: [id])
-  entries             BattleEntry[]
-  analytics           BattleAnalytics[]
+  guild     Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  sponsor   BattleSponsor?    @relation(fields: [sponsorId], references: [id])
+  entries   BattleEntry[]
+  analytics BattleAnalytics[]
 
   @@index([guildId])
   @@index([status])
@@ -1228,52 +1246,63 @@ model BeatBattle {
 }
 
 model BattleEntry {
-  id          String   @id @default(cuid())
-  battleId    String
-  userId      String   // Discord user ID
-  username    String   // Cached display name
-  trackTitle  String
-  audioUrl    String   // Path to uploaded audio
-  coverUrl    String?  // Optional cover art
-  avatarUrl   String?  // Submitter's Discord avatar URL
-  description String?  @db.Text // Optional description
-  projectUrl  String?  // Optional project file (.flp/.zip) URL
-  duration    Int      @default(0) // seconds
-  bpm         Int?
-  key         String?
-  artist      String?
-  arrangement Json?              // Parsed FLP arrangement data
-  waveformPeaks Json?            // number[] ~200 normalised RMS values for waveform display
-  voteCount   Int      @default(0) // Denormalized for perf
-  trackId     String?  // FK to musician Track (library submission)
-  source      String   @default("web")
-  createdAt   DateTime @default(now())
+  // Slim join row: links a Track to a Battle. Track is the single source of truth
+  // for content (title, audio, cover, bpm, etc.) — read those via `track`.
+  // Legacy content columns are kept as deprecated/nullable for backward compat;
+  // they will be dropped in a future migration once all readers are migrated.
+  id        String   @id @default(cuid())
+  battleId  String
+  userId    String // Discord user ID (denormalized for the @@unique constraint)
+  trackId   String // REQUIRED: FK to musician Track
+  voteCount Int      @default(0) // Denormalized for perf
+  source    String   @default("web")
+  createdAt DateTime @default(now())
+
+  // ── Deprecated content snapshots (no longer written; reads use `track.*`) ──
+  username      String?
+  trackTitle    String?
+  audioUrl      String?
+  coverUrl      String?
+  avatarUrl     String?
+  description   String? @db.Text
+  projectUrl    String?
+  duration      Int?
+  bpm           Int?
+  key           String?
+  artist        String?
+  arrangement   Json?
+  waveformPeaks Json?
 
   // Soft delete
-  deletedAt   DateTime?
+  deletedAt DateTime?
 
-  battle      BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
-  track       Track?       @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  votes       BattleVote[]
-  comments    Comment[]
+  battle   BeatBattle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  track    Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  votes    BattleVote[]
+  comments Comment[]
 
-  @@unique([battleId, userId]) // One entry per battle per user
+  @@unique([battleId, userId]) // One entry per user per battle
   @@index([battleId])
   @@index([userId])
+  @@index([trackId])
   @@map("battle_entries")
 }
 
 model BattleVote {
   id        String   @id @default(cuid())
   entryId   String
-  userId    String   // Discord user ID
+  battleId  String // Denormalized for unique-per-rank constraint
+  userId    String // Discord user ID
+  rank      Int      @default(1) // 1 = 1st choice, 2 = 2nd, 3 = 3rd. Sudden death always uses 1.
   source    String   @default("web") // web | discord
   createdAt DateTime @default(now())
 
-  entry     BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entry BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
-  @@unique([entryId, userId]) // One vote per entry per user
+  @@unique([entryId, userId]) // One rank per (entry,user) — user can't double-rank the same entry
+  @@unique([battleId, userId, rank]) // Each rank slot per battle is exclusive per user
   @@index([entryId])
+  @@index([battleId])
   @@map("battle_votes")
 }
 
@@ -1289,37 +1318,37 @@ model BattleSponsor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  guild       Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  battles     BeatBattle[]
-  links       BattleSponsorLink[]
+  guild   Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  battles BeatBattle[]
+  links   BattleSponsorLink[]
 
   @@index([guildId])
   @@map("battle_sponsors")
 }
 
 model BattleSponsorLink {
-  id          String   @id @default(cuid())
-  sponsorId   String
-  label       String   // e.g. "Visit Website", "Get 20% Off"
-  url         String
-  clicks      Int      @default(0)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  sponsorId String
+  label     String // e.g. "Visit Website", "Get 20% Off"
+  url       String
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
 
-  sponsor     BattleSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  sponsor BattleSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
 
   @@index([sponsorId])
   @@map("battle_sponsor_links")
 }
 
 model BattleAnalytics {
-  id            String   @id @default(cuid())
-  battleId      String
-  eventType     String   // page_view | embed_view | sponsor_click | vote_cast | submission
-  userId        String?  // Discord user ID if known
-  metadata      Json?    // Additional context (e.g., { linkId: "..." })
-  createdAt     DateTime @default(now())
+  id        String   @id @default(cuid())
+  battleId  String
+  eventType String // page_view | embed_view | sponsor_click | vote_cast | submission
+  userId    String? // Discord user ID if known
+  metadata  Json? // Additional context (e.g., { linkId: "..." })
+  createdAt DateTime @default(now())
 
-  battle        BeatBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  battle BeatBattle @relation(fields: [battleId], references: [id], onDelete: Cascade)
 
   @@index([battleId])
   @@index([eventType])
@@ -1327,28 +1356,31 @@ model BattleAnalytics {
 }
 
 model BeatBattleSettings {
-  id                    String   @id @default(cuid())
-  guildId               String   @unique
-  announcementChannelId String?
-  chatChannelId         String?
-  discordInviteUrl      String?
-  featuredBattleId      String?
-  sponsorSectionTitle   String?
+  id                     String  @id @default(cuid())
+  guildId                String  @unique
+  announcementChannelId  String?
+  chatChannelId          String?
+  discordInviteUrl       String?
+  featuredBattleId       String?
+  sponsorSectionTitle    String?
   requireMusicianProfile Boolean @default(false)
 
   // Economy integration
-  entryFeeEnabled       Boolean  @default(false)
-  entryFee              Int      @default(0)    // Coins charged to enter a battle
-  prizePoolEnabled      Boolean  @default(false)
-  prizeFirst            Int      @default(0)    // Coin prize for 1st place
-  prizeSecond           Int      @default(0)    // Coin prize for 2nd place
-  prizeThird            Int      @default(0)    // Coin prize for 3rd place
-  voterReward           Int      @default(0)    // Coins for each vote cast
+  entryFeeEnabled  Boolean @default(false)
+  entryFee         Int     @default(0) // Coins charged to enter a battle
+  prizePoolEnabled Boolean @default(false)
+  prizeFirst       Int     @default(0) // Coin prize for 1st place
+  prizeSecond      Int     @default(0) // Coin prize for 2nd place
+  prizeThird       Int     @default(0) // Coin prize for 3rd place
+  voterReward      Int     @default(0) // Coins for each vote cast
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  // Default sudden-death duration (minutes) for new battles
+  suddenDeathDurationMinutes Int @default(60)
 
-  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("beat_battle_settings")
 }
@@ -1358,34 +1390,34 @@ model BeatBattleSettings {
 // ──────────────────────────────────────────────
 
 model Comment {
-  id              String   @id @default(cuid())
-  userId          String   // Discord user ID of commenter
-  username        String   // Cached display name
-  avatarUrl       String?  // Cached avatar URL
-  content         String   @db.Text // Text content (may contain emoji shortcodes)
-  gifUrl          String?  // Tenor/Giphy GIF URL if attached
-  trackTimestamp  Float?   // Playback timestamp (seconds) when comment was posted on a track
-  editedAt        DateTime? // Set when edited
+  id             String    @id @default(cuid())
+  userId         String // Discord user ID of commenter
+  username       String // Cached display name
+  avatarUrl      String? // Cached avatar URL
+  content        String    @db.Text // Text content (may contain emoji shortcodes)
+  gifUrl         String? // Tenor/Giphy GIF URL if attached
+  trackTimestamp Float? // Playback timestamp (seconds) when comment was posted on a track
+  editedAt       DateTime? // Set when edited
 
   // Polymorphic target: exactly one of these should be set
-  trackId         String?  // Comment on a track
-  profileId       String?  // Comment on a musician profile
-  battleEntryId   String?  // Comment on a battle entry
+  trackId       String? // Comment on a track
+  profileId     String? // Comment on a musician profile
+  battleEntryId String? // Comment on a battle entry
 
   // Self-referential reply thread (one level deep)
-  parentId        String?
+  parentId String?
 
   // Soft delete
-  deletedAt       DateTime?
+  deletedAt DateTime?
 
-  track           Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  profile         MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  battleEntry     BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
-  parent          Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies         Comment[]        @relation("CommentReplies")
-  likes           CommentLike[]
+  track       Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  battleEntry BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
+  parent      Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]        @relation("CommentReplies")
+  likes       CommentLike[]
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([trackId])
   @@index([profileId])
@@ -1396,14 +1428,14 @@ model Comment {
 }
 
 model CommentLike {
-  id              String   @id @default(cuid())
-  userId          String   // Discord user ID
-  commentId       String
-  type            String   // "like" | "dislike"
+  id        String @id @default(cuid())
+  userId    String // Discord user ID
+  commentId String
+  type      String // "like" | "dislike"
 
-  comment         Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, commentId])
   @@index([commentId])
@@ -1411,14 +1443,14 @@ model CommentLike {
 }
 
 model CommentLog {
-  id              String   @id @default(cuid())
-  commentId       String   // Original comment ID
-  action          String   // "created" | "edited" | "deleted"
-  userId          String   // Who performed the action
-  content         String?  @db.Text // Snapshot of content at time of action
-  gifUrl          String?  // Snapshot of gif
-  metadata        Json?    // Extra context (e.g. reason for delete)
-  createdAt       DateTime @default(now())
+  id        String   @id @default(cuid())
+  commentId String // Original comment ID
+  action    String // "created" | "edited" | "deleted"
+  userId    String // Who performed the action
+  content   String?  @db.Text // Snapshot of content at time of action
+  gifUrl    String? // Snapshot of gif
+  metadata  Json? // Extra context (e.g. reason for delete)
+  createdAt DateTime @default(now())
 
   @@index([commentId])
   @@map("comment_logs")
@@ -1430,7 +1462,7 @@ model CommentLog {
 
 model TrackFavourite {
   id        String   @id @default(cuid())
-  userId    String   // Discord user ID
+  userId    String // Discord user ID
   trackId   String
   track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -1443,7 +1475,7 @@ model TrackFavourite {
 
 model TrackRepost {
   id        String   @id @default(cuid())
-  userId    String   // Discord user ID of reposter
+  userId    String // Discord user ID of reposter
   trackId   String
   track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -1459,11 +1491,11 @@ model TrackRepost {
 // ──────────────────────────────────────────────
 
 model ArtistFollow {
-  id        String          @id @default(cuid())
-  followerId String         // Discord user ID of follower
-  artistId  String          // MusicianProfile ID being followed
-  artist    MusicianProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  createdAt DateTime        @default(now())
+  id         String          @id @default(cuid())
+  followerId String // Discord user ID of follower
+  artistId   String // MusicianProfile ID being followed
+  artist     MusicianProfile @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
 
   @@unique([followerId, artistId])
   @@index([artistId])
@@ -1477,14 +1509,14 @@ model ArtistFollow {
 
 model MusicNotification {
   id          String   @id @default(cuid())
-  userId      String   // Recipient Discord user ID
-  type        String   // 'comment' | 'reply' | 'follow' | 'favourite'
+  userId      String // Recipient Discord user ID
+  type        String // 'comment' | 'reply' | 'follow' | 'favourite'
   title       String
   message     String
-  link        String?  // Path to redirect to (e.g. '/track/user/slug')
-  actorId     String?  // Who caused the notification
-  actorName   String?  // Cached actor display name
-  actorAvatar String?  // Cached actor avatar URL
+  link        String? // Path to redirect to (e.g. '/track/user/slug')
+  actorId     String? // Who caused the notification
+  actorName   String? // Cached actor display name
+  actorAvatar String? // Cached actor avatar URL
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
 
@@ -1498,25 +1530,25 @@ model MusicNotification {
 // ──────────────────────────────────────────────
 
 model Playlist {
-  id          String          @id @default(cuid())
-  userId      String          // Discord user ID of creator
-  profileId   String?         // Optional link to MusicianProfile
-  profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
-  name        String
-  slug        String?
-  description String?         @db.Text
-  coverUrl    String?
-  isPublic    Boolean         @default(true)
-  releaseType String?         // 'album' | 'ep' | 'single' | null = plain playlist
-  trackCount  Int             @default(0)
-  totalPlays  Int             @default(0)
-  tracks      PlaylistTrack[]
+  id                 String            @id @default(cuid())
+  userId             String // Discord user ID of creator
+  profileId          String? // Optional link to MusicianProfile
+  profile            MusicianProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  name               String
+  slug               String?
+  description        String?           @db.Text
+  coverUrl           String?
+  isPublic           Boolean           @default(true)
+  releaseType        String? // 'album' | 'ep' | 'single' | null = plain playlist
+  trackCount         Int               @default(0)
+  totalPlays         Int               @default(0)
+  tracks             PlaylistTrack[]
   featuredByProfiles MusicianProfile[] @relation("ProfileFeaturedPlaylist")
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   // Soft delete
-  deletedAt   DateTime?
+  deletedAt DateTime?
 
   @@unique([userId, slug])
   @@index([userId])
@@ -1528,7 +1560,7 @@ model PlaylistTrack {
   id         String   @id @default(cuid())
   playlistId String
   trackId    String
-  position   Int      // Sort order
+  position   Int // Sort order
   playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
   track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
   addedAt    DateTime @default(now())
@@ -1542,27 +1574,27 @@ model PlaylistTrack {
 // Snapshots taken periodically (e.g. daily) to track position changes over time.
 
 model ChartSnapshot {
-  id          String   @id @default(cuid())
-  period      String   // "daily" | "weekly" | "alltime"
-  takenAt     DateTime @default(now()) // When this snapshot was generated
-  entries     ChartEntry[]
+  id      String       @id @default(cuid())
+  period  String // "daily" | "weekly" | "alltime"
+  takenAt DateTime     @default(now()) // When this snapshot was generated
+  entries ChartEntry[]
 
   @@index([period, takenAt])
   @@map("chart_snapshots")
 }
 
 model ChartEntry {
-  id           String   @id @default(cuid())
-  snapshotId   String
-  trackId      String
-  position     Int      // Rank in this snapshot (1 = #1)
-  playCount    Int      // Play count at time of snapshot
-  playsInPeriod Int     @default(0) // Plays gained during this period
-  prevPosition Int?     // Position in the previous snapshot (null = new entry)
-  peakPosition Int      @default(1) // Best position ever achieved
-  weeksOnChart Int      @default(1) // How many snapshots this track appeared
+  id            String @id @default(cuid())
+  snapshotId    String
+  trackId       String
+  position      Int // Rank in this snapshot (1 = #1)
+  playCount     Int // Play count at time of snapshot
+  playsInPeriod Int    @default(0) // Plays gained during this period
+  prevPosition  Int? // Position in the previous snapshot (null = new entry)
+  peakPosition  Int    @default(1) // Best position ever achieved
+  weeksOnChart  Int    @default(1) // How many snapshots this track appeared
 
-  snapshot     ChartSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  snapshot ChartSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 
   @@unique([snapshotId, trackId])
   @@unique([snapshotId, position])
@@ -1574,30 +1606,30 @@ model ChartEntry {
 // ──────────────────────────────────────────────
 
 model Conversation {
-  id            String    @id @default(cuid())
-  name          String?   // null for 1:1, custom name for group chats
-  isGroup       Boolean   @default(false)
-  createdById   String
-  encryptedKey  String    // AES-256 conversation key, encrypted with server master key
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  name         String? // null for 1:1, custom name for group chats
+  isGroup      Boolean  @default(false)
+  createdById  String
+  encryptedKey String // AES-256 conversation key, encrypted with server master key
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  participants  ConversationParticipant[]
-  messages      PrivateMessage[]
+  participants ConversationParticipant[]
+  messages     PrivateMessage[]
 
   @@map("conversations")
 }
 
 model ConversationParticipant {
-  id              String    @id @default(cuid())
-  conversationId  String
-  userId          String
-  joinedAt        DateTime  @default(now())
-  lastReadAt      DateTime  @default(now())
-  muted           Boolean   @default(false)
-  archived        Boolean   @default(false)
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+  lastReadAt     DateTime @default(now())
+  muted          Boolean  @default(false)
+  archived       Boolean  @default(false)
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
   @@index([userId])
@@ -1605,16 +1637,16 @@ model ConversationParticipant {
 }
 
 model PrivateMessage {
-  id                String    @id @default(cuid())
-  conversationId    String
-  senderId          String
-  encryptedContent  String    // AES-256-GCM encrypted message body
-  iv                String    // Initialization vector for decryption
-  deleted           Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  editedAt          DateTime?
+  id               String    @id @default(cuid())
+  conversationId   String
+  senderId         String
+  encryptedContent String // AES-256-GCM encrypted message body
+  iv               String // Initialization vector for decryption
+  deleted          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  editedAt         DateTime?
 
-  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@map("private_messages")
@@ -1626,69 +1658,69 @@ model PrivateMessage {
 // ──────────────────────────────────────────────
 
 model LevelingSettings {
-  id                 String   @id @default(cuid())
-  guildId            String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled            Boolean  @default(true)
+  enabled Boolean @default(true)
 
   // XP Sources toggles
-  messageXpEnabled   Boolean  @default(true)
-  voiceXpEnabled     Boolean  @default(true)
-  reactionXpEnabled  Boolean  @default(true)
+  messageXpEnabled  Boolean @default(true)
+  voiceXpEnabled    Boolean @default(true)
+  reactionXpEnabled Boolean @default(true)
 
   // XP Rates
-  xpMultiplier       Float    @default(1.0)
-  messageXpMin       Int      @default(15)
-  messageXpMax       Int      @default(25)
-  voiceXpPerMinute   Int      @default(5)
-  reactionGivenXp    Int      @default(3)
-  reactionReceivedXp Int      @default(5)
+  xpMultiplier       Float @default(1.0)
+  messageXpMin       Int   @default(15)
+  messageXpMax       Int   @default(25)
+  voiceXpPerMinute   Int   @default(5)
+  reactionGivenXp    Int   @default(3)
+  reactionReceivedXp Int   @default(5)
 
   // Cooldowns
-  messageCooldownSec Int      @default(60)
+  messageCooldownSec Int @default(60)
 
   // Channels
-  levelUpChannelId   String?
+  levelUpChannelId    String?
   blacklistedChannels String[] @default([])
   blacklistedRoles    String[] @default([])
 
   // Notifications
-  levelUpMessage     String   @default("{user} leveled up to **Level {level}**! 🎉")
-  announceRoleReward Boolean  @default(true)
+  levelUpMessage     String  @default("{user} leveled up to **Level {level}**! 🎉")
+  announceRoleReward Boolean @default(true)
 
   // ── Economy Synergy ──
-  economyRewardsEnabled  Boolean  @default(false)
-  levelUpCurrencyReward  Int      @default(50)       // Coins awarded per level-up
-  milestoneLevels        Json     @default("[]")      // e.g. [{"level":10,"reward":500},{"level":25,"reward":2000}]
-  microRewardsEnabled    Boolean  @default(false)
-  microRewardAmount      Int      @default(5)         // Coins per micro-reward trigger
-  microRewardReactions   Int      @default(10)        // Reactions needed to trigger micro-reward
-  microRewardVoiceMin    Int      @default(10)        // Voice minutes needed to trigger micro-reward
-  activityScalingEnabled Boolean  @default(false)     // +2% economy earnings per 5 levels
-  xpBoosterEnabled       Boolean  @default(false)
-  xpBoosterPrice         Int      @default(500)       // Cost to buy 1h XP booster
-  xpBoosterMultiplier    Float    @default(1.5)       // Booster multiplier
-  xpBoosterDurationMin   Int      @default(60)        // Booster duration in minutes
+  economyRewardsEnabled  Boolean @default(false)
+  levelUpCurrencyReward  Int     @default(50) // Coins awarded per level-up
+  milestoneLevels        Json    @default("[]") // e.g. [{"level":10,"reward":500},{"level":25,"reward":2000}]
+  microRewardsEnabled    Boolean @default(false)
+  microRewardAmount      Int     @default(5) // Coins per micro-reward trigger
+  microRewardReactions   Int     @default(10) // Reactions needed to trigger micro-reward
+  microRewardVoiceMin    Int     @default(10) // Voice minutes needed to trigger micro-reward
+  activityScalingEnabled Boolean @default(false) // +2% economy earnings per 5 levels
+  xpBoosterEnabled       Boolean @default(false)
+  xpBoosterPrice         Int     @default(500) // Cost to buy 1h XP booster
+  xpBoosterMultiplier    Float   @default(1.5) // Booster multiplier
+  xpBoosterDurationMin   Int     @default(60) // Booster duration in minutes
 
   // Role rewards
-  roleRewards        LevelRoleReward[]
+  roleRewards LevelRoleReward[]
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild              Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("leveling_settings")
 }
 
 model LevelRoleReward {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   settingsId String
   level      Int
   roleId     String
-  sticky     Boolean  @default(true) // Restore on rejoin
+  sticky     Boolean @default(true) // Restore on rejoin
 
-  settings   LevelingSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  settings LevelingSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
 
   @@unique([settingsId, level])
   @@map("level_role_rewards")
@@ -1707,22 +1739,22 @@ model XpBooster {
 }
 
 model AntiPiracySettings {
-  id               String   @id @default(cuid())
-  guildId          String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled          Boolean  @default(true)
-  aiEnabled        Boolean  @default(true)
-  actionType       String   @default("delete_and_warn") // warn | delete | delete_and_warn
-  reminderMessage  String   @default("Piracy discussion is not allowed in this server. Please support developers by purchasing software legally.")
+  enabled         Boolean @default(true)
+  aiEnabled       Boolean @default(true)
+  actionType      String  @default("delete_and_warn") // warn | delete | delete_and_warn
+  reminderMessage String  @default("Piracy discussion is not allowed in this server. Please support developers by purchasing software legally.")
 
   excludedChannels String[] @default([])
   excludedRoles    String[] @default([])
   customKeywords   String[] @default([])
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("anti_piracy_settings")
 }
@@ -1730,116 +1762,116 @@ model AntiPiracySettings {
 // ─── Fuji FM / Radio ────────────────────────────────────────────────────────
 
 model RadioSettings {
-  id                  String   @id @default(cuid())
-  guildId             String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled             Boolean  @default(true)
-  voiceChannelId      String?           // Dedicated radio VC
-  textChannelId       String?           // #radio-chat for now-playing embeds
-  nowPlayingMessageId String?           // Persistent embed message ID
+  enabled             Boolean @default(true)
+  voiceChannelId      String? // Dedicated radio VC
+  textChannelId       String? // #radio-chat for now-playing embeds
+  nowPlayingMessageId String? // Persistent embed message ID
 
   // Auto-Pilot settings
-  autoEnabled         Boolean  @default(true)   // 24/7 auto-radio
-  autoSource          String   @default("trending") // trending | newest | random | genre
-  autoGenreFilter     String?           // Genre slug for genre rotation
-  ttsAnnounce         Boolean  @default(true)    // TTS announce before songs
+  autoEnabled     Boolean @default(true) // 24/7 auto-radio
+  autoSource      String  @default("trending") // trending | newest | random | genre
+  autoGenreFilter String? // Genre slug for genre rotation
+  ttsAnnounce     Boolean @default(true) // TTS announce before songs
 
   // Ad injection
-  adsEnabled          Boolean  @default(false)
-  adFrequency         Int      @default(5)       // Play ad every N songs
-  adTtsDefault        String   @default("This hour of Fuji FM is brought to you by the community!")
+  adsEnabled   Boolean @default(false)
+  adFrequency  Int     @default(5) // Play ad every N songs
+  adTtsDefault String  @default("This hour of Fuji FM is brought to you by the community!")
 
   // Listener XP
-  listenerXpEnabled   Boolean  @default(false)
-  listenerXpPerMinute Int      @default(1)
+  listenerXpEnabled   Boolean @default(false)
+  listenerXpPerMinute Int     @default(1)
 
   // Listener economy (passive coin earning)
-  listenerCoinEnabled   Boolean  @default(false)
+  listenerCoinEnabled    Boolean @default(false)
   listenerCoinsPerMinute Int     @default(1)
 
   // Economy tip integration
-  tipEnabled          Boolean  @default(true)
-  minTipAmount        Int      @default(1)
+  tipEnabled   Boolean @default(true)
+  minTipAmount Int     @default(1)
 
   // Volume
-  defaultVolume       Float    @default(0.5)     // 0.0 - 1.0
-  duckVolume          Float    @default(0.15)    // Volume during host speech
+  defaultVolume Float @default(0.5) // 0.0 - 1.0
+  duckVolume    Float @default(0.15) // Volume during host speech
 
   // Command role permissions (empty = default behavior)
-  startRoleIds        String[] @default([])      // Roles that can /radio start
-  stopRoleIds         String[] @default([])      // Roles that can /radio stop
-  skipRoleIds         String[] @default([])      // Roles that can /radio skip
-  hostRoleIds         String[] @default([])      // Roles that can /radio host
+  startRoleIds String[] @default([]) // Roles that can /radio start
+  stopRoleIds  String[] @default([]) // Roles that can /radio stop
+  skipRoleIds  String[] @default([]) // Roles that can /radio skip
+  hostRoleIds  String[] @default([]) // Roles that can /radio host
 
   // Live state (written by bot, read by API/dashboard)
-  isOnline            Boolean  @default(false)    @map("is_online")
-  stationStatus       String   @default("")       @map("station_status")
-  currentTrackTitle   String?                     @map("current_track_title")
-  currentArtistName   String?                     @map("current_artist_name")
-  currentCoverUrl     String?                     @map("current_cover_url")
-  currentDuration     Int?                        @map("current_duration")
-  currentStartedAt    DateTime?                   @map("current_started_at")
-  currentListeners    Int      @default(0)        @map("current_listeners")
+  isOnline          Boolean   @default(false) @map("is_online")
+  stationStatus     String    @default("") @map("station_status")
+  currentTrackTitle String?   @map("current_track_title")
+  currentArtistName String?   @map("current_artist_name")
+  currentCoverUrl   String?   @map("current_cover_url")
+  currentDuration   Int?      @map("current_duration")
+  currentStartedAt  DateTime? @map("current_started_at")
+  currentListeners  Int       @default(0) @map("current_listeners")
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild               Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("radio_settings")
 }
 
 model RadioQueue {
-  id          String   @id @default(cuid())
-  guildId     String
-  trackId     String
-  addedBy     String?          // User who queued it (null = auto)
-  position    Int              // Order in queue
-  isAd        Boolean  @default(false)
-  adText      String?          // TTS ad text
-  adAudioUrl  String?          // Uploaded ad audio clip
-  playedAt    DateTime?
-  skipped     Boolean  @default(false)
+  id         String    @id @default(cuid())
+  guildId    String
+  trackId    String
+  addedBy    String? // User who queued it (null = auto)
+  position   Int // Order in queue
+  isAd       Boolean   @default(false)
+  adText     String? // TTS ad text
+  adAudioUrl String? // Uploaded ad audio clip
+  playedAt   DateTime?
+  skipped    Boolean   @default(false)
 
-  track       Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@index([guildId, position])
   @@map("radio_queue")
 }
 
 model RadioHistory {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   guildId     String
   trackId     String?
   trackTitle  String
   artistName  String
   coverUrl    String?
-  duration    Int      @default(0)
-  listenCount Int      @default(0)   // Members in VC during play
-  isAd        Boolean  @default(false)
-  hostedBy    String?               // Host user ID if in host mode
+  duration    Int     @default(0)
+  listenCount Int     @default(0) // Members in VC during play
+  isAd        Boolean @default(false)
+  hostedBy    String? // Host user ID if in host mode
 
-  track       Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  playedAt    DateTime @default(now())
+  track    Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  playedAt DateTime @default(now())
 
   @@index([guildId, playedAt])
   @@map("radio_history")
 }
 
 model RadioAdSlot {
-  id          String   @id @default(cuid())
-  guildId     String
-  userId      String               // Who bought it
-  adType      String   @default("tts") // tts | audio
-  adText      String?              // TTS message
-  audioUrl    String?              // Uploaded audio clip URL
-  costPaid    Int      @default(0) // Economy points spent
-  playsLeft   Int      @default(3) // How many plays remaining
-  approved    Boolean  @default(false) // Mod-approved
-  active      Boolean  @default(true)
+  id        String  @id @default(cuid())
+  guildId   String
+  userId    String // Who bought it
+  adType    String  @default("tts") // tts | audio
+  adText    String? // TTS message
+  audioUrl  String? // Uploaded audio clip URL
+  costPaid  Int     @default(0) // Economy points spent
+  playsLeft Int     @default(3) // How many plays remaining
+  approved  Boolean @default(false) // Mod-approved
+  active    Boolean @default(true)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([guildId, active])
   @@map("radio_ad_slots")
@@ -1848,7 +1880,7 @@ model RadioAdSlot {
 model RadioCommand {
   id        String   @id @default(cuid())
   guildId   String
-  action    String               // skip | stop | pause | resume | start
+  action    String // skip | stop | pause | resume | start
   payload   Json?
   status    String   @default("pending") // pending | done | failed
   result    String?
@@ -1861,82 +1893,82 @@ model RadioCommand {
 // ─── Studio Guide ─────────────────────────────────────────────────────────────
 
 model StudioGuideSettings {
-  id                String   @id @default(cuid())
-  guildId           String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled           Boolean  @default(true)
-  channelId         String?              // Single channel the bot monitors
-  pauseRoles        String[] @default([]) // Roles that can pause the bot
-  cooldownSeconds   Int      @default(30) // Per-user cooldown between AI answers
-  systemPrompt      String?              // Custom system prompt override
-  model             String   @default("gpt-4o-mini")
-  suppressionRoles  String[] @default([]) // Roles that suppress the bot when active
-  suppressionMinutes Int     @default(10) // Minutes of inactivity before bot resumes after helper activity
+  enabled            Boolean  @default(true)
+  channelId          String? // Single channel the bot monitors
+  pauseRoles         String[] @default([]) // Roles that can pause the bot
+  cooldownSeconds    Int      @default(30) // Per-user cooldown between AI answers
+  systemPrompt       String? // Custom system prompt override
+  model              String   @default("gpt-4o-mini")
+  suppressionRoles   String[] @default([]) // Roles that suppress the bot when active
+  suppressionMinutes Int      @default(10) // Minutes of inactivity before bot resumes after helper activity
 
   // Persisted pause state (survives restarts)
-  pausedBy          String?              // User ID who paused
-  pausedAt          DateTime?            // When the pause started
-  pauseResumeAt     DateTime?            // When the pause expires
+  pausedBy      String? // User ID who paused
+  pausedAt      DateTime? // When the pause started
+  pauseResumeAt DateTime? // When the pause expires
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  conversations     StudioGuideConversation[]
-  optOuts           StudioGuideOptOut[]
+  guild         Guild                     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  conversations StudioGuideConversation[]
+  optOuts       StudioGuideOptOut[]
 
   @@map("studio_guide_settings")
 }
 
 model StudioGuideConversation {
-  id          String   @id @default(cuid())
-  guildId     String
-  channelId   String
-  userId      String
-  settingsId  String
+  id         String @id @default(cuid())
+  guildId    String
+  channelId  String
+  userId     String
+  settingsId String
 
   // Conversation history stored as JSON array of {role, content} messages
-  messages    Json     @default("[]")
-  topic       String?              // AI-generated summary of the conversation topic
-  active      Boolean  @default(true)
+  messages Json    @default("[]")
+  topic    String? // AI-generated summary of the conversation topic
+  active   Boolean @default(true)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  settings    StudioGuideSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  settings StudioGuideSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
 
   @@index([guildId, channelId, userId, active])
   @@map("studio_guide_conversations")
 }
 
 model StudioGuideKnowledge {
-  id        String   @id @default(cuid())
-  guildId   String
-  title     String               // Short label (e.g. "How to sidechain in FL Studio")
-  content   String               // The actual knowledge / answer text
-  category  String   @default("general") // e.g. "fl-studio", "music-theory", "mixing"
-  enabled   Boolean  @default(true)
+  id       String  @id @default(cuid())
+  guildId  String
+  title    String // Short label (e.g. "How to sidechain in FL Studio")
+  content  String // The actual knowledge / answer text
+  category String  @default("general") // e.g. "fl-studio", "music-theory", "mixing"
+  enabled  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([guildId, enabled])
   @@map("studio_guide_knowledge")
 }
 
 model StudioGuideOptOut {
-  id         String   @id @default(cuid())
-  guildId    String
-  userId     String
-  permanent  Boolean  @default(false)
-  expiresAt  DateTime?            // null = permanent opt-out
+  id        String    @id @default(cuid())
+  guildId   String
+  userId    String
+  permanent Boolean   @default(false)
+  expiresAt DateTime? // null = permanent opt-out
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade, map: "studio_guide_opt_outs_guild_fkey")
-  settings   StudioGuideSettings? @relation(fields: [guildId], references: [guildId], map: "studio_guide_opt_outs_settings_fkey")
+  guild    Guild                @relation(fields: [guildId], references: [id], onDelete: Cascade, map: "studio_guide_opt_outs_guild_fkey")
+  settings StudioGuideSettings? @relation(fields: [guildId], references: [guildId], map: "studio_guide_opt_outs_settings_fkey")
 
   @@unique([guildId, userId])
   @@map("studio_guide_opt_outs")
@@ -1947,35 +1979,35 @@ model StudioGuideOptOut {
 // ──────────────────────────────────────────────
 
 model AutoMessageSchedule {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   guildId         String
-  name            String   @default("New Schedule")
+  name            String    @default("New Schedule")
   channelId       String?
-  intervalMinutes Int      @default(60)
-  enabled         Boolean  @default(false)
-  currentIndex    Int      @default(0)
+  intervalMinutes Int       @default(60)
+  enabled         Boolean   @default(false)
+  currentIndex    Int       @default(0)
   lastSentAt      DateTime?
 
-  messages        AutoMessageEntry[]
+  messages AutoMessageEntry[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([guildId])
   @@map("auto_message_schedules")
 }
 
 model AutoMessageEntry {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   scheduleId String
-  content    String   @db.Text
-  position   Int      @default(0)
+  content    String @db.Text
+  position   Int    @default(0)
 
-  schedule   AutoMessageSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedule AutoMessageSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([scheduleId])
   @@map("auto_message_entries")
@@ -1986,18 +2018,18 @@ model AutoMessageEntry {
 // ──────────────────────────────────────────────
 
 model ServerBoostSettings {
-  id                      String   @id @default(cuid())
-  guildId                 String   @unique
-  enabled                 Boolean  @default(true)
-  announcementChannelId   String?  // channel to post boost announcement in
-  messageText             String?  @db.Text  // optional plain text (supports {mention} {user} {boostCount})
-  embedJson               String?  @db.Text  // optional JSON-serialized embed
-  reactionEmoji           String?  // emoji to react to the system boost message with
-  rewardRoleId            String?  // role to assign when member boosts
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  enabled               Boolean  @default(true)
+  announcementChannelId String? // channel to post boost announcement in
+  messageText           String?  @db.Text // optional plain text (supports {mention} {user} {boostCount})
+  embedJson             String?  @db.Text // optional JSON-serialized embed
+  reactionEmoji         String? // emoji to react to the system boost message with
+  rewardRoleId          String? // role to assign when member boosts
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  guild                   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("server_boost_settings")
 }
@@ -2009,11 +2041,11 @@ model ReactionRole {
   guildId   String
   channelId String
   messageId String
-  emoji     String   // unicode emoji or custom <name:id>
-  roleId    String   // Discord role ID to assign
+  emoji     String // unicode emoji or custom <name:id>
+  roleId    String // Discord role ID to assign
   createdAt DateTime @default(now())
 
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, emoji])
   @@index([guildId])
@@ -2021,47 +2053,47 @@ model ReactionRole {
 }
 
 model AutoResponderRule {
-  id              String   @id @default(cuid())
-  guildId         String
-  name            String   @default("New Rule")
-  trigger         String              // regex pattern or exact-match string
-  triggerType     String   @default("regex")  // 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord'
-  response        String   @db.Text    // response text (supports placeholders)
-  embedJson       String?  @db.Text    // JSON-serialized embed (optional)
-  reactionEmoji   String?              // emoji to react with (unicode or custom <:name:id>)
-  mentionUser     Boolean  @default(false)  // prepend @mention before response
-  enabled         Boolean  @default(true)
-  allowedChannels String?  @db.Text    // JSON array of channel IDs (null = all channels)
-  ignoredChannels String?  @db.Text    // JSON array of ignored channel IDs
-  cooldownSeconds       Int      @default(0)
-  cooldownReactionEmoji String?              // emoji to react with when rule is on cooldown
+  id                    String    @id @default(cuid())
+  guildId               String
+  name                  String    @default("New Rule")
+  trigger               String // regex pattern or exact-match string
+  triggerType           String    @default("regex") // 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord'
+  response              String    @db.Text // response text (supports placeholders)
+  embedJson             String?   @db.Text // JSON-serialized embed (optional)
+  reactionEmoji         String? // emoji to react with (unicode or custom <:name:id>)
+  mentionUser           Boolean   @default(false) // prepend @mention before response
+  enabled               Boolean   @default(true)
+  allowedChannels       String?   @db.Text // JSON array of channel IDs (null = all channels)
+  ignoredChannels       String?   @db.Text // JSON array of ignored channel IDs
+  cooldownSeconds       Int       @default(0)
+  cooldownReactionEmoji String? // emoji to react with when rule is on cooldown
   lastTriggeredAt       DateTime?
-  matchCount            Int      @default(0) // lifetime trigger count
-  categoryId            String?              // optional category grouping
+  matchCount            Int       @default(0) // lifetime trigger count
+  categoryId            String? // optional category grouping
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild           Guild                  @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  category        AutoResponderCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  guild    Guild                  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  category AutoResponderCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([guildId])
   @@map("auto_responder_rules")
 }
 
 model AutoResponderCategory {
-  id                    String   @id @default(cuid())
+  id                    String  @id @default(cuid())
   guildId               String
-  name                  String   @default("New Category")
-  allowedChannels       String?  @db.Text   // JSON array of allowed channel IDs
-  ignoredChannels       String?  @db.Text   // JSON array of ignored channel IDs
-  cooldownSeconds       Int      @default(0)
+  name                  String  @default("New Category")
+  allowedChannels       String? @db.Text // JSON array of allowed channel IDs
+  ignoredChannels       String? @db.Text // JSON array of ignored channel IDs
+  cooldownSeconds       Int     @default(0)
   cooldownReactionEmoji String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guild Guild              @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
   rules AutoResponderRule[]
 
   @@index([guildId])
@@ -2069,11 +2101,11 @@ model AutoResponderCategory {
 }
 
 model AutoResponderSettings {
-  id                    String   @id @default(cuid())
-  guildId               String   @unique
-  globalCooldownSeconds Int      @default(0) // per-user cooldown across all rules
+  id                    String @id @default(cuid())
+  guildId               String @unique
+  globalCooldownSeconds Int    @default(0) // per-user cooldown across all rules
 
-  guild                 Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("auto_responder_settings")
 }
@@ -2083,7 +2115,7 @@ model PauseSettings {
   guildId        String   @unique
   allowedRoleIds String[] @default([])
 
-  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("pause_settings")
 }
@@ -2092,34 +2124,34 @@ model PauseSettings {
 // Reports (user-submitted content reports)
 // ──────────────────────────────────────────────
 model Report {
-  id              String   @id @default(cuid())
-  reporterUserId  String   // Discord user ID of person filing report
-  reporterName    String   // Cached display name at time of report
+  id             String @id @default(cuid())
+  reporterUserId String // Discord user ID of person filing report
+  reporterName   String // Cached display name at time of report
 
   // Target type: "track" | "profile" | "comment" | "message"
-  targetType      String
-  targetId        String   // ID of the reported item
+  targetType String
+  targetId   String // ID of the reported item
 
   // Reported user info (owner/author of the content)
-  reportedUserId  String   // Discord user ID of the content owner
-  reportedName    String   // Cached display name at time of report
+  reportedUserId String // Discord user ID of the content owner
+  reportedName   String // Cached display name at time of report
 
   // Report details
-  reason          String   // Category: "spam" | "harassment" | "copyright" | "nsfw" | "scam" | "other"
-  details         String?  @db.Text // Free-text description from reporter
+  reason  String // Category: "spam" | "harassment" | "copyright" | "nsfw" | "scam" | "other"
+  details String? @db.Text // Free-text description from reporter
 
   // Snapshot of content at time of report (in case it gets deleted)
-  contentSnapshot String?  @db.Text // JSON blob: title, body, url, etc.
+  contentSnapshot String? @db.Text // JSON blob: title, body, url, etc.
 
   // Resolution
-  status          String   @default("open") // "open" | "reviewing" | "resolved" | "dismissed"
+  status           String    @default("open") // "open" | "reviewing" | "resolved" | "dismissed"
   resolvedByUserId String? // Admin who resolved
-  resolvedByName  String?  // Admin display name
-  resolvedAt      DateTime?
-  resolutionNote  String?  @db.Text
+  resolvedByName   String? // Admin display name
+  resolvedAt       DateTime?
+  resolutionNote   String?   @db.Text
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([reporterUserId])
@@ -2130,49 +2162,49 @@ model Report {
 
 // ──────────────────── Articles / News Plugin ────────────────────
 model Article {
-  id              String   @id @default(cuid())
-  guildId         String
-  slug            String   @unique
-  title           String
-  subtitle        String?
-  content         String   @db.Text   // Rich HTML from WYSIWYG editor
-  excerpt         String?  @db.Text   // Short summary for cards / previews
-  coverImageUrl   String?             // Hero / cover image
+  id            String  @id @default(cuid())
+  guildId       String
+  slug          String  @unique
+  title         String
+  subtitle      String?
+  content       String  @db.Text // Rich HTML from WYSIWYG editor
+  excerpt       String? @db.Text // Short summary for cards / previews
+  coverImageUrl String? // Hero / cover image
 
   // Author
-  authorUserId    String
-  authorName      String
-  authorAvatar    String?
+  authorUserId String
+  authorName   String
+  authorAvatar String?
 
   // Categorisation
-  category        String   @default("news") // news | guide | announcement | tutorial
-  tags            Json?    @default("[]")
+  category String @default("news") // news | guide | announcement | tutorial
+  tags     Json?  @default("[]")
 
   // Publishing workflow
-  status          String   @default("draft") // draft | pending | published | rejected | archived
-  publishedAt     DateTime?
+  status      String    @default("draft") // draft | pending | published | rejected | archived
+  publishedAt DateTime?
 
   // Admin review
   reviewedByUserId String?
   reviewedByName   String?
   reviewedAt       DateTime?
-  reviewNote       String?  @db.Text
+  reviewNote       String?   @db.Text
 
   // Featured on front-page
-  isFeatured      Boolean  @default(false)
-  featuredAt      DateTime?
+  isFeatured Boolean   @default(false)
+  featuredAt DateTime?
 
   // SEO
   metaTitle       String?
-  metaDescription String?  @db.Text
+  metaDescription String? @db.Text
 
   // Stats
-  viewCount       Int      @default(0)
+  viewCount Int @default(0)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild           Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([status, publishedAt])
   @@index([authorUserId])
@@ -2191,17 +2223,17 @@ model VoiceStatSettings {
   memberChannelEnabled Boolean @default(false)
   memberLabel          String  @default("👥 Members: {count}")
 
-  boostChannelId       String?
-  boostChannelEnabled  Boolean @default(false)
-  boostLabel           String  @default("✨ Boosts: {count}")
+  boostChannelId      String?
+  boostChannelEnabled Boolean @default(false)
+  boostLabel          String  @default("✨ Boosts: {count}")
 
   artistChannelId      String?
   artistChannelEnabled Boolean @default(false)
   artistLabel          String  @default("🎵 Artists: {count}")
 
-  trackChannelId       String?
-  trackChannelEnabled  Boolean @default(false)
-  trackLabel           String  @default("🎶 Tracks: {count}")
+  trackChannelId      String?
+  trackChannelEnabled Boolean @default(false)
+  trackLabel          String  @default("🎶 Tracks: {count}")
 
   pendingRefresh Boolean  @default(false)
   updatedAt      DateTime @updatedAt
@@ -2214,47 +2246,67 @@ model VoiceStatSettings {
 // ──────────────────── SpamGuard Plugin ────────────────────
 
 model SpamGuardSettings {
-  id                   String   @id @default(cuid())
-  guildId              String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled              Boolean  @default(true)
+  enabled Boolean @default(true)
 
   // Behavioral tripwire
-  attachmentLimit      Int      @default(3)   // Max attachments in window
-  attachmentWindowSec  Int      @default(15)  // Time window for attachment limit
-  channelSpreadLimit   Int      @default(3)   // Max channels in window
-  channelSpreadWindowSec Int    @default(30)  // Time window for channel spread
+  attachmentLimit        Int @default(3) // Max attachments in window
+  attachmentWindowSec    Int @default(15) // Time window for attachment limit
+  channelSpreadLimit     Int @default(3) // Max channels in window
+  channelSpreadWindowSec Int @default(30) // Time window for channel spread
 
   // Action to take
-  action               String   @default("timeout") // "timeout" | "ban" | "kick" | "delete_only"
-  timeoutMinutes       Int      @default(10)
+  action         String @default("timeout") // "timeout" | "ban" | "kick" | "delete_only"
+  timeoutMinutes Int    @default(10)
 
   // Alert channel for mod notifications
-  alertChannelId       String?
+  alertChannelId String?
 
   // Roles exempt from spam checks
-  exemptRoles          String[] @default([])
+  exemptRoles String[] @default([])
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild                Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  imageHashes          SpamImageHash[]
+  guild          Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  imageHashes    SpamImageHash[]
+  blockedPhrases SpamBlockedPhrase[]
 
   @@map("spam_guard_settings")
 }
 
+model SpamBlockedPhrase {
+  id            String  @id @default(cuid())
+  guildId       String
+  phrase        String // The phrase or full-length message to block
+  description   String? // Optional label e.g. "Server nuked spam Apr 2026"
+  addedByMod    String? // Discord user ID of mod who added it
+  isRegex       Boolean @default(false) // If true, treat phrase as a regex pattern
+  caseSensitive Boolean @default(false) // If false, match case-insensitively
+  hitCount      Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  settings SpamGuardSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@unique([guildId, phrase])
+  @@index([guildId])
+  @@map("spam_blocked_phrases")
+}
+
 model SpamImageHash {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   guildId     String
-  hash        String               // 64-char hex perceptual hash
-  description String?              // Optional label e.g. "Crypto scam Jan 2026"
-  addedByMod  String?              // Discord user ID of mod who added it
-  hitCount    Int      @default(0) // How many times this hash blocked a message
+  hash        String // 64-char hex perceptual hash
+  description String? // Optional label e.g. "Crypto scam Jan 2026"
+  addedByMod  String? // Discord user ID of mod who added it
+  hitCount    Int     @default(0) // How many times this hash blocked a message
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  settings    SpamGuardSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  settings SpamGuardSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
 
   @@unique([guildId, hash])
   @@index([guildId])
@@ -2262,26 +2314,26 @@ model SpamImageHash {
 }
 
 model AntiExternalForwardSettings {
-  id               String   @id @default(cuid())
-  guildId          String   @unique
+  id      String @id @default(cuid())
+  guildId String @unique
 
-  enabled          Boolean  @default(true)
-  deleteMessage    Boolean  @default(true)
-  warnUser         Boolean  @default(true)
+  enabled       Boolean @default(true)
+  deleteMessage Boolean @default(true)
+  warnUser      Boolean @default(true)
 
-  blockInternalForwards   Boolean  @default(false)
+  blockInternalForwards Boolean @default(false)
 
   exemptRoleIds           String[] @default([])
-  exemptChannelIds        String[] @default([])   // Target channels where external forwarding is allowed
-  blockedSourceChannelIds String[] @default([])   // Source channels whose content can never be forwarded
-  blockedTargetChannelIds String[] @default([])   // Channels where ALL forwards (internal + external) are blocked
+  exemptChannelIds        String[] @default([]) // Target channels where external forwarding is allowed
+  blockedSourceChannelIds String[] @default([]) // Source channels whose content can never be forwarded
+  blockedTargetChannelIds String[] @default([]) // Channels where ALL forwards (internal + external) are blocked
 
-  logChannelId     String?
+  logChannelId String?
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("anti_external_forward_settings")
 }
@@ -2289,32 +2341,32 @@ model AntiExternalForwardSettings {
 // ── Track Announcer ────────────────────────────────────────────────────────────
 
 model TrackAnnouncerSettings {
-  id               String   @id @default(cuid())
-  guildId          String   @unique
-  enabled          Boolean  @default(true)
-  channelId        String?  // Discord channel ID to post announcements in
+  id        String  @id @default(cuid())
+  guildId   String  @unique
+  enabled   Boolean @default(true)
+  channelId String? // Discord channel ID to post announcements in
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("track_announcer_settings")
 }
 
 /// Pending track announcement written by the API, consumed by the bot plugin.
 model TrackAnnouncement {
-  id               String   @id @default(cuid())
-  guildId          String
-  trackId          String
-  trackTitle       String
-  artistName       String
-  profileUsername  String    // used to build the track URL slug
-  trackSlug        String?
-  coverUrl         String?
-  genres           String[] @default([])
-  postedAt         DateTime?
-  createdAt        DateTime @default(now())
+  id              String    @id @default(cuid())
+  guildId         String
+  trackId         String
+  trackTitle      String
+  artistName      String
+  profileUsername String // used to build the track URL slug
+  trackSlug       String?
+  coverUrl        String?
+  genres          String[]  @default([])
+  postedAt        DateTime?
+  createdAt       DateTime  @default(now())
 
   @@index([postedAt])
   @@index([createdAt])
@@ -2326,15 +2378,15 @@ model SpamGuardIncident {
   guildId     String
   userId      String
   username    String
-  triggerType String               // "attachment_flood" | "channel_spread" | "known_hash"
-  action      String               // what was done
+  triggerType String // "attachment_flood" | "channel_spread" | "known_hash"
+  action      String // what was done
   channelId   String?
   messageIds  String[] @default([])
   details     String?
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@index([guildId, createdAt])
   @@index([userId])
@@ -2345,31 +2397,263 @@ model SpamGuardIncident {
 // Grants cosmetic visual styles to specific users on their public profile page.
 // Admins assign these via the dashboard; they are rendered client-side only.
 model ProfileStyle {
-  id          String   @id @default(cuid())
-  guildId     String
-  userId      String   // Discord user ID
+  id      String @id @default(cuid())
+  guildId String
+  userId  String // Discord user ID
 
   // Text styling (applied to display name / username)
-  gradient    String?  // CSS gradient, e.g. "linear-gradient(90deg,#FF6B6B,#FFD93D)"
-  animation   String   @default("none") // "none" | "shimmer" | "pulse" | "rainbow"
+  gradient  String? // CSS gradient, e.g. "linear-gradient(90deg,#FF6B6B,#FFD93D)"
+  animation String  @default("none") // "none" | "shimmer" | "pulse" | "rainbow"
 
   // Avatar glow
-  glowColor   String?  // CSS color, e.g. "#FF6B6B"
-  glowIntensity Int    @default(6)  // 1–10
+  glowColor     String? // CSS color, e.g. "#FF6B6B"
+  glowIntensity Int     @default(6) // 1–10
 
   // Optional badge shown next to name on profile
-  badgeLabel  String?  // e.g. "OG Member", "Top Producer"
-  badgeColor  String?  // CSS color for badge background
+  badgeLabel String? // e.g. "OG Member", "Top Producer"
+  badgeColor String? // CSS color for badge background
 
   // Admin metadata
-  note        String?  // internal note
-  grantedBy   String?  // Discord user ID of granting admin
-  grantedAt   DateTime @default(now())
+  note      String? // internal note
+  grantedBy String? // Discord user ID of granting admin
+  grantedAt DateTime @default(now())
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([guildId, userId])
   @@index([userId])
   @@map("profile_styles")
+}
+
+// ──────────────────────────────────────────────
+// Academy Plugin — Interactive FL Studio Learning
+// ──────────────────────────────────────────────
+
+model AcademySettings {
+  id                    String  @id @default(cuid())
+  guildId               String  @unique
+  enabled               Boolean @default(true)
+  announcementChannelId String?
+  completionRoleId      String? // Role awarded when user finishes a course
+  reputationReward      Int     @default(10) // Rep points per lesson completion
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("academy_settings")
+}
+
+model AcademyLesson {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  title       String
+  description String? @db.Text
+  category    String  @default("basics") // basics, mixing, sound-design, arrangement, mastering
+  difficulty  String  @default("beginner") // beginner, intermediate, advanced
+  order       Int     @default(0) // Sort order within category
+  published   Boolean @default(false)
+  imageUrl    String?
+  duration    Int? // Estimated minutes to complete
+
+  // JSON lesson schema — steps, init_state, audio targets
+  steps Json @default("[]")
+
+  // Assets needed for this lesson (sample URLs, presets, etc.)
+  assets Json @default("[]")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  progress AcademyProgress[]
+
+  @@index([category, order])
+  @@map("academy_lessons")
+}
+
+model AcademyProgress {
+  id             String    @id @default(cuid())
+  userId         String
+  lessonId       String
+  currentStep    Int       @default(0)
+  completed      Boolean   @default(false)
+  completedAt    DateTime?
+  stepsCompleted Json      @default("[]") // Array of completed step indices
+  score          Int       @default(0) // Points earned in this lesson
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson AcademyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@map("academy_progress")
+}
+
+// ──────────────────────────────────────────────
+// Head-to-Head 1v1 Producer Battles
+// ──────────────────────────────────────────────
+
+model HeadToHeadSettings {
+  id                       String   @id @default(cuid())
+  guildId                  String   @unique
+  enabled                  Boolean  @default(true)
+  announcementChannelId    String?
+  defaultProductionMinutes Int      @default(60)
+  defaultVotingMinutes     Int      @default(30)
+  readyUpMinutes           Int      @default(5)
+  startingElo              Int      @default(1200)
+  kFactor                  Int      @default(32)
+  minVotesToFinalize       Int      @default(3)
+  maxQueueWaitMinutes      Int      @default(30)
+  samplesPerMatch          Int      @default(3)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("head_to_head_settings")
+}
+
+model H2HSamplePool {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  genreId     String?
+  genre       Genre?      @relation("H2HSamplePoolGenre", fields: [genreId], references: [id])
+  isActive    Boolean     @default(true)
+  samples     H2HSample[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([genreId])
+  @@map("h2h_sample_pools")
+}
+
+model H2HSample {
+  id         String        @id @default(cuid())
+  poolId     String
+  pool       H2HSamplePool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  name       String
+  category   String        @default("other") // kick | snare | hat | percussion | fx | bass | melody | chords | other
+  fileUrl    String        @db.Text
+  fileType   String
+  fileSize   Int           @default(0)
+  uploadedBy String?
+  createdAt  DateTime      @default(now())
+
+  @@index([poolId])
+  @@index([category])
+  @@map("h2h_samples")
+}
+
+model H2HMatch {
+  id      String  @id @default(cuid())
+  guildId String?
+  status  String  @default("queued") // queued | ready_check | melodics_vote | producing | voting | completed | forfeited | cancelled
+  genreId String?
+  genre   Genre?  @relation("H2HMatchGenre", fields: [genreId], references: [id])
+
+  productionMinutes Int @default(60)
+  votingMinutes     Int @default(30)
+
+  challengerId String
+  opponentId   String?
+
+  // Per-match optional category toggles (mandatory: kick/snare/hat/percussion/fx).
+  // Defaults are false now — the actual values are decided by the in-match melodics vote
+  // (both players must agree per category).
+  includeBass   Boolean @default(false)
+  includeMelody Boolean @default(false)
+  includeChords Boolean @default(false)
+
+  // Melodics vote (each player votes yes/no per category — null = not voted yet)
+  melodicsVoteDeadline    DateTime?
+  challengerVoteBass      Boolean?
+  challengerVoteMelody    Boolean?
+  challengerVoteChords    Boolean?
+  opponentVoteBass        Boolean?
+  opponentVoteMelody      Boolean?
+  opponentVoteChords      Boolean?
+
+  // Sample assignment (string[] of H2HSample ids)
+  sampleIds Json?
+
+  // Ready up
+  readyDeadline    DateTime?
+  challengerReady  Boolean   @default(false)
+  opponentReady    Boolean   @default(false)
+  readyUpStartedAt DateTime?
+
+  // Producing
+  producingStartedAt DateTime?
+  producingDeadline  DateTime?
+
+  // Submissions (R2 URLs)
+  challengerSubmissionUrl String?   @db.Text
+  challengerSubmissionAt  DateTime?
+  opponentSubmissionUrl   String?   @db.Text
+  opponentSubmissionAt    DateTime?
+
+  // Voting
+  votingStart DateTime?
+  votingEnd   DateTime?
+
+  // Outcome
+  winnerId      String?
+  loserId       String?
+  forfeitReason String?
+
+  // Elo deltas captured at finalization
+  challengerEloBefore Int?
+  challengerEloAfter  Int?
+  opponentEloBefore   Int?
+  opponentEloAfter    Int?
+
+  votes H2HVote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([genreId])
+  @@index([challengerId])
+  @@index([opponentId])
+  @@map("h2h_matches")
+}
+
+model H2HVote {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     H2HMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  voterId   String
+  voteFor   String
+  createdAt DateTime @default(now())
+
+  @@unique([matchId, voterId])
+  @@index([matchId])
+  @@map("h2h_votes")
+}
+
+model H2HRating {
+  id            String   @id @default(cuid())
+  userId        String
+  genreId       String?
+  genre         Genre?   @relation("H2HRatingGenre", fields: [genreId], references: [id])
+  elo           Int      @default(1200)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  forfeits      Int      @default(0)
+  matchesPlayed Int      @default(0)
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, genreId])
+  @@index([genreId])
+  @@index([elo])
+  @@map("h2h_ratings")
 }
