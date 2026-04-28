@@ -244,7 +244,7 @@ export const FeedbackPluginPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: colors.surface, borderRadius: borderRadius.md }}>
                             <div>
                                 <div style={{ fontWeight: 600 }}>Enable Feedback System</div>
-                                <div style={{ fontSize: '13px', color: colors.textSecondary }}>Enforce audio requirements, deduct coins, and reward quality feedback</div>
+                                <div style={{ fontSize: '13px', color: colors.textSecondary }}>Enforce audio requirements, deduct feedback points, and reward quality feedback</div>
                             </div>
                             <input type="checkbox"
                                 checked={settings.enabled}
@@ -276,20 +276,20 @@ export const FeedbackPluginPage: React.FC = () => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '8px' }}>Post Cost (Coins)</label>
+                                <label style={{ display: 'block', marginBottom: '8px' }}>Post Cost (Feedback Points)</label>
                                 <input 
                                     type="number"
-                                    value={settings.threadCost} 
-                                    onChange={e => setSettings({...settings, threadCost: Number(e.target.value)})}
+                                    value={settings.feedbackPointsCost} 
+                                    onChange={e => setSettings({...settings, feedbackPointsCost: Number(e.target.value)})}
                                     style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '8px' }}>Feedback Reward (Coins)</label>
+                                <label style={{ display: 'block', marginBottom: '8px' }}>Feedback Reward (Points)</label>
                                 <input 
                                     type="number"
-                                    value={settings.currencyReward} 
-                                    onChange={e => setSettings({...settings, currencyReward: Number(e.target.value)})}
+                                    value={settings.feedbackPointsReward} 
+                                    onChange={e => setSettings({...settings, feedbackPointsReward: Number(e.target.value)})}
                                     style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>

@@ -90,6 +90,8 @@ model Guild {
   feedbackProfiles FeedbackProfile[]
   feedbackPosts    FeedbackPost[]
   feedbackSettings FeedbackSettings?
+  feedbackPoints   FeedbackPoints[]
+  feedbackPointsTransactions FeedbackPointsTransaction[]
 
   // Ticket System
   ticketSettings TicketSettings?
@@ -633,8 +635,9 @@ model FeedbackSettings {
   reviewChannelId String?
   modLogChannelId String?
 
-  currencyReward Int @default(1)
-  threadCost     Int @default(5)
+  // Feedback Points system (separate from economy currency)
+  feedbackPointsReward Int @default(1)  // Points earned for giving approved feedback
+  feedbackPointsCost   Int @default(5) // Points required to post a feedback thread
 
   aiModel         String   @default("gpt-4o-mini")
   approverRoleIds String[] @default([])
@@ -642,6 +645,44 @@ model FeedbackSettings {
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("feedback_settings")
+}
+
+// Feedback Points - separate from economy currency
+model FeedbackPoints {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  balance   Int      @default(0)
+  totalEarned Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@map("feedback_points")
+}
+
+// Feedback Points Transaction Log
+model FeedbackPointsTransaction {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  amount      Int      // Positive = earned, Negative = spent
+  type        String   // EARNED_FEEDBACK, SPENT_POST, BONUS, PENALTY
+  reason      String?
+  threadId    String? // Optional link to thread
+  messageId   String? // Optional link to message
+
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId])
+  @@index([guildId, createdAt])
+  @@map("feedback_points_transactions")
 }
 
 // Welcome Gate System

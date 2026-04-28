@@ -24,8 +24,8 @@ export class ProductionFeedbackPlugin implements IPlugin {
     configSchema = z.object({
         enabled: z.boolean().default(false),
         forumChannelId: z.string().optional(),
-        currencyReward: z.number().default(1),
-        threadCost: z.number().default(5),
+        feedbackPointsReward: z.number().default(1),
+        feedbackPointsCost: z.number().default(5),
     });
 
     private context: IPluginContext | null = null;
@@ -98,51 +98,51 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 return;
             }
 
-            // B. Check Balance & Deduct Cost
-            const cost = settings.threadCost;
+            // B. Check Feedback Points & Deduct Cost
+            const cost = settings.feedbackPointsCost;
             const userId = starterMsg.author.id;
             const guildId = thread.guildId;
 
-            this.logger.info(`Processing feedback cost of ${cost} for user ${userId} in guild ${guildId}`);
+            this.logger.info(`Processing feedback points cost of ${cost} for user ${userId} in guild ${guildId}`);
 
             // Transaction: Check balance -> Deduct -> Allow
             await this.context.db.$transaction(async (tx: any) => {
-                let account = await tx.economyAccount.findUnique({
+                let account = await tx.feedbackPoints.findUnique({
                     where: { guildId_userId: { guildId, userId } }
                 });
 
                 // If account doesn't exist, create it (with 0 balance, so check will fail properly)
                 if (!account) {
-                    account = await tx.economyAccount.create({ 
+                    account = await tx.feedbackPoints.create({ 
                         data: { guildId, userId, balance: 0, totalEarned: 0 } 
                     });
                 }
 
                 if (account.balance < cost) {
-                    throw new Error('Insufficient funds');
+                    throw new Error('Insufficient feedback points');
                 }
 
-                await tx.economyAccount.update({
+                await tx.feedbackPoints.update({
                     where: { guildId_userId: { guildId, userId } },
                     data: { balance: { decrement: cost } }
                 });
 
                 // Record transaction
-                await tx.economyTransaction.create({
+                await tx.feedbackPointsTransaction.create({
                     data: {
                         guildId,
-                        toUserId: null, // System (Burn)
-                        fromUserId: userId,
-                        amount: cost,
-                        type: 'FEEDBACK_POST',
-                        reason: `Created thread in ${thread.name}`
+                        userId,
+                        amount: -cost,
+                        type: 'SPENT_POST',
+                        reason: `Created thread in ${thread.name}`,
+                        threadId: thread.id
                     }
                 });
             });
 
             this.logger.info(`Successfully deducted ${cost} coins from ${userId}`);
 
-            // Refresh nickname to reflect new balance
+            // Refresh nickname to reflect new feedback points balance
             const economyPlugin = this.context.plugins.get('economy') as any;
             if (economyPlugin?.refreshNickname) economyPlugin.refreshNickname(guildId, userId).catch(() => {});
 
@@ -162,24 +162,23 @@ export class ProductionFeedbackPlugin implements IPlugin {
             
             // Send confirmation in thread + DM the user
             try {
-                const emoji = settings.currencyEmoji || '🪙';
-                const confirmMsg = await thread.send(`✅ **Feedback Thread Opened** — ${emoji} ${cost} deducted.`);
+                const confirmMsg = await thread.send(`✅ **Feedback Thread Opened** — ${cost} feedback points deducted.`);
                 setTimeout(() => confirmMsg.delete().catch(() => {}), 8000);
             } catch (e) {
                 this.logger.error('Failed to send thread confirmation', e);
             }
             try {
                 const starterUser = starterMsg.author;
-                await starterUser.send(`✅ Your feedback thread **${thread.name}** was opened. ${settings.currencyEmoji || '🪙'} ${cost} coins were deducted from your balance.`);
+                await starterUser.send(`✅ Your feedback thread **${thread.name}** was opened. ${cost} feedback points were deducted from your balance.`);
             } catch {} // DMs may be closed
 
         } catch (error: any) {
-            if (error.message === 'Insufficient funds') {
-                await thread.delete('Insufficient funds');
+            if (error.message === 'Insufficient feedback points') {
+                await thread.delete('Insufficient feedback points');
                 try {
                     const starterMsg = await thread.fetchStarterMessage();
                     if (starterMsg) {
-                        await starterMsg.author.send(`You need ${settings.threadCost} coins to post a thread. Valid feedback on other threads earns ${settings.currencyReward} coins.`);
+                        await starterMsg.author.send(`You need ${settings.feedbackPointsCost} feedback points to post a thread. Valid feedback on other threads earns ${settings.feedbackPointsReward} points.`);
                     }
                 } catch {}
             } else {
@@ -280,8 +279,8 @@ export class ProductionFeedbackPlugin implements IPlugin {
             });
 
             if (result.state === 'APPROVED' && message.guildId) {
-                // Reward
-                await this.rewardUser(message.author.id, message.guildId, settings.currencyReward);
+                // Reward with feedback points
+                await this.rewardUser(message.author.id, message.guildId, settings.feedbackPointsReward);
                 // React to indicate success
                 await message.react('✅'); 
             }
@@ -312,7 +311,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
     private async rewardUser(userId: string, guildId: string, amount: number) {
         if (!this.context) return;
-        await this.context.db.economyAccount.upsert({
+        await this.context.db.feedbackPoints.upsert({
             where: { guildId_userId: { guildId, userId } },
             update: { 
                 balance: { increment: amount },
@@ -326,13 +325,12 @@ export class ProductionFeedbackPlugin implements IPlugin {
             }
         });
         // Log tx
-        await this.context.db.economyTransaction.create({
+        await this.context.db.feedbackPointsTransaction.create({
             data: {
                 guildId,
-                toUserId: userId,
-                fromUserId: null, // System
+                userId,
                 amount,
-                type: 'FEEDBACK_REWARD',
+                type: 'EARNED_FEEDBACK',
                 reason: 'High quality feedback'
             }
         });
@@ -526,21 +524,21 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     }
                 }
 
-                // Reward
+                // Reward with feedback points
                 const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: interaction.guildId } });
-                const reward = settings?.currencyReward || 1;
+                const reward = settings?.feedbackPointsReward || 1;
                 await this.context.db.$transaction(async (tx: any) => {
-                     await tx.economyAccount.upsert({
+                     await tx.feedbackPoints.upsert({
                         where: { guildId_userId: { guildId: post.guildId, userId: post.userId } },
                         update: { balance: { increment: reward }, totalEarned: { increment: reward } },
                         create: { guildId: post.guildId, userId: post.userId, balance: reward, totalEarned: reward }
                     });
-                    await tx.economyTransaction.create({
+                    await tx.feedbackPointsTransaction.create({
                         data: {
                             guildId: post.guildId,
-                            toUserId: post.userId,
+                            userId: post.userId,
                             amount: reward,
-                            type: 'FEEDBACK_REWARD',
+                            type: 'EARNED_FEEDBACK',
                             reason: 'Feedback Approved by Admin (Button)'
                         }
                     });
