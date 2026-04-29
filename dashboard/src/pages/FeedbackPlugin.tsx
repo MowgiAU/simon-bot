@@ -12,7 +12,14 @@ export const FeedbackPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
     const [activeTab, setActiveTab] = useState<'queue' | 'settings'>('queue');
     const [queue, setQueue] = useState<any[]>([]);
-    const [settings, setSettings] = useState<any>(null);
+    const [settings, setSettings] = useState<any>({
+        enabled: false,
+        forumChannelId: '',
+        reviewChannelId: '',
+        feedbackPointsCost: 5,
+        feedbackPointsReward: 1,
+        approverRoleIds: []
+    });
     const [loading, setLoading] = useState(false);
     const isMobile = useMobile();
 
