@@ -4260,22 +4260,22 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
         }
 
         if (action === 'APPROVE') {
-             // 1. Update DB + reward atomically
+             // 1. Update DB + reward atomically with feedback points
              const settings = await db.feedbackSettings.findUnique({ where: { guildId } });
              await db.$transaction(async (tx) => {
                  await tx.feedbackPost.update({ where: { id: postId }, data: { aiState: 'APPROVED' } });
-                 if (settings && settings.currencyReward > 0) {
-                     await tx.economyAccount.upsert({
+                 if (settings && settings.feedbackPointsReward > 0) {
+                     await tx.feedbackPoints.upsert({
                          where: { guildId_userId: { guildId, userId: post.userId } },
-                         update: { balance: { increment: settings.currencyReward }, totalEarned: { increment: settings.currencyReward } },
-                         create: { guildId, userId: post.userId, balance: settings.currencyReward, totalEarned: settings.currencyReward }
+                         update: { balance: { increment: settings.feedbackPointsReward }, totalEarned: { increment: settings.feedbackPointsReward } },
+                         create: { guildId, userId: post.userId, balance: settings.feedbackPointsReward, totalEarned: settings.feedbackPointsReward }
                      });
-                     await tx.economyTransaction.create({
+                     await tx.feedbackPointsTransaction.create({
                          data: {
                              guildId,
-                             toUserId: post.userId,
-                             amount: settings.currencyReward,
-                             type: 'FEEDBACK_REWARD',
+                             userId: post.userId,
+                             amount: settings.feedbackPointsReward,
+                             type: 'EARNED_FEEDBACK',
                              reason: 'Staff approved feedback'
                          }
                      });
