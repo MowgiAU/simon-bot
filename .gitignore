@@ -24,3 +24,4 @@ data/reputationData.json
 
 # Claude Code working directory
 .claude/
+feedbackPoints.json
