@@ -1,4 +1,4 @@
-import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { Message, ThreadChannel, ChannelType, Attachment, TextChannel, PermissionFlagsBits, EmbedBuilder, Interaction, ButtonBuilder, ActionRowBuilder, ButtonStyle, ComponentType, MessageFlags, SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
@@ -16,7 +16,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
     author = 'Simon Bot Team';
 
     requiredPermissions = [PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageThreads, PermissionFlagsBits.ManageWebhooks]; // Updated to use flags if possible, or string
-    commands = ['feedback-init']; // Command to post the sticky
+    commands = ['feedback-init', 'feedback', 'admin-feedback'];
     events = ['messageCreate', 'threadCreate', 'interactionCreate'];
     dashboardSections = ['feedback-queue', 'feedback-settings'];
     defaultEnabled = true;
@@ -47,6 +47,133 @@ export class ProductionFeedbackPlugin implements IPlugin {
     }
 
     async shutdown(): Promise<void> {
+    }
+
+    async registerCommands(): Promise<SlashCommandBuilder[]> {
+        const feedbackCmd = new SlashCommandBuilder()
+            .setName('feedback')
+            .setDescription('Feedback points commands')
+            .addSubcommand(sub =>
+                sub.setName('points')
+                    .setDescription('Check your feedback points (or another user\'s)')
+                    .addUserOption(opt =>
+                        opt.setName('user')
+                            .setDescription('User to check (defaults to you)')
+                            .setRequired(false)
+                    )
+            ) as SlashCommandBuilder;
+
+        const adminFeedbackCmd = new SlashCommandBuilder()
+            .setName('admin-feedback')
+            .setDescription('Manage user feedback points (admin only)')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addSubcommand(sub =>
+                sub.setName('set')
+                    .setDescription('Set a user\'s feedback point balance')
+                    .addUserOption(opt => opt.setName('user').setDescription('Target user').setRequired(true))
+                    .addIntegerOption(opt => opt.setName('amount').setDescription('New balance').setRequired(true).setMinValue(0))
+            )
+            .addSubcommand(sub =>
+                sub.setName('give')
+                    .setDescription('Give feedback points to a user')
+                    .addUserOption(opt => opt.setName('user').setDescription('Target user').setRequired(true))
+                    .addIntegerOption(opt => opt.setName('amount').setDescription('Points to give').setRequired(true).setMinValue(1))
+            ) as SlashCommandBuilder;
+
+        return [feedbackCmd, adminFeedbackCmd];
+    }
+
+    private async handlePointsCheck(interaction: ChatInputCommandInteraction): Promise<void> {
+        const target = interaction.options.getUser('user') ?? interaction.user;
+        const guildId = interaction.guildId!;
+
+        const fp = await this.context!.db.feedbackPoints.findUnique({
+            where: { guildId_userId: { guildId, userId: target.id } }
+        });
+
+        const balance = fp?.balance ?? 0;
+        const totalEarned = fp?.totalEarned ?? 0;
+        const isSelf = target.id === interaction.user.id;
+
+        const embed = new EmbedBuilder()
+            .setTitle(`${isSelf ? 'Your' : `${target.username}'s`} Feedback Points`)
+            .setColor(0x2B8C71)
+            .setThumbnail(target.displayAvatarURL())
+            .addFields(
+                { name: 'Balance', value: `**${balance}** pts`, inline: true },
+                { name: 'Total Earned', value: `**${totalEarned}** pts`, inline: true }
+            )
+            .setFooter({ text: 'Fuji Studio Feedback System' })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: isSelf ? undefined : MessageFlags.Ephemeral });
+    }
+
+    private async handleAdminSet(interaction: ChatInputCommandInteraction): Promise<void> {
+        // Belt-and-suspenders: verify admin even though setDefaultMemberPermissions enforces it at Discord level
+        const member = interaction.member as any;
+        if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+            await interaction.reply({ content: '❌ Administrator permission required.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const target = interaction.options.getUser('user', true);
+        const rawAmount = interaction.options.getInteger('amount', true);
+        const amount = Math.trunc(rawAmount); // guard against any float edge cases
+        const guildId = interaction.guildId!;
+
+        await this.context!.db.feedbackPoints.upsert({
+            where: { guildId_userId: { guildId, userId: target.id } },
+            update: { balance: amount },
+            create: { guildId, userId: target.id, balance: amount, totalEarned: amount },
+        });
+        await this.context!.db.feedbackPointsTransaction.create({
+            data: {
+                guildId,
+                userId: target.id,
+                amount,
+                type: 'BONUS',
+                reason: `Admin set balance to ${amount} (by ${interaction.user.tag})`,
+            },
+        });
+
+        await interaction.reply({
+            content: `✅ Set <@${target.id}>'s feedback points to **${amount}**.`,
+            flags: MessageFlags.Ephemeral,
+        });
+    }
+
+    private async handleAdminGive(interaction: ChatInputCommandInteraction): Promise<void> {
+        const member = interaction.member as any;
+        if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+            await interaction.reply({ content: '❌ Administrator permission required.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const target = interaction.options.getUser('user', true);
+        const rawAmount = interaction.options.getInteger('amount', true);
+        const amount = Math.trunc(rawAmount);
+        const guildId = interaction.guildId!;
+
+        const updated = await this.context!.db.feedbackPoints.upsert({
+            where: { guildId_userId: { guildId, userId: target.id } },
+            update: { balance: { increment: amount }, totalEarned: { increment: amount } },
+            create: { guildId, userId: target.id, balance: amount, totalEarned: amount },
+        });
+        await this.context!.db.feedbackPointsTransaction.create({
+            data: {
+                guildId,
+                userId: target.id,
+                amount,
+                type: 'BONUS',
+                reason: `Admin gave ${amount} points (by ${interaction.user.tag})`,
+            },
+        });
+
+        await interaction.reply({
+            content: `✅ Gave **${amount}** feedback points to <@${target.id}>. New balance: **${updated.balance}**.`,
+            flags: MessageFlags.Ephemeral,
+        });
     }
 
     async onThreadCreate(thread: ThreadChannel, newlyCreated: boolean): Promise<void> {
@@ -443,8 +570,24 @@ export class ProductionFeedbackPlugin implements IPlugin {
     }
 
     async onInteractionCreate(interaction: Interaction) {
-        if (!interaction.isButton() || !interaction.guildId || !this.context) return;
-        
+        if (!interaction.guildId || !this.context) return;
+
+        // Slash commands
+        if (interaction.isChatInputCommand()) {
+            const cmd = interaction.commandName;
+            if (cmd === 'feedback') {
+                const sub = interaction.options.getSubcommand();
+                if (sub === 'points') await this.handlePointsCheck(interaction);
+            } else if (cmd === 'admin-feedback') {
+                const sub = interaction.options.getSubcommand();
+                if (sub === 'set') await this.handleAdminSet(interaction);
+                else if (sub === 'give') await this.handleAdminGive(interaction);
+            }
+            return;
+        }
+
+        // Button interactions (existing approval/denial logic)
+        if (!interaction.isButton()) return;
         const { customId, user } = interaction;
         if (!customId.startsWith('feedback_')) return;
 

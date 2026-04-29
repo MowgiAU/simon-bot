@@ -5,12 +5,197 @@ import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import { showToast } from '../components/Toast';
-import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare } from 'lucide-react';
+import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare, Star, Search, TrendingUp } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
+
+// ── Styles shared across tabs ─────────────────────────────────────────────────
+const inputStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    background: colors.background,
+    border: `1px solid ${colors.border}`,
+    color: colors.textPrimary,
+    borderRadius: borderRadius.sm,
+    width: '100%',
+    boxSizing: 'border-box',
+};
+const btnStyle = (bg: string, full = false): React.CSSProperties => ({
+    background: bg, border: 'none', padding: '8px 16px',
+    color: colors.textPrimary, borderRadius: borderRadius.sm,
+    cursor: 'pointer', width: full ? '100%' : 'auto',
+});
+
+// ── Points tab ────────────────────────────────────────────────────────────────
+const PointsTab: React.FC<{ guildId: string; isMobile: boolean }> = ({ guildId, isMobile }) => {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<any[]>([]);
+    const [selected, setSelected] = useState<any | null>(null);
+    const [userDetail, setUserDetail] = useState<{ balance: number; totalEarned: number; history: any[] } | null>(null);
+    const [vaultAmount, setVaultAmount] = useState(0);
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
+    useEffect(() => {
+        axios.get(`/api/feedback/leaderboard/${guildId}`, { withCredentials: true })
+            .then(r => setLeaderboard(r.data))
+            .catch(() => {});
+    }, [guildId]);
+
+    const handleSearch = async () => {
+        if (!query.trim()) return;
+        try {
+            const res = await axios.get(`/api/feedback/search-users/${guildId}?q=${encodeURIComponent(query)}`, { withCredentials: true });
+            setResults(res.data);
+        } catch { showToast('Search failed', 'error'); }
+    };
+
+    const selectUser = async (member: any) => {
+        setSelected(member);
+        setVaultAmount(0);
+        try {
+            const userId = member.user?.id ?? member.id;
+            const res = await axios.get(`/api/feedback/user/${guildId}/${userId}`, { withCredentials: true });
+            setUserDetail(res.data);
+        } catch { setUserDetail(null); }
+    };
+
+    const handleVault = async (mode: 'set' | 'add') => {
+        if (!selected) return;
+        const safe = Math.trunc(Number(vaultAmount));
+        if (!Number.isFinite(safe)) { showToast('Invalid amount', 'error'); return; }
+        try {
+            const userId = selected.user?.id ?? selected.id;
+            await axios.post(`/api/feedback/vault/${guildId}`, { userId, amount: safe, mode }, { withCredentials: true });
+            showToast('Points updated', 'success');
+            // Refresh user detail and leaderboard
+            const [detail, lb] = await Promise.all([
+                axios.get(`/api/feedback/user/${guildId}/${userId}`, { withCredentials: true }),
+                axios.get(`/api/feedback/leaderboard/${guildId}`, { withCredentials: true }),
+            ]);
+            setUserDetail(detail.data);
+            setLeaderboard(lb.data);
+        } catch (e: any) {
+            showToast(e?.response?.data?.error ?? 'Failed to update points', 'error');
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px' }}>
+            {/* Search + Manage */}
+            <div style={{ flex: 1.5 }}>
+                <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Search size={16} /> Search User
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                    <input
+                        placeholder="Search by Discord username…"
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                        style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button onClick={handleSearch} style={btnStyle(colors.primary)}>Search</button>
+                </div>
+
+                {selected ? (
+                    <div style={{ padding: '20px', background: colors.surface, borderRadius: borderRadius.md }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                            {selected.user?.avatar && (
+                                <img
+                                    src={`https://cdn.discordapp.com/avatars/${selected.user.id}/${selected.user.avatar}.png`}
+                                    style={{ width: 36, height: 36, borderRadius: '50%' }}
+                                    alt=""
+                                />
+                            )}
+                            <div>
+                                <div style={{ fontWeight: 600 }}>{selected.user?.username ?? selected.username}</div>
+                                {userDetail && (
+                                    <div style={{ fontSize: '13px', color: colors.textSecondary }}>
+                                        Balance: <strong style={{ color: colors.primary }}>{userDetail.balance} pts</strong>
+                                        {' · '}Total earned: {userDetail.totalEarned} pts
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                            <input
+                                type="number"
+                                value={vaultAmount}
+                                onChange={e => setVaultAmount(Math.trunc(Number(e.target.value)))}
+                                style={{ ...inputStyle, width: '120px' }}
+                            />
+                            <button onClick={() => handleVault('add')} style={btnStyle(colors.success)}>Give Points</button>
+                            <button onClick={() => handleVault('set')} style={btnStyle(colors.warning)}>Set Balance</button>
+                            <button onClick={() => { setSelected(null); setUserDetail(null); }} style={btnStyle(colors.surface)}>Cancel</button>
+                        </div>
+
+                        {userDetail?.history && userDetail.history.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Recent Transactions
+                                </div>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                    {userDetail.history.map((tx: any) => (
+                                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${colors.border}`, fontSize: '13px' }}>
+                                            <span style={{ color: colors.textSecondary }}>{tx.reason ?? tx.type}</span>
+                                            <span style={{ color: tx.amount >= 0 ? colors.success : colors.error, fontWeight: 600 }}>
+                                                {tx.amount >= 0 ? '+' : ''}{tx.amount} pts
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                        {results.map(r => (
+                            <div
+                                key={r.user?.id ?? r.id}
+                                onClick={() => selectUser(r)}
+                                style={{ padding: '10px', borderBottom: `1px solid ${colors.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {r.user?.avatar && (
+                                        <img src={`https://cdn.discordapp.com/avatars/${r.user.id}/${r.user.avatar}.png`} style={{ width: 24, height: 24, borderRadius: '50%' }} alt="" />
+                                    )}
+                                    <span>{r.user?.username ?? r.username}</span>
+                                </div>
+                                <span style={{ color: colors.primary, fontWeight: 600 }}>{r.balance} pts</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Leaderboard */}
+            <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '24px' : '0', marginTop: isMobile ? '8px' : '0' }}>
+                <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TrendingUp size={16} /> Top Earners
+                </h4>
+                <div style={{ maxHeight: '400px', overflowY: 'auto', background: colors.background, borderRadius: borderRadius.md }}>
+                    {leaderboard.length === 0 ? (
+                        <div style={{ padding: '16px', color: colors.textSecondary, textAlign: 'center' }}>No data yet</div>
+                    ) : leaderboard.map((u, i) => (
+                        <div key={u.userId} style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', borderBottom: `1px solid ${colors.border}`, gap: '10px' }}>
+                            <div style={{ width: '24px', fontWeight: 700, color: i < 3 ? colors.primary : colors.textSecondary }}>#{i + 1}</div>
+                            {u.avatar ? (
+                                <img src={`https://cdn.discordapp.com/avatars/${u.userId}/${u.avatar}.png`} style={{ width: 24, height: 24, borderRadius: '50%' }} alt="" />
+                            ) : (
+                                <div style={{ width: 24, height: 24, borderRadius: '50%', background: colors.surface }} />
+                            )}
+                            <span style={{ flex: 1 }}>{u.username}</span>
+                            <span style={{ fontWeight: 600, color: colors.primary }}>{u.balance} pts</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const FeedbackPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
-    const [activeTab, setActiveTab] = useState<'queue' | 'settings'>('queue');
+    const [activeTab, setActiveTab] = useState<'queue' | 'settings' | 'points'>('queue');
     const [queue, setQueue] = useState<any[]>([]);
     const [settings, setSettings] = useState<any>({
         enabled: false,
@@ -126,16 +311,27 @@ export const FeedbackPluginPage: React.FC = () => {
                 >
                     <RefreshCw size={18} /> Review Queue ({queue.length})
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveTab('settings')}
-                    style={{ 
-                        padding: '10px 20px', 
-                        background: activeTab === 'settings' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', 
+                    style={{
+                        padding: '10px 20px',
+                        background: activeTab === 'settings' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
                         color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
                     }}
                 >
                     <Settings size={18} /> Settings
+                </button>
+                <button
+                    onClick={() => setActiveTab('points')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeTab === 'points' ? colors.primary : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
+                        color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
+                    }}
+                >
+                    <Star size={18} /> Points
                 </button>
             </div>
 
@@ -242,6 +438,12 @@ export const FeedbackPluginPage: React.FC = () => {
                             </div>
                         ))
                     )}
+                </div>
+            )}
+
+            {activeTab === 'points' && selectedGuild && (
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
+                    <PointsTab guildId={selectedGuild.id} isMobile={isMobile} />
                 </div>
             )}
 

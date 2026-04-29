@@ -4461,6 +4461,117 @@ app.post('/api/feedback/action/:guildId/:postId', async (req, res) => {
 });
 
 
+// Feedback Points — User Search (enrich with FeedbackPoints balance)
+app.get('/api/feedback/search-users/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { q } = req.query;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+        if (!q || String(q).length < 2) return res.json([]);
+
+        const searchRes = await axios.get(
+            `https://discord.com/api/v10/guilds/${guildId}/members/search?query=${encodeURIComponent(String(q))}&limit=10`,
+            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
+        const results = await Promise.all(searchRes.data.map(async (member: any) => {
+            const fp = await db.feedbackPoints.findUnique({
+                where: { guildId_userId: { guildId, userId: member.user.id } }
+            });
+            return { ...member, balance: fp?.balance ?? 0, totalEarned: fp?.totalEarned ?? 0 };
+        }));
+        res.json(results);
+    } catch (e: any) {
+        logger.error('Feedback user search failed', e);
+        res.json([]);
+    }
+});
+
+// Feedback Points — Leaderboard (top 10 by balance)
+app.get('/api/feedback/leaderboard/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const top = await db.feedbackPoints.findMany({
+            where: { guildId },
+            orderBy: { balance: 'desc' },
+            take: 10,
+        });
+        const enriched = await Promise.all(top.map(async (fp) => {
+            try {
+                const { data: u } = await axios.get(`https://discord.com/api/v10/users/${fp.userId}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                return { userId: fp.userId, username: u.username, avatar: u.avatar, balance: fp.balance, totalEarned: fp.totalEarned };
+            } catch {
+                return { userId: fp.userId, username: 'Unknown User', avatar: null, balance: fp.balance, totalEarned: fp.totalEarned };
+            }
+        }));
+        res.json(enriched);
+    } catch (e: any) {
+        logger.error('Feedback leaderboard failed', e);
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// Feedback Points — Single user detail + transaction history
+app.get('/api/feedback/user/:guildId/:userId', async (req, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const fp = await db.feedbackPoints.findUnique({ where: { guildId_userId: { guildId, userId } } });
+        const history = await db.feedbackPointsTransaction.findMany({
+            where: { guildId, userId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+        });
+        res.json({ balance: fp?.balance ?? 0, totalEarned: fp?.totalEarned ?? 0, history });
+    } catch (e: any) {
+        logger.error('Feedback user detail failed', e);
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// Feedback Points — Admin vault (set or give points)
+app.post('/api/feedback/vault/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        const { userId, amount, mode } = req.body; // mode: 'set' | 'add'
+        if (!userId || !mode) return res.status(400).json({ error: 'userId and mode are required' });
+
+        const safeAmount = Math.trunc(Number(amount));
+        if (!Number.isFinite(safeAmount)) return res.status(400).json({ error: 'amount must be a finite number' });
+
+        const existing = await db.feedbackPoints.findUnique({ where: { guildId_userId: { guildId, userId } } });
+        const newBalance = mode === 'set' ? safeAmount : Math.max(0, (existing?.balance ?? 0) + safeAmount);
+
+        const updated = await db.$transaction(async (tx: any) => {
+            const fp = await tx.feedbackPoints.upsert({
+                where: { guildId_userId: { guildId, userId } },
+                update: { balance: newBalance, ...(mode === 'add' && safeAmount > 0 ? { totalEarned: { increment: safeAmount } } : {}) },
+                create: { guildId, userId, balance: newBalance, totalEarned: Math.max(0, newBalance) },
+            });
+            await tx.feedbackPointsTransaction.create({
+                data: {
+                    guildId,
+                    userId,
+                    amount: mode === 'set' ? (newBalance - (existing?.balance ?? 0)) : safeAmount,
+                    type: 'BONUS',
+                    reason: `Admin ${mode === 'set' ? 'set' : 'gave'} ${Math.abs(safeAmount)} points via dashboard`,
+                },
+            });
+            return fp;
+        });
+        res.json(updated);
+    } catch (e: any) {
+        logger.error('Feedback vault update failed', e);
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
 // In-memory store for verify-all background jobs
 type VerifyJobStatus = { status: 'running' | 'done' | 'error'; verified: number; failed: number; total: number; error?: string };
 const verifyAllJobs = new Map<string, VerifyJobStatus>();
