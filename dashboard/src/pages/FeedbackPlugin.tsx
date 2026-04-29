@@ -68,8 +68,10 @@ export const FeedbackPluginPage: React.FC = () => {
         try {
             await axios.post(`/api/feedback/settings/${selectedGuild?.id}`, settings, { withCredentials: true });
             showToast('Settings saved', 'success');
-        } catch (e) {
-            showToast('Failed to save settings', 'error');
+        } catch (e: any) {
+            const msg = e?.response?.data?.error ?? e?.message ?? 'Failed to save settings';
+            console.error('saveSettings error:', e);
+            showToast(msg, 'error');
         }
     };
 

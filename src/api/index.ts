@@ -4202,15 +4202,27 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         }
 
         const { enabled, forumChannelId, reviewChannelId, modLogChannelId, feedbackPointsReward, feedbackPointsCost, aiModel, approverRoleIds } = req.body;
+
+        // Validate integer fields — floats or NaN from the frontend cause a Prisma type error
+        if (feedbackPointsReward !== undefined) {
+            const r = Math.trunc(Number(feedbackPointsReward));
+            if (!Number.isFinite(r) || r < 0) return res.status(400).json({ error: 'feedbackPointsReward must be a non-negative integer' });
+        }
+        if (feedbackPointsCost !== undefined) {
+            const c = Math.trunc(Number(feedbackPointsCost));
+            if (!Number.isFinite(c) || c < 0) return res.status(400).json({ error: 'feedbackPointsCost must be a non-negative integer' });
+        }
+
         const allowedData: any = {};
-        if (enabled !== undefined) allowedData.enabled = enabled;
-        if (forumChannelId !== undefined) allowedData.forumChannelId = forumChannelId;
-        if (reviewChannelId !== undefined) allowedData.reviewChannelId = reviewChannelId;
-        if (modLogChannelId !== undefined) allowedData.modLogChannelId = modLogChannelId;
-        if (feedbackPointsReward !== undefined) allowedData.feedbackPointsReward = feedbackPointsReward;
-        if (feedbackPointsCost !== undefined) allowedData.feedbackPointsCost = feedbackPointsCost;
+        if (enabled !== undefined) allowedData.enabled = Boolean(enabled);
+        // Convert empty strings to null for optional channel/role ID fields
+        if (forumChannelId !== undefined) allowedData.forumChannelId = forumChannelId || null;
+        if (reviewChannelId !== undefined) allowedData.reviewChannelId = reviewChannelId || null;
+        if (modLogChannelId !== undefined) allowedData.modLogChannelId = modLogChannelId || null;
+        if (feedbackPointsReward !== undefined) allowedData.feedbackPointsReward = Math.trunc(Number(feedbackPointsReward));
+        if (feedbackPointsCost !== undefined) allowedData.feedbackPointsCost = Math.trunc(Number(feedbackPointsCost));
         if (aiModel !== undefined) allowedData.aiModel = aiModel;
-        if (approverRoleIds !== undefined) allowedData.approverRoleIds = approverRoleIds;
+        if (approverRoleIds !== undefined) allowedData.approverRoleIds = Array.isArray(approverRoleIds) ? approverRoleIds : [];
 
         const updated = await db.feedbackSettings.upsert({
             where: { guildId },
@@ -4218,9 +4230,9 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
             update: allowedData
         });
         res.json(updated);
-    } catch (e) {
-         logger.error('Feedback settings update', e);
-         res.status(500).json({ error: 'Failed' });
+    } catch (e: any) {
+        logger.error('Feedback settings update', e);
+        res.status(500).json({ error: e?.message ?? 'Failed to save settings' });
     }
 });
 

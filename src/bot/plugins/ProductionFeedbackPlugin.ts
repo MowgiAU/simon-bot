@@ -187,7 +187,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
         }
     }
 
-    async onMessage(message: Message): Promise<void> {
+    async onMessageCreate(message: Message): Promise<void> {
         if (!this.context || message.author.bot || !message.guild) return;
 
         // 1. Context Check
