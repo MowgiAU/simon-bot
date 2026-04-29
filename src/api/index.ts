@@ -4143,16 +4143,34 @@ app.get('/api/economy/leaderboard/:guildId', async (req, res) => {
 app.get('/api/feedback/settings/:guildId', async (req, res) => {
     try {
         const { guildId } = req.params;
-        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+        // Allow if admin OR user can access the plugin page (via accessiblePlugins)
+        const user = req.session.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        const isAdmin = isTrueAdmin(guildId, req);
+        if (!isAdmin) {
+            // Check if user has any role that grants plugin access
+            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                timeout: 5000
+            }).catch(() => ({ data: { roles: [] } }));
+            const memberRoles = memberRes.data.roles || [];
+            
+            // Check plugin settings for allowed roles
+            const settings = await db.pluginSettings.findUnique({
+                where: { guildId_pluginId: { guildId, pluginId: 'production-feedback' } }
+            });
+            const hasAccess = settings?.allowedRoles?.some((r: string) => memberRoles.includes(r)) ?? false;
+            if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
+        }
         
-        let settings = await db.feedbackSettings.findUnique({ where: { guildId } });
-        if (!settings) {
+        let dbSettings = await db.feedbackSettings.findUnique({ where: { guildId } });
+        if (!dbSettings) {
             // Create default
-             settings = await db.feedbackSettings.create({
+             dbSettings = await db.feedbackSettings.create({
                  data: { guildId, enabled: false }
              });
         }
-        res.json(settings);
+        res.json(dbSettings);
     } catch (e) {
         logger.error('Feedback settings fetch', e);
         res.status(500).json({ error: 'Failed' });
@@ -4163,7 +4181,25 @@ app.get('/api/feedback/settings/:guildId', async (req, res) => {
 app.post('/api/feedback/settings/:guildId', async (req, res) => {
     try {
         const { guildId } = req.params;
-        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+        // Allow if admin OR user can access the plugin page (via accessiblePlugins)
+        const user = req.session.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+        const isAdmin = isTrueAdmin(guildId, req);
+        if (!isAdmin) {
+            // Check if user has any role that grants plugin access
+            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${guildId}/members/${user.id}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                timeout: 5000
+            }).catch(() => ({ data: { roles: [] } }));
+            const memberRoles = memberRes.data.roles || [];
+            
+            // Check plugin settings for allowed roles
+            const settings = await db.pluginSettings.findUnique({
+                where: { guildId_pluginId: { guildId, pluginId: 'production-feedback' } }
+            });
+            const hasAccess = settings?.allowedRoles?.some((r: string) => memberRoles.includes(r)) ?? false;
+            if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const { enabled, forumChannelId, reviewChannelId, modLogChannelId, feedbackPointsReward, feedbackPointsCost, aiModel, approverRoleIds } = req.body;
         const allowedData: any = {};
