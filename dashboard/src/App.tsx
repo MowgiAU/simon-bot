@@ -95,6 +95,7 @@ const UniversalSearch        = lazy(() => import("./components/UniversalSearch")
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
 const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
+const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -150,7 +151,8 @@ type Section =
   | "spam-guard"
   | "track-announcer"
   | "academy"
-  | "drum-kit";
+  | "drum-kit"
+  | "stats";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -354,6 +356,7 @@ const AdminDashboard: React.FC = () => {
     'reports': 'reports',
     'articles': 'articles',
     'academy': 'academy',
+    'stats': 'stats',
     // Grouped pages — no single plugin requirement (handled in sidebar visibility)
     'boost': '',
     'automation': '',
@@ -494,6 +497,8 @@ const AdminDashboard: React.FC = () => {
           return <GenresPage />;
         case "academy":
           return <AcademyPage />;
+        case "stats":
+          return <ServerStatsPage guildId={selectedGuild.id} />;
         default:
           return null;
       }

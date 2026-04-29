@@ -41,9 +41,11 @@ Or `cd dashboard && npm run dev` / `npm run build` / `npm run type-check`.
 
 ### Deployment (production)
 ```bash
-ssh root@simon-bot-main "git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
+ssh root@143.198.51.52 "cd ~/simon-bot && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
 ```
 Dashboard builds consume high RAM — if build is killed, check server swap space.
+
+There is **no test suite** — do not attempt to run tests.
 
 ## Architecture
 
@@ -66,12 +68,14 @@ Dashboard builds consume high RAM — if build is killed, check server swap spac
 ### Frontend (React 18 + Vite)
 
 `dashboard/src/`:
-- `App.tsx` — React Router routes (one route per plugin page + public/discovery pages)
+- `App.tsx` — React Router routes (one route per plugin page + public/discovery pages). All pages are lazy-loaded.
 - `layouts/Sidebar.tsx` — Main navigation shell
 - `layouts/DiscoveryLayout.tsx` — Public discovery section layout
 - `pages/` — Plugin UI pages (admin) and user-facing pages (tracks, profile, battles, etc.)
 - `components/` — Shared components (`GlobalPlayer`, `ChannelSelect`, `RoleSelect`, `Toast`, `AuthProvider`, `PlayerProvider`, etc.)
 - `theme/theme.ts` — **Single source of truth for all design tokens** (colors, spacing, typography, shadows, borderRadius)
+
+The dashboard uses **inline React styles exclusively** — no CSS files, no CSS modules, no Tailwind. The `@emotion` packages are pulled in by MUI only; do not use Emotion directly.
 
 ### Plugin System
 
@@ -79,7 +83,26 @@ Every feature must be a plugin implementing `IPlugin` (`src/bot/types/plugin.ts`
 
 Plugins receive an `IPluginContext` on init: `{ logger, config, db (Prisma), client (Discord), plugins (registry), api, logAction }`.
 
-Plugins are manually imported and registered in `src/bot/index.ts` — auto-discovery from the filesystem is not used at runtime.
+Plugins are **manually imported and registered** in `src/bot/index.ts` — auto-discovery is not used at runtime. A plugin file in `plugins/` that is not imported in `index.ts` will never load.
+
+**Event handlers**: Declaring an event string in `events[]` is not enough — the plugin must also implement the corresponding method. The `SimonBot` event dispatcher calls these by name:
+
+| `events[]` value       | Method to implement         |
+|------------------------|-----------------------------|
+| `interactionCreate`    | `onInteractionCreate()`     |
+| `messageCreate`        | `onMessageCreate()`         |
+| `voiceStateUpdate`     | `onVoiceStateUpdate()`      |
+| `messageReactionAdd`   | `onMessageReactionAdd()`    |
+| `messageReactionRemove`| `onMessageReactionRemove()` |
+| `threadCreate`         | `onThreadCreate()`          |
+| `guildMemberAdd`       | `onGuildMemberAdd()`        |
+| `guildMemberRemove`    | `onGuildMemberRemove()`     |
+| `guildMemberUpdate`    | `onGuildMemberUpdate()`     |
+| `guildBanAdd`          | `onGuildBanAdd()`           |
+
+**Slash commands**: Most common commands are hardcoded in `registerSlashCommands()` in `src/bot/index.ts`. Plugins can also contribute commands by implementing `registerCommands(): Promise<SlashCommandBuilder[]>` — the method is called automatically on startup.
+
+**Plugin-enable cache**: `SimonBot` keeps a 30-second in-memory cache (`pluginCache`) of per-guild plugin enabled/disabled state. Interactions use a non-blocking cache read; message events do a cached DB lookup.
 
 **Adding a new plugin checklist:**
 1. Create `src/bot/plugins/MyPlugin.ts` implementing `IPlugin`
@@ -87,13 +110,32 @@ Plugins are manually imported and registered in `src/bot/index.ts` — auto-disc
 3. Add plugin `id` to `accessiblePlugins` in `src/api/index.ts` (controls dashboard sidebar visibility)
 4. Add dashboard route in `dashboard/src/App.tsx`
 5. Create `dashboard/src/pages/MyPlugin.tsx` for the settings UI
-6. Set `defaultEnabled = true` unless the feature is strictly opt-in
+6. If the plugin has slash commands, implement `registerCommands()` or add them to `registerSlashCommands()` in `src/bot/index.ts`
+7. Set `defaultEnabled = true` unless the feature is strictly opt-in
 
 ### Database
 
 PostgreSQL via Prisma ORM. Schema at `prisma/schema.prisma`. Key models: `User` (native auth with optional Discord link, 2FA/TOTP, soft delete), `Guild`, `Member`, `PluginSettings`, `Track`, `BeatBattle`, `FeedbackPoints`, and many more feature-specific models.
 
 Uses two connection strings: `DATABASE_URL` (pooled, e.g. PgBouncer) and `DIRECT_DATABASE_URL` (direct connection for migrations).
+
+Two Prisma middleware layers are applied globally:
+- `retryMiddleware` (`src/services/prismaRetry.ts`) — auto-retries transient failures
+- `softDeleteMiddleware` (`src/services/softDelete.ts`) — filters `deletedAt != null` from reads on the `User` model
+
+### Key Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `DISCORD_TOKEN` | Bot login token |
+| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | OAuth app credentials |
+| `GUILD_ID` | Primary guild ID for slash command registration |
+| `DATABASE_URL` | Pooled Postgres connection |
+| `DIRECT_DATABASE_URL` | Direct Postgres connection (migrations) |
+| `SESSION_SECRET` | Express session signing key |
+| `OPENAI_API_KEY` | Optional — enables AI feedback analysis |
+| `FUJI_STORAGE_GUILD_ID` | Guild used as Fuji sample library storage |
+| `R2_*` | Cloudflare R2 credentials for file storage |
 
 ## Rules
 
@@ -128,7 +170,7 @@ Uses two connection strings: `DATABASE_URL` (pooled, e.g. PgBouncer) and `DIRECT
 
 ## Infrastructure
 
-- **Production:** `ssh root@simon-bot-main` (IP: 143.198.51.52), domain: fujistud.io
+- **Production:** `ssh root@143.198.51.52` (IP: 143.198.51.52), domain: fujistud.io
 - **Staging:** `ssh root@143.198.136.83`, domain: staging.fujistud.io:3000, branch: `staging`
 - PM2 config: `ecosystem.config.cjs` (uses `tsx` as interpreter — no compiled JS in production)
 - Sessions stored in PostgreSQL via `connect-pg-simple`

@@ -21,3 +21,6 @@ data/email_settings.json
 data/docstore.json
 data/levelingData.json
 data/reputationData.json
+
+# Claude Code working directory
+.claude/

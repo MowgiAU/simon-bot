@@ -85,8 +85,9 @@ export class BeatBattlePlugin implements IPlugin {
             where: {
                 guildId: interaction.guildId!,
                 status: { in: ['active', 'voting', 'upcoming'] },
+                deletedAt: null,
             },
-            include: { sponsor: true, _count: { select: { entries: true } } },
+            include: { sponsor: true, _count: { select: { entries: { where: { deletedAt: null } } } } },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -136,6 +137,7 @@ export class BeatBattlePlugin implements IPlugin {
             where: {
                 guildId: interaction.guildId!,
                 status: { in: ['active', 'voting', 'completed'] },
+                deletedAt: null,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -187,6 +189,7 @@ export class BeatBattlePlugin implements IPlugin {
                 track: { select: { title: true } },
                 votes: { select: { rank: true } },
             },
+            take: 500, // hard cap — prevents unbounded memory load for large battles
         });
         const scored = entries.map(e => {
             let first = 0, second = 0, third = 0;
@@ -222,7 +225,7 @@ export class BeatBattlePlugin implements IPlugin {
         try {
             // Pending manual announcements (set via dashboard button)
             const pendingAnn = await this.db.beatBattle.findMany({
-                where: { pendingAnnouncement: true },
+                where: { pendingAnnouncement: true, deletedAt: null },
                 include: { sponsor: { include: { links: true } } },
             });
             for (const battle of pendingAnn) {
@@ -232,7 +235,7 @@ export class BeatBattlePlugin implements IPlugin {
 
             // Upcoming -> Active (submission period started)
             const toActivate = await this.db.beatBattle.findMany({
-                where: { status: 'upcoming', submissionStart: { lte: now } },
+                where: { status: 'upcoming', submissionStart: { lte: now }, deletedAt: null },
                 include: { sponsor: { include: { links: true } } },
             });
             for (const battle of toActivate) {
@@ -243,7 +246,7 @@ export class BeatBattlePlugin implements IPlugin {
 
             // Active -> Voting (submission period ended)
             const toVoting = await this.db.beatBattle.findMany({
-                where: { status: 'active', submissionEnd: { lte: now } },
+                where: { status: 'active', submissionEnd: { lte: now }, deletedAt: null },
             });
             for (const battle of toVoting) {
                 await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
@@ -253,7 +256,7 @@ export class BeatBattlePlugin implements IPlugin {
 
             // Voting -> Completed (voting period ended)
             const toComplete = await this.db.beatBattle.findMany({
-                where: { status: 'voting', votingEnd: { lte: now } },
+                where: { status: 'voting', votingEnd: { lte: now }, deletedAt: null },
             });
             for (const battle of toComplete) {
                 const winners = await this.computeRankedEntries(battle.id, 3);

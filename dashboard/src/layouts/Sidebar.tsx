@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { colors, spacing, typography, borderRadius } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 import { SidebarStyles } from './SidebarStyles';
 import { 
   LayoutDashboard, 
@@ -37,6 +37,7 @@ import {
   Flag,
   Hammer,
   BarChart2,
+  BarChart3,
   ClipboardCheck,
   Megaphone,
   GraduationCap,
@@ -77,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <div style={{ 
             width: 38, 
             height: 38, 
-            background: 'linear-gradient(135deg, #10B981, #059669)', 
+            background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
             borderRadius: '10px', 
             display: 'flex', 
             alignItems: 'center', 
@@ -91,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <h1 style={{ 
                 fontSize: '18px', 
                 fontWeight: 700, 
-                color: '#F8FAFC', 
+                color: colors.textPrimary,
                 margin: 0, 
                 lineHeight: 1,
                 letterSpacing: '-0.01em'
@@ -99,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span style={{ 
                 fontSize: '10px', 
                 fontWeight: 500, 
-                color: '#64748B', 
+                color: colors.textTertiary,
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase'
             }}>Admin Panel</span>
@@ -321,6 +322,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.accessiblePlugins.includes('stats') && (
+            <button
+                className={`nav-item ${activeSection === 'stats' ? 'active' : ''}`}
+                onClick={() => onNavigate('stats')}
+                title={collapsed ? "Server Stats" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={BarChart3} size={20} /></span>
+                <span className="nav-label">Server Stats</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('production-feedback') && (
             <button
                 className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}
@@ -484,7 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             className="nav-item"
             onClick={logout}
             title={collapsed ? "Logout" : ""}
-            style={{ color: '#ef4444' }}
+            style={{ color: colors.error }}
           >
             <span className="nav-icon"><LogOut size={18} /></span>
             <span className="nav-label">Logout</span>
