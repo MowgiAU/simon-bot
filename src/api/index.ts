@@ -8163,11 +8163,6 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 
         const data = req.body;
 
-        // Guild membership gate
-        if (process.env.GUILD_ID && !req.session?.isGuildMember) {
-            return res.status(403).json({ error: 'You must be a member of the Discord server to create a profile.' });
-        }
-        
         // Validate displayName against word filters if provided
         if (data.displayName && typeof data.displayName === 'string' && data.displayName.trim()) {
             const wordGroups = await db.wordGroup.findMany({
