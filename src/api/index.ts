@@ -7955,9 +7955,14 @@ app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
     try {
         const { userId } = req.params;
 
+        // When the requesting user is the profile owner, skip the server cache entirely
+        // so their own track list is always fresh after an upload/edit/delete.
+        const requestingUserId = (req as any).session?.user?.id;
+        const isOwnerRequest = !!requestingUserId && requestingUserId.toLowerCase() === userId.toLowerCase();
+
         // Check per-profile cache first (5-minute TTL via 'profile' prefix key)
         const cacheKey = `profile-${userId.toLowerCase()}`;
-        const cached = getCachedResponse(cacheKey);
+        const cached = !isOwnerRequest && getCachedResponse(cacheKey);
         if (cached) return res.json(cached);
 
         // Single query via ProfileService (handles both userId and case-insensitive username)
@@ -8010,12 +8015,14 @@ app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
                 _originalArtist: r.track.profile,
             }));
 
-        setCachedResponse(cacheKey, profileData);
-        // When the requesting user is viewing their own profile, override the publicCache(120)
-        // CDN headers so Cloudflare never serves a stale snapshot of their own track list.
-        const sessionUserId = (req as any).session?.user?.id;
-        if (sessionUserId && sessionUserId === profileData.userId) {
-            res.set('Cache-Control', 'private, no-cache, must-revalidate');
+        // Only cache for non-owner requests — owner always gets a live query (see above)
+        if (!isOwnerRequest) setCachedResponse(cacheKey, profileData);
+        // Override publicCache(120) CDN headers for the owner so Cloudflare/browser
+        // never serve a stale snapshot of their own track list.
+        if (isOwnerRequest) {
+            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.set('Pragma', 'no-cache');
+            res.set('Expires', '0');
         }
         res.json(profileData);
     } catch (e: any) {
