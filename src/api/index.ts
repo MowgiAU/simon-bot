@@ -301,6 +301,14 @@ function setCachedResponse(key: string, data: any): void {
     apiResponseCache.set(key, { data, timestamp: Date.now() });
 }
 
+// Bust all cache entries that depend on a user's track list.
+// Must be called after any track create / update / delete.
+function invalidateProfileCache(userId: string): void {
+    apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
+    // Also bust the all-profiles list (discovery/leaderboard pages)
+    apiResponseCache.delete('musician-profiles');
+}
+
 // --- Cloudflare Edge Cache Middleware ---
 // Adds Cache-Control headers to public GET endpoints so Cloudflare caches them at edge.
 // Only applied to unauthenticated, read-only routes.
@@ -6891,6 +6899,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             include: { genres: { include: { genre: true } } }
         });
 
+        invalidateProfileCache(userId);
         res.json(fullTrack);
 
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
@@ -7123,6 +7132,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
             include: { genres: { include: { genre: true } } }
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
+        invalidateProfileCache(userId);
         res.json(fullTrack);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -7172,6 +7182,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         // queues, comments, likes, reposts, plays and the discovery charts.
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
+        invalidateProfileCache(userId);
         res.json({ success: true });
     } catch (e: any) {
         logger.error(`[Track] Delete failed for trackId=${req.params.trackId}`, e);
@@ -7354,6 +7365,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
             include: { profile: true, genres: { include: { genre: true } } }
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
+        invalidateProfileCache(userId);
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
