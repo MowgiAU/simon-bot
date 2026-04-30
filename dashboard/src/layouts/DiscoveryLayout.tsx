@@ -36,6 +36,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const [isPieMenuOpen, setIsPieMenuOpen] = useState(false);
     const [hasActiveBattle, setHasActiveBattle] = useState(false);
+    const [setupBannerDismissed, setSetupBannerDismissed] = useState(
+        () => sessionStorage.getItem('fuji_setup_banner_dismissed') === '1'
+    );
     const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const openAccountMenu = () => {
@@ -195,8 +198,14 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         <Link to="/account" title="Account Settings" style={{ backgroundColor: pathname === '/account' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px', borderRadius: '7px', display: 'flex', textDecoration: 'none' }}>
                             <Settings size={15} />
                         </Link>
-                        <Link to={`/profile/${user.profileUsername || user.username}`} style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}>
-                            <User size={14} /> ME
+                        <Link
+                            to={user.profileUsername ? `/profile/${user.profileUsername}` : '/profile/setup'}
+                            style={{ position: 'relative', backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.12)' : (!user.profileUsername ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.07)'), color: !user.profileUsername ? '#FCD34D' : 'white', border: `1px solid ${!user.profileUsername ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)'}`, padding: '6px 10px', borderRadius: '7px', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 'bold', textDecoration: 'none' }}
+                        >
+                            <User size={14} /> {user.profileUsername ? 'ME' : 'SETUP'}
+                            {!user.profileUsername && (
+                                <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', border: '2px solid #161925' }} />
+                            )}
                         </Link>
                         </>
                     )}
@@ -227,14 +236,23 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         <MessengerPopup />
                         </div>
                         <div style={{ position: 'relative' }} onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
-                            <Link to="/profile/edit" style={{ backgroundColor: pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
-                                <User size={14} /> ACCOUNT <ChevronDown size={12} />
+                            <Link to="/profile/edit" style={{ position: 'relative', backgroundColor: !user.profileUsername ? 'rgba(245,158,11,0.15)' : (pathname.startsWith('/profile') ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'), color: !user.profileUsername ? '#FCD34D' : 'white', border: `1px solid ${!user.profileUsername ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.1)'}`, padding: '7px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textDecoration: 'none' }}>
+                                <User size={14} /> {!user.profileUsername ? 'SETUP ⚡' : 'ACCOUNT'} <ChevronDown size={12} />
+                                {!user.profileUsername && (
+                                    <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B', border: '2px solid #161925' }} />
+                                )}
                             </Link>
                             {accountMenuOpen && (
                                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', minWidth: '160px', zIndex: 1000, boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '2px' }}
                                     onMouseEnter={openAccountMenu} onMouseLeave={closeAccountMenu}>
                                     {[user.profileUsername || user.username].map(uname => (
                                         <React.Fragment key="menu">
+                                            {!user.profileUsername && (
+                                                <>
+                                                    <Link to="/profile/setup" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#FCD34D', fontSize: '11px', fontWeight: '700', textDecoration: 'none', backgroundColor: 'rgba(245,158,11,0.1)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.2)'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.1)'; }}>⚡ Complete Profile Setup</Link>
+                                                    <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)', margin: '4px 0' }} />
+                                                </>
+                                            )}
                                             <Link to={`/profile/${uname}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><ExternalLink size={13} /> View Profile</Link>
                                             <Link to="/profile/edit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Edit3 size={13} /> Edit Profile</Link>
                                             <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: '#B9C3CE', fontSize: '11px', fontWeight: '600', textDecoration: 'none' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#B9C3CE'; }}><Upload size={13} /> Upload Tracks</Link>
@@ -311,6 +329,45 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         opacity: isMobile && isSidebarOpen ? 0.3 : 1,
                         filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
                     }}>
+                    {/* Profile setup nudge banner — shown to logged-in users with no artist profile */}
+                    {user && !user.profileUsername && !setupBannerDismissed && pathname !== '/profile/setup' && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: isMobile ? '10px 14px' : '12px 24px',
+                            backgroundColor: 'rgba(245,158,11,0.12)',
+                            borderBottom: '1px solid rgba(245,158,11,0.25)',
+                            flexWrap: 'wrap',
+                        }}>
+                            <span style={{ fontSize: '18px', flexShrink: 0 }}>🎵</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: isMobile ? '12px' : '13px', fontWeight: 600, color: '#FCD34D' }}>
+                                    Your artist profile isn't set up yet
+                                </p>
+                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'rgba(255,255,255,0.5)', display: isMobile ? 'none' : 'block' }}>
+                                    Add your name, genres, and avatar so the community can discover your music.
+                                </p>
+                            </div>
+                            <Link
+                                to="/profile/setup"
+                                style={{
+                                    flexShrink: 0, padding: isMobile ? '6px 12px' : '8px 16px',
+                                    backgroundColor: '#F59E0B', color: '#000',
+                                    borderRadius: '8px', textDecoration: 'none',
+                                    fontSize: isMobile ? '11px' : '12px', fontWeight: 700,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Set Up Profile →
+                            </Link>
+                            <button
+                                onClick={() => { sessionStorage.setItem('fuji_setup_banner_dismissed', '1'); setSetupBannerDismissed(true); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: '4px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                                aria-label="Dismiss"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
                     {children}
                     <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>© {new Date().getFullYear()} Fuji Studio</span>
