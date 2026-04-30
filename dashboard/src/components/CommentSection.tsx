@@ -307,8 +307,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    const COMMENT_MAX = 500;
+
     const handleSubmit = async () => {
         if ((!content.trim() && !gifUrl) || sending) return;
+        if (content.length > COMMENT_MAX) return;
         setSending(true);
         try {
             const res = await axios.post(`${API}/api/comments`, {
@@ -333,6 +336,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
 
     const handleEdit = async (commentId: string, parentId?: string) => {
         if (!editContent.trim() && !editGifUrl) return;
+        if (editContent.length > COMMENT_MAX) return;
         try {
             const res = await axios.put(`${API}/api/comments/${commentId}`, {
                 content: editContent.trim(),
@@ -382,6 +386,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
      */
     const handleReply = async (parentId: string, topLevelId?: string) => {
         if (!replyContent.trim() || replySending) return;
+        if (replyContent.length > COMMENT_MAX) return;
         setReplySending(true);
         try {
             const res = await axios.post(`${API}/api/comments`, {
@@ -481,14 +486,20 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                 onChange={e => setContent(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
                                 placeholder={isCurrentTrack && currentTrackTime != null && currentTrackTime > 0 ? `Comment at ${Math.floor(currentTrackTime / 60)}:${Math.floor(currentTrackTime % 60).toString().padStart(2, '0')}...` : 'Write a comment...'}
+                                maxLength={COMMENT_MAX}
                                 rows={1}
                                 style={{
                                     width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md,
+                                    border: `1px solid ${content.length > COMMENT_MAX * 0.9 ? (content.length >= COMMENT_MAX ? colors.error || '#DC2626' : '#F59E0B') : 'rgba(255,255,255,0.1)'}`, borderRadius: borderRadius.md,
                                     color: colors.textPrimary, fontSize: '14px', outline: 'none', resize: 'none',
                                     fontFamily: 'inherit', boxSizing: 'border-box', minHeight: '42px',
                                 }}
                             />
+                            {content.length > 0 && (
+                                <div style={{ textAlign: 'right', fontSize: '11px', marginTop: '2px', color: content.length >= COMMENT_MAX ? (colors.error || '#DC2626') : content.length > COMMENT_MAX * 0.9 ? '#F59E0B' : colors.textSecondary }}>
+                                    {content.length} / {COMMENT_MAX}
+                                </div>
+                            )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
                                 <button onClick={() => { setShowGifPicker(!showGifPicker); setShowEmojiPicker(false); }}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: showGifPicker ? colors.primary : colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
@@ -584,8 +595,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                 {editingId === comment.id ? (
                                     <div>
                                         <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
-                                            style={{ width: '100%', padding: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: colors.textPrimary, fontSize: '13px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box' }}
+                                            maxLength={COMMENT_MAX}
+                                            style={{ width: '100%', padding: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${editContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : 'rgba(255,255,255,0.1)'}`, borderRadius: '6px', color: colors.textPrimary, fontSize: '13px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box' }}
                                             rows={2} />
+                                        {editContent.length > 0 && (
+                                            <div style={{ textAlign: 'right', fontSize: '11px', marginBottom: '4px', color: editContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : colors.textSecondary }}>
+                                                {editContent.length} / {COMMENT_MAX}
+                                            </div>
+                                        )}
                                         <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                                             <button onClick={() => handleEdit(comment.id)}
                                                 style={{ padding: '4px 12px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
@@ -655,9 +672,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                 onChange={e => setReplyContent(e.target.value)}
                                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(comment.id); } }}
                                                 placeholder={`Reply to @${comment.username}\u2026`}
+                                                maxLength={COMMENT_MAX}
                                                 rows={1}
-                                                style={{ width: '100%', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.primary}40`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                                style={{ width: '100%', padding: '8px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${replyContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : `${colors.primary}40`}`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                             />
+                                            {replyContent.length > 0 && (
+                                                <div style={{ textAlign: 'right', fontSize: '11px', marginTop: '2px', color: replyContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : colors.textSecondary }}>
+                                                    {replyContent.length} / {COMMENT_MAX}
+                                                </div>
+                                            )}
                                             <div style={{ display: 'flex', gap: '6px', marginTop: '5px', alignItems: 'center' }}>
                                                 <button onClick={() => setShowReplyEmoji(v => !v)}
                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: showReplyEmoji ? colors.primary : colors.textSecondary, display: 'flex' }}>
@@ -728,8 +751,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                             {editingId === reply.id ? (
                                                                 <div>
                                                                     <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
-                                                                        style={{ width: '100%', padding: '7px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: colors.textPrimary, fontSize: '12px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box' }}
+                                                                        maxLength={COMMENT_MAX}
+                                                                        style={{ width: '100%', padding: '7px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${editContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : 'rgba(255,255,255,0.1)'}`, borderRadius: '6px', color: colors.textPrimary, fontSize: '12px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box' }}
                                                                         rows={2} />
+                                                                    {editContent.length > 0 && (
+                                                                        <div style={{ textAlign: 'right', fontSize: '11px', marginBottom: '4px', color: editContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : colors.textSecondary }}>
+                                                                            {editContent.length} / {COMMENT_MAX}
+                                                                        </div>
+                                                                    )}
                                                                     <div style={{ display: 'flex', gap: '6px', marginTop: '5px' }}>
                                                                         <button onClick={() => handleEdit(reply.id, comment.id)}
                                                                             style={{ padding: '3px 10px', backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
@@ -798,9 +827,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                                             onChange={e => setReplyContent(e.target.value)}
                                                                             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(reply.id, comment.id); } }}
                                                                             placeholder={`Reply to @${reply.username}\u2026`}
+                                                                            maxLength={COMMENT_MAX}
                                                                             rows={1}
-                                                                            style={{ width: '100%', padding: '7px 9px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.primary}40`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '12px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                                                            style={{ width: '100%', padding: '7px 9px', backgroundColor: 'rgba(255,255,255,0.04)', border: `1px solid ${replyContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : `${colors.primary}40`}`, borderRadius: borderRadius.md, color: colors.textPrimary, fontSize: '12px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                                                         />
+                                                                        {replyContent.length > 0 && (
+                                                                            <div style={{ textAlign: 'right', fontSize: '11px', marginTop: '2px', color: replyContent.length >= COMMENT_MAX ? (colors.error || '#DC2626') : colors.textSecondary }}>
+                                                                                {replyContent.length} / {COMMENT_MAX}
+                                                                            </div>
+                                                                        )}
                                                                         <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                                                                             <button onClick={() => setShowReplyEmoji(v => !v)}
                                                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: showReplyEmoji ? colors.primary : colors.textSecondary, display: 'flex' }}>

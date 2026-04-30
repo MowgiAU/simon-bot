@@ -131,10 +131,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     };
 
     const toggleRepost = async (trackId: string) => {
-        if (isOwnProfile) return;
         try {
             const { data } = await axios.post(`/api/tracks/${trackId}/repost`, {}, { withCredentials: true });
             setReposts(prev => ({ ...prev, [trackId]: data.reposted }));
+            // Remove the track from the visible reposts list immediately when un-reposted
+            if (!data.reposted) {
+                setProfile(prev => prev ? {
+                    ...prev,
+                    reposts: (prev.reposts || []).filter(t => t.id !== trackId),
+                } : prev);
+            }
         } catch {}
     };
 

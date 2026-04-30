@@ -211,8 +211,11 @@ export function sanitizeDisplayName(input: string, maxLength: number = 100): str
 
     // Strip zero-width and invisible characters
     text = text.replace(/[\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g, '');
-    // Strip combining diacritical marks that are used purely for "zalgo" effects (U+0300-U+036F)
-    // Keep basic combining accents if the preceding char is a normal letter
+    // Strip Unicode Combining Diacritical Marks (U+0300-U+036F) \u2014 primary Zalgo vector.
+    // NFC normalisation above already composed standard accented letters (\u00E9, \u00F1, etc.) into
+    // their precomposed forms, so stripping residual combining marks is safe for all
+    // standard Latin/Cyrillic/Greek/Arabic/Hebrew scripts and standard emoji sequences.
+    text = text.replace(/[\u0300-\u036F]/g, '');
     // Remove variation selectors (U+FE00-U+FE0F, U+E0100-U+E01EF)
     text = text.replace(/[\uFE00-\uFE0F]/g, '');
 

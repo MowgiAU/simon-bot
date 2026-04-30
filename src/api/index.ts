@@ -753,21 +753,27 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
+// Trust the first reverse-proxy hop (nginx/Cloudflare) so req.secure works
+// correctly for cookie.secure in production.
+app.set('trust proxy', 1);
+
 const PgSession = connectPgSimple(session);
 app.use(session({
   store: new PgSession({
     conString: process.env.DATABASE_URL,
     tableName: 'session',
     createTableIfMissing: true,
+    pruneSessionInterval: 60 * 60, // prune expired rows hourly
   }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,
+    // Only require HTTPS in production — allows local HTTP dev without constant logouts
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
+    maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
   }
 }));
 
@@ -13164,6 +13170,10 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         const { content, gifUrl, trackId, profileId, battleEntryId, parentId, trackTimestamp } = req.body;
 
         if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+        // Strip Zalgo combining marks before length check so the limit applies to clean text
+        const cleanContent = content ? sanitizeDisplayName(content, 500) : '';
+        if (!cleanContent.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+        if (cleanContent.length > 500) return res.status(400).json({ error: 'Comment must be 500 characters or fewer' });
 
         let resolvedTrackId = trackId;
         let resolvedProfileId = profileId;
@@ -13219,7 +13229,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
                 userId,
                 username,
                 avatarUrl,
-                content: (content || '').trim(),
+                content: cleanContent.trim(),
                 gifUrl: gifUrl || null,
                 ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
@@ -13310,12 +13320,14 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
         if (comment.userId !== userId) return res.status(403).json({ error: 'You can only edit your own comments' });
 
-        if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+        const cleanEditContent = content ? sanitizeDisplayName(content, 500) : '';
+        if (!cleanEditContent.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+        if (cleanEditContent.length > 500) return res.status(400).json({ error: 'Comment must be 500 characters or fewer' });
 
         const updated = await db.comment.update({
             where: { id: commentId },
             data: {
-                content: (content || '').trim(),
+                content: cleanEditContent.trim(),
                 gifUrl: gifUrl || null,
                 editedAt: new Date(),
             },

@@ -386,11 +386,20 @@ export const TrackPage: React.FC = () => {
         setActiveLyricIdx(idx);
     }, [player.currentTime, player.currentTrack?.id, track?.lyricsSync, track?.id]);
 
-    // Auto-scroll active lyric line into view
+    // Scroll the lyrics container (not the page) to keep the active line centred.
+    // Skip if the container is not currently visible in the viewport so the user's
+    // scroll position is never hijacked when they've navigated away from the lyrics.
     useEffect(() => {
-        if (activeLineRef.current && lyricsContainerRef.current) {
-            activeLineRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        const container = lyricsContainerRef.current;
+        const line = activeLineRef.current;
+        if (!container || !line) return;
+
+        const rect = container.getBoundingClientRect();
+        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+        if (!isVisible) return;
+
+        const targetTop = line.offsetTop - container.clientHeight / 2 + line.offsetHeight / 2;
+        container.scrollTo({ top: targetTop, behavior: 'smooth' });
     }, [activeLyricIdx]);
 
     const openLyricsEdit = () => {
