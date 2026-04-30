@@ -492,7 +492,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                             {battle.prizes.slice(0, 3).map((p, i) => (
                                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#D2DAE2' }}>
-                                                    <span>{i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : 'ðŸ¥‰'}</span>
+                                                    <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
                                                     <span style={{ fontWeight: 600, color: 'white' }}>{p.place}:</span>
                                                     {p.title && <span style={{ color: colors.primary, fontWeight: 600 }}>{p.title}</span>}
                                                 </div>
@@ -527,8 +527,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 : battle.status === 'active'
                                                 ? <><Swords size={13} /> Submit a Beat &rarr;</>
                                                 : battle.status === 'completed'
-                                                ? 'View Results â†’'
-                                                : 'View Battle â†’'}
+                                                ? ‘View Results →’
+                                                : ‘View Battle →’}
                                         </Link>
                                     </div>
                                 </>
@@ -536,7 +536,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No battle running right now.</p>
-                                    <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive â†’</Link>
+                                    <Link to="/battles" style={{ fontSize: ‘11px’, color: colors.primary, textDecoration: ‘none’, fontWeight: 600 }}>View archive →</Link>
                                 </div>
                             )}
                         </div>
@@ -1035,7 +1035,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {weeklyChart.length === 0 && (
                             <div style={{ padding: '48px 24px', textAlign: 'center', color: colors.textSecondary, fontSize: '13px' }}>
                                 <TrendingUp size={36} color={colors.textSecondary} style={{ opacity: 0.18, marginBottom: '10px' }} />
-                                <div>No chart data yet â€” check back after the first weekly snapshot.</div>
+                                <div>No chart data yet — check back after the first weekly snapshot.</div>
                             </div>
                         )}
 
