@@ -267,6 +267,20 @@ async function deleteFromStorage(url: string | null | undefined): Promise<void> 
 
 // --- Discord API Helper with Cache and Rate Limit Handling ---
 
+// --- Email HTML wrapper -------------------------------------------------------
+// All email clients need a proper <!DOCTYPE> + <meta charset="UTF-8"> or they
+// default to Latin-1, turning emojis and special chars into Mojibake.
+const wrapEmailHtml = (content: string) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body style="margin:0;padding:16px;background:#0f1117;">
+${content}
+</body>
+</html>`;
+
 // --- API Response Cache ---
 // Generic in-memory cache for expensive API responses
 const apiResponseCache = new Map<string, { data: any, timestamp: number }>();
@@ -758,6 +772,16 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Explicitly stamp charset=utf-8 on every JSON response so no proxy or client
+// can infer Latin-1 and corrupt emojis / special characters.
+app.use((_req, res, next) => {
+    const _origJson = res.json.bind(res);
+    res.json = function (body: any) {
+        this.setHeader('Content-Type', 'application/json; charset=utf-8');
+        return _origJson(body);
+    };
+    next();
+});
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required');
 }
@@ -1481,7 +1505,7 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
                     from: 'Fuji Studio <noreply@fujistud.io>',
                     to: [emailNorm],
                     subject: 'Verify your Fuji Studio email',
-                    html: `
+                    html: wrapEmailHtml(`
                         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                             <h2 style="color:#2b8d70;margin-top:0;">Welcome to Fuji Studio!</h2>
                             <p>Hey <strong>${username}</strong>,</p>
@@ -1489,7 +1513,7 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
                             <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Verify Email</a>
                             <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
                         </div>
-                    `,
+                    `),
                 });
             }
         } catch (e) {
@@ -1621,7 +1645,7 @@ app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) =>
                 from: 'Fuji Studio <noreply@fujistud.io>',
                 to: [emailNorm],
                 subject: 'Reset your Fuji Studio password',
-                html: `
+                html: wrapEmailHtml(`
                     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                         <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
                         <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
@@ -1630,7 +1654,7 @@ app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) =>
                         <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${resetUrl}</p>
                         <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, ignore this email. Your password won't change.</p>
                     </div>
-                `,
+                `),
             });
         }
 
@@ -1863,13 +1887,13 @@ app.post('/api/auth/set-email', requireAuth, async (req: any, res) => {
                 from: 'Fuji Studio <noreply@fujistud.io>',
                 to: [emailNorm],
                 subject: 'Verify your Fuji Studio email',
-                html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+                html: wrapEmailHtml(`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                     <h2 style="color:#2b8d70;margin-top:0;">Verify your email</h2>
                     <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
                     <p>Click the button below to verify your email address for Fuji Studio. This link expires in 24 hours.</p>
                     <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Verify Email</a>
                     <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
-                </div>`,
+                </div>`),
             });
         }
 
@@ -1925,7 +1949,7 @@ app.post('/api/auth/send-verification', async (req: any, res) => {
             from: 'Fuji Studio <noreply@fujistud.io>',
             to: [dbUser.email],
             subject: 'Verify your Fuji Studio email',
-            html: `
+            html: wrapEmailHtml(`
                 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                     <h2 style="color:#2b8d70;margin-top:0;">Verify your email</h2>
                     <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
@@ -1934,7 +1958,7 @@ app.post('/api/auth/send-verification', async (req: any, res) => {
                     <p style="color:#8A92A0;font-size:13px;">Or copy this link: <br>${verifyUrl}</p>
                     <p style="color:#8A92A0;font-size:12px;margin-top:32px;">If you didn't request this, you can safely ignore this email.</p>
                 </div>
-            `,
+            `),
         });
 
         if (error) {
@@ -2097,13 +2121,13 @@ app.post('/api/auth/change-email', requireAuth, async (req: any, res) => {
             from: 'Fuji Studio <noreply@fujistud.io>',
             to: [emailNorm],
             subject: 'Confirm your new email – Fuji Studio',
-            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+            html: wrapEmailHtml(`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                 <h2 style="color:#2b8d70;margin-top:0;">Confirm email change</h2>
                 <p>Hey <strong>${dbUser.displayName || dbUser.username}</strong>,</p>
                 <p>Click below to confirm <strong>${emailNorm}</strong> as your new email address. This link expires in 24 hours.</p>
                 <a href="${confirmUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Confirm New Email</a>
                 <p style="color:#8A92A0;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
-            </div>`,
+            </div>`),
         });
 
         res.json({ success: true, message: `Confirmation email sent to ${emailNorm}` });
@@ -9381,13 +9405,13 @@ app.post('/api/admin/accounts/:id/send-password-reset', requireAdmin, async (req
             from: 'Fuji Studio <noreply@fujistud.io>',
             to: [user.email],
             subject: 'Reset your Fuji Studio password',
-            html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
+            html: wrapEmailHtml(`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#1a1e2e;border-radius:16px;color:#e2e8f0;">
                 <h2 style="color:#2b8d70;margin-top:0;">Password Reset</h2>
                 <p>Hey <strong>${user.displayName || user.username}</strong>,</p>
                 <p>An admin has initiated a password reset for your account. Click below to set a new password. This link expires in 24 hours.</p>
                 <a href="${resetLink}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#2b8d70;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Reset Password</a>
                 <p style="color:#8A92A0;font-size:13px;">If you didn't request this, contact your server admin.</p>
-            </div>`,
+            </div>`),
         });
 
         res.json({ success: true });
