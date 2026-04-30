@@ -12,7 +12,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 
-const INVALID_TITLE_RE = /[̀-ͯ]/;
+const VALID_TITLE_REGEX = /^[a-zA-Z0-9\s\-_.,!()\[\]'"]+$/;
 
 interface Genre {
     id: string;
@@ -720,9 +720,9 @@ export const MyTracksPage: React.FC = () => {
                     <div style={{ gridColumn: isMobile ? undefined : '1 / -1' }}>
                         <span style={label}>Track Title</span>
                         <input type="text" placeholder={isEdit ? '' : 'Will use metadata/filename if empty'} value={track.title || ''} onChange={e => setField('title', e.target.value)} style={inputBase} maxLength={100} />
-                        {INVALID_TITLE_RE.test(track.title || '') && (
+                        {(track.title || '').length > 0 && !VALID_TITLE_REGEX.test(track.title || '') && (
                             <span style={{ fontSize: '11px', color: '#DC2626', marginTop: '4px', display: 'block' }}>
-                                Incompatible characters detected
+                                Title contains unsupported characters (Hieroglyphs, Zalgo, etc.). Please use standard text.
                             </span>
                         )}
                     </div>
@@ -894,11 +894,11 @@ export const MyTracksPage: React.FC = () => {
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button
                         onClick={isEdit ? handleUpdateTrack : handleAddTrack}
-                        disabled={saving || (!isEdit && (!audioFile || !tosAgreed)) || INVALID_TITLE_RE.test(track.title || '')}
+                        disabled={saving || (!isEdit && (!audioFile || !tosAgreed)) || ((track.title || '').length > 0 && !VALID_TITLE_REGEX.test(track.title || ''))}
                         style={{
                             flex: 1, padding: '12px', backgroundColor: colors.primary, color: 'white',
-                            border: 'none', borderRadius: borderRadius.md, cursor: (saving || (!isEdit && (!audioFile || !tosAgreed)) || INVALID_TITLE_RE.test(track.title || '')) ? 'not-allowed' : 'pointer',
-                            fontWeight: 700, fontSize: '14px', opacity: (saving || (!isEdit && (!audioFile || !tosAgreed)) || INVALID_TITLE_RE.test(track.title || '')) ? 0.6 : 1,
+                            border: 'none', borderRadius: borderRadius.md, cursor: (saving || (!isEdit && (!audioFile || !tosAgreed)) || ((track.title || '').length > 0 && !VALID_TITLE_REGEX.test(track.title || ''))) ? 'not-allowed' : 'pointer',
+                            fontWeight: 700, fontSize: '14px', opacity: (saving || (!isEdit && (!audioFile || !tosAgreed)) || ((track.title || '').length > 0 && !VALID_TITLE_REGEX.test(track.title || ''))) ? 0.6 : 1,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                             boxShadow: shadows.glow,
                         }}
