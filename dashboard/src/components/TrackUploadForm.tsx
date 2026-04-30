@@ -70,6 +70,8 @@ const keyOptions = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 
     <option key={`${note} Minor`} value={`${note} Minor`} style={{ backgroundColor: colors.surface }}>{note} Minor</option>,
 ]);
 
+const INVALID_TITLE_RE = /[̀-ͯ]/;
+
 export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
     battleId, requireProjectFile, onUploaded, onCancel, titleOverride, subtitleOverride,
 }) => {
@@ -487,6 +489,11 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                 <div style={{ gridColumn: isMobile ? undefined : '1 / -1' }}>
                     <span style={label}>Track Title</span>
                     <input type="text" placeholder="Will use metadata/filename if empty" value={newTrack.title} onChange={e => setField('title', e.target.value)} style={inputBase} maxLength={100} />
+                    {INVALID_TITLE_RE.test(newTrack.title) && (
+                        <span style={{ fontSize: '11px', color: '#DC2626', marginTop: '4px', display: 'block' }}>
+                            Incompatible characters detected
+                        </span>
+                    )}
                 </div>
                 <div>
                     <span style={label}>Artist</span>
@@ -646,13 +653,13 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
             <div style={{ display: 'flex', gap: '12px' }}>
                 <button
                     onClick={handleSubmit}
-                    disabled={saving || !audioFile || !tosAgreed}
+                    disabled={saving || !audioFile || !tosAgreed || INVALID_TITLE_RE.test(newTrack.title)}
                     style={{
                         flex: 1, padding: '12px', backgroundColor: colors.primary, color: 'white',
                         border: 'none', borderRadius: borderRadius.md,
-                        cursor: (saving || !audioFile || !tosAgreed) ? 'not-allowed' : 'pointer',
+                        cursor: (saving || !audioFile || !tosAgreed || INVALID_TITLE_RE.test(newTrack.title)) ? 'not-allowed' : 'pointer',
                         fontWeight: 700, fontSize: '14px',
-                        opacity: (saving || !audioFile || !tosAgreed) ? 0.6 : 1,
+                        opacity: (saving || !audioFile || !tosAgreed || INVALID_TITLE_RE.test(newTrack.title)) ? 0.6 : 1,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                         boxShadow: shadows.glow,
                     }}

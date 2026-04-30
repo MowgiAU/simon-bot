@@ -8011,6 +8011,12 @@ app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
             }));
 
         setCachedResponse(cacheKey, profileData);
+        // When the requesting user is viewing their own profile, override the publicCache(120)
+        // CDN headers so Cloudflare never serves a stale snapshot of their own track list.
+        const sessionUserId = (req as any).session?.user?.id;
+        if (sessionUserId && sessionUserId === profileData.userId) {
+            res.set('Cache-Control', 'private, no-cache, must-revalidate');
+        }
         res.json(profileData);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -10536,6 +10542,9 @@ app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
             select: { id: true, title: true, url: true, coverUrl: true, duration: true, artist: true, projectFileUrl: true, isPublic: true },
             orderBy: { createdAt: 'desc' },
         });
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
         res.json(tracks);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
