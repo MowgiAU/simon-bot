@@ -15,6 +15,7 @@ import { flattenBattleEntry } from '../hooks/useBattleEntry';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
+const GOLD = '#FFD700';
 
 // localStorage helpers — store the user's ranked vote per entry
 const lsVoteKey = (entryId: string) => `fj_vote_${entryId}`;
@@ -243,10 +244,12 @@ export const BattlesPage: React.FC = () => {
         Promise.all(
             completed.map(async b => {
                 try {
-                    const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`);
+                    const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`, { credentials: 'include' });
                     if (!res.ok) return { battle: b, winner: null };
                     const data: Battle = await res.json();
-                    const winner = data.entries?.find(e => e.id === data.winnerEntryId) || data.entries?.[0] || null;
+                    const winner = (data.winnerEntryId
+                        ? data.entries?.find(e => e.id === data.winnerEntryId)
+                        : null) || data.entries?.[0] || null;
                     return { battle: data, winner };
                 } catch { return { battle: b, winner: null }; }
             })
@@ -527,26 +530,26 @@ export const BattlesPage: React.FC = () => {
 
                         {/* Right: Hall of Fame */}
                         <div>
-                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                <Trophy size={14} color={ACCENT} /> Hall of Fame
+                            <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: GOLD, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.08em', textShadow: '0 0 12px rgba(255,215,0,0.4)' }}>
+                                <Trophy size={14} color={GOLD} /> Hall of Fame
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {hallOfFame.length === 0 ? (
-                                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>No past winners yet.</p>
+                                    <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0, padding: '20px', backgroundColor: '#242C3D', borderRadius: '10px', border: `1px solid ${GOLD}20` }}>No past winners yet.</p>
                                 ) : hallOfFame.map(({ battle, winner }) => (
-                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{ textDecoration: 'none', backgroundColor: '#242C3D', borderRadius: '10px', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px', transition: 'border-color 0.2s' }}
-                                        onMouseEnter={e => (e.currentTarget.style.borderColor = `${ACCENT}40`)}
-                                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
+                                    <Link key={battle.id} to={`/battles/${battle.slug || battle.id}`} style={{ textDecoration: 'none', backgroundColor: 'rgba(255,215,0,0.04)', borderRadius: '10px', padding: '12px 14px', border: `2px solid ${GOLD}`, display: 'flex', alignItems: 'center', gap: '10px', transition: 'box-shadow 0.2s', boxShadow: `0 0 10px rgba(255,215,0,0.08)` }}
+                                        onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 18px rgba(255,215,0,0.22)`)}
+                                        onMouseLeave={e => (e.currentTarget.style.boxShadow = `0 0 10px rgba(255,215,0,0.08)`)}>
                                         <div style={{ position: 'relative', flexShrink: 0 }}>
-                                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', border: `2px solid ${ACCENT}35`, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', border: `2px solid ${GOLD}`, overflow: 'hidden', backgroundColor: 'rgba(255,215,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 8px rgba(255,215,0,0.3)` }}>
                                                 {winner?.avatarUrl
                                                     ? <img src={winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={16} color={ACCENT} />}
+                                                    : <Trophy size={16} color={GOLD} />}
                                             </div>
-                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-4px', backgroundColor: ACCENT, color: '#fff', fontSize: '7px', fontWeight: 700, padding: '1px 4px', borderRadius: '99px', border: '2px solid #242C3D' }}>#1</div>
+                                            <div style={{ position: 'absolute', bottom: '-2px', right: '-4px', backgroundColor: GOLD, color: '#000', fontSize: '7px', fontWeight: 700, padding: '1px 4px', borderRadius: '99px', border: '2px solid #1a2030' }}>★</div>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
+                                            <h5 style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: GOLD, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textShadow: '0 0 8px rgba(255,215,0,0.3)' }}>{winner?.userId ? <StyledUsername userId={winner.userId} showBadge={false}>{winner.username || '—'}</StyledUsername> : (winner?.username || '—')}</h5>
                                             <p style={{ margin: '1px 0 0', fontSize: '10px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{battle.title}</p>
                                         </div>
                                         {winner?.audioUrl && (
@@ -556,7 +559,7 @@ export const BattlesPage: React.FC = () => {
                                                 const id = `battle-${winner.id}`;
                                                 if (player.currentTrack?.id === id) { togglePlay(); return; }
                                                 setTrack({ id, title: winner.trackTitle, artist: winner.username, cover: winner.avatarUrl || winner.coverUrl || '', url: `${API}${winner.audioUrl}`, entryRoute: (winner as any).trackRoute || `/battles/entry/${winner.id}` });
-                                            }} style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: `${colors.primary}18`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary, flexShrink: 0 }}>
+                                            }} style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: `${GOLD}18`, border: `1px solid ${GOLD}40`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: GOLD, flexShrink: 0 }}>
                                                 {player.currentTrack?.id === `battle-${winner.id}` && player.isPlaying ? <Pause size={12} /> : <Play size={12} />}
                                             </button>
                                         )}
@@ -772,16 +775,16 @@ export const BattlesPage: React.FC = () => {
                                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = '')}
                                         >
                                             {/* Winner avatar */}
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'rgba(255,215,0,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: hof?.winner ? `2px solid ${GOLD}` : '2px solid rgba(255,255,255,0.08)' }}>
                                                 {hof?.winner?.avatarUrl
                                                     ? <img src={hof.winner.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    : <Trophy size={14} color={colors.textSecondary} style={{ opacity: 0.4 }} />}
+                                                    : <Trophy size={14} color={hof?.winner ? GOLD : colors.textSecondary} style={{ opacity: hof?.winner ? 1 : 0.4 }} />}
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title}</p>
                                             </div>
                                             {hof?.winner && (
-                                                <span style={{ fontSize: '11px', color: ACCENT, fontWeight: 700, flexShrink: 0, display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ fontSize: '11px', color: GOLD, fontWeight: 700, flexShrink: 0, display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '4px', textShadow: '0 0 6px rgba(255,215,0,0.4)' }}>
                                                     <Trophy size={11} /> <StyledUsername userId={hof.winner.userId} showBadge={false}>{hof.winner.username}</StyledUsername>
                                                 </span>
                                             )}
