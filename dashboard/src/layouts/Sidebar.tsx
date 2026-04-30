@@ -42,6 +42,7 @@ import {
   Megaphone,
   GraduationCap,
   Drum,
+  Database,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -484,6 +485,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Plugin Management</span>
           </button>
           )}
+          <button
+            className={`nav-item ${activeSection === 'database-management' ? 'active' : ''}`}
+            onClick={() => onNavigate('database-management')}
+            title={collapsed ? "Database Management" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Database} size={18} /></span>
+            <span className="nav-label">Database Backups</span>
+          </button>
           <button
             className={`nav-item ${activeSection === 'docs' ? 'active' : ''}`}
             onClick={() => onNavigate('docs')}

@@ -28,7 +28,7 @@ import { FLPParser } from '../bot/utils/FLPParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
-import { runBackup } from '../services/DatabaseBackup.js';
+import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
@@ -9676,6 +9676,10 @@ app.get('/api/fuji/libraries', async (req, res) => {
 
 const PORT = process.env.API_PORT || 3001;
 
+// In-memory timestamps for the backup status endpoint
+let manualBackupLastAt: number | null = null;
+let scheduledBackupLastAt: number | null = null;
+
 // ---------------------------------------------------------------------------
 // Embeddable audio player (used by Discord/Reddit embeds via iframe)
 // ---------------------------------------------------------------------------
@@ -15087,6 +15091,38 @@ app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     }
 });
 
+// -- Download a fresh pg_dump directly (admin only) ---------------------------
+app.get('/api/admin/backup/download', requireAdmin, async (_req: any, res) => {
+    try {
+        logger.info('[Backup] Manual download initiated');
+        const buffer = await pgDump();
+        const stamp = new Date().toISOString().replace(/[T:]/g, '-').replace(/\..+$/, '');
+        const filename = `fuji-backup-${stamp}.sql.gz`;
+
+        // Track last manual download time
+        manualBackupLastAt = Date.now();
+
+        res.setHeader('Content-Type', 'application/gzip');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'no-store');
+        res.send(buffer);
+        logger.info(`[Backup] Download served: ${filename} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    } catch (e: any) {
+        logger.error('[Backup] Download failed', e);
+        res.status(500).json({ error: 'Backup generation failed. Check that pg_dump is installed on the server.' });
+    }
+});
+
+// -- Backup status (for dashboard reminder) ------------------------------------
+app.get('/api/admin/backup/status', requireAdmin, async (_req: any, res) => {
+    res.json({
+        r2Configured: R2Storage.isConfigured(),
+        lastManualDownloadAt: manualBackupLastAt ? new Date(manualBackupLastAt).toISOString() : null,
+        lastScheduledAt: scheduledBackupLastAt ? new Date(scheduledBackupLastAt).toISOString() : null,
+    });
+});
+
 // -- Booster Colour Roles ------------------------------------------------------
 
 app.get('/api/booster-color/settings/:guildId', async (req, res) => {
@@ -17032,6 +17068,7 @@ app.listen(PORT, async () => {
     const doBackup = async () => {
       try {
         const result = await runBackup();
+        scheduledBackupLastAt = Date.now();
         logger.info(`[Scheduled Backup] Success: ${result.key} (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB)`);
       } catch (e: any) {
         logger.error('[Scheduled Backup] Failed', e);

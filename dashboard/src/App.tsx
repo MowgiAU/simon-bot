@@ -35,6 +35,7 @@ const ProfileSetupWizard     = lazy(() => import("./pages/ProfileSetupWizard").t
 const TrackPage              = lazy(() => import("./pages/TrackPage").then(m => ({ default: m.TrackPage })));
 const DocumentationPage      = lazy(() => import("./pages/Documentation").then(m => ({ default: m.DocumentationPage })));
 const Logs                   = lazy(() => import("./pages/Logs"));
+const DatabaseManagementPage = lazy(() => import("./pages/DatabaseManagementPage").then(m => ({ default: m.DatabaseManagementPage })));
 const StagingTest            = lazy(() => import("./pages/StagingTest").then(m => ({ default: m.StagingTest })));
 const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
 const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
@@ -152,7 +153,9 @@ type Section =
   | "track-announcer"
   | "academy"
   | "drum-kit"
-  | "stats";
+  | "stats"
+  | "database-management"
+  | "anti-external-forward";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -362,6 +365,7 @@ const AdminDashboard: React.FC = () => {
     'automation': '',
     'progression': '',
     'genres-list': 'musician-profiles',
+    'database-management': '',  // super-admin only, no plugin gate
   };
 
   const renderContent = () => {
@@ -437,6 +441,8 @@ const AdminDashboard: React.FC = () => {
           />;
         case "logs":
           return <Logs guildId={selectedGuild.id} searchParam={navigationParams?.searchParam} />;
+        case "database-management":
+          return <DatabaseManagementPage />;
         case "staging-test":
           return <StagingTest />;
         case "plugins":

@@ -11,13 +11,20 @@
 import { execFile } from 'node:child_process';
 import { createGzip } from 'node:zlib';
 import { Readable } from 'node:stream';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { Logger } from '../bot/utils/logger.js';
 
 const logger = new Logger('DatabaseBackup');
 
 const BACKUP_PREFIX = 'backups/db/';
-const DEFAULT_RETENTION_COUNT = 30; // keep last 30 backups
+const DEFAULT_RETENTION_COUNT = 30; // keep last 30 backups on R2
+
+const LOCAL_BACKUP_DIR = process.env.LOCAL_BACKUP_DIR
+    || path.join(process.cwd(), 'backups', 'local');
+const LOCAL_MAX_FILES = 10;   // keep at most this many local backups
+const LOCAL_MAX_AGE_DAYS = 7; // delete local backups older than this
 
 function getR2Client(): S3Client {
     return new S3Client({
@@ -57,10 +64,11 @@ function parseDatabaseUrl(raw: string) {
 
 /**
  * Execute `pg_dump` and collect the output as a gzipped Buffer.
+ * Exported so callers (e.g. the download endpoint) can use it directly.
  * Uses DIRECT_DATABASE_URL (bypasses pgbouncer) when available,
  * otherwise falls back to DATABASE_URL.
  */
-async function pgDump(): Promise<Buffer> {
+export async function pgDump(): Promise<Buffer> {
     const connUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
     if (!connUrl) throw new Error('Neither DIRECT_DATABASE_URL nor DATABASE_URL is set');
 
@@ -159,6 +167,50 @@ async function enforceRetention(retentionCount: number = DEFAULT_RETENTION_COUNT
 }
 
 /**
+ * Save a gzipped buffer to the local backup directory and enforce retention:
+ *   - delete files older than LOCAL_MAX_AGE_DAYS
+ *   - keep at most LOCAL_MAX_FILES total (removes oldest first)
+ */
+async function saveLocalBackup(buffer: Buffer, filename: string): Promise<string> {
+    await fs.mkdir(LOCAL_BACKUP_DIR, { recursive: true });
+    const dest = path.join(LOCAL_BACKUP_DIR, filename);
+    await fs.writeFile(dest, buffer);
+    logger.info(`Local backup saved: ${dest} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Enforce age + count retention
+    const files = (await fs.readdir(LOCAL_BACKUP_DIR))
+        .filter(f => f.endsWith('.sql.gz'))
+        .sort(); // ISO timestamp names sort chronologically
+    const now = Date.now();
+    const maxAge = LOCAL_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+    let deleted = 0;
+
+    for (const file of files) {
+        const fp = path.join(LOCAL_BACKUP_DIR, file);
+        const stat = await fs.stat(fp).catch(() => null);
+        if (stat && now - stat.mtimeMs > maxAge) {
+            await fs.unlink(fp);
+            deleted++;
+        }
+    }
+
+    // If still over count limit, remove oldest
+    const remaining = (await fs.readdir(LOCAL_BACKUP_DIR))
+        .filter(f => f.endsWith('.sql.gz'))
+        .sort();
+    if (remaining.length > LOCAL_MAX_FILES) {
+        const toRemove = remaining.slice(0, remaining.length - LOCAL_MAX_FILES);
+        for (const f of toRemove) {
+            await fs.unlink(path.join(LOCAL_BACKUP_DIR, f));
+            deleted++;
+        }
+    }
+
+    if (deleted > 0) logger.info(`Local backup cleanup: removed ${deleted} old file(s)`);
+    return dest;
+}
+
+/**
  * Run a full backup cycle: dump → gzip → upload → cleanup.
  */
 export async function runBackup(): Promise<{ key: string; sizeBytes: number }> {
@@ -176,6 +228,7 @@ export async function runBackup(): Promise<{ key: string; sizeBytes: number }> {
 
     await uploadBackup(buffer, key);
     await enforceRetention();
+    await saveLocalBackup(buffer, `${stamp}.sql.gz`);
 
     return { key, sizeBytes: buffer.length };
 }
