@@ -247,9 +247,19 @@ export const BattlesPage: React.FC = () => {
                     const res = await fetch(`${API}/api/beat-battle/battles/${b.id}`, { credentials: 'include' });
                     if (!res.ok) return { battle: b, winner: null };
                     const data: Battle = await res.json();
-                    const winner = (data.winnerEntryId
-                        ? data.entries?.find(e => e.id === data.winnerEntryId)
-                        : null) || data.entries?.[0] || null;
+                    const raw = (data.winnerEntryId
+                        ? data.entries?.find((e: any) => e.id === data.winnerEntryId)
+                        : null) || (data.entries as any)?.[0] || null;
+                    // API returns entries with nested track/profile — flatten for display
+                    const winner = raw ? {
+                        id:         raw.id,
+                        userId:     raw.userId ?? raw.track?.profile?.userId,
+                        username:   raw.track?.profile?.displayName || raw.track?.profile?.username || raw.username || '—',
+                        avatarUrl:  raw.track?.profile?.avatar || raw.avatarUrl || null,
+                        trackTitle: raw.track?.title || raw.trackTitle || 'Untitled',
+                        audioUrl:   raw.track?.url || raw.audioUrl || null,
+                        coverUrl:   raw.track?.coverUrl || raw.coverUrl || null,
+                    } : null;
                     return { battle: data, winner };
                 } catch { return { battle: b, winner: null }; }
             })
