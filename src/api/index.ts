@@ -852,9 +852,9 @@ const generalUploadLimiter = rateLimit({
 });
 
 // --- Invite-Only Global Guard ---
-// When INVITE_ONLY=true, block unauthenticated/non-invited users from public frontend API routes.
-// Auth, webhook, admin, dashboard, beta status, and guild/plugin config routes are exempt.
+// Gate disabled: site is publicly launched. INVITE_ONLY env var is ignored.
 app.use('/api/', (req, res, next) => {
+    return next(); // public launch — no invite gate
     if (process.env.INVITE_ONLY !== 'true') return next();
     const path = req.path;
     // Always allow auth routes, webhook endpoints, beta status check, and the admin dashboard config endpoints
@@ -920,7 +920,8 @@ const requireAdmin: RequestHandler = (req, res, next) => {
 // Invite-only middleware: blocks non-invited users on public frontend routes
 // Admin/dashboard routes are exempt (they use requireAdmin)
 const requireInvited: RequestHandler = (req, res, next) => {
-    // If invite-only mode is disabled, let everyone through
+    // Public launch — gate disabled, let everyone through
+    return next();
     if (process.env.INVITE_ONLY !== 'true') return next();
     // Not logged in � block
     if (!req.session.user) {
@@ -14955,9 +14956,9 @@ app.delete('/api/studio-guide/knowledge/:guildId/:id', async (req, res) => {
 // INVITE MANAGEMENT (Private Beta)
 // =============================================
 
-// Public: Check if invite-only mode is active
+// Public: Check if invite-only mode is active (always false — site is publicly launched)
 app.get('/api/beta/status', (req, res) => {
-    res.json({ inviteOnly: process.env.INVITE_ONLY === 'true' });
+    res.json({ inviteOnly: false });
 });
 
 // =============================================

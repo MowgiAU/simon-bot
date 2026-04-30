@@ -683,16 +683,6 @@ const AdminDashboard: React.FC = () => {
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
   const { user, invited, role, dashboardGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
-  const [inviteOnly, setInviteOnly] = useState(false);
-  const [betaChecked, setBetaChecked] = useState(false);
-
-  // Check if invite-only mode is active
-  useEffect(() => {
-    fetch('/api/beta/status').then(r => r.json()).then(d => {
-      setInviteOnly(!!d.inviteOnly);
-      setBetaChecked(true);
-    }).catch(() => setBetaChecked(true));
-  }, []);
 
   useEffect(() => {
     const titles: { test: (p: string) => boolean; title: string }[] = [
@@ -730,24 +720,9 @@ const AppInternal: React.FC = () => {
     }
   }, [currentPath]);
 
-  // Wait for beta status check
-  if (!betaChecked || loading) {
+  // Wait for auth to resolve before rendering (beta check is instant now)
+  if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
-  }
-
-  // Invite-only gate: exempt routes are /dashboard, /login, /register, /terms, auth-related
-  const isExemptRoute = currentPath.startsWith('/dashboard') ||
-    currentPath === '/login' || currentPath === '/register' ||
-    currentPath === '/terms' || currentPath === '/forgot-password' ||
-    currentPath === '/reset-password' || currentPath === '/verify-email' ||
-    currentPath === '/account' || currentPath === '/complete-account' ||
-    currentPath === '/learn' || currentPath.startsWith('/learn/');
-
-  if (inviteOnly && !isExemptRoute) {
-    const isAdmin = dashboardGuilds.length > 0 || role === 'admin';
-    if (!user || (!invited && !isAdmin)) {
-      return <Suspense fallback={<PageSpinner />}><ComingSoonPage /></Suspense>;
-    }
   }
 
   // Redirect Discord-created accounts to complete setup (once per session)
