@@ -527,8 +527,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 : battle.status === 'active'
                                                 ? <><Swords size={13} /> Submit a Beat &rarr;</>
                                                 : battle.status === 'completed'
-                                                ? ‘View Results →’
-                                                : ‘View Battle →’}
+                                                ? 'View Results →'
+                                                : 'View Battle →'}
                                         </Link>
                                     </div>
                                 </>
@@ -536,7 +536,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px 0', textAlign: 'center' }}>
                                     <Swords size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
                                     <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No battle running right now.</p>
-                                    <Link to="/battles" style={{ fontSize: ‘11px’, color: colors.primary, textDecoration: ‘none’, fontWeight: 600 }}>View archive →</Link>
+                                    <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View archive →</Link>
                                 </div>
                             )}
                         </div>
