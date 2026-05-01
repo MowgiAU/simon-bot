@@ -3,12 +3,23 @@
  *
  * Validates file content by magic bytes (not just extension) to prevent
  * MIME-type confusion attacks and path traversal. Throws on invalid input.
+ *
+ * IMPORTANT: use validatePath() on upload routes, not the buffer methods.
+ * validatePath() reads only the first 16 bytes via a file descriptor so it
+ * never blocks the event loop regardless of file size. The buffer methods
+ * exist for callers that already have a buffer in memory.
  */
 
-// Max sizes
-const MAX_AUDIO_BYTES   = 50 * 1024 * 1024;  // 50 MB
-const MAX_IMAGE_BYTES   = 10 * 1024 * 1024;  // 10 MB
-const MAX_PROJECT_BYTES = 100 * 1024 * 1024; // 100 MB
+import { open } from 'node:fs/promises';
+
+// Magic bytes never exceed 16 bytes — we only need to read this many from disk.
+const MAGIC_HEADER_BYTES = 16;
+
+// Size limits — enforced by multer at the transport layer, not duplicated here.
+// These remain for callers that pass a full buffer (e.g. unit tests).
+const MAX_AUDIO_BYTES   = 500 * 1024 * 1024; // 500 MB (matches multer)
+const MAX_IMAGE_BYTES   =  10 * 1024 * 1024; //  10 MB
+const MAX_PROJECT_BYTES = 500 * 1024 * 1024; // 500 MB (matches multer)
 
 type MagicEntry = { bytes: (number | null)[]; desc: string };
 
@@ -70,6 +81,25 @@ const PROJECT_SIGS: MagicEntry[] = [
 ];
 
 export class FileValidator {
+    /**
+     * Async path-based validation: reads only the first 16 bytes from the file
+     * descriptor. Never loads the whole file into memory, so it never blocks
+     * the event loop regardless of file size. Use this on upload routes.
+     */
+    static async validatePath(filePath: string, type: 'audio' | 'image' | 'project'): Promise<void> {
+        const fh = await open(filePath, 'r');
+        try {
+            const buf = Buffer.alloc(MAGIC_HEADER_BYTES);
+            const { bytesRead } = await fh.read(buf, 0, MAGIC_HEADER_BYTES, 0);
+            if (bytesRead === 0) throw new Error(`${type} file is empty`);
+            const header = buf.subarray(0, bytesRead);
+            const sigs = type === 'audio' ? AUDIO_SIGS : type === 'image' ? IMAGE_SIGS : PROJECT_SIGS;
+            checkMagic(header, sigs, type);
+        } finally {
+            await fh.close();
+        }
+    }
+
     static validateAudio(buffer: Buffer, filename: string): void {
         if (buffer.length === 0) throw new Error('Audio file is empty');
         if (buffer.length > MAX_AUDIO_BYTES) {

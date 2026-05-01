@@ -123,8 +123,8 @@ export class FujiRadioPlugin implements IPlugin {
         // Watchdog: every 60s check if any radio is stuck and kick it back
         this.watchdogInterval = setInterval(() => this.watchdogTick(), 60_000);
 
-        // Poll for dashboard control commands every 2s
-        this.commandPollInterval = setInterval(() => this.processDashboardCommands(), 2_000);
+        // Poll for dashboard control commands every 5s (was 2s — reduced DB pressure)
+        this.commandPollInterval = setInterval(() => this.processDashboardCommands(), 5_000);
 
         // Login dedicated radio bot if token is configured
         const radioToken = process.env.RADIO_BOT_TOKEN;

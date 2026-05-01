@@ -6781,11 +6781,11 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             }
         }
 
-        // Magic byte validation � reject spoofed files before further processing
+        // Magic byte validation — read only the first 16 bytes (async, non-blocking)
         try {
-            FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
-            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
-            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+            await FileValidator.validatePath(audioFile.path, 'audio');
+            if (artworkFile) await FileValidator.validatePath(artworkFile.path, 'image');
+            if (projectFile) await FileValidator.validatePath(projectFile.path, 'project');
         } catch (validationErr: any) {
             // Clean up uploaded files on validation failure
             try { fs.unlinkSync(audioFile.path); } catch {}
@@ -6807,9 +6807,9 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const isZipUpload = projectFile?.originalname.endsWith('.zip');
 
         if (projectFile && !isZipUpload) {
-            // Plain .flp \u2014 parse arrangement only
+            // Plain .flp \u2014 parse arrangement only (async read to avoid blocking event loop)
             try {
-                const flpBuffer = fs.readFileSync(projectFile.path);
+                const flpBuffer = await import('node:fs/promises').then(fsp => fsp.readFile(projectFile.path));
                 arrangement = FLPParser.parse(flpBuffer);
                 projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
                 const arr = arrangement as any;
@@ -7240,11 +7240,11 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation � reject spoofed files
+        // Magic byte validation — read only the first 16 bytes (async, non-blocking)
         try {
-            if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
-            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
-            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+            if (audioFile) await FileValidator.validatePath(audioFile.path, 'audio');
+            if (artworkFile) await FileValidator.validatePath(artworkFile.path, 'image');
+            if (projectFile) await FileValidator.validatePath(projectFile.path, 'project');
         } catch (validationErr: any) {
             if (audioFile) try { fs.unlinkSync(audioFile.path); } catch {}
             if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
@@ -7417,11 +7417,11 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         const artworkFile = files['artwork']?.[0];
         const projectFile = files['project']?.[0];
 
-        // Magic byte validation � reject spoofed files
+        // Magic byte validation — read only the first 16 bytes (async, non-blocking)
         try {
-            if (audioFile) FileValidator.validateAudio(fs.readFileSync(audioFile.path), audioFile.originalname);
-            if (artworkFile) FileValidator.validateImage(fs.readFileSync(artworkFile.path), artworkFile.originalname);
-            if (projectFile) FileValidator.validateProject(fs.readFileSync(projectFile.path), projectFile.originalname);
+            if (audioFile) await FileValidator.validatePath(audioFile.path, 'audio');
+            if (artworkFile) await FileValidator.validatePath(artworkFile.path, 'image');
+            if (projectFile) await FileValidator.validatePath(projectFile.path, 'project');
         } catch (validationErr: any) {
             if (audioFile) try { fs.unlinkSync(audioFile.path); } catch {}
             if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
@@ -17056,8 +17056,13 @@ app.post('/api/academy/complete/:lessonId', async (req: any, res) => {
     }
 });
 
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
+  // keepAliveTimeout must exceed nginx's proxy_read_timeout (default 60s).
+  // Without this, Node closes the keep-alive connection before nginx expects it,
+  // causing sporadic 502 Bad Gateway errors even when Node is healthy.
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout   = 70_000;
   if (!R2Storage.isConfigured()) {
     logger.warn('R2 not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME missing). ZIP sample audio will be served from local storage.');
   }

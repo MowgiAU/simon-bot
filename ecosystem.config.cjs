@@ -9,6 +9,10 @@ const defaults = {
   min_uptime: '10s',
   exp_backoff_restart_delay: 100,
   max_restarts: 10,
+  // Restart if a process leaks past 1.5 GB — prevents OOM from silently
+  // degrading performance before the OS killer fires.
+  max_memory_restart: '1500M',
+  node_args: '--max-old-space-size=1400',
 };
 
 module.exports = {
