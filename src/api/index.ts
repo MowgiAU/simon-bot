@@ -106,7 +106,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage,
   limits: {
-    fileSize: 300 * 1024 * 1024 // 300MB limit (WAV files are large uncompressed PCM)
+    fileSize: 500 * 1024 * 1024 // 500MB — accommodates large ZIP loop/sample packs
   },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'audio') {
@@ -7051,7 +7051,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
     } catch (e: any) {
         // Handle multer file-size errors with a friendly message
         if (e.code === 'LIMIT_FILE_SIZE') {
-            return res.status(413).json({ error: 'File is too large. Maximum size is 300MB. For WAV files, consider exporting at 16-bit/44.1kHz.' });
+            return res.status(413).json({ error: 'File is too large. Maximum size is 500MB. For WAV files, consider exporting at 16-bit/44.1kHz.' });
         }
         logger.error('Failed to upload track', e);
         res.status(500).json({ error: 'Failed to upload track' });
