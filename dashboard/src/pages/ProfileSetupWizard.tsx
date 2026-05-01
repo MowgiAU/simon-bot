@@ -90,8 +90,15 @@ export const ProfileSetupWizard: React.FC = () => {
         if (password && password !== confirmPassword) { setMessage({ type: 'error', text: 'Passwords do not match.' }); return; }
         setSaving(true);
         try {
+            const resolvedDisplayName = displayName || user.username;
+            // Derive a URL-safe username slug from the display name so non-Discord
+            // users never end up with the 'Unknown Musician' fallback.
+            const usernameSlug = resolvedDisplayName
+                .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                || `producer-${user.id.slice(-6)}`;
             const payload = {
-                displayName: displayName || user.username,
+                displayName: resolvedDisplayName,
+                username: usernameSlug,
                 bio,
                 spotifyUrl, soundcloudUrl, youtubeUrl, instagramUrl, discordUrl,
                 gearList: gearList.filter(g => g.name.trim()).map(g => JSON.stringify(g)),

@@ -8180,12 +8180,18 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
             }
         }
 
-        // Ensure username is present (Required by schema)
+        // Ensure username is present (Required by schema).
+        // Fallback chain: provided value → displayName slug → session username → userId suffix.
+        // 'Unknown Musician' was removed — it would collide on the unique index for non-Discord users.
         const user = await resolveUser(userId);
         if (!data.username) {
-            data.username = user ? user.username : 'Unknown Musician';
+            const fallbackRaw = user?.username
+                || (data.displayName as string | undefined)
+                || (req as any).session?.user?.username
+                || `producer-${userId.slice(-6)}`;
+            data.username = fallbackRaw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${userId.slice(-6)}`;
         }
-        
+
         // Auto-update avatar from Discord ONLY if no custom avatar is provided
         if (user && user.avatar && !data.avatar) {
             data.avatar = user.avatar;
@@ -8999,7 +9005,10 @@ app.post('/api/admin/musician/profile/:userId', requireAdmin, async (req: any, r
 
         const user = await resolveUser(userId);
         if (!data.username) {
-            data.username = user ? user.username : 'Unknown Musician';
+            const fallbackRaw = user?.username
+                || (data.displayName as string | undefined)
+                || `producer-${userId.slice(-6)}`;
+            data.username = fallbackRaw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${userId.slice(-6)}`;
         }
 
         // Validate social link domains
