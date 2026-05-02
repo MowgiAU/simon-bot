@@ -114,6 +114,9 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [searchingProfiles, setSearchingProfiles] = useState(false);
     const [confirmWipe, setConfirmWipe] = useState<string | null>(null);
 
+    // Moderation section delete state
+    const [confirmDeleteMod, setConfirmDeleteMod] = useState<{ id: string; name: string } | null>(null);
+
     // Moderation state
     const [modSearch, setModSearch] = useState('');
     const [modProfiles, setModProfiles] = useState<any[]>([]);
@@ -161,6 +164,20 @@ export const MusicianProfileAdmin: React.FC = () => {
             setAdminProfiles(adminProfiles.filter(p => p.id !== id));
         } catch (err: any) {
             setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to wipe profile' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeleteFromMod = async (id: string) => {
+        setSaving(true);
+        try {
+            await axios.post(`/api/admin/musician/profile/${id}/wipe`, {}, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Profile and all associated content deleted successfully.' });
+            setConfirmDeleteMod(null);
+            setModProfiles(prev => prev.filter(p => p.id !== id));
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to delete profile' });
         } finally {
             setSaving(false);
         }
@@ -1408,6 +1425,10 @@ export const MusicianProfileAdmin: React.FC = () => {
                                                 <UserX size={13} /> Ban
                                             </button>
                                         )}
+                                        <button onClick={() => setConfirmDeleteMod({ id: p.id, name: p.displayName || p.username })}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.4)', padding: '5px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            <Trash2 size={13} /> Delete
+                                        </button>
                                         <button onClick={() => handleToggleProfileTracks(p.id)}
                                             style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,255,255,0.05)', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', padding: '5px 10px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
                                             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Tracks
@@ -1682,6 +1703,14 @@ export const MusicianProfileAdmin: React.FC = () => {
             confirmLabel="Confirm"
             onConfirm={() => confirmDialog?.onConfirm()}
             onCancel={() => setConfirmDialog(null)}
+        />
+        <ConfirmModal
+            open={!!confirmDeleteMod}
+            title="Delete Profile"
+            message={`Permanently delete ${confirmDeleteMod?.name}'s profile, all their tracks, artwork, and files? This cannot be undone.`}
+            confirmLabel="Delete"
+            onConfirm={() => confirmDeleteMod && handleDeleteFromMod(confirmDeleteMod.id)}
+            onCancel={() => setConfirmDeleteMod(null)}
         />
         </>
     );
